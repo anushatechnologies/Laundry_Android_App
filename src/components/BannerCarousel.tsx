@@ -6,7 +6,6 @@ import {
   NativeSyntheticEvent,
   Pressable,
   StyleSheet,
-  Text,
   useWindowDimensions,
   View,
 } from 'react-native';
@@ -18,43 +17,62 @@ interface BannerCarouselProps {
   showHomeHero?: boolean;
 }
 
-const FALLBACK_GRADIENTS = [
-  '#0F172A',
-  '#1E3A8A',
-  '#065F46',
-  '#581C87',
+const DEFAULT_BANNER_PHOTOS = [
+  'https://images.unsplash.com/photo-1545173168-9f1947eebb7f?auto=format&fit=crop&w=1200&q=80',
+  'https://images.unsplash.com/photo-1517677208171-0bc6725a3e60?auto=format&fit=crop&w=1200&q=80',
+  'https://images.unsplash.com/photo-1594938298603-c8148c4dae35?auto=format&fit=crop&w=1200&q=80',
+  'https://images.unsplash.com/photo-1582735689369-4fe89db7114c?auto=format&fit=crop&w=1200&q=80',
 ];
 
-const HOME_HERO_IMAGE = require('../../assets/home-hero-laundry-v1.png');
-
-const HOME_HERO_BANNER: Banner = {
-  id: 'local-home-hero',
-  title: 'Laundry made effortless',
-  subtitle: 'Premium doorstep pickup, care and delivery',
-  badgeText: 'LAUNDRYFRESH CARE',
-  imageUrl: '',
-  actionType: 'BOOK',
-  actionTarget: '',
-  displayOrder: 0,
-  isActive: true,
-  createdAt: '2026-09-02 00:00:00',
-  updatedAt: '2026-09-02 00:00:00',
-};
-
-export function BannerCarousel({ banners, onSelectBanner, showHomeHero = false }: BannerCarouselProps) {
+export function BannerCarousel({ banners, onSelectBanner }: BannerCarouselProps) {
   const { width: windowWidth } = useWindowDimensions();
   const screenWidth = windowWidth > 0 ? windowWidth : 360;
   const cardWidth = Math.max(280, screenWidth - 32);
 
   const [activeIndex, setActiveIndex] = useState(0);
+  const [imageErrors, setImageErrors] = useState<Record<string, boolean>>({});
   const flatListRef = useRef<FlatList>(null);
-  
-  // Use real backend banners if present, otherwise fallback to local hero banner
-  const activeBanners = (
-    banners && banners.length > 0
-      ? (showHomeHero ? [HOME_HERO_BANNER, ...banners] : banners)
-      : [HOME_HERO_BANNER]
-  ).filter((b) => b.isActive);
+
+  const activeBanners = banners && banners.length > 0
+    ? banners.filter((b) => b.isActive)
+    : [
+        {
+          id: 'def-1',
+          title: '50% Flat Discount',
+          subtitle: '',
+          imageUrl: DEFAULT_BANNER_PHOTOS[0],
+          actionType: 'BOOK' as const,
+          actionTarget: '',
+          displayOrder: 1,
+          isActive: true,
+          createdAt: '',
+          updatedAt: '',
+        },
+        {
+          id: 'def-2',
+          title: 'Silk Saree & Bridal Spa',
+          subtitle: '',
+          imageUrl: DEFAULT_BANNER_PHOTOS[1],
+          actionType: 'BOOK' as const,
+          actionTarget: '',
+          displayOrder: 2,
+          isActive: true,
+          createdAt: '',
+          updatedAt: '',
+        },
+        {
+          id: 'def-3',
+          title: 'Suits & Blazers',
+          subtitle: '',
+          imageUrl: DEFAULT_BANNER_PHOTOS[2],
+          actionType: 'BOOK' as const,
+          actionTarget: '',
+          displayOrder: 3,
+          isActive: true,
+          createdAt: '',
+          updatedAt: '',
+        },
+      ];
 
   // Auto-scroll every 4.5 seconds
   useEffect(() => {
@@ -112,13 +130,12 @@ export function BannerCarousel({ banners, onSelectBanner, showHomeHero = false }
           }, 100);
         }}
         renderItem={({ item, index }) => {
-          const bgFallback = FALLBACK_GRADIENTS[index % FALLBACK_GRADIENTS.length];
           const isLast = index === activeBanners.length - 1;
-          const imageSource = item.imageUrl
-            ? { uri: item.imageUrl }
-            : item.id === HOME_HERO_BANNER.id
-              ? HOME_HERO_IMAGE
-              : undefined;
+          const fallbackUri = DEFAULT_BANNER_PHOTOS[index % DEFAULT_BANNER_PHOTOS.length];
+          const hasError = imageErrors[item.id];
+          const imageUri = (!hasError && item.imageUrl && !item.imageUrl.includes('laundry-storage-2026'))
+            ? item.imageUrl
+            : fallbackUri;
 
           return (
             <Pressable
@@ -129,22 +146,16 @@ export function BannerCarousel({ banners, onSelectBanner, showHomeHero = false }
               ]}
               onPress={() => onSelectBanner(item)}
             >
-              {/* PURE BANNER IMAGE ONLY — NO SCRIM, NO BADGES, NO OVERLAY TEXT */}
-              <View style={[styles.card, { width: cardWidth, backgroundColor: bgFallback }]}>
-                {imageSource ? (
-                  <Image
-                    source={imageSource}
-                    style={[styles.bannerImage, { width: cardWidth }]}
-                    resizeMode="cover"
-                  />
-                ) : (
-                  <View style={[styles.fallbackContent, { width: cardWidth }]}>
-                    <Text style={styles.fallbackTitle}>{item.title}</Text>
-                    {item.subtitle ? (
-                      <Text style={styles.fallbackSubtitle}>{item.subtitle}</Text>
-                    ) : null}
-                  </View>
-                )}
+              {/* PURE BANNER IMAGE ONLY - ZERO TEXT OVERLAYS OR FALLBACK CONTENT */}
+              <View style={[styles.card, { width: cardWidth }]}>
+                <Image
+                  source={{ uri: imageUri }}
+                  style={[styles.bannerImage, { width: cardWidth }]}
+                  resizeMode="cover"
+                  onError={() => {
+                    setImageErrors((prev) => ({ ...prev, [item.id]: true }));
+                  }}
+                />
               </View>
             </Pressable>
           );
@@ -177,66 +188,45 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
   },
   cardWrapper: {
-    height: 175,
+    height: 165,
   },
   cardPressed: {
     opacity: 0.95,
     transform: [{ scale: 0.99 }],
   },
   card: {
-    height: 175,
-    borderRadius: 20,
+    height: 165,
+    borderRadius: 18,
     overflow: 'hidden',
-    backgroundColor: '#F1F5F9',
+    backgroundColor: '#0F172A',
     shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.08,
-    shadowRadius: 20,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
     elevation: 4,
     borderWidth: 1,
     borderColor: '#E2E8F0',
-    position: 'relative',
   },
   bannerImage: {
-    width: '100%',
-    height: '100%',
-    borderRadius: 20,
-  },
-  fallbackContent: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 16,
-  },
-  fallbackTitle: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '700',
-    textAlign: 'center',
-  },
-  fallbackSubtitle: {
-    color: 'rgba(255, 255, 255, 0.8)',
-    fontSize: 12,
-    marginTop: 4,
-    textAlign: 'center',
+    height: 165,
   },
   pagination: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    gap: 6,
-    marginTop: 10,
+    marginTop: 8,
+    gap: 5,
   },
   dot: {
-    height: 4.5,
-    borderRadius: 2.25,
+    height: 5,
+    borderRadius: 3,
   },
   activeDot: {
     width: 18,
-    backgroundColor: '#FF7A00',
+    backgroundColor: '#FF6B0B',
   },
   inactiveDot: {
-    width: 6,
+    width: 5,
     backgroundColor: '#CBD5E1',
   },
 });
