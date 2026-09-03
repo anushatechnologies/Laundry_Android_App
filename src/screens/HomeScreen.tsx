@@ -1,0 +1,2548 @@
+import { LinearGradient } from 'expo-linear-gradient';
+import React, { useState, useEffect, useMemo } from 'react';
+import {
+  Alert,
+  Image,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useApp } from '@/context/AppContext';
+import { BannerCarousel } from '@/components/BannerCarousel';
+import { PromotionsSection } from '@/components/PromotionsSection';
+import { AppButton, Card, StatusPill } from '@/ui/components';
+import { money, shortDate } from '@/ui/theme';
+import { api } from '@/lib/api';
+import { getGarmentImageUrl } from '@/lib/garment-photos';
+import { getCategoryImageUrl } from '@/lib/category-photos';
+import { STATIC_ITEMS_BY_CATEGORY } from '@/lib/static-catalog';
+import { Banner, SubscriptionPlan, ServiceMaster } from '@/types/domain';
+
+interface HomeScreenProps {
+  locationStatus?: 'detecting' | 'unavailable' | 'ready';
+  onBook: () => void;
+  onViewOrders: () => void;
+  onViewServices: () => void;
+  onViewOffers: () => void;
+  onViewPricing: () => void;
+  onSignIn: () => void;
+  userLocation?: { city?: string; pincode?: string; areaName?: string; hubName?: string } | null;
+  onChangeLocation?: () => void;
+  onOpenWishlist?: () => void;
+  onOpenSearch?: () => void;
+  onOpenNotifications?: () => void;
+  onOpenOrderDetail?: (orderId: string) => void;
+  onSelectCategory?: (tag: string, title: string) => void;
+  onOpenBulkLaundry?: () => void;
+  onSelectService?: (serviceCode: 'ALL' | 'PRESS' | 'WASH_IRON' | 'DRY_CLEAN', serviceName: string, tag?: string, title?: string) => void;
+  onViewSubscriptions?: () => void;
+}
+
+export function HomeScreen({
+  onBook,
+  onViewOrders,
+  onViewServices,
+  onViewOffers,
+  onViewPricing,
+  onSignIn,
+  userLocation,
+  locationStatus = 'ready',
+  onChangeLocation,
+  onOpenWishlist,
+  onOpenSearch,
+  onOpenNotifications,
+  onOpenOrderDetail,
+  onSelectCategory,
+  onOpenBulkLaundry,
+  onSelectService,
+  onViewSubscriptions,
+}: HomeScreenProps) {
+  const {
+    session,
+    orders,
+    cartSummary,
+    cart,
+    catalog,
+    addCartItem,
+    addBulkToCart,
+    addGarmentToCart,
+    setCartQuantity,
+    removeFromCart,
+    wishlist,
+    toggleWishlist,
+    isInWishlist,
+  } = useApp();
+
+  const locationLabel = userLocation?.areaName || userLocation?.city || (
+    locationStatus === 'detecting' ? 'Detecting location…' : 'Location unavailable'
+  );
+
+  const STATIC_BANNERS: Banner[] = [
+    {
+      id: 'static-1',
+      title: 'Flat 50% OFF on First Order',
+      subtitle: 'Premium dry cleaning & laundry at your door',
+      imageUrl: 'https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/banners/banner-1.jpg',
+      isActive: true,
+      badgeText: 'NEW USER OFFER',
+      couponCode: 'FIRST50',
+      discountPercent: 50,
+      actionType: 'OFFER',
+      actionTarget: '',
+      displayOrder: 1,
+      createdAt: '2026-01-01 00:00:00',
+      updatedAt: '2026-01-01 00:00:00',
+    },
+    {
+      id: 'static-2',
+      title: 'Silk Saree Expert Care',
+      subtitle: 'Zero colour-bleed charak polish & steam roll',
+      imageUrl: 'https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/banners/banner-2.jpg',
+      isActive: true,
+      badgeText: 'PREMIUM CARE',
+      discountPercent: 20,
+      actionType: 'CATEGORY',
+      actionTarget: 'womens-wear',
+      displayOrder: 2,
+      createdAt: '2026-01-01 00:00:00',
+      updatedAt: '2026-01-01 00:00:00',
+    },
+    {
+      id: 'static-3',
+      title: 'Suits & Formal Wear',
+      subtitle: 'Ozone dry clean + crease-free press',
+      imageUrl: 'https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/banners/banner-3.jpg',
+      isActive: true,
+      badgeText: 'EXECUTIVE CARE',
+      discountPercent: 15,
+      actionType: 'CATEGORY',
+      actionTarget: 'mens-wear',
+      displayOrder: 3,
+      createdAt: '2026-01-01 00:00:00',
+      updatedAt: '2026-01-01 00:00:00',
+    },
+    {
+      id: 'static-4',
+      title: 'Bulk Laundry ₹49/kg',
+      subtitle: 'Min 3 KG • Pickup & delivery included',
+      imageUrl: 'https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/banners/banner-4.jpg',
+      isActive: true,
+      badgeText: 'BEST VALUE',
+      actionType: 'CATEGORY',
+      actionTarget: 'bulk-laundry',
+      displayOrder: 4,
+      createdAt: '2026-01-01 00:00:00',
+      updatedAt: '2026-01-01 00:00:00',
+    },
+  ];
+
+  const [banners, setBanners] = useState<Banner[]>(STATIC_BANNERS);
+  const [liveSubPlans, setLiveSubPlans] = useState<SubscriptionPlan[]>([]);
+  const [selectedCategorySlug, setSelectedCategorySlug] = useState('mens-wear');
+  const [serviceMasters, setServiceMasters] = useState<ServiceMaster[]>([]);
+  const [servicesLoading, setServicesLoading] = useState(true);
+
+  const activeOrder = orders.find(
+    (order) => !['COMPLETED', 'DELIVERED', 'CANCELLED'].includes(order.currentStatus)
+  );
+
+  const [minBulkKgPrice, setMinBulkKgPrice] = useState<number | null>(null);
+
+  useEffect(() => {
+    void (async () => {
+      try {
+        const fetchedBanners = await api.getBanners();
+        if (fetchedBanners && Array.isArray(fetchedBanners) && fetchedBanners.length > 0) {
+          const validBanners = fetchedBanners.filter(
+            (b) => b.imageUrl && b.imageUrl.length > 10 && !b.imageUrl.includes('placeholder')
+          );
+          if (validBanners.length > 0) {
+            setBanners(validBanners);
+          }
+        }
+      } catch {
+        // Fallback
+      }
+
+      try {
+        const plans = await api.getSubscriptionPlans();
+        if (plans && Array.isArray(plans) && plans.length > 0) {
+          const active = plans.filter((p) => p.isActive);
+          if (active.length > 0) {
+            setLiveSubPlans(active);
+          }
+        }
+      } catch {
+        // Fallback plans remain
+      }
+
+      // Fetch service masters from backend
+      try {
+        setServicesLoading(true);
+        const services = await api.getServiceMasters();
+        if (services && Array.isArray(services) && services.length > 0) {
+          const activeServices = services.filter((s) => s.isActive);
+          setServiceMasters(activeServices);
+        }
+      } catch (err) {
+        console.error('Failed to fetch service masters:', err);
+      } finally {
+        setServicesLoading(false);
+      }
+    })();
+
+    // Fetch dynamic minimum bulk rate per KG directly from backend API
+    fetch('https://laundry.anushatechnologies.com/api/bulk-pricing')
+      .then((r) => r.json())
+      .then((res) => {
+        if (res.allSlabs && Array.isArray(res.allSlabs) && res.allSlabs.length > 0) {
+          const activeRates = res.allSlabs
+            .filter((s: any) => s.isActive !== false)
+            .map((s: any) => Math.round(s.regularPrice / s.weightKg));
+          if (activeRates.length > 0) {
+            setMinBulkKgPrice(Math.min(...activeRates));
+          }
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  const handleSelectBanner = (banner: Banner) => {
+    if (banner.actionType === 'CATEGORY' && banner.actionTarget) {
+      let target = banner.actionTarget.toLowerCase();
+      if (target.includes('bridal') || target.includes('silk') || target.includes('wedding')) {
+        target = 'wedding-silk';
+      } else if (target.includes('men')) {
+        target = 'mens-wear';
+      } else if (target.includes('women')) {
+        target = 'womens-wear';
+      } else if (target.includes('kid') || target.includes('baby')) {
+        target = 'kids-baby';
+      } else if (target.includes('home') || target.includes('linen') || target.includes('textile')) {
+        target = 'home-textiles';
+      } else if (target.includes('winter')) {
+        target = 'winter-wear';
+      }
+
+      if (onSelectCategory) {
+        const catObj = categories.find((cat) => cat.slug === target);
+        if (catObj) {
+          onSelectCategory(catObj.tag, catObj.label);
+          return;
+        }
+      }
+      setSelectedCategorySlug(target);
+    } else if (banner.actionType === 'OFFER') {
+      onViewOffers();
+    } else if (banner.actionType === 'BOOK') {
+      onBook();
+    } else {
+      onViewServices();
+    }
+  };
+
+  const dynamicItemsByCategory = useMemo<Record<string, any[]>>(() => {
+    if (catalog && catalog.clothTypes && catalog.clothTypes.length > 0) {
+      const map: Record<string, any[]> = {
+        'mens-wear': [],
+        'womens-wear': [],
+        'wedding-silk': [],
+        'winter-wear': [],
+        'bulk-laundry': [],
+        'home-textiles': [],
+      };
+
+      catalog.clothTypes.forEach((cloth) => {
+        const prices = catalog.priceMatrix.filter((p) => p.clothTypeId === cloth.id && p.isActive);
+        const primaryPrice = prices[0];
+        const svcId = primaryPrice?.serviceId || 'srv-m-steam-iron';
+        const itemObj = {
+          id: cloth.id,
+          name: cloth.name,
+          service: primaryPrice ? primaryPrice.serviceName : 'Steam Press & Fold',
+          serviceId: svcId,
+          tatHours: primaryPrice?.turnaroundHours || 24,
+          price: primaryPrice ? primaryPrice.price : 99,
+          unit: 'pc',
+          imageUrl: getGarmentImageUrl(cloth.id, cloth.imageUrl || cloth.image, cloth.categoryTag),
+        };
+
+        if (cloth.categoryTag === 'MENS') (map['mens-wear'] = map['mens-wear'] || []).push(itemObj);
+        else if (cloth.categoryTag === 'WOMENS') {
+          (map['womens-wear'] = map['womens-wear'] || []).push(itemObj);
+          if (cloth.id.includes('saree') || cloth.id.includes('lehenga') || cloth.id.includes('sherwani')) {
+            (map['wedding-silk'] = map['wedding-silk'] || []).push(itemObj);
+          }
+        } else if (cloth.categoryTag === 'KIDS') (map['womens-wear'] = map['womens-wear'] || []).push(itemObj);
+        else if (cloth.categoryTag === 'HOME_TEXTILES') (map['home-textiles'] = map['home-textiles'] || []).push(itemObj);
+        else if (cloth.id.includes('jacket') || cloth.id.includes('sweater') || cloth.id.includes('blanket') || cloth.id.includes('shawl')) {
+          (map['winter-wear'] = map['winter-wear'] || []).push(itemObj);
+        } else {
+          (map['mens-wear'] = map['mens-wear'] || []).push(itemObj);
+        }
+      });
+
+      return {
+        'mens-wear': (map['mens-wear'] || []).slice(0, 4),
+        'womens-wear': (map['womens-wear'] || []).slice(0, 4),
+        'wedding-silk': (map['wedding-silk'] || []).slice(0, 4),
+        'winter-wear': (map['winter-wear'] || []).slice(0, 4),
+        'bulk-laundry': STATIC_ITEMS_BY_CATEGORY['bulk-laundry'] || [],
+        'home-textiles': (map['home-textiles'] || []).slice(0, 4),
+      };
+    }
+
+    return Object.fromEntries(
+      Object.entries(STATIC_ITEMS_BY_CATEGORY).map(([key, items]) => [
+        key,
+        items.map((item) => ({
+          ...item,
+          imageUrl: getGarmentImageUrl(item.id, item.imageUrl, key === 'womens-wear' ? 'WOMENS' : 'MENS'),
+        })),
+      ])
+    );
+  }, [catalog]);
+
+  const currentCategoryItems =
+    dynamicItemsByCategory[selectedCategorySlug] ||
+    dynamicItemsByCategory['mens-wear'] ||
+    STATIC_ITEMS_BY_CATEGORY['mens-wear'] ||
+    [];
+
+
+  const greeting = useMemo(() => {
+    const hr = new Date().getHours();
+    if (hr < 12) return 'Good Morning';
+    if (hr < 17) return 'Good Afternoon';
+    return 'Good Evening';
+  }, []);
+  const customerFirstName = session?.user?.name ? session.user.name.split(' ')[0] : 'Guest';
+
+  // Helper: Map backend service icon/emoji to MaterialCommunityIcons
+  const getServiceIcon = (service: ServiceMaster): string => {
+    const iconStr = service.icon?.toLowerCase() || '';
+    const slug = service.slug?.toLowerCase() || '';
+    const name = service.name?.toLowerCase() || '';
+
+    // Check if icon field contains emoji (unicode characters)
+    if (service.icon && /[\u{1F300}-\u{1F9FF}]/u.test(service.icon)) {
+      // It's an emoji, but we'll map to icon name
+      if (service.icon.includes('👔') || iconStr.includes('iron')) return 'iron';
+      if (service.icon.includes('🧺') || iconStr.includes('wash')) return 'washing-machine';
+      if (service.icon.includes('✨')) return 'sparkles';
+    }
+
+    // Map by slug or name
+    if (slug.includes('iron') || slug.includes('press')) return 'iron';
+    if (slug.includes('wash-fold')) return 'washing-machine';
+    if (slug.includes('wash-iron')) return 'tshirt-crew';
+    if (slug.includes('dry-clean')) return 'coat-rack';
+    if (slug.includes('charak') || slug.includes('saree') || slug.includes('silk')) return 'crown-outline';
+    if (slug.includes('starch')) return 'sparkles';
+    if (slug.includes('spa') || slug.includes('shoe')) return 'shoe-sneaker';
+    if (slug.includes('express') || slug.includes('emergency')) return 'lightning-bolt';
+
+    // Fallback
+    return 'hanger';
+  };
+
+  // Helper: Generate accent color based on service
+  const getServiceAccent = (service: ServiceMaster): string => {
+    const slug = service.slug?.toLowerCase() || '';
+    if (slug.includes('iron') || slug.includes('press')) return '#D97706';
+    if (slug.includes('wash-fold')) return '#0891B2';
+    if (slug.includes('wash-iron')) return '#7C3AED';
+    if (slug.includes('dry-clean')) return '#2563EB';
+    if (slug.includes('charak') || slug.includes('silk')) return '#9333EA';
+    if (slug.includes('starch')) return '#06B6D4';
+    if (slug.includes('spa') || slug.includes('shoe')) return '#059669';
+    if (slug.includes('express')) return '#EA580C';
+    return '#64748B';
+  };
+
+  // Helper: Generate badge text
+  const getServiceBadge = (service: ServiceMaster): string => {
+    const slug = service.slug?.toLowerCase() || '';
+    if (slug.includes('iron') || slug.includes('press')) return 'Zero Wrinkles';
+    if (slug.includes('wash-fold')) return 'Daily Fresh';
+    if (slug.includes('wash-iron')) return 'Crease-Free';
+    if (slug.includes('dry-clean')) return 'Ozone Sanitized';
+    if (slug.includes('charak')) return 'Zero Bleed Safe';
+    if (slug.includes('starch')) return 'Crisp Finish';
+    if (slug.includes('spa')) return 'Deep Restored';
+    if (slug.includes('express')) return 'Emergency';
+    return 'Premium Care';
+  };
+
+  // Helper: Format turnaround time
+  const formatTAT = (hours: number): string => {
+    if (hours <= 12) return `${hours}h Express`;
+    if (hours <= 24) return `${hours}h TAT`;
+    const days = Math.floor(hours / 24);
+    return `${days}-${days + 1}d TAT`;
+  };
+
+  // Helper: Format pricing text
+  const formatPricing = (service: ServiceMaster): string => {
+    if (service.pricingType === 'PER_KG') {
+      if (service.baseKgPrice) {
+        return `From ₹${service.baseKgPrice}/kg`;
+      }
+      return 'From ₹60/kg';
+    }
+    // For PER_ITEM, we'd ideally fetch min price from price_matrix
+    // For now, show generic text
+    return 'From ₹49';
+  };
+
+  // Helper: Get service image URL
+  const getServiceImageUrl = (service: ServiceMaster): string => {
+    if (service.imageUrl && service.imageUrl.length > 10) {
+      return service.imageUrl;
+    }
+    if (service.image && service.image.length > 10) {
+      return service.image;
+    }
+    // Fallback images based on slug
+    const slug = service.slug?.toLowerCase() || '';
+    if (slug.includes('dry-clean')) return 'https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/services/dry-cleaning.jpg';
+    if (slug.includes('wash-fold')) return 'https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/services/wash-fold.jpg';
+    if (slug.includes('wash-iron')) return 'https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/services/wash-iron.jpg';
+    if (slug.includes('iron') || slug.includes('press')) return 'https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/services/steam-iron.jpg';
+    if (slug.includes('spa')) return 'https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/garments/cloth-shoes.jpg';
+    return 'https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/banners/banner-premium.jpg';
+  };
+
+  // Dynamic services from backend service_masters
+  const displayServices = useMemo(() => {
+    if (serviceMasters.length === 0) {
+      // Fallback to ensure UI never breaks
+      return [];
+    }
+
+    return serviceMasters.map((svc) => ({
+      id: svc.id,
+      serviceId: svc.id,
+      title: svc.name,
+      subtitle: svc.description || 'Premium laundry care',
+      icon: getServiceIcon(svc),
+      accent: getServiceAccent(svc),
+      badge: getServiceBadge(svc),
+      tat: formatTAT(svc.turnaroundHours),
+      imageUrl: getServiceImageUrl(svc),
+      priceText: formatPricing(svc),
+      pricingType: svc.pricingType,
+      slug: svc.slug,
+    }));
+  }, [serviceMasters]);
+
+  const categories = useMemo(() => {
+    const cloths = catalog?.clothTypes || [];
+    const getCount = (tag: string) => {
+      const cleanTag = tag.toUpperCase().replace(/_/g, '-');
+      const filtered = cloths.filter((item: any) => {
+        const cTag = (item.categoryTag || '').toUpperCase().replace(/_/g, '-');
+        return (
+          cTag === cleanTag ||
+          (cleanTag === 'HOME' && cTag === 'HOME-TEXTILES') ||
+          (cleanTag === 'HOME-TEXTILES' && cTag === 'HOME')
+        );
+      });
+      return filtered.length > 0 ? `${filtered.length} items` : 'Explore';
+    };
+
+    return [
+      { slug: 'mens-wear', tag: 'MENS', label: "Men's Wear", icon: 'tshirt-crew-outline', count: getCount('MENS'), bg: '#EFF6FF', accent: '#2563EB', subtitle: 'Shirts, Suits, Kurta & Denim' },
+      { slug: 'womens-wear', tag: 'WOMENS', label: "Women's Wear", icon: 'hanger', count: getCount('WOMENS'), bg: '#FDF2F8', accent: '#DB2777', subtitle: 'Sarees, Lehengas, Dresses' },
+      { slug: 'kids-baby', tag: 'KIDS', label: "Kids & Baby", icon: 'baby-carriage', count: getCount('KIDS'), bg: '#FEF3C7', accent: '#D97706', subtitle: 'Rompers, Frocks & Uniforms' },
+      { slug: 'home-textiles', tag: 'HOME', label: 'Home Linen', icon: 'bed-outline', count: getCount('HOME'), bg: '#F0FDF4', accent: '#16A34A', subtitle: 'Bedsheets, Blankets, Curtains' },
+      { slug: 'bulk-laundry', tag: 'BULK', label: 'Bulk Laundry', icon: 'scale', count: minBulkKgPrice ? `From ₹${minBulkKgPrice}/KG` : 'Pay by KG', bg: '#FFF7ED', accent: '#FA5A13', subtitle: 'Wash & Fold by KG' },
+      { slug: 'wedding-silk', tag: 'WEDDING', label: 'Wedding & Silk', icon: 'crown-outline', count: getCount('WEDDING'), bg: '#FAF5FF', accent: '#7C3AED', subtitle: 'Silk Sarees & Sherwanis' },
+    ];
+  }, [catalog?.clothTypes]);
+
+  // Subscription Purchase with Razorpay Payment
+  const [purchaseLoading, setPurchaseLoading] = useState(false);
+
+  const handleSubscriptionPurchase = async (plan: any) => {
+    if (!session || !session.user || !session.user.id) {
+      Alert.alert('Sign In Required', 'Please sign in to purchase a subscription plan', [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Sign In', onPress: onSignIn },
+      ]);
+      return;
+    }
+
+    try {
+      setPurchaseLoading(true);
+
+      // Create subscription purchase order
+      const orderResponse = await api.purchaseSubscription(session.user.id, plan.subscriptionId);
+
+      if (!orderResponse || !orderResponse.orderId) {
+        throw new Error('Failed to create subscription order');
+      }
+
+      // Initialize Razorpay Checkout
+      const options = {
+        description: `${orderResponse.planName} - ${orderResponse.includedKg} KG, ${orderResponse.validityDays} Days`,
+        image: 'https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/brand/logo.png',
+        currency: orderResponse.currency,
+        key: process.env.EXPO_PUBLIC_RAZORPAY_KEY_ID || '',
+        amount: Math.round(orderResponse.amount * 100),
+        order_id: orderResponse.orderId,
+        name: 'LaundryFresh Subscription',
+        prefill: {
+          email: session.user.email || '',
+          contact: session.user.phone || '',
+          name: session.user.name || '',
+        },
+        theme: { color: '#2563EB' },
+      };
+
+      const RazorpayCheckout = require('react-native-razorpay').default;
+      
+      RazorpayCheckout.open(options)
+        .then(async (data: any) => {
+          // Payment success
+          try {
+            const verifyResponse = await api.verifySubscriptionPayment({
+              razorpay_order_id: data.razorpay_order_id,
+              razorpay_payment_id: data.razorpay_payment_id,
+              razorpay_signature: data.razorpay_signature,
+              customerId: session.user.id,
+              subscriptionId: plan.subscriptionId,
+            });
+
+            setPurchaseLoading(false);
+
+            if (verifyResponse && verifyResponse.success) {
+              Alert.alert(
+                '🎉 Subscription Activated!',
+                `Your ${plan.name} has been successfully activated. Enjoy ${plan.kg} of laundry allowance!`,
+                [
+                  { text: 'View My Subscriptions', onPress: () => onViewSubscriptions?.() },
+                  { text: 'OK' },
+                ]
+              );
+            } else {
+              throw new Error('Payment verification failed');
+            }
+          } catch (verifyError: any) {
+            setPurchaseLoading(false);
+            Alert.alert('Verification Failed', verifyError.message || 'Payment verification failed. Please contact support.');
+          }
+        })
+        .catch((error: any) => {
+          setPurchaseLoading(false);
+          if (error.code !== RazorpayCheckout.PAYMENT_CANCELLED) {
+            Alert.alert('Payment Failed', error.description || 'Payment could not be completed. Please try again.');
+          }
+        });
+    } catch (error: any) {
+      setPurchaseLoading(false);
+      Alert.alert('Purchase Error', error.message || 'Failed to initiate subscription purchase. Please try again.');
+    }
+  };
+
+  return (
+    <View style={styles.outerWrap}>
+      {/* 🌟 PREMIUM TOP NAVIGATION BAR */}
+      <View style={styles.stickyHeader}>
+        <View style={styles.navMainRow}>
+          {/* Left: Logo + Brand */}
+          <View style={styles.navLeftCluster}>
+            <View style={styles.logoContainer}>
+              <Image
+                source={require('../../assets/brand-logo.png')}
+                style={styles.brandLogoImage}
+                resizeMode="contain"
+              />
+            </View>
+            <View style={styles.brandTextContainer}>
+              <Text style={styles.greetingHeader} numberOfLines={1}>
+                {greeting}, {customerFirstName} 👋
+              </Text>
+              <Text style={styles.deliveryLabel}>Delivering to</Text>
+              <Pressable
+                style={styles.locationChip}
+                onPress={onChangeLocation}
+                accessibilityRole="button"
+                accessibilityLabel="Change pickup location"
+              >
+                <MaterialCommunityIcons name="map-marker" size={12} color="#FCD34D" />
+                <Text style={styles.locationChipText} numberOfLines={1}>
+                  {locationLabel}
+                </Text>
+                <MaterialCommunityIcons name="chevron-down" size={11} color="#E5E7EB" />
+              </Pressable>
+            </View>
+          </View>
+
+          {/* Right: Action Icons */}
+          <View style={styles.navRightActions}>
+            {/* Search Icon */}
+            <Pressable
+              style={styles.actionBtn}
+              onPress={onOpenSearch}
+              accessibilityLabel="Search Services"
+              accessibilityRole="button"
+            >
+              <MaterialCommunityIcons name="magnify" size={20} color="#FFFFFF" />
+            </Pressable>
+
+            {/* Wishlist Icon with Badge */}
+            <Pressable
+              style={styles.actionBtn}
+              onPress={onOpenWishlist}
+              accessibilityLabel="Open Wishlist"
+              accessibilityRole="button"
+            >
+              <MaterialCommunityIcons
+                name={wishlist.length > 0 ? 'heart' : 'heart-outline'}
+                size={20}
+                color={wishlist.length > 0 ? '#FCD34D' : '#FFFFFF'}
+              />
+              {wishlist.length > 0 && (
+                <View style={styles.badgeCount}>
+                  <Text style={styles.badgeText}>{wishlist.length}</Text>
+                </View>
+              )}
+            </Pressable>
+
+            {/* Notification Icon with Dot */}
+            <Pressable
+              style={styles.actionBtn}
+              onPress={onOpenNotifications}
+              accessibilityLabel="Notifications"
+              accessibilityRole="button"
+            >
+              <MaterialCommunityIcons name="bell-outline" size={20} color="#FFFFFF" />
+              {activeOrder && <View style={styles.notifDot} />}
+            </Pressable>
+          </View>
+        </View>
+      </View>
+
+{/* 2. SCROLLABLE PAGE BODY */}
+      <ScrollView
+        style={styles.root}
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* PROMOTIONAL HERO BANNER CAROUSEL */}
+        {banners.length > 0 ? (
+          <BannerCarousel banners={banners} onSelectBanner={handleSelectBanner} showHomeHero={false} />
+        ) : null}
+
+        {/* ACTIVE ORDER TRACKER */}
+        {activeOrder ? (
+          <Card style={styles.tracker}>
+            <View style={styles.trackerTop}>
+              <View>
+                <Text style={styles.trackerLabel}>ACTIVE ORDER</Text>
+                <Text style={styles.trackerId}>#{activeOrder.id}</Text>
+              </View>
+              <StatusPill status={activeOrder.currentStatus} />
+            </View>
+            <Text style={styles.trackerDetail}>
+              Pickup: {shortDate(activeOrder.pickupSlot.date)} • {activeOrder.pickupSlot.slot}
+            </Text>
+            <AppButton
+              title="Track Live Order"
+              onPress={() => onOpenOrderDetail ? onOpenOrderDetail(activeOrder.id) : onViewOrders()}
+              variant="primary"
+              compact
+              style={styles.trackerButton}
+            />
+          </Card>
+        ) : null}
+
+        {/* 1. OUR SERVICES SECTION (PRIMARY 2-COLUMN GRID) */}
+        <View style={styles.servicesSection}>
+          <View style={styles.sectionHeaderRow}>
+            <View>
+              <Text style={styles.sectionHeading}>Our Services</Text>
+              <Text style={styles.sectionSubheading}>Select a service to view garment rates & care options</Text>
+            </View>
+            <Pressable onPress={onViewServices} style={styles.viewAllBtn}>
+              <Text style={styles.viewAllText}>All Services</Text>
+              <MaterialCommunityIcons name="chevron-right" size={16} color="#2563EB" />
+            </Pressable>
+          </View>
+
+          <View style={styles.luxuryServicesGrid}>
+            {servicesLoading ? (
+              <View style={styles.servicesLoadingState}>
+                <Text style={styles.loadingText}>Loading services...</Text>
+              </View>
+            ) : displayServices.length === 0 ? (
+              <View style={styles.servicesEmptyState}>
+                <MaterialCommunityIcons name="hanger" size={48} color="#CBD5E1" />
+                <Text style={styles.emptyStateText}>No services available</Text>
+              </View>
+            ) : (
+              displayServices.map((svc) => (
+                <Pressable
+                  key={svc.id}
+                  style={({ pressed }) => [
+                    styles.luxuryServiceTile,
+                    pressed && styles.tileCardPressed,
+                  ]}
+                  onPress={() => {
+                    // Navigate to service details or category
+                    if (onSelectService) {
+                      onSelectService('ALL' as any, svc.title);
+                    } else {
+                      onViewServices();
+                    }
+                  }}
+                >
+                  {/* Photo Thumbnail with Gradient Overlay */}
+                  <View style={styles.luxuryServiceImgWrap}>
+                    <Image
+                      source={{ uri: svc.imageUrl }}
+                      style={styles.luxuryServiceImg}
+                      resizeMode="cover"
+                    />
+                    <LinearGradient
+                      colors={['transparent', 'rgba(15, 23, 42, 0.78)']}
+                      style={styles.luxuryServiceGradient}
+                    />
+                    {/* Badge */}
+                    <View style={styles.luxuryServiceBadge}>
+                      <Text style={styles.luxuryServiceBadgeText}>{svc.badge}</Text>
+                    </View>
+                    {/* TAT overlay */}
+                    <View style={styles.luxuryServiceTat}>
+                      <MaterialCommunityIcons name="clock-outline" size={10} color="#FFFFFF" />
+                      <Text style={styles.luxuryServiceTatText}>{svc.tat}</Text>
+                    </View>
+                  </View>
+
+                  {/* Service Details */}
+                  <View style={styles.luxuryServiceBody}>
+                    <Text style={styles.luxuryServiceTitle} numberOfLines={1}>
+                      {svc.title}
+                    </Text>
+                    <Text style={styles.luxuryServiceSub} numberOfLines={1}>
+                      {svc.subtitle}
+                    </Text>
+                    <View style={styles.luxuryServicePriceRow}>
+                      <Text style={styles.luxuryServicePriceText}>{svc.priceText || 'From ₹49'}</Text>
+                      <View style={styles.luxuryServiceArrowBox}>
+                        <MaterialCommunityIcons name="arrow-right" size={13} color="#FFFFFF" />
+                      </View>
+                    </View>
+                  </View>
+                </Pressable>
+              ))
+            )}
+          </View>
+        </View>
+
+        {/* 2. BROWSE BY CATEGORY (CIRCULAR IMAGES - 3 PER ROW) */}
+        <View style={styles.categoriesSection}>
+          <View style={styles.sectionHeaderRow}>
+            <View>
+              <Text style={styles.sectionHeading}>Browse Categories</Text>
+              <Text style={styles.sectionSubheading}>Expert fabric care organized by garment type</Text>
+            </View>
+          </View>
+
+          <View style={styles.homeCategory3Grid}>
+            {[
+              { slug: 'mens-wear', tag: 'MENS', label: "Men's Wear", count: '16 Items', accent: '#2563EB' },
+              { slug: 'womens-wear', tag: 'WOMENS', label: "Women's Wear", count: '19 Items', accent: '#DB2777' },
+              { slug: 'kids-baby', tag: 'KIDS', label: 'Kids & Baby', count: '24 Items', accent: '#D97706' },
+              { slug: 'home-textiles', tag: 'HOME_TEXTILES', label: 'Home Linen', count: '41 Items', accent: '#16A34A' },
+              { slug: 'bulk-laundry', tag: 'BULK', label: 'Bulk Laundry', count: '₹60/KG', accent: '#FF7A00' },
+              { slug: 'wedding-silk', tag: 'WEDDING', label: 'Wedding & Silk', count: 'Premium', accent: '#7C3AED' },
+            ].map((cat) => {
+              const photoUrl = getCategoryImageUrl(cat.tag);
+              return (
+                <Pressable
+                  key={cat.slug}
+                  style={({ pressed }) => [
+                    styles.homeCategory3Col,
+                    pressed && styles.categoryItemPressed,
+                  ]}
+                  onPress={() => {
+                    if (cat.tag === 'BULK') {
+                      if (onOpenBulkLaundry) onOpenBulkLaundry();
+                      return;
+                    }
+                    if (onSelectCategory) {
+                      onSelectCategory(cat.tag, cat.label);
+                    }
+                  }}
+                >
+                  <View style={[styles.homeCatCircleWrap, { borderColor: cat.accent }]}>
+                    <Image source={{ uri: photoUrl }} style={styles.homeCatCircleImg} resizeMode="cover" />
+                    <View style={styles.homeCatCountBadge}>
+                      <Text style={styles.homeCatCountText}>{cat.count}</Text>
+                    </View>
+                  </View>
+                  <Text style={styles.homeCatTitle} numberOfLines={1}>{cat.label}</Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        </View>
+
+        {/* 2.8 LAUNDRYPASS MONTHLY MEMBERSHIPS (PREMIUM SWIPEABLE CARDS) */}
+        <View style={styles.subsSection}>
+          <View style={styles.sectionHeaderRow}>
+            <View>
+              <View style={styles.subsTitleTagRow}>
+                <MaterialCommunityIcons name="crown" size={18} color="#FF7A00" />
+                <Text style={styles.sectionHeading}>Monthly Laundry Passes</Text>
+              </View>
+              <Text style={styles.sectionSubheading}>Save up to 35% with scheduled weekly doorstep pickups</Text>
+            </View>
+            <Pressable
+              onPress={() => (onViewSubscriptions ? onViewSubscriptions() : onBook())}
+              style={styles.viewAllSubsBtn}
+            >
+              <Text style={styles.viewAllSubsText}>View All</Text>
+              <MaterialCommunityIcons name="arrow-right" size={13} color="#2563EB" />
+            </Pressable>
+          </View>
+
+          <ScrollView
+            horizontal
+            pagingEnabled={false}
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.subsScroll}
+            snapToInterval={290}
+            decelerationRate="fast"
+          >
+            {(liveSubPlans.length > 0
+              ? liveSubPlans.map((lp) => ({
+                  id: lp.id,
+                  subscriptionId: lp.id,
+                  name: lp.name,
+                  tag: lp.popular ? '👑 MOST POPULAR' : (lp.originalPrice ? `SAVE ₹${lp.originalPrice - lp.price}` : 'VALUE PASS'),
+                  price: lp.price,
+                  originalPrice: lp.originalPrice,
+                  kg: `${lp.includedKg} KG`,
+                  includedKg: lp.includedKg,
+                  validityDays: lp.validityDays,
+                  pickups: lp.freePickupDelivery ? 'Free Doorstep' : `${lp.validityDays} Days`,
+                  desc: lp.features && lp.features.length > 0 ? lp.features[0] : `${lp.includedKg} KG allowance with free doorstep delivery`,
+                  features: lp.features || [],
+                  popular: Boolean(lp.popular),
+                  badgeBg: lp.popular ? '#FFF7ED' : '#EFF6FF',
+                  badgeColor: lp.popular ? '#FF7A00' : '#2563EB',
+                  gradientColors: lp.popular ? ['#FF7A00', '#FF5A00'] : ['#2563EB', '#1E40AF'],
+                }))
+              : [
+                  {
+                    id: 'home-sub-family',
+                    subscriptionId: 'sub-plan-family',
+                    name: 'Family Deluxe Pass',
+                    tag: '👑 MOST POPULAR',
+                    price: 1699,
+                    originalPrice: 2599,
+                    kg: '30 KG',
+                    includedKg: 30,
+                    validityDays: 30,
+                    pickups: 'Free Doorstep',
+                    desc: 'Perfect for families of 4-6 members with regular laundry needs',
+                    features: ['30 KG Wash & Fold', '4 Free Pickups', 'Priority Service', 'Ozone Sanitization'],
+                    popular: true,
+                    badgeBg: '#FFF7ED',
+                    badgeColor: '#FF7A00',
+                    gradientColors: ['#FF7A00', '#FF5A00'],
+                  },
+                  {
+                    id: 'home-sub-press',
+                    subscriptionId: 'sub-plan-press',
+                    name: 'Executive Steam Press',
+                    tag: '⚡ WORKWEAR',
+                    price: 999,
+                    originalPrice: 1499,
+                    kg: '60 Pieces',
+                    includedKg: 20,
+                    validityDays: 30,
+                    pickups: 'Free Doorstep',
+                    desc: 'Ideal for professionals who need crisp formal wear daily',
+                    features: ['60 Shirts/Pants', '8 Free Pickups', 'Wire Hangers', 'Express TAT'],
+                    popular: false,
+                    badgeBg: '#EFF6FF',
+                    badgeColor: '#2563EB',
+                    gradientColors: ['#2563EB', '#1E40AF'],
+                  },
+                  {
+                    id: 'home-sub-weekly',
+                    subscriptionId: 'sub-plan-weekly',
+                    name: 'Weekly Essentials',
+                    tag: '🧺 BEST VALUE',
+                    price: 899,
+                    originalPrice: 1299,
+                    kg: '15 KG',
+                    includedKg: 15,
+                    validityDays: 30,
+                    pickups: 'Free Doorstep',
+                    desc: 'Great for couples and singles with moderate laundry volume',
+                    features: ['15 KG Wash & Fold', '4 Free Pickups', 'Ozone Care', 'Eco-Friendly'],
+                    popular: false,
+                    badgeBg: '#F0FDF4',
+                    badgeColor: '#16A34A',
+                    gradientColors: ['#16A34A', '#15803D'],
+                  },
+                  {
+                    id: 'home-sub-student',
+                    subscriptionId: 'sub-plan-student',
+                    name: 'Student Saver Pass',
+                    tag: '🎓 BUDGET',
+                    price: 599,
+                    originalPrice: 899,
+                    kg: '10 KG',
+                    includedKg: 10,
+                    validityDays: 30,
+                    pickups: 'Free Doorstep',
+                    desc: 'Affordable plan designed for students and young professionals',
+                    features: ['10 KG Allowance', '2 Free Pickups', 'Zero Platform Fee', 'Gentle Care'],
+                    popular: false,
+                    badgeBg: '#FAF5FF',
+                    badgeColor: '#7C3AED',
+                    gradientColors: ['#7C3AED', '#6D28D9'],
+                  },
+                ]
+            ).map((plan) => (
+              <Pressable
+                key={plan.id}
+                style={({ pressed }) => [
+                  styles.premiumSubCard,
+                  plan.popular && styles.premiumSubCardPopular,
+                  pressed && styles.premiumSubCardPressed,
+                ]}
+                onPress={() => handleSubscriptionPurchase(plan)}
+              >
+                {/* Gradient Background Overlay */}
+                <LinearGradient
+                  colors={plan.popular ? ['rgba(255, 122, 0, 0.08)', 'rgba(255, 122, 0, 0.02)'] : ['rgba(37, 99, 235, 0.05)', 'rgba(37, 99, 235, 0.01)']}
+                  style={styles.premiumSubCardBg}
+                />
+
+                {/* Popular Badge - Top Right */}
+                {plan.popular && (
+                  <View style={styles.premiumSubPopularBadge}>
+                    <LinearGradient
+                      colors={['#FF7A00', '#FF5A00']}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 1 }}
+                      style={styles.premiumSubPopularGradient}
+                    >
+                      <MaterialCommunityIcons name="crown" size={14} color="#FFFFFF" />
+                      <Text style={styles.premiumSubPopularText}>POPULAR</Text>
+                    </LinearGradient>
+                  </View>
+                )}
+
+                {/* Top Tag */}
+                <View style={[styles.premiumSubTag, { backgroundColor: plan.badgeBg }]}>
+                  <Text style={[styles.premiumSubTagText, { color: plan.badgeColor }]}>{plan.tag}</Text>
+                </View>
+
+                {/* Plan Title */}
+                <Text style={styles.premiumSubTitle} numberOfLines={2}>{plan.name}</Text>
+
+                {/* Description */}
+                <Text style={styles.premiumSubDesc} numberOfLines={2}>{plan.desc}</Text>
+
+                {/* Key Features Grid */}
+                <View style={styles.premiumSubFeaturesGrid}>
+                  <View style={styles.premiumSubFeatureBox}>
+                    <MaterialCommunityIcons name="weight-kilogram" size={20} color={plan.badgeColor} />
+                    <Text style={styles.premiumSubFeatureLabel}>Allowance</Text>
+                    <Text style={styles.premiumSubFeatureValue}>{plan.kg}</Text>
+                  </View>
+                  <View style={styles.premiumSubFeatureBox}>
+                    <MaterialCommunityIcons name="truck-fast-outline" size={20} color={plan.badgeColor} />
+                    <Text style={styles.premiumSubFeatureLabel}>Pickups</Text>
+                    <Text style={styles.premiumSubFeatureValue}>{plan.pickups}</Text>
+                  </View>
+                  <View style={styles.premiumSubFeatureBox}>
+                    <MaterialCommunityIcons name="calendar-month" size={20} color={plan.badgeColor} />
+                    <Text style={styles.premiumSubFeatureLabel}>Validity</Text>
+                    <Text style={styles.premiumSubFeatureValue}>{Math.floor(plan.validityDays / 30)} Mon</Text>
+                  </View>
+                </View>
+
+                {/* Divider */}
+                <View style={styles.premiumSubDivider} />
+
+                {/* Pricing Section */}
+                <View style={styles.premiumSubPriceSection}>
+                  <View style={styles.premiumSubPriceColumn}>
+                    {plan.originalPrice && plan.originalPrice > plan.price && (
+                      <Text style={styles.premiumSubOriginalPrice}>₹{plan.originalPrice}</Text>
+                    )}
+                    <View style={styles.premiumSubPriceRow}>
+                      <Text style={styles.premiumSubPriceAmount}>₹{plan.price}</Text>
+                      <Text style={styles.premiumSubPricePeriod}>/month</Text>
+                    </View>
+                    {plan.originalPrice && plan.originalPrice > plan.price && (
+                      <View style={styles.premiumSubSavingsBadge}>
+                        <Text style={styles.premiumSubSavingsText}>
+                          Save ₹{plan.originalPrice - plan.price}
+                        </Text>
+                      </View>
+                    )}
+                  </View>
+
+                  {/* Subscribe Button */}
+                  <Pressable
+                    style={({ pressed }) => [
+                      styles.premiumSubCta,
+                      pressed && styles.premiumSubCtaPressed,
+                    ]}
+                    onPress={() => handleSubscriptionPurchase(plan)}
+                  >
+                    <LinearGradient
+                      colors={(plan.gradientColors && plan.gradientColors.length >= 2 ? plan.gradientColors : ['#FF6418', '#FF8A00']) as [string, string, ...string[]]}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 1 }}
+                      style={styles.premiumSubCtaGradient}
+                    >
+                      <Text style={styles.premiumSubCtaText}>Subscribe</Text>
+                      <MaterialCommunityIcons name="arrow-right" size={16} color="#FFFFFF" />
+                    </LinearGradient>
+                  </Pressable>
+                </View>
+              </Pressable>
+            ))}
+          </ScrollView>
+        </View>
+
+        {/* 3. WHY CHOOSE LAUNDRYFRESH VALUE PROPOSITIONS */}
+        <View style={styles.whyUsSection}>
+          <Text style={styles.whyUsTitle}>Why Choose LaundryFresh?</Text>
+          <View style={styles.whyUsGrid}>
+            <View style={styles.whyUsItem}>
+              <View style={[styles.whyUsIconBox, { backgroundColor: '#EFF6FF' }]}>
+                <MaterialCommunityIcons name="shield-check" size={22} color="#2563EB" />
+              </View>
+              <Text style={styles.whyUsItemHeading}>100% Ozone Sanitation</Text>
+              <Text style={styles.whyUsItemDesc}>Hospital-grade sterilization eliminates 99.9% bacteria & allergens</Text>
+            </View>
+
+            <View style={styles.whyUsItem}>
+              <View style={[styles.whyUsIconBox, { backgroundColor: '#F0FDF4' }]}>
+                <MaterialCommunityIcons name="truck-fast" size={22} color="#16A34A" />
+              </View>
+              <Text style={styles.whyUsItemHeading}>30-Min Doorstep Pickup</Text>
+              <Text style={styles.whyUsItemDesc}>Prompt rider dispatch with digital calibrated weighing scales</Text>
+            </View>
+
+            <View style={styles.whyUsItem}>
+              <View style={[styles.whyUsIconBox, { backgroundColor: '#FEF3C7' }]}>
+                <MaterialCommunityIcons name="palette-swatch-outline" size={22} color="#D97706" />
+              </View>
+              <Text style={styles.whyUsItemHeading}>Zero Colour-Bleed Safe</Text>
+              <Text style={styles.whyUsItemDesc}>German eco-friendly solvents that protect fabric texture and vibrancy</Text>
+            </View>
+
+            <View style={styles.whyUsItem}>
+              <View style={[styles.whyUsIconBox, { backgroundColor: '#FAF5FF' }]}>
+                <MaterialCommunityIcons name="lightning-bolt" size={22} color="#7C3AED" />
+              </View>
+              <Text style={styles.whyUsItemHeading}>Express 24h Delivery</Text>
+              <Text style={styles.whyUsItemDesc}>Urgent laundry turnaround returned crisp and ready to wear</Text>
+            </View>
+          </View>
+        </View>
+
+        {/* 4. GUARANTEE FOOTER CARD */}
+        <View style={styles.guaranteeBanner}>
+          <View style={styles.guaranteeIconBox}>
+            <MaterialCommunityIcons name="shield-crown-outline" size={26} color="#2563EB" />
+          </View>
+          <View style={styles.guaranteeTextWrap}>
+            <Text style={styles.guaranteeTitle}>The LaundryFresh Promise</Text>
+            <Text style={styles.guaranteeSubtitle}>
+              100% Free Re-wash Guarantee • Zero Color Bleed Assurance • Digital Calibrated Scales
+            </Text>
+          </View>
+        </View>
+
+        {/* ACTIVE OFFERS & PROMOTIONS - Moved to Bottom */}
+        <PromotionsSection
+          onPressPromotion={(couponCode) => {
+            if (couponCode) {
+              onViewOffers();
+            }
+          }}
+        />
+
+      </ScrollView>
+
+      {/* Payment Processing Overlay */}
+      {purchaseLoading && (
+        <View style={styles.paymentLoadingOverlay}>
+          <View style={styles.paymentLoadingCard}>
+            <MaterialCommunityIcons name="loading" size={48} color="#2563EB" style={{ transform: [{ rotate: '360deg' }] }} />
+            <Text style={styles.paymentLoadingTitle}>Processing Payment...</Text>
+            <Text style={styles.paymentLoadingText}>Please wait while we secure your subscription</Text>
+          </View>
+        </View>
+      )}
+
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  homeCategory3Grid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'flex-start',
+    marginTop: 4,
+  },
+  homeCategory3Col: {
+    width: '33.333%',
+    alignItems: 'center',
+    marginBottom: 16,
+    paddingHorizontal: 4,
+  },
+  homeCatCircleWrap: {
+    width: 78,
+    height: 78,
+    borderRadius: 39,
+    borderWidth: 2.5,
+    padding: 2.5,
+    backgroundColor: '#FFFFFF',
+    position: 'relative',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.1,
+    shadowRadius: 6,
+    elevation: 4,
+  },
+  homeCatCircleImg: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 36,
+  },
+  homeCatCountBadge: {
+    position: 'absolute',
+    bottom: -4,
+    backgroundColor: '#0F172A',
+    borderRadius: 8,
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    borderWidth: 1,
+    borderColor: '#FFFFFF',
+  },
+  homeCatCountText: {
+    fontSize: 9,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  homeCatTitle: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#1E293B',
+    textAlign: 'center',
+    marginTop: 8,
+  },
+
+  greetingHeader: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    letterSpacing: 0.2,
+  },
+  deliveryLabel: {
+    color: 'rgba(229,231,235,0.72)',
+    fontSize: 9,
+    fontWeight: '700',
+    letterSpacing: 0.2,
+    marginTop: 2,
+  },
+  homeSearchBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 6,
+    elevation: 2,
+    marginBottom: 8,
+  },
+  homeSearchPlaceholder: {
+    flex: 1,
+    fontSize: 13,
+    color: '#64748B',
+    marginLeft: 10,
+    fontWeight: '500',
+  },
+  homeSearchIconRight: {
+    paddingLeft: 8,
+    borderLeftWidth: 1,
+    borderLeftColor: '#E2E8F0',
+  },
+  servicesSection: {
+    marginTop: 16,
+  },
+  servicesGridContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+    marginTop: 10,
+  },
+  serviceTileCard: {
+    width: '48%',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 18,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+  tileCardPressed: {
+    transform: [{ scale: 0.98 }],
+    opacity: 0.9,
+  },
+  serviceTileTop: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 10,
+  },
+  serviceIconWrap: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  serviceBadgeWrap: {
+    backgroundColor: '#F1F5F9',
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    borderRadius: 8,
+  },
+  serviceBadgeText: {
+    fontSize: 9,
+    fontWeight: '800',
+    textTransform: 'uppercase',
+  },
+  serviceTileTitle: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#0F172A',
+    marginBottom: 4,
+  },
+  serviceTileSubtitle: {
+    fontSize: 11,
+    color: '#64748B',
+    lineHeight: 15,
+    minHeight: 30,
+    marginBottom: 8,
+  },
+  serviceTileFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingTop: 6,
+    borderTopWidth: 1,
+    borderTopColor: '#F1F5F9',
+  },
+  serviceTileTat: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#94A3B8',
+  },
+  categoriesSection: {
+    marginTop: 20,
+  },
+  whyUsSection: {
+    marginTop: 24,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 18,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  whyUsTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#0F172A',
+    marginBottom: 14,
+  },
+  whyUsGrid: {
+    gap: 14,
+  },
+  whyUsItem: {
+    flexDirection: 'column',
+  },
+  whyUsIconBox: {
+    width: 38,
+    height: 38,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 6,
+  },
+  whyUsItemHeading: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#0F172A',
+    marginBottom: 2,
+  },
+  whyUsItemDesc: {
+    fontSize: 11,
+    color: '#64748B',
+    lineHeight: 16,
+  },
+  outerWrap: {
+    flex: 1,
+    backgroundColor: '#F0F4FF',
+  },
+  stickyHeader: {
+    backgroundColor: '#2563EB',
+    paddingHorizontal: 16,
+    paddingTop: 8,
+    paddingBottom: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#1E40AF',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 16,
+    elevation: 4,
+  },
+  navMainRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  navLeftCluster: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    flex: 1,
+    marginRight: 12,
+  },
+  logoContainer: {
+    width: 36,
+    height: 36,
+    borderRadius: 12,
+    backgroundColor: '#3B82F6',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#3B82F6',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.4,
+    shadowRadius: 6,
+    elevation: 4,
+    borderWidth: 1,
+    borderColor: '#60A5FA',
+  },
+  brandLogoImage: {
+    width: 24,
+    height: 24,
+  },
+  brandTextContainer: {
+    flex: 1,
+  },
+  brandName: {
+    fontSize: 16,
+    fontWeight: '900',
+    color: '#FFFFFF',
+    letterSpacing: -0.3,
+    marginBottom: 2,
+  },
+  locationChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+  },
+  locationChipText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#E5E7EB',
+    maxWidth: 150,
+  },
+  navRightActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  actionBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.2)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
+  },
+  badgeCount: {
+    position: 'absolute',
+    top: -2,
+    right: -2,
+    backgroundColor: '#FCD34D',
+    borderRadius: 10,
+    minWidth: 16,
+    height: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 4,
+    borderWidth: 2,
+    borderColor: '#1E3A8A',
+  },
+  badgeText: {
+    fontSize: 9,
+    fontWeight: '900',
+    color: '#1E3A8A',
+  },
+  notifDot: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#FCD34D',
+    borderWidth: 2,
+    borderColor: '#1E3A8A',
+  },
+  root: {
+    flex: 1,
+  },
+  content: {
+    paddingTop: 8,
+    paddingBottom: 30,
+  },
+  tracker: {
+    marginHorizontal: 16,
+    marginTop: 12,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 18,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  trackerTop: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  trackerLabel: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#2563EB',
+    letterSpacing: 0.5,
+  },
+  trackerId: {
+    fontSize: 14,
+    fontWeight: '900',
+    color: '#0F172A',
+  },
+  trackerDetail: {
+    fontSize: 12,
+    color: '#64748B',
+    marginTop: 4,
+  },
+  trackerButton: {
+    marginTop: 10,
+  },
+  featureRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    marginTop: 12,
+    gap: 8,
+  },
+  featureBox: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    paddingVertical: 9,
+    paddingHorizontal: 6,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    gap: 5,
+  },
+  featureText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#0F172A',
+  },
+  showcaseSection: {
+    marginTop: 18,
+  },
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    marginBottom: 10,
+  },
+  sectionHeading: {
+    fontSize: 17,
+    fontWeight: '900',
+    color: '#0F172A',
+    letterSpacing: -0.3,
+  },
+  sectionSubheading: {
+    fontSize: 12,
+    color: '#64748B',
+    marginTop: 1,
+  },
+  viewAllBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+  },
+  viewAllText: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#2563EB',
+  },
+  
+  categoryGridContainer: {
+    paddingHorizontal: 16,
+    marginTop: 6,
+  },
+  category3x2Grid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    rowGap: 16,
+  },
+  categoryCircleCard: {
+    width: '31%',
+    alignItems: 'center',
+  },
+  categoryCircleWrap: {
+    width: 78,
+    height: 78,
+    borderRadius: 39,
+    backgroundColor: '#F1F5F9',
+    position: 'relative',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.12,
+    shadowRadius: 6,
+    elevation: 3,
+  },
+  categoryCircleImage: {
+    width: 78,
+    height: 78,
+    borderRadius: 39,
+  },
+  categoryCircleRing: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    borderRadius: 39,
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
+  },
+  categoryCircleTitle: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#0F172A',
+    textAlign: 'center',
+    marginTop: 7,
+    lineHeight: 15,
+  },
+  categoryCircleCount: {
+    fontSize: 10,
+    fontWeight: '500',
+    color: '#64748B',
+    textAlign: 'center',
+    marginTop: 2,
+  },
+  categoryRowOne: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  primaryCategoryCard: {
+    flex: 1,
+    height: 148,
+    borderRadius: 18,
+    overflow: 'hidden',
+    position: 'relative',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.12,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  primaryCatBgImage: {
+    position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
+    width: '100%',
+    height: '100%',
+  },
+  primaryCatGradientOverlay: {
+    position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
+    backgroundColor: 'rgba(15, 23, 42, 0.58)',
+  },
+  catCardContent: {
+    flex: 1,
+    padding: 12,
+    justifyContent: 'space-between',
+    zIndex: 2,
+  },
+  categoryCardPressed: {
+    opacity: 0.9,
+    transform: [{ scale: 0.98 }],
+  },
+  catCardTopRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  catIconCircle: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: 'rgba(255, 255, 255, 0.25)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  catCountBadge: {
+    paddingHorizontal: 7,
+    paddingVertical: 2.5,
+    borderRadius: 6,
+    backgroundColor: 'rgba(255, 255, 255, 0.25)',
+  },
+  catCountBadgeText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#FFFFFF',
+  },
+  catCardTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    textShadowColor: 'rgba(0, 0, 0, 0.4)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 3,
+  },
+  catCardSubtitle: {
+    fontSize: 10.5,
+    color: 'rgba(255, 255, 255, 0.85)',
+    marginTop: 1,
+    fontWeight: '500',
+  },
+  catCardExploreRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  catCardExploreText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  categoryRowTwo: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  secondaryCategoryCard: {
+    flex: 1,
+    minWidth: '46%',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    backgroundColor: '#FFFFFF',
+    padding: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 4,
+    elevation: 1,
+  },
+  secCatThumbnail: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    marginBottom: 6,
+    borderWidth: 1.5,
+    borderColor: '#F1F5F9',
+  },
+  secCatTitle: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  secCatCount: {
+    fontSize: 10,
+    fontWeight: '500',
+    color: '#64748B',
+    marginTop: 1,
+  },
+
+  categoryChipsScroll: {
+    paddingHorizontal: 16,
+    gap: 8,
+    paddingBottom: 6,
+  },
+  categoryChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: 16,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    gap: 6,
+  },
+  categoryChipSelected: {
+    backgroundColor: '#2563EB',
+    borderColor: '#2563EB',
+  },
+  categoryChipText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#475569',
+  },
+  categoryChipTextSelected: {
+    color: '#FFFFFF',
+    fontWeight: '800',
+  },
+  itemsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    paddingHorizontal: 16,
+    gap: 12,
+    marginTop: 10,
+  },
+  itemCard: {
+    width: '48%',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 18,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+  itemImageContainer: {
+    width: '100%',
+    height: 120,
+    backgroundColor: '#F1F5F9',
+    position: 'relative',
+  },
+  itemImage: {
+    width: '100%',
+    height: '100%',
+  },
+  itemTatBadge: {
+    position: 'absolute',
+    bottom: 6,
+    left: 6,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(15, 23, 42, 0.75)',
+    paddingHorizontal: 5,
+    paddingVertical: 2,
+    borderRadius: 6,
+    gap: 2,
+  },
+  itemTatText: {
+    fontSize: 9,
+    fontWeight: '800',
+    color: '#FFFFFF',
+  },
+  wishlistBtn: {
+    position: 'absolute',
+    top: 6,
+    right: 6,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: 'rgba(15, 23, 42, 0.65)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  itemDetails: {
+    padding: 10,
+    justifyContent: 'space-between',
+  },
+  itemName: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#0F172A',
+  },
+  itemService: {
+    fontSize: 11,
+    color: '#2563EB',
+    fontWeight: '700',
+    marginTop: 1,
+  },
+  itemBottomRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  itemPrice: {
+    fontSize: 15,
+    fontWeight: '900',
+    color: '#0F172A',
+  },
+  itemUnit: {
+    fontSize: 11,
+    color: '#64748B',
+    fontWeight: '600',
+  },
+  addBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#2563EB',
+    paddingVertical: 5,
+    paddingHorizontal: 10,
+    borderRadius: 8,
+    gap: 2,
+  },
+  addBtnText: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#FFFFFF',
+  },
+  stepperContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#16A34A',
+    borderRadius: 8,
+    paddingHorizontal: 3,
+    paddingVertical: 2,
+    gap: 4,
+  },
+  stepperBtn: {
+    width: 20,
+    height: 20,
+    borderRadius: 5,
+    backgroundColor: 'rgba(255, 255, 255, 0.25)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  stepperCountText: {
+    fontSize: 11,
+    fontWeight: '900',
+    color: '#FFFFFF',
+    minWidth: 14,
+    textAlign: 'center',
+  },
+  guaranteeBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    marginHorizontal: 16,
+    marginTop: 14,
+    borderRadius: 18,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    gap: 12,
+  },
+  guaranteeIconBox: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    backgroundColor: '#EFF6FF',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  guaranteeTextWrap: {
+    flex: 1,
+  },
+  guaranteeTitle: {
+    fontSize: 14,
+    fontWeight: '900',
+    color: '#0F172A',
+  },
+  guaranteeSubtitle: {
+    fontSize: 11,
+    color: '#64748B',
+    lineHeight: 15,
+    marginTop: 2,
+  },
+  floatingBagBar: {
+    position: 'absolute',
+    bottom: 12,
+    left: 16,
+    right: 16,
+    backgroundColor: '#0F172A',
+    borderRadius: 18,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.35,
+    shadowRadius: 10,
+    elevation: 10,
+    zIndex: 99,
+  },
+  bagInfo: {
+    flex: 1,
+  },
+  bagCountRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  bagIconCircle: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: '#2563EB',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  bagCountText: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#FFFFFF',
+  },
+  bagTotalText: {
+    fontSize: 11,
+    color: '#38BDF8',
+    fontWeight: '700',
+    marginTop: 1,
+  },
+  bagReviewBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F97316',
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: 12,
+    gap: 4,
+  },
+  bagReviewBtnText: {
+    fontSize: 13,
+    fontWeight: '900',
+    color: '#FFFFFF',
+  },
+
+  // Circular Category Grid (3 per row)
+  circularCategoryGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    paddingHorizontal: 4,
+  },
+  circularCategoryItem: {
+    width: '31%',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  categoryItemPressed: {
+    opacity: 0.7,
+  },
+  circularImageWrapper: {
+    width: 90,
+    height: 90,
+    borderRadius: 45,
+    borderWidth: 3,
+    padding: 3,
+    backgroundColor: '#FFFFFF',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 5,
+    marginBottom: 10,
+  },
+  circularCategoryImage: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 42,
+  },
+  circularCategoryLabel: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#1C0B18',
+    textAlign: 'center',
+    marginBottom: 3,
+    lineHeight: 16,
+  },
+  circularCategoryCount: {
+    fontSize: 11,
+    color: '#6B7280',
+    textAlign: 'center',
+    fontWeight: '600',
+  },
+
+  // Modern Large Category Cards & Quick Order (20px Radius & Soft Shadow)
+  largeCategoryGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  largeCategoryCard: {
+    width: '48%',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.07,
+    shadowRadius: 20,
+    elevation: 4,
+    marginBottom: 4,
+  },
+  largeCategoryTop: {
+    position: 'relative',
+    height: 110,
+    width: '100%',
+    backgroundColor: '#F8FAFC',
+  },
+  largeCategoryImgWrap: {
+    width: '100%',
+    height: '100%',
+  },
+  largeCategoryImg: {
+    width: '100%',
+    height: '100%',
+  },
+  largeCategoryTatBadge: {
+    position: 'absolute',
+    top: 8,
+    left: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.8)',
+  },
+  largeCategoryTatText: {
+    fontSize: 10,
+    fontWeight: '700',
+  },
+  largeCategoryInfo: {
+    padding: 12,
+  },
+  largeCategoryTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#111827',
+  },
+  largeCategorySubtitle: {
+    fontSize: 11,
+    color: '#64748B',
+    marginTop: 2,
+  },
+  largeCategoryFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 8,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: '#F1F5F9',
+  },
+  largeCategoryCount: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#94A3B8',
+  },
+  exploreLinkWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+  },
+  exploreLinkText: {
+    fontSize: 11,
+    fontWeight: '700',
+  },
+
+  // Quick Order Section
+  quickOrderSection: {
+    marginBottom: 20,
+  },
+  quickOrderScroll: {
+    paddingRight: 16,
+    gap: 12,
+  },
+  quickOrderCard: {
+    width: 175,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.06,
+    shadowRadius: 18,
+    elevation: 3,
+    justifyContent: 'space-between',
+  },
+  quickOrderTop: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  quickOrderIcon: {
+    fontSize: 22,
+  },
+  quickOrderTatBadge: {
+    backgroundColor: '#EFF6FF',
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    borderRadius: 10,
+  },
+  quickOrderTatText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#2563EB',
+  },
+  quickOrderTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#111827',
+    minHeight: 36,
+    lineHeight: 18,
+  },
+  quickOrderBottom: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 10,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: '#F1F5F9',
+  },
+  quickOrderPrice: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#111827',
+  },
+  quickAddBtn: {
+    backgroundColor: '#FF7A00',
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: 12,
+    shadowColor: '#FF7A00',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+  quickAddBtnText: {
+    color: '#FFFFFF',
+    fontSize: 11,
+    fontWeight: '800',
+  },
+
+  // Swipeable Subscription Passes (20px radius & soft shadow)
+  subsSection: {
+    marginBottom: 24,
+  },
+  subsTitleTagRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  viewAllSubsBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+    backgroundColor: '#EFF6FF',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 12,
+  },
+  viewAllSubsText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#2563EB',
+  },
+  subsScroll: {
+    paddingRight: 16,
+    gap: 16,
+    paddingLeft: 2,
+  },
+  
+  // Premium Subscription Cards
+  premiumSubCard: {
+    width: 280,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 24,
+    padding: 20,
+    borderWidth: 2,
+    borderColor: '#E2E8F0',
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.12,
+    shadowRadius: 32,
+    elevation: 8,
+    position: 'relative',
+    overflow: 'visible',
+  },
+  premiumSubCardPopular: {
+    borderColor: '#FF7A00',
+    borderWidth: 2.5,
+  },
+  premiumSubCardPressed: {
+    transform: [{ scale: 0.98 }],
+    opacity: 0.95,
+  },
+  premiumSubCardBg: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    borderRadius: 22,
+  },
+  premiumSubPopularBadge: {
+    position: 'absolute',
+    top: -8,
+    right: 16,
+    zIndex: 10,
+    borderRadius: 12,
+    overflow: 'hidden',
+    shadowColor: '#FF7A00',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+  premiumSubPopularGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+  },
+  premiumSubPopularText: {
+    color: '#FFFFFF',
+    fontSize: 10,
+    fontWeight: '900',
+    letterSpacing: 0.5,
+  },
+  premiumSubTag: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 10,
+    marginBottom: 12,
+  },
+  premiumSubTagText: {
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 0.3,
+  },
+  premiumSubTitle: {
+    fontSize: 18,
+    fontWeight: '900',
+    color: '#0F172A',
+    marginBottom: 6,
+    lineHeight: 24,
+  },
+  premiumSubDesc: {
+    fontSize: 12.5,
+    color: '#64748B',
+    lineHeight: 18,
+    marginBottom: 16,
+    minHeight: 36,
+  },
+  premiumSubFeaturesGrid: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 8,
+    marginBottom: 16,
+  },
+  premiumSubFeatureBox: {
+    flex: 1,
+    alignItems: 'center',
+    backgroundColor: '#F8FAFC',
+    borderRadius: 12,
+    padding: 10,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  premiumSubFeatureLabel: {
+    fontSize: 9,
+    fontWeight: '600',
+    color: '#94A3B8',
+    marginTop: 4,
+    textTransform: 'uppercase',
+    letterSpacing: 0.3,
+  },
+  premiumSubFeatureValue: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#0F172A',
+    marginTop: 2,
+  },
+  premiumSubDivider: {
+    height: 1,
+    backgroundColor: '#E2E8F0',
+    marginBottom: 16,
+  },
+  premiumSubPriceSection: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  premiumSubPriceColumn: {
+    flex: 1,
+  },
+  premiumSubOriginalPrice: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#94A3B8',
+    textDecorationLine: 'line-through',
+    marginBottom: 2,
+  },
+  premiumSubPriceRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    marginBottom: 4,
+  },
+  premiumSubPriceAmount: {
+    fontSize: 26,
+    fontWeight: '900',
+    color: '#0F172A',
+    letterSpacing: -0.5,
+  },
+  premiumSubPricePeriod: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#64748B',
+    marginLeft: 4,
+  },
+  premiumSubSavingsBadge: {
+    alignSelf: 'flex-start',
+    backgroundColor: '#DCFCE7',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+  },
+  premiumSubSavingsText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#16A34A',
+  },
+  premiumSubCta: {
+    borderRadius: 16,
+    overflow: 'hidden',
+    shadowColor: '#2563EB',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    elevation: 5,
+  },
+  premiumSubCtaPressed: {
+    transform: [{ scale: 0.96 }],
+    opacity: 0.9,
+  },
+  premiumSubCtaGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+  },
+  premiumSubCtaText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '900',
+    letterSpacing: 0.3,
+  },
+  
+  // Payment Loading Overlay
+  paymentLoadingOverlay: {
+    ...StyleSheet.absoluteFill,
+    backgroundColor: 'rgba(15, 23, 42, 0.85)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 9999,
+  },
+  paymentLoadingCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 24,
+    padding: 32,
+    alignItems: 'center',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 20 },
+    shadowOpacity: 0.3,
+    shadowRadius: 40,
+    elevation: 20,
+    minWidth: 280,
+  },
+  paymentLoadingTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#0F172A',
+    marginTop: 16,
+    marginBottom: 8,
+  },
+  paymentLoadingText: {
+    fontSize: 13,
+    color: '#64748B',
+    textAlign: 'center',
+    lineHeight: 18,
+  },
+  luxuryServicesGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+  },
+  luxuryServiceTile: {
+    width: '48%',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.06,
+    shadowRadius: 10,
+    elevation: 4,
+  },
+  luxuryServiceImgWrap: {
+    width: '100%',
+    height: 105,
+    position: 'relative',
+    backgroundColor: '#0F172A',
+  },
+  luxuryServiceImg: {
+    width: '100%',
+    height: '100%',
+  },
+  luxuryServiceGradient: {
+    ...StyleSheet.absoluteFill,
+  },
+  luxuryServiceBadge: {
+    position: 'absolute',
+    top: 8,
+    left: 8,
+    backgroundColor: 'rgba(255, 255, 255, 0.94)',
+    borderRadius: 6,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+  },
+  luxuryServiceBadgeText: {
+    fontSize: 9,
+    fontWeight: '800',
+    color: '#0F172A',
+    letterSpacing: 0.2,
+  },
+  luxuryServiceTat: {
+    position: 'absolute',
+    bottom: 8,
+    left: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    backgroundColor: 'rgba(15, 23, 42, 0.75)',
+    borderRadius: 6,
+    paddingHorizontal: 6,
+    paddingVertical: 2.5,
+  },
+  luxuryServiceTatText: {
+    fontSize: 9.5,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  luxuryServiceBody: {
+    padding: 10,
+  },
+  luxuryServiceTitle: {
+    fontSize: 13.5,
+    fontWeight: '800',
+    color: '#0F172A',
+    marginBottom: 2,
+  },
+  luxuryServiceSub: {
+    fontSize: 11,
+    color: '#64748B',
+    marginBottom: 8,
+  },
+  luxuryServicePriceRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingTop: 4,
+    borderTopWidth: 1,
+    borderTopColor: '#F8FAFC',
+  },
+  luxuryServicePriceText: {
+    fontSize: 12.5,
+    fontWeight: '800',
+    color: '#FF7A00',
+  },
+  luxuryServiceArrowBox: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: '#FF7A00',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  servicesLoadingState: {
+    width: '100%',
+    paddingVertical: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  loadingText: {
+    fontSize: 14,
+    color: '#64748B',
+    fontWeight: '500',
+  },
+  servicesEmptyState: {
+    width: '100%',
+    paddingVertical: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 12,
+  },
+  emptyStateText: {
+    fontSize: 14,
+    color: '#94A3B8',
+    fontWeight: '500',
+  },
+
+});

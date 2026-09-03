@@ -1,0 +1,97 @@
+# OSX
+.DS_Store
+
+# Xcode
+build/
+*.pbxuser
+!default.pbxuser
+*.mode1v3
+!default.mode1v3
+*.mode2v3
+!default.mode2v3
+*.perspectivev3
+!default.perspectivev3
+xcuserdata
+*.xccheckout
+*.moved-aside
+DerivedData
+*.hmap
+*.ipa
+*.xcuserstate
+project.xcworkspace
+
+# Android
+*.apk
+*.aab
+*.ap_
+*.dex
+*.class
+bin/
+gen/
+out/
+.gradle
+gradle-app.setting
+build/
+local.properties
+*.keystore
+!debug.keystore
+
+# Android Studio
+.idea
+.gradle
+captures/
+*.iml
+
+# node.js
+node_modules/
+npm-debug.log
+yarn-error.log
+
+# fastlane
+fastlane/report.xml
+fastlane/Preview.html
+fastlane/screenshots
+fastlane/test_output
+
+# Bundle artifacts
+*.jsbundle
+
+# CocoaPods
+/ios/Pods/
+
+# Expo
+.expo/
+.expo-shared/
+dist/
+web-build/
+
+# Environment
+.env
+.env.local
+.env.production
+
+# Temporary files
+*.log
+*.orig
+*.swp
+*.swo
+*~
+
+# IDE
+.vscode/
+.idea/
+
+# Testing
+coverage/
+
+# EAS
+eas.json
+
+# Secrets
+google-services.json
+GoogleService-Info.plist
+serviceAccountKey.json
+
+# Keystore files (CRITICAL - never commit!)
+*.keystore
+*.jks

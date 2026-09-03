@@ -1,0 +1,59 @@
+{
+  "expo": {
+    "name": "LaundryFresh",
+    "slug": "laundryfresh-customer",
+    "version": "1.0.2",
+    "icon": "./assets/brand-logo.png",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "scheme": "laundryfresh",
+    "newArchEnabled": true,
+    "android": {
+      "package": "com.anusha.laundry",
+      "googleServicesFile": "./google-services.json",
+      "versionCode": 3,
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#FCF9F7"
+      },
+      "permissions": [
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION",
+        "POST_NOTIFICATIONS"
+      ]
+    },
+    "web": {
+      "bundler": "metro"
+    },
+    "plugins": [
+      "expo-secure-store",
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "LaundryFresh uses your location to detect your delivery address, find nearby laundry services, and check service availability."
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "defaultChannel": "orders",
+          "color": "#FF7A00"
+        }
+      ],
+      "@react-native-firebase/app",
+      "@react-native-firebase/auth",
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#FCF9F7",
+          "image": "./assets/brand-logo.png",
+          "imageWidth": 176,
+          "resizeMode": "contain"
+        }
+      ]
+    ],
+    "extra": {
+      "apiUrl": "https://laundry.anushatechnologies.com/api"
+    }
+  }
+}
