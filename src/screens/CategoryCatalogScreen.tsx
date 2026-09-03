@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, memo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   ActivityIndicator,
   Image,
@@ -28,13 +28,19 @@ interface CategoryCatalogScreenProps {
   onOpenCart?: () => void;
 }
 
+type CatalogServiceCode = 'PRESS' | 'WASH_FOLD' | 'WASH_IRON' | 'DRY_CLEAN' | 'OTHER';
+type CatalogServiceFilter = 'ALL' | CatalogServiceCode;
+
 interface ServicePriceOption {
   serviceId: string;
   serviceName: string;
-  serviceCode: 'PRESS' | 'WASH_IRON' | 'DRY_CLEAN' | 'OTHER';
+  displayName: string;
+  shortLabel: string;
+  serviceCode: CatalogServiceCode;
   price: number;
   icon: string;
   unit: string;
+  turnaroundHours?: number;
 }
 
 interface ProductItem {
@@ -44,6 +50,7 @@ interface ProductItem {
   categoryLabel: string;
   subcategory: string;
   imageUrl?: string;
+  fallbackImageUrl?: string;
   description?: string;
   services: ServicePriceOption[];
   minPrice: number;
@@ -72,13 +79,54 @@ const MAIN_CATEGORIES = [
 ];
 
 // Service filter options
-const SERVICE_FILTERS = [
+const SERVICE_FILTERS: Array<{ key: CatalogServiceFilter; label: string; icon: string }> = [
   { key: 'ALL', label: 'All Services', icon: 'check-all' },
   { key: 'PRESS', label: 'Steam Press', icon: 'iron' },
+  { key: 'WASH_FOLD', label: 'Wash & Fold', icon: 'tshirt-crew-outline' },
   { key: 'WASH_IRON', label: 'Wash & Iron', icon: 'washing-machine' },
   { key: 'DRY_CLEAN', label: 'Dry Clean', icon: 'coat-rack' },
 ];
 
+function normalizeCategoryTag(tag?: string): string {
+  const normalized = (tag || 'MENS').toUpperCase().trim().replace(/_/g, '-');
+  if (['MENS', 'MEN', 'MENS-WEAR'].includes(normalized)) return 'MENS';
+  if (['WOMENS', 'WOMEN', 'WOMENS-WEAR'].includes(normalized)) return 'WOMENS';
+  if (['HOME', 'HOME-TEXTILES'].includes(normalized)) return 'HOME_TEXTILES';
+  if (['SHOES', 'FOOTWEAR'].includes(normalized)) return 'FOOTWEAR';
+  if (['BAGS', 'ACCESSORIES'].includes(normalized)) return 'ACCESSORIES';
+  return normalized.replace(/-/g, '_');
+}
+
+function getServiceDetails(serviceId: string, serviceName?: string, serviceCode?: string) {
+  const source = `${serviceId || ''} ${serviceName || ''} ${serviceCode || ''}`.toLowerCase();
+
+  if (source.includes('wash-fold') || source.includes('wash & fold')) {
+    return { serviceCode: 'WASH_FOLD' as const, displayName: 'Wash & Fold', shortLabel: 'Wash+Fold', icon: 'tshirt-crew-outline' };
+  }
+  if (source.includes('wash-iron') || source.includes('wash & steam') || source.includes('wash & iron')) {
+    return { serviceCode: 'WASH_IRON' as const, displayName: 'Wash & Iron', shortLabel: 'Wash+Iron', icon: 'washing-machine' };
+  }
+  if (source.includes('dry-clean') || source.includes('dry clean')) {
+    return { serviceCode: 'DRY_CLEAN' as const, displayName: 'Dry Clean', shortLabel: 'Dry Clean', icon: 'coat-rack' };
+  }
+  if (source.includes('steam-iron') || source.includes('steam press') || source.includes('iron only') || source.includes('press')) {
+    return { serviceCode: 'PRESS' as const, displayName: 'Steam Press', shortLabel: 'Press', icon: 'iron' };
+  }
+
+  const displayName = (serviceName || 'Special care').trim();
+  return { serviceCode: 'OTHER' as const, displayName, shortLabel: displayName, icon: 'star-four-points-outline' };
+}
+
+function getSubcategoryFallbackIcon(subcategory: string, categoryTag: string): string {
+  const source = `${subcategory} ${categoryTag}`.toLowerCase();
+  if (source.includes('shoe') || source.includes('footwear')) return 'shoe-sneaker';
+  if (source.includes('bag') || source.includes('belt') || source.includes('cap')) return 'bag-personal-outline';
+  if (source.includes('bed') || source.includes('blanket') || source.includes('curtain') || source.includes('towel')) return 'bed-outline';
+  if (source.includes('kid') || source.includes('baby')) return 'baby-carriage';
+  if (source.includes('women') || source.includes('saree') || source.includes('kurti') || source.includes('dress')) return 'hanger';
+  if (source.includes('jean') || source.includes('denim') || source.includes('pant') || source.includes('trouser')) return 'hanger';
+  return 'tshirt-crew';
+}
 
 function matchesSubcategoryKeyword(name: string, sub: string): boolean {
   const n = (name || '').toLowerCase();
@@ -139,11 +187,12 @@ export function CategoryCatalogScreen({
 }: CategoryCatalogScreenProps) {
   const insets = useSafeAreaInsets();
   const { width: windowWidth } = useWindowDimensions();
-  const { catalog, cart, addCartItem, setCartQuantity, removeFromCart, wishlist, toggleWishlist } = useApp();
+  const { catalog, cart, cartSummary, addCartItem, setCartQuantity, removeFromCart, wishlist, toggleWishlist } = useApp();
+  const initialCategoryTag = normalizeCategoryTag(categoryTag);
 
   // Active Category State
   const [activeCategoryTag, setActiveCategoryTag] = useState<string>(
-    categoryTag === 'ALL' ? 'MENS' : categoryTag
+    categoryTag === 'ALL' ? 'MENS' : initialCategoryTag
   );
   const [activeCategoryTitle, setActiveCategoryTitle] = useState<string>(
     categoryTitle || "Men's Wear"
@@ -151,7 +200,7 @@ export function CategoryCatalogScreen({
 
   // Filters State
   const [selectedSubcategory, setSelectedSubcategory] = useState<string>('ALL');
-  const [selectedServiceFilter, setSelectedServiceFilter] = useState<'ALL' | 'PRESS' | 'WASH_IRON' | 'DRY_CLEAN'>(
+  const [selectedServiceFilter, setSelectedServiceFilter] = useState<CatalogServiceFilter>(
     initialServiceFilter || 'ALL'
   );
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -161,22 +210,25 @@ export function CategoryCatalogScreen({
   const [selectedClothServiceMap, setSelectedClothServiceMap] = useState<Record<string, string>>({});
 
   // Image error tracker
-  const [imageErrors, setImageErrors] = useState<Record<string, boolean>>({});
+  const [imageFailures, setImageFailures] = useState<Record<string, boolean>>({});
   const [imageLoading, setImageLoading] = useState<Record<string, boolean>>({});
+  const [subcategoryImageErrors, setSubcategoryImageErrors] = useState<Record<string, boolean>>({});
 
-  // Dynamic Catalog from backend
+  // Dynamic Catalog State
   const [dynamicCatalog, setDynamicCatalog] = useState<Catalog | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
 
-  // Sync state if prop changes
+  // Sync categoryTag & service filter changes
   useEffect(() => {
     if (categoryTag && categoryTag !== 'ALL') {
-      setActiveCategoryTag(categoryTag);
+      const norm = normalizeCategoryTag(categoryTag);
+      setActiveCategoryTag(norm);
     }
     if (categoryTitle) {
       setActiveCategoryTitle(categoryTitle);
     }
-  }, [categoryTag, categoryTitle]);
+    setSelectedServiceFilter(initialServiceFilter || 'ALL');
+  }, [categoryTag, categoryTitle, initialServiceFilter]);
 
   // Fetch full live catalog on mount
   useEffect(() => {
@@ -232,6 +284,7 @@ export function CategoryCatalogScreen({
     if (!activeCategoryTag || activeCategoryTag === 'ALL') return list;
     const cleanTag = activeCategoryTag.toUpperCase().replace(/_/g, '-');
     return list.filter((c: any) => {
+      if (c?.isActive === false) return false;
       const cTag = (c.categoryTag || '').toUpperCase().replace(/_/g, '-');
       return (
         cTag === cleanTag ||
@@ -247,6 +300,15 @@ export function CategoryCatalogScreen({
     return dynamicCatalog?.priceMatrix || catalog?.priceMatrix || [];
   }, [dynamicCatalog, catalog]);
 
+  const activeServiceMasters = useMemo(() => {
+    return (dynamicCatalog?.serviceMasters || catalog?.serviceMasters || []).filter((service: any) => service?.isActive !== false);
+  }, [dynamicCatalog, catalog]);
+
+  const serviceMastersById = useMemo(
+    () => new Map(activeServiceMasters.map((service: any) => [service.id, service])),
+    [activeServiceMasters]
+  );
+
   // Subcategories List extracted dynamically
   const subcategoriesList = useMemo(() => {
     const rawSet = new Set<string>();
@@ -261,53 +323,61 @@ export function CategoryCatalogScreen({
       SUBCATEGORY_MAP[activeCategoryTag.toUpperCase()] ||
       SUBCATEGORY_MAP[activeCategoryTag.toUpperCase().replace(/_/g, '-')] ||
       [];
-    fallbackList.forEach((f: string) => rawSet.add(f));
+    const knownSubcategories = fallbackList.filter((fallback) =>
+      Array.from(rawSet).some((sub) => sub.toLowerCase() === fallback.toLowerCase())
+    );
+    const remainingSubcategories = Array.from(rawSet)
+      .filter((sub) => !knownSubcategories.some((known) => known.toLowerCase() === sub.toLowerCase()))
+      .sort((a, b) => a.localeCompare(b));
 
-    return ['ALL', ...Array.from(rawSet)];
+    const orderedSubcategories = rawSet.size > 0
+      ? [...knownSubcategories, ...remainingSubcategories]
+      : fallbackList;
+
+    return ['ALL', ...orderedSubcategories];
   }, [activeClothTypes, activeCategoryTag]);
 
-  // Build product items with real multi-service backend rates
+  // Build product items with price options
   const products: ProductItem[] = useMemo(() => {
-    const matrixLookup: Record<string, Record<string, number>> = {};
+    const matrixLookup: Record<string, any[]> = {};
     activePriceMatrix.forEach((pm: any) => {
-      if (!pm) return;
+      if (!pm || pm.isActive === false || pm.isAvailable === false) return;
       const clothId = pm.clothTypeId || pm.clothId;
-      if (!clothId || !pm.serviceId) return;
-      if (!matrixLookup[clothId]) matrixLookup[clothId] = {};
-      if (pm.price && pm.price > 0) {
-        matrixLookup[clothId][pm.serviceId] = pm.price;
-      }
+      const price = Number(pm.price);
+      if (!clothId || !pm.serviceId || !Number.isFinite(price) || price <= 0) return;
+      const master = serviceMastersById.get(pm.serviceId);
+      if (master?.isActive === false) return;
+      if (!matrixLookup[clothId]) matrixLookup[clothId] = [];
+      matrixLookup[clothId].push(pm);
     });
 
     return activeClothTypes.map((cloth: any) => {
-      const clothPrices = matrixLookup[cloth.id] || {};
+      const servicesForCloth: ServicePriceOption[] = (matrixLookup[cloth.id] || [])
+        .map((priceItem: any) => {
+          const master = serviceMastersById.get(priceItem.serviceId);
+          const details = getServiceDetails(
+            priceItem.serviceId,
+            priceItem.serviceName || master?.name,
+            (master as any)?.serviceCode
+          );
 
-      const servicesForCloth: ServicePriceOption[] = [
-        {
-          serviceId: 'srv-m-steam-iron',
-          serviceName: 'Steam Press',
-          serviceCode: 'PRESS',
-          price: clothPrices['srv-m-steam-iron'] || 20,
-          icon: 'iron',
-          unit: 'Piece',
-        },
-        {
-          serviceId: 'srv-m-wash-iron',
-          serviceName: 'Wash & Iron',
-          serviceCode: 'WASH_IRON',
-          price: clothPrices['srv-m-wash-iron'] || 50,
-          icon: 'washing-machine',
-          unit: 'Piece',
-        },
-        {
-          serviceId: 'srv-m-dry-clean',
-          serviceName: 'Dry Clean',
-          serviceCode: 'DRY_CLEAN',
-          price: clothPrices['srv-m-dry-clean'] || 90,
-          icon: 'coat-rack',
-          unit: 'Piece',
-        },
-      ];
+          return {
+            serviceId: priceItem.serviceId,
+            serviceName: priceItem.serviceName || master?.name || details.displayName,
+            displayName: details.displayName,
+            shortLabel: details.shortLabel,
+            serviceCode: details.serviceCode,
+            price: Number(priceItem.price),
+            icon: details.icon,
+            unit: priceItem.unit || 'Piece',
+            turnaroundHours: Number(priceItem.turnaroundHours || master?.turnaroundHours) || undefined,
+          };
+        })
+        .sort((a, b) => {
+          const aOrder = SERVICE_FILTERS.findIndex((filter) => filter.key === a.serviceCode);
+          const bOrder = SERVICE_FILTERS.findIndex((filter) => filter.key === b.serviceCode);
+          return (aOrder < 0 ? SERVICE_FILTERS.length : aOrder) - (bOrder < 0 ? SERVICE_FILTERS.length : bOrder);
+        });
 
       const validPrices = servicesForCloth.map((s) => s.price).filter((p) => p > 0);
       const minPrice = validPrices.length > 0 ? Math.min(...validPrices) : 20;
@@ -318,13 +388,21 @@ export function CategoryCatalogScreen({
         categoryTag: cloth.categoryTag || activeCategoryTag,
         categoryLabel: cloth.categoryLabel || activeCategoryTitle,
         subcategory: cloth.subcategory || cloth.subCategory || 'General',
-        imageUrl: getGarmentImageUrl(cloth.id, cloth.imageUrl || cloth.image, cloth.categoryTag, cloth.name),
+        imageUrl: cloth.imageUrl || cloth.image,
+        fallbackImageUrl: getGarmentImageUrl(cloth.id, undefined, cloth.categoryTag, cloth.name),
         description: cloth.description,
         services: servicesForCloth,
         minPrice,
       };
-    });
-  }, [activeClothTypes, activePriceMatrix, activeCategoryTag, activeCategoryTitle]);
+    }).filter((product) => product.services.length > 0);
+  }, [activeClothTypes, activePriceMatrix, activeCategoryTag, activeCategoryTitle, serviceMastersById]);
+
+  const availableServiceFilters = useMemo(
+    () => SERVICE_FILTERS.filter((filter) =>
+      filter.key === 'ALL' || products.some((product) => product.services.some((service) => service.serviceCode === filter.key))
+    ),
+    [products]
+  );
 
   // Filtered Products
   const filteredProducts = useMemo(() => {
@@ -344,19 +422,19 @@ export function CategoryCatalogScreen({
       });
     }
 
+    if (selectedServiceFilter !== 'ALL') {
+      list = list.filter((p) =>
+        p.services.some((s) => s.serviceCode === selectedServiceFilter)
+      );
+    }
+
     if (searchQuery.trim().length > 0) {
       const q = searchQuery.toLowerCase().trim();
       list = list.filter(
         (p) =>
           p.name.toLowerCase().includes(q) ||
           p.subcategory.toLowerCase().includes(q) ||
-          (p.description && p.description.toLowerCase().includes(q))
-      );
-    }
-
-    if (selectedServiceFilter !== 'ALL') {
-      list = list.filter((p) =>
-        p.services.some((s) => s.serviceCode === selectedServiceFilter)
+          p.services.some((s) => s.displayName.toLowerCase().includes(q))
       );
     }
 
@@ -367,37 +445,21 @@ export function CategoryCatalogScreen({
     }
 
     return list;
-  }, [products, selectedSubcategory, searchQuery, selectedServiceFilter, selectedSort]);
+  }, [products, selectedSubcategory, selectedServiceFilter, searchQuery, selectedSort]);
 
-  // Selected Service per Product - FIX: Ensure displayed price matches selected service filter
   const getSelectedServiceForCloth = (cloth: ProductItem): ServicePriceOption => {
-    // Priority 1: If user manually selected a service for this cloth, use that
+    if (selectedServiceFilter !== 'ALL') {
+      const matchedFilter = cloth.services.find((s) => s.serviceCode === selectedServiceFilter);
+      if (matchedFilter) return matchedFilter;
+    }
+
     const selectedId = selectedClothServiceMap[cloth.id];
     if (selectedId) {
       const found = cloth.services.find((s) => s.serviceId === selectedId);
       if (found) return found;
     }
-    
-    // Priority 2: If a service filter is active (not 'ALL'), MUST show that service's price
-    if (selectedServiceFilter !== 'ALL') {
-      const matchedFilter = cloth.services.find((s) => s.serviceCode === selectedServiceFilter);
-      if (matchedFilter) return matchedFilter;
-      // If the filtered service doesn't exist for this cloth, show first available with warning
-      console.warn(`Service filter ${selectedServiceFilter} not available for cloth ${cloth.name}`);
-    }
-    
-    // Priority 3: Default to Wash & Iron as it's most common
-    return (
-      cloth.services.find((s) => s.serviceCode === 'WASH_IRON') ||
-      cloth.services[0] || {
-        serviceId: 'srv-m-wash-iron',
-        serviceName: 'Wash & Iron',
-        serviceCode: 'WASH_IRON',
-        price: 50,
-        icon: 'washing-machine',
-        unit: 'Piece',
-      }
-    );
+
+    return cloth.services[0]!;
   };
 
   const handleSelectServiceForCloth = (clothId: string, serviceId: string) => {
@@ -426,7 +488,7 @@ export function CategoryCatalogScreen({
       unit: service.unit,
       subtotal: service.price,
       clothId: cloth.id,
-      imageUrl: cloth.imageUrl || getGarmentImageUrl(cloth.id, undefined, cloth.categoryTag),
+      imageUrl: getGarmentImageUrl(cloth.id, cloth.imageUrl, cloth.categoryTag, cloth.name),
     });
   };
 
@@ -465,23 +527,22 @@ export function CategoryCatalogScreen({
     }
   };
 
-  // Cart summary
-  const cartSummary = useMemo(() => {
-    const count = cart.reduce((acc, item) => acc + item.quantity, 0);
-    const total = cart.reduce((acc, item) => acc + (item.subtotal || item.unitPrice * item.quantity), 0);
-    return { itemCount: count, itemTotal: total };
-  }, [cart]);
-
   const handleCartClick = onOpenCart || onViewCart || (() => {});
 
-  // Responsive 2-column card calculation
-  const screenPadding = 16;
-  const gridGap = 12;
-  const cardWidth = Math.floor((windowWidth - screenPadding * 2 - gridGap) / 2);
+  // Clean Header Title (Issue 2: No duplicate text, clear title)
+  const displayTitle = MAIN_CATEGORIES.find((cat) => cat.tag === activeCategoryTag)?.label || activeCategoryTitle || 'Catalog';
+
+  // Responsive Grid Widths
+  const screenPadding = 12;
+  const gridGap = 10;
+  const useSingleColumn = windowWidth < 340;
+  const cardWidth = useSingleColumn
+    ? Math.floor(windowWidth - screenPadding * 2)
+    : Math.floor((windowWidth - screenPadding * 2 - gridGap) / 2);
 
   return (
-    <View style={[styles.root, { paddingTop: insets.top }]}>
-      {/* 1. TOP APP BAR (72-80px, 44x44 touch targets, clean title & badge) */}
+    <View style={styles.root}>
+      {/* 1. TOP APP BAR (Compact 54px height, clean title, proper cart badge without overlap) */}
       <View style={styles.topBar}>
         <Pressable
           style={({ pressed }) => [styles.backBtn, pressed && styles.pressedBtn]}
@@ -489,17 +550,15 @@ export function CategoryCatalogScreen({
           hitSlop={8}
           accessibilityLabel="Back"
         >
-          <MaterialCommunityIcons name="arrow-left" size={24} color="#111827" />
+          <MaterialCommunityIcons name="arrow-left" size={22} color="#0F172A" />
         </Pressable>
 
         <View style={styles.titleColumn}>
           <Text style={styles.topBarTitle} numberOfLines={1}>
-            {initialServiceName && initialServiceName !== activeCategoryTitle
-              ? `${initialServiceName} • ${activeCategoryTitle}`
-              : activeCategoryTitle}
+            {displayTitle}
           </Text>
           <Text style={styles.topBarSubtitle}>
-            {filteredProducts.length} items available
+            {filteredProducts.length} {filteredProducts.length === 1 ? 'item' : 'items'} available
           </Text>
         </View>
 
@@ -507,18 +566,20 @@ export function CategoryCatalogScreen({
           style={({ pressed }) => [styles.cartBtn, pressed && styles.pressedBtn]}
           onPress={handleCartClick}
           hitSlop={8}
-          accessibilityLabel="Shopping bag"
+          accessibilityLabel={`Shopping bag, ${cartSummary.itemCount} items`}
         >
-          <MaterialCommunityIcons name="shopping-outline" size={24} color="#111827" />
+          <MaterialCommunityIcons name="shopping-outline" size={22} color="#0F172A" />
           {cartSummary.itemCount > 0 && (
             <View style={styles.cartBadge}>
-              <Text style={styles.cartBadgeText}>{cartSummary.itemCount > 99 ? '99+' : cartSummary.itemCount}</Text>
+              <Text style={styles.cartBadgeText}>
+                {cartSummary.itemCount > 99 ? '99+' : cartSummary.itemCount}
+              </Text>
             </View>
           )}
         </Pressable>
       </View>
 
-      {/* 2. MAIN CATEGORY TABS (44px height, horizontal scrollable pills, smooth scroll) */}
+      {/* 2. MAIN CATEGORY TABS (Compact 36px height, solid orange active state, full horizontal padding) */}
       <View style={styles.categoryTabsContainer}>
         <ScrollView
           horizontal
@@ -530,24 +591,29 @@ export function CategoryCatalogScreen({
             return (
               <Pressable
                 key={c.tag}
-                style={({ pressed }) => [
+                style={[
                   styles.categoryPill,
                   isSelected ? styles.categoryPillSelected : styles.categoryPillUnselected,
-                  pressed && styles.pressedBtn,
                 ]}
                 onPress={() => {
                   setActiveCategoryTag(c.tag);
                   setActiveCategoryTitle(c.label);
                   setSelectedSubcategory('ALL');
                 }}
+                hitSlop={4}
               >
                 <MaterialCommunityIcons
                   name={c.icon as any}
-                  size={16}
-                  color={isSelected ? '#FFFFFF' : '#475569'}
-                  style={{ marginRight: 6 }}
+                  size={14}
+                  color={isSelected ? '#FFFFFF' : '#64748B'}
+                  style={{ marginRight: 5 }}
                 />
-                <Text style={[styles.categoryPillText, isSelected ? styles.categoryPillTextSelected : styles.categoryPillTextUnselected]}>
+                <Text
+                  style={[
+                    styles.categoryPillText,
+                    isSelected ? styles.categoryPillTextSelected : styles.categoryPillTextUnselected,
+                  ]}
+                >
                   {c.label}
                 </Text>
               </Pressable>
@@ -556,13 +622,13 @@ export function CategoryCatalogScreen({
         </ScrollView>
       </View>
 
-      {/* 3. SEARCH BAR (50-52px height, 14-16px radius, background #F1F5F9, no heavy border) */}
+      {/* 3. SEARCH BAR (Compact 40px height, rounded-full pill design) */}
       <View style={styles.searchBarWrap}>
         <View style={styles.searchBar}>
-          <MaterialCommunityIcons name="magnify" size={20} color="#64748B" />
+          <MaterialCommunityIcons name="magnify" size={18} color="#94A3B8" />
           <TextInput
             style={styles.searchInput}
-            placeholder="Search all garments..."
+            placeholder={`Search in ${displayTitle}...`}
             placeholderTextColor="#94A3B8"
             value={searchQuery}
             onChangeText={setSearchQuery}
@@ -571,47 +637,13 @@ export function CategoryCatalogScreen({
           />
           {searchQuery.length > 0 && (
             <Pressable onPress={() => setSearchQuery('')} hitSlop={8}>
-              <MaterialCommunityIcons name="close-circle" size={18} color="#94A3B8" />
+              <MaterialCommunityIcons name="close-circle" size={16} color="#94A3B8" />
             </Pressable>
           )}
         </View>
       </View>
 
-      {/* 4. SERVICE FILTERS (38-40px height, horizontal scrollable chips, orange active) */}
-      <View style={styles.serviceFiltersContainer}>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.serviceFiltersScroll}
-        >
-          {SERVICE_FILTERS.map((item) => {
-            const isSelected = selectedServiceFilter === item.key;
-            return (
-              <Pressable
-                key={item.key}
-                style={({ pressed }) => [
-                  styles.serviceChip,
-                  isSelected ? styles.serviceChipSelected : styles.serviceChipUnselected,
-                  pressed && styles.pressedBtn,
-                ]}
-                onPress={() => setSelectedServiceFilter(item.key as any)}
-              >
-                <MaterialCommunityIcons
-                  name={item.icon as any}
-                  size={15}
-                  color={isSelected ? '#FFFFFF' : '#475569'}
-                  style={{ marginRight: 5 }}
-                />
-                <Text style={[styles.serviceChipText, isSelected ? styles.serviceChipTextSelected : styles.serviceChipTextUnselected]}>
-                  {item.label}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </ScrollView>
-      </View>
-
-      {/* 5. HORIZONTAL GARMENT SUBCATEGORY CAROUSEL (56-64px circles, orange ring, NO SIDEBAR) */}
+      {/* 4. HORIZONTAL GARMENT SUBCATEGORY CAROUSEL (Never blank: verified photo + icon layer) */}
       <View style={styles.subcatCarouselContainer}>
         <ScrollView
           horizontal
@@ -621,31 +653,49 @@ export function CategoryCatalogScreen({
           {subcategoriesList.map((sub) => {
             const isSelected = selectedSubcategory === sub;
             const isAll = sub === 'ALL';
-            const displayName = isAll ? 'All' : sub;
+            const subcategoryKey = `${activeCategoryTag}-${sub}`;
             const subPhotoUrl = isAll
               ? getCategoryImageUrl(activeCategoryTag)
               : getSubcategoryImageUrl(sub, activeCategoryTag);
+            const displayName = isAll ? 'All' : sub;
+            const hasImgError = subcategoryImageErrors[subcategoryKey];
 
             return (
               <Pressable
                 key={sub}
-                style={({ pressed }) => [
-                  styles.subcatCircleItem,
-                  pressed && styles.pressedBtn,
-                ]}
+                style={styles.subcatCircleItem}
                 onPress={() => setSelectedSubcategory(sub)}
+                hitSlop={4}
               >
-                {/* Circular image with 2px orange ring when active */}
-                <View style={[styles.subcatCircleWrap, isSelected && styles.subcatCircleWrapSelected]}>
-                  <Image
-                    source={{ uri: subPhotoUrl }}
-                    style={styles.subcatCircleImg}
-                    resizeMode="cover"
-                  />
+                <View
+                  style={[
+                    styles.subcatCircleWrap,
+                    isSelected && styles.subcatCircleWrapSelected,
+                  ]}
+                >
+                  {/* Layered fallback icon: guaranteed visible */}
+                  <View style={styles.subcatIconLayer}>
+                    <MaterialCommunityIcons
+                      name={getSubcategoryFallbackIcon(sub, activeCategoryTag) as any}
+                      size={20}
+                      color={isSelected ? '#FF6B0B' : '#94A3B8'}
+                    />
+                  </View>
+                  {subPhotoUrl && !hasImgError && (
+                    <Image
+                      source={{ uri: subPhotoUrl }}
+                      style={styles.subcatCircleImg}
+                      resizeMode="cover"
+                      onError={() => setSubcategoryImageErrors((curr) => ({ ...curr, [subcategoryKey]: true }))}
+                    />
+                  )}
                 </View>
                 <Text
-                  style={[styles.subcatCircleText, isSelected && styles.subcatCircleTextSelected]}
-                  numberOfLines={2}
+                  style={[
+                    styles.subcatCircleText,
+                    isSelected && styles.subcatCircleTextSelected,
+                  ]}
+                  numberOfLines={1}
                 >
                   {displayName}
                 </Text>
@@ -655,59 +705,46 @@ export function CategoryCatalogScreen({
         </ScrollView>
       </View>
 
-      {/* 7. BREADCRUMB NAVIGATION - Show active filters clearly */}
-      {(selectedServiceFilter !== 'ALL' || selectedSubcategory !== 'ALL' || searchQuery.trim().length > 0) && (
-        <View style={styles.breadcrumbContainer}>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.breadcrumbScroll}>
-            <View style={styles.breadcrumbChip}>
-              <Text style={styles.breadcrumbText}>{activeCategoryTitle}</Text>
-            </View>
-            {selectedServiceFilter !== 'ALL' && (
-              <>
-                <MaterialCommunityIcons name="chevron-right" size={14} color="#94A3B8" />
-                <View style={[styles.breadcrumbChip, styles.breadcrumbChipActive]}>
-                  <Text style={styles.breadcrumbTextActive}>
-                    {SERVICE_FILTERS.find(f => f.key === selectedServiceFilter)?.label || selectedServiceFilter}
-                  </Text>
-                  <Pressable onPress={() => setSelectedServiceFilter('ALL')} hitSlop={6}>
-                    <MaterialCommunityIcons name="close-circle" size={14} color="#FF6B0B" />
-                  </Pressable>
-                </View>
-              </>
-            )}
-            {selectedSubcategory !== 'ALL' && (
-              <>
-                <MaterialCommunityIcons name="chevron-right" size={14} color="#94A3B8" />
-                <View style={[styles.breadcrumbChip, styles.breadcrumbChipActive]}>
-                  <Text style={styles.breadcrumbTextActive}>{selectedSubcategory}</Text>
-                  <Pressable onPress={() => setSelectedSubcategory('ALL')} hitSlop={6}>
-                    <MaterialCommunityIcons name="close-circle" size={14} color="#FF6B0B" />
-                  </Pressable>
-                </View>
-              </>
-            )}
-            {searchQuery.trim().length > 0 && (
-              <>
-                <MaterialCommunityIcons name="chevron-right" size={14} color="#94A3B8" />
-                <View style={[styles.breadcrumbChip, styles.breadcrumbChipActive]}>
-                  <Text style={styles.breadcrumbTextActive}>"{searchQuery}"</Text>
-                  <Pressable onPress={() => setSearchQuery('')} hitSlop={6}>
-                    <MaterialCommunityIcons name="close-circle" size={14} color="#FF6B0B" />
-                  </Pressable>
-                </View>
-              </>
-            )}
-          </ScrollView>
-        </View>
-      )}
+      {/* 5. INTEGRATED SERVICE FILTERS & SORT ROW (Compact 34px, no vertical stacking) */}
+      <View style={styles.filterSortBar}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.serviceFilterScroll}
+        >
+          {availableServiceFilters.map((item) => {
+            const isSelected = selectedServiceFilter === item.key;
+            return (
+              <Pressable
+                key={item.key}
+                style={[
+                  styles.serviceChipCompact,
+                  isSelected ? styles.serviceChipCompactSelected : styles.serviceChipCompactUnselected,
+                ]}
+                onPress={() => setSelectedServiceFilter(item.key)}
+                hitSlop={4}
+              >
+                <MaterialCommunityIcons
+                  name={item.icon as any}
+                  size={12}
+                  color={isSelected ? '#FF6B0B' : '#64748B'}
+                  style={{ marginRight: 4 }}
+                />
+                <Text
+                  style={[
+                    styles.serviceChipTextCompact,
+                    isSelected ? styles.serviceChipTextCompactSelected : styles.serviceChipTextCompactUnselected,
+                  ]}
+                >
+                  {item.label}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </ScrollView>
 
-      {/* 8. RESULT INFORMATION & SORT ROW */}
-      <View style={styles.resultRow}>
-        <Text style={styles.resultCountText}>
-          {filteredProducts.length} item{filteredProducts.length !== 1 ? 's' : ''} found
-        </Text>
         <Pressable
-          style={({ pressed }) => [styles.sortBtn, pressed && styles.pressedBtn]}
+          style={styles.sortButtonPill}
           onPress={() => {
             setSelectedSort((prev) =>
               prev === 'POPULAR' ? 'PRICE_LOW' : prev === 'PRICE_LOW' ? 'PRICE_HIGH' : 'POPULAR'
@@ -715,25 +752,26 @@ export function CategoryCatalogScreen({
           }}
           hitSlop={6}
         >
-          <MaterialCommunityIcons name="swap-vertical" size={16} color="#475569" />
-          <Text style={styles.sortBtnText}>
+          <MaterialCommunityIcons name="swap-vertical" size={13} color="#FF6B0B" />
+          <Text style={styles.sortButtonPillText}>
             {selectedSort === 'POPULAR' ? 'Popular' : selectedSort === 'PRICE_LOW' ? 'Price: Low' : 'Price: High'}
           </Text>
+          <MaterialCommunityIcons name="chevron-down" size={13} color="#64748B" />
         </Pressable>
       </View>
 
-      {/* 9. PRODUCT GRID (FULL SCREEN WIDTH 2-COLUMN GRID, ZERO SIDEBAR!) */}
+      {/* 6. PRODUCT GRID (Compact, fast to scan, 4-6 products visible, safe bottom padding) */}
       {isLoading && filteredProducts.length === 0 ? (
         <View style={styles.loadingGridContainer}>
-          <ActivityIndicator size="large" color="#FF6B0B" />
-          <Text style={styles.loadingText}>Loading live garments from catalog...</Text>
+          <ActivityIndicator size="small" color="#FF6B0B" />
+          <Text style={styles.loadingText}>Loading live garments...</Text>
         </View>
       ) : filteredProducts.length === 0 ? (
         <View style={styles.emptyContainer}>
-          <MaterialCommunityIcons name="hanger" size={52} color="#CBD5E1" />
+          <MaterialCommunityIcons name="hanger" size={44} color="#CBD5E1" />
           <Text style={styles.emptyTitle}>No garments found</Text>
           <Text style={styles.emptySubtitle}>
-            Try clearing filters or search to view all {activeCategoryTitle} items.
+            Try clearing filters or search to view all {displayTitle} items.
           </Text>
           <Pressable
             style={styles.resetFilterBtn}
@@ -752,8 +790,8 @@ export function CategoryCatalogScreen({
           contentContainerStyle={[
             styles.productsScrollContent,
             {
-              // Generous bottom padding: Cart bar height (60) + safe area + 30px
-              paddingBottom: 64 + Math.max(insets.bottom, 12) + 28,
+              // Generous bottom padding: Cart bar (56) + safe area + margin
+              paddingBottom: 72 + Math.max(insets.bottom, 16) + 24,
             },
           ]}
         >
@@ -761,10 +799,11 @@ export function CategoryCatalogScreen({
             {filteredProducts.map((cloth) => {
               const chosenService = getSelectedServiceForCloth(cloth);
               const cartQty = getCartQuantityForProduct(cloth, chosenService.serviceId);
-              const isImgBroken = imageErrors[cloth.id];
+              const isImgBroken = imageFailures[cloth.id];
               const isImageLoading = imageLoading[cloth.id];
-              const photoUrl =
-                !isImgBroken && (cloth.imageUrl || getGarmentImageUrl(cloth.id, undefined, cloth.categoryTag));
+              const photoUrl = !isImgBroken
+                ? getGarmentImageUrl(cloth.id, cloth.imageUrl, cloth.categoryTag, cloth.name)
+                : null;
               const isFavorite = wishlist.includes(cloth.id);
 
               return (
@@ -772,7 +811,7 @@ export function CategoryCatalogScreen({
                   key={cloth.id}
                   style={[styles.productCard, { width: cardWidth }]}
                 >
-                  {/* 10. PRODUCT IMAGE (1:1 Aspect Ratio, Rounded Top, Favorite & Badges) */}
+                  {/* PRODUCT IMAGE (Compact 110px height, clean cover crop) */}
                   <View style={styles.cardImageContainer}>
                     {photoUrl ? (
                       <>
@@ -783,7 +822,7 @@ export function CategoryCatalogScreen({
                           onLoadStart={() => setImageLoading((prev) => ({ ...prev, [cloth.id]: true }))}
                           onLoadEnd={() => setImageLoading((prev) => ({ ...prev, [cloth.id]: false }))}
                           onError={() => {
-                            setImageErrors((prev) => ({ ...prev, [cloth.id]: true }));
+                            setImageFailures((prev) => ({ ...prev, [cloth.id]: true }));
                             setImageLoading((prev) => ({ ...prev, [cloth.id]: false }));
                           }}
                         />
@@ -795,47 +834,44 @@ export function CategoryCatalogScreen({
                       </>
                     ) : (
                       <View style={styles.cardImageFallback}>
-                        <MaterialCommunityIcons name="tshirt-crew" size={40} color="#94A3B8" />
-                        <Text style={styles.fallbackText}>No Image</Text>
+                        <MaterialCommunityIcons name="tshirt-crew" size={32} color="#CBD5E1" />
                       </View>
                     )}
 
-                    {/* 14. Favorite Button (36x36 white translucent circle top-right) */}
+                    {/* Favorite Heart Button */}
                     <Pressable
-                      style={({ pressed }) => [styles.favoriteCircleBtn, pressed && styles.pressedBtn]}
+                      style={styles.favoriteCircleBtn}
                       onPress={() => toggleWishlist(cloth.id)}
-                      hitSlop={8}
+                      hitSlop={6}
                     >
                       <MaterialCommunityIcons
                         name={isFavorite ? 'heart' : 'heart-outline'}
-                        size={18}
-                        color={isFavorite ? '#EF4444' : '#334155'}
+                        size={15}
+                        color={isFavorite ? '#EF4444' : '#64748B'}
                       />
                     </Pressable>
 
-                    {/* 12. ⚡ 24h Express Badge (Small blue pill bottom-left) */}
+                    {/* 24h Express Badge */}
                     <View style={styles.expressBadge}>
                       <Text style={styles.expressBadgeText}>⚡ 24h</Text>
                     </View>
 
-                    {/* 13. ⭐ 4.9 Rating Badge (Compact pill bottom-right) */}
+                    {/* Rating Badge */}
                     <View style={styles.ratingBadge}>
-                      <MaterialCommunityIcons name="star" size={11} color="#F59E0B" />
+                      <MaterialCommunityIcons name="star" size={10} color="#F59E0B" />
                       <Text style={styles.ratingBadgeText}>4.9</Text>
                     </View>
                   </View>
 
-                  {/* PRODUCT CARD BODY (Fixed Heights for Perfect Equal Alignment Across Cards) */}
+                  {/* PRODUCT CARD BODY (Compact ~95px, clear price & service selection) */}
                   <View style={styles.cardBody}>
-                    {/* 15. Product Title (2-lines fixed height: 40px) */}
-                    <View style={styles.titleContainer}>
-                      <Text style={styles.productCardTitle} numberOfLines={2}>
-                        {cloth.name}
-                      </Text>
-                    </View>
+                    {/* Title */}
+                    <Text style={styles.productCardTitle} numberOfLines={1}>
+                      {cloth.name}
+                    </Text>
 
-                    {/* 16. ALL SERVICE PRICES DISPLAY - Show all prices at once for easy comparison */}
-                    <View style={styles.allPricesContainer}>
+                    {/* Service Selector Mini-Pills (Press, Wash+Iron, Dry Clean) */}
+                    <View style={styles.serviceMiniRow}>
                       {cloth.services.map((srv) => {
                         const isChosen = chosenService.serviceId === srv.serviceId;
                         const label =
@@ -843,80 +879,66 @@ export function CategoryCatalogScreen({
                             ? 'Press'
                             : srv.serviceCode === 'WASH_IRON'
                             ? 'Wash+Iron'
-                            : 'Dry Clean';
+                            : srv.serviceCode === 'DRY_CLEAN'
+                            ? 'Dry Clean'
+                            : srv.shortLabel;
 
                         return (
                           <Pressable
                             key={srv.serviceId}
                             style={[
-                              styles.priceOptionRow,
-                              isChosen && styles.priceOptionRowActive,
+                              styles.serviceMiniPill,
+                              isChosen && styles.serviceMiniPillActive,
                             ]}
                             onPress={() => handleSelectServiceForCloth(cloth.id, srv.serviceId)}
                             hitSlop={4}
                           >
-                            <View style={styles.priceOptionLeft}>
-                              <MaterialCommunityIcons 
-                                name={srv.icon as any} 
-                                size={14} 
-                                color={isChosen ? '#FF6B0B' : '#64748B'} 
-                              />
-                              <Text
-                                style={[
-                                  styles.priceOptionLabel,
-                                  isChosen && styles.priceOptionLabelActive,
-                                ]}
-                                numberOfLines={1}
-                              >
-                                {label}
-                              </Text>
-                            </View>
                             <Text
                               style={[
-                                styles.priceOptionPrice,
-                                isChosen && styles.priceOptionPriceActive,
+                                styles.serviceMiniText,
+                                isChosen && styles.serviceMiniTextActive,
                               ]}
                             >
-                              ₹{srv.price}
+                              {label}
                             </Text>
-                            {isChosen && (
-                              <View style={styles.priceOptionCheck}>
-                                <MaterialCommunityIcons name="check-circle" size={16} color="#FF6B0B" />
-                              </View>
-                            )}
                           </Pressable>
                         );
                       })}
                     </View>
 
-                    {/* 18. ADD TO CART BUTTON - Large, Prominent, Always Visible */}
-                    <View style={styles.ctaContainer}>
+                    {/* Price & Action Row */}
+                    <View style={styles.priceAndActionRow}>
+                      <View style={styles.priceCol}>
+                        <Text style={styles.priceText}>₹{chosenService.price}</Text>
+                        <Text style={styles.priceUnitText}>/{chosenService.unit === 'KG' ? 'kg' : 'pc'}</Text>
+                      </View>
+
                       {cartQty > 0 ? (
-                        <View style={styles.stepperWrap}>
+                        <View style={styles.stepperCompact}>
                           <Pressable
-                            style={({ pressed }) => [styles.stepperActionBtn, pressed && styles.pressedBtn]}
+                            style={styles.stepperActionBtnCompact}
                             onPress={() => handleDecrement(cloth, chosenService)}
-                            hitSlop={8}
+                            hitSlop={6}
                           >
-                            <MaterialCommunityIcons name="minus" size={18} color="#FFFFFF" />
+                            <MaterialCommunityIcons name="minus" size={13} color="#FFFFFF" />
                           </Pressable>
-                          <Text style={styles.stepperQtyText}>{cartQty}</Text>
+                          <Text style={styles.stepperQtyCompact}>{cartQty}</Text>
                           <Pressable
-                            style={({ pressed }) => [styles.stepperActionBtn, pressed && styles.pressedBtn]}
+                            style={styles.stepperActionBtnCompact}
                             onPress={() => handleIncrement(cloth, chosenService)}
-                            hitSlop={8}
+                            hitSlop={6}
                           >
-                            <MaterialCommunityIcons name="plus" size={18} color="#FFFFFF" />
+                            <MaterialCommunityIcons name="plus" size={13} color="#FFFFFF" />
                           </Pressable>
                         </View>
                       ) : (
                         <Pressable
-                          style={({ pressed }) => [styles.addBtn, pressed && styles.pressedBtn]}
+                          style={styles.addBtnCompact}
                           onPress={() => handleAddToCart(cloth, chosenService)}
-                          hitSlop={8}
+                          hitSlop={6}
                         >
-                          <MaterialCommunityIcons name="cart-plus" size={18} color="#FFFFFF" />
-                          <Text style={styles.addBtnText}>ADD TO CART</Text>
+                          <MaterialCommunityIcons name="plus" size={13} color="#FF6B0B" />
+                          <Text style={styles.addBtnTextCompact}>ADD</Text>
                         </Pressable>
                       )}
                     </View>
@@ -928,16 +950,16 @@ export function CategoryCatalogScreen({
         </ScrollView>
       )}
 
-      {/* 20. VIEW BAG BAR — CRITICAL STICKY BAR ABOVE SAFE AREA (NEVER OVERLAPPING PRODUCTS) */}
+      {/* 7. VIEW BAG BAR (Floating sticky bar with generous safe-area margin) */}
       {cartSummary.itemCount > 0 && (
-        <View style={[styles.stickyCartBarWrap, { bottom: Math.max(insets.bottom, 8) + 8 }]}>
+        <View style={[styles.stickyCartBarWrap, { bottom: Math.max(insets.bottom, 12) + 6 }]}>
           <Pressable
             style={({ pressed }) => [styles.stickyCartBar, pressed && styles.pressedBtn]}
             onPress={handleCartClick}
           >
             <View style={styles.cartBarLeft}>
               <View style={styles.cartBarIconBadge}>
-                <MaterialCommunityIcons name="shopping" size={18} color="#FFFFFF" />
+                <MaterialCommunityIcons name="shopping" size={16} color="#FFFFFF" />
               </View>
               <Text style={styles.cartBarTotalText}>
                 {cartSummary.itemCount} {cartSummary.itemCount === 1 ? 'item' : 'items'} • ₹{cartSummary.itemTotal}
@@ -946,7 +968,7 @@ export function CategoryCatalogScreen({
 
             <View style={styles.cartBarRight}>
               <Text style={styles.cartBarActionText}>View Bag</Text>
-              <MaterialCommunityIcons name="arrow-right" size={18} color="#FFFFFF" />
+              <MaterialCommunityIcons name="arrow-right" size={16} color="#FFFFFF" />
             </View>
           </Pressable>
         </View>
@@ -961,22 +983,22 @@ const styles = StyleSheet.create({
     backgroundColor: '#F8FAFC',
   },
 
-  /* 1. Top App Bar */
+  /* 1. Top App Bar (54px) */
   topBar: {
-    height: 64,
+    height: 54,
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
     backgroundColor: '#FFFFFF',
     borderBottomWidth: 1,
-    borderBottomColor: '#E2E8F0',
+    borderBottomColor: '#F1F5F9',
     gap: 12,
   },
   backBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: '#F1F5F9',
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: '#F8FAFC',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -984,74 +1006,80 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   topBarTitle: {
-    fontSize: 19,
-    fontWeight: '700',
-    color: '#111827',
-    letterSpacing: -0.3,
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#0F172A',
+    letterSpacing: -0.2,
   },
   topBarSubtitle: {
-    fontSize: 13,
+    fontSize: 11,
     color: '#64748B',
-    fontWeight: '500',
-    marginTop: 2,
+    fontWeight: '600',
+    marginTop: 1,
   },
   cartBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: '#F1F5F9',
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: '#F8FAFC',
     alignItems: 'center',
     justifyContent: 'center',
     position: 'relative',
   },
   cartBadge: {
     position: 'absolute',
-    top: 4,
-    right: 4,
+    top: 2,
+    right: 2,
     backgroundColor: '#FF6B0B',
-    minWidth: 18,
-    height: 18,
-    borderRadius: 9,
+    minWidth: 16,
+    height: 16,
+    borderRadius: 8,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 4,
-    borderWidth: 2,
+    paddingHorizontal: 3,
+    borderWidth: 1.5,
     borderColor: '#FFFFFF',
   },
   cartBadgeText: {
     color: '#FFFFFF',
     fontSize: 9,
-    fontWeight: '800',
+    fontWeight: '900',
   },
 
-  /* 2. Main Category Tabs */
+  /* 2. Main Category Tabs (36px) */
   categoryTabsContainer: {
     backgroundColor: '#FFFFFF',
+    paddingVertical: 6,
     borderBottomWidth: 1,
-    borderBottomColor: '#E2E8F0',
-    paddingVertical: 10,
+    borderBottomColor: '#F1F5F9',
   },
   categoryTabsScroll: {
     paddingHorizontal: 16,
     gap: 8,
+    paddingRight: 24,
   },
   categoryPill: {
-    height: 44,
+    height: 32,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    borderRadius: 22,
+    paddingHorizontal: 12,
+    borderRadius: 16,
   },
   categoryPillSelected: {
-    backgroundColor: '#1F4B99',
+    backgroundColor: '#FF6B0B',
+    shadowColor: '#FF6B0B',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 2,
   },
   categoryPillUnselected: {
-    backgroundColor: '#F1F5F9',
+    backgroundColor: '#F8FAFC',
     borderWidth: 1,
     borderColor: '#E2E8F0',
   },
   categoryPillText: {
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: '700',
   },
   categoryPillTextSelected: {
@@ -1061,513 +1089,431 @@ const styles = StyleSheet.create({
     color: '#475569',
   },
 
-  /* 3. Search Bar */
+  /* 3. Search Bar (40px) */
   searchBarWrap: {
     backgroundColor: '#FFFFFF',
     paddingHorizontal: 16,
-    paddingVertical: 8,
+    paddingVertical: 6,
   },
   searchBar: {
-    height: 50,
+    height: 38,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F1F5F9',
-    borderRadius: 15,
-    paddingHorizontal: 14,
-    gap: 10,
+    backgroundColor: '#F8FAFC',
+    borderRadius: 19,
+    paddingHorizontal: 12,
+    gap: 8,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
   },
   searchInput: {
     flex: 1,
-    fontSize: 14,
-    color: '#111827',
+    fontSize: 13,
+    color: '#0F172A',
     fontWeight: '500',
     paddingVertical: 0,
   },
 
-  /* 4. Service Filters */
-  serviceFiltersContainer: {
-    backgroundColor: '#FFFFFF',
-    borderBottomWidth: 1,
-    borderBottomColor: '#E2E8F0',
-    paddingBottom: 10,
-  },
-  serviceFiltersScroll: {
-    paddingHorizontal: 16,
-    gap: 8,
-  },
-  serviceChip: {
-    height: 38,
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 14,
-    borderRadius: 19,
-  },
-  serviceChipSelected: {
-    backgroundColor: '#FF6B0B',
-    borderColor: '#FF6B0B',
-  },
-  serviceChipUnselected: {
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-  },
-  serviceChipText: {
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  serviceChipTextSelected: {
-    color: '#FFFFFF',
-    fontWeight: '700',
-  },
-  serviceChipTextUnselected: {
-    color: '#334155',
-  },
-
-  /* 5. Horizontal Subcategory Carousel (Replaces vertical sidebar) */
+  /* 4. Subcategory Carousel (66px) */
   subcatCarouselContainer: {
     backgroundColor: '#FFFFFF',
     borderBottomWidth: 1,
-    borderBottomColor: '#E2E8F0',
-    paddingVertical: 12,
+    borderBottomColor: '#F1F5F9',
+    paddingVertical: 8,
   },
   subcatCarouselScroll: {
     paddingHorizontal: 16,
     gap: 12,
+    paddingRight: 24,
   },
   subcatCircleItem: {
-    width: 72,
+    width: 58,
     alignItems: 'center',
   },
   subcatCircleWrap: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     backgroundColor: '#F1F5F9',
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 2,
-    borderColor: 'transparent',
+    borderWidth: 1.5,
+    borderColor: '#E2E8F0',
     overflow: 'hidden',
+    position: 'relative',
   },
   subcatCircleWrapSelected: {
     borderColor: '#FF6B0B',
+    borderWidth: 2,
     backgroundColor: '#FFF7ED',
   },
+  subcatIconLayer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   subcatCircleImg: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
   },
   subcatCircleText: {
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '600',
     color: '#64748B',
     textAlign: 'center',
-    marginTop: 6,
-    lineHeight: 14,
+    marginTop: 4,
+    lineHeight: 12,
   },
   subcatCircleTextSelected: {
     color: '#FF6B0B',
-    fontWeight: '700',
+    fontWeight: '800',
   },
 
-  /* 6. Breadcrumb Navigation */
-  breadcrumbContainer: {
-    backgroundColor: '#FFFFFF',
-    borderBottomWidth: 1,
-    borderBottomColor: '#E2E8F0',
-    paddingVertical: 8,
-  },
-  breadcrumbScroll: {
-    paddingHorizontal: 16,
-    gap: 6,
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  breadcrumbChip: {
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 8,
-    backgroundColor: '#F1F5F9',
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  breadcrumbChipActive: {
-    backgroundColor: '#FFF7ED',
-    borderWidth: 1,
-    borderColor: '#FFEDD5',
-  },
-  breadcrumbText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#64748B',
-  },
-  breadcrumbTextActive: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#FF6B0B',
-  },
-
-  /* 7. Result Information Row */
-  resultRow: {
+  /* 5. Filter & Sort Bar (34px) */
+  filterSortBar: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    backgroundColor: '#FFFFFF',
+    paddingVertical: 6,
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E2E8F0',
+    gap: 10,
   },
-  resultCountText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#64748B',
+  serviceFilterScroll: {
+    gap: 6,
+    alignItems: 'center',
   },
-  sortBtn: {
+  serviceChipCompact: {
+    height: 28,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    backgroundColor: '#FFFFFF',
     paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 12,
+    borderRadius: 14,
+  },
+  serviceChipCompactSelected: {
+    backgroundColor: '#FFF7ED',
+    borderWidth: 1.5,
+    borderColor: '#FF6B0B',
+  },
+  serviceChipCompactUnselected: {
+    backgroundColor: '#F8FAFC',
     borderWidth: 1,
     borderColor: '#E2E8F0',
   },
-  sortBtnText: {
-    fontSize: 12,
+  serviceChipTextCompact: {
+    fontSize: 11,
     fontWeight: '600',
-    color: '#475569',
+  },
+  serviceChipTextCompactSelected: {
+    color: '#FF6B0B',
+    fontWeight: '800',
+  },
+  serviceChipTextCompactUnselected: {
+    color: '#64748B',
+  },
+  sortButtonPill: {
+    height: 28,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    borderRadius: 14,
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    gap: 3,
+  },
+  sortButtonPillText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#334155',
   },
 
-  /* 8. Full-Width 2-Column Product Grid */
+  /* 6. Product Grid */
   productsScrollContent: {
-    paddingHorizontal: 16,
+    paddingHorizontal: 12,
+    paddingTop: 10,
   },
   productsGrid2Col: {
     flexDirection: 'row',
     flexWrap: 'wrap',
+    gap: 10,
     justifyContent: 'space-between',
-    rowGap: 14,
   },
-
-  /* 9. Product Card (Equal Heights, Identical Aspect Ratio, Clean Border & Soft Elevation) */
   productCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 16,
+    borderRadius: 12,
     borderWidth: 1,
     borderColor: '#E2E8F0',
     overflow: 'hidden',
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 6,
-    elevation: 2,
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 3,
+    elevation: 1,
   },
 
-  /* 10. Product Image (1:1 Ratio) */
+  /* Card Image */
   cardImageContainer: {
-    width: '100%',
-    aspectRatio: 1,
-    backgroundColor: '#F1F5F9',
+    height: 110,
+    backgroundColor: '#F8FAFC',
     position: 'relative',
+    overflow: 'hidden',
   },
   cardImage: {
     width: '100%',
     height: '100%',
-    borderTopLeftRadius: 15,
-    borderTopRightRadius: 15,
   },
   cardImageFallback: {
     width: '100%',
     height: '100%',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#E2E8F0',
-    gap: 6,
+    backgroundColor: '#F1F5F9',
   },
   imageLoadingOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(241, 245, 249, 0.8)',
+    position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
+    backgroundColor: 'rgba(241, 245, 249, 0.7)',
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  fallbackText: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#94A3B8',
   },
   favoriteCircleBtn: {
     position: 'absolute',
-    top: 8,
-    right: 8,
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    top: 6,
+    right: 6,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
     backgroundColor: 'rgba(255, 255, 255, 0.9)',
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.15,
-    shadowRadius: 2,
     elevation: 2,
   },
   expressBadge: {
     position: 'absolute',
-    bottom: 8,
-    left: 8,
+    bottom: 6,
+    left: 6,
     backgroundColor: '#EFF6FF',
-    paddingHorizontal: 7,
-    paddingVertical: 3,
-    borderRadius: 6,
+    paddingHorizontal: 5,
+    paddingVertical: 2,
+    borderRadius: 4,
+    borderWidth: 0.5,
+    borderColor: '#BFDBFE',
   },
   expressBadgeText: {
-    fontSize: 10,
+    fontSize: 9.5,
     fontWeight: '800',
-    color: '#1D4ED8',
+    color: '#2563EB',
   },
   ratingBadge: {
     position: 'absolute',
-    bottom: 8,
-    right: 8,
+    bottom: 6,
+    right: 6,
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: 'rgba(255, 255, 255, 0.92)',
-    paddingHorizontal: 6,
-    paddingVertical: 3,
-    borderRadius: 6,
-    gap: 3,
+    paddingHorizontal: 5,
+    paddingVertical: 2,
+    borderRadius: 4,
+    gap: 2,
   },
   ratingBadgeText: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: '#111827',
+    fontSize: 9.5,
+    fontWeight: '800',
+    color: '#0F172A',
   },
 
-  /* Product Card Body */
+  /* Card Body */
   cardBody: {
-    padding: 12,
-  },
-  titleContainer: {
-    height: 40,
-    justifyContent: 'center',
-    marginBottom: 8,
+    padding: 8,
   },
   productCardTitle: {
-    fontSize: 15,
+    fontSize: 13,
     fontWeight: '700',
-    color: '#111827',
-    lineHeight: 19,
+    color: '#0F172A',
+    marginBottom: 4,
   },
-
-  /* All Service Prices Display - Show all prices for easy comparison */
-  allPricesContainer: {
-    gap: 6,
-    marginBottom: 8,
-  },
-  priceOptionRow: {
+  serviceMiniRow: {
     flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 8,
-    paddingHorizontal: 10,
-    borderRadius: 8,
-    backgroundColor: '#F8FAFC',
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
+    gap: 4,
+    flexWrap: 'wrap',
+    marginBottom: 6,
   },
-  priceOptionRowActive: {
-    backgroundColor: '#FFF7ED',
-    borderColor: '#FF6B0B',
-    borderWidth: 2,
+  serviceMiniPill: {
+    paddingHorizontal: 6,
+    paddingVertical: 2.5,
+    borderRadius: 4,
+    backgroundColor: '#F1F5F9',
   },
-  priceOptionLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    flex: 1,
+  serviceMiniPillActive: {
+    backgroundColor: '#FF6B0B',
   },
-  priceOptionLabel: {
-    fontSize: 12,
+  serviceMiniText: {
+    fontSize: 9.5,
     fontWeight: '600',
     color: '#64748B',
   },
-  priceOptionLabelActive: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#FF6B0B',
-  },
-  priceOptionPrice: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#111827',
-    marginRight: 4,
-  },
-  priceOptionPriceActive: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: '#FF6B0B',
-  },
-  priceOptionCheck: {
-    marginLeft: 4,
-  },
-
-  /* 18. ADD Button & Stepper (Exactly 48px height for better visibility) */
-  /* 18. ADD Button & Stepper (Exactly 48px height for better visibility) */
-  ctaContainer: {
-    height: 48,
-  },
-  addBtn: {
-    height: 48,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#FF6B0B',
-    borderRadius: 12,
-    gap: 6,
-    shadowColor: '#FF6B0B',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  addBtnText: {
+  serviceMiniTextActive: {
     color: '#FFFFFF',
-    fontSize: 14,
     fontWeight: '800',
-    letterSpacing: 0.8,
   },
-  stepperWrap: {
-    height: 48,
+  priceAndActionRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#FF6B0B',
-    borderRadius: 12,
-    paddingHorizontal: 10,
-    shadowColor: '#FF6B0B',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
-    elevation: 3,
+    marginTop: 2,
   },
-  stepperActionBtn: {
-    width: 32,
-    height: 32,
+  priceCol: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+  },
+  priceText: {
+    fontSize: 16,
+    fontWeight: '900',
+    color: '#0F172A',
+  },
+  priceUnitText: {
+    fontSize: 9.5,
+    color: '#64748B',
+    fontWeight: '600',
+  },
+  addBtnCompact: {
+    height: 28,
+    paddingHorizontal: 10,
+    borderRadius: 6,
+    backgroundColor: '#FFF7ED',
+    borderWidth: 1,
+    borderColor: '#FF6B0B',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+  },
+  addBtnTextCompact: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#FF6B0B',
+  },
+  stepperCompact: {
+    height: 28,
+    borderRadius: 6,
+    backgroundColor: '#FF6B0B',
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 4,
+  },
+  stepperActionBtnCompact: {
+    width: 20,
+    height: 20,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 8,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
   },
-  stepperQtyText: {
+  stepperQtyCompact: {
     color: '#FFFFFF',
-    fontSize: 16,
+    fontSize: 12,
     fontWeight: '800',
-    minWidth: 28,
+    minWidth: 18,
     textAlign: 'center',
   },
 
-  /* 20. Sticky Cart Bar (Above Android Safe Area) */
-  stickyCartBarWrap: {
-    position: 'absolute',
-    left: 16,
-    right: 16,
-    zIndex: 99,
-  },
-  stickyCartBar: {
-    height: 60,
-    backgroundColor: '#FF6B0B',
-    borderRadius: 16,
-    paddingHorizontal: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    shadowColor: '#FF6B0B',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.35,
-    shadowRadius: 10,
-    elevation: 8,
-  },
-  cartBarLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  cartBarIconBadge: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: 'rgba(255, 255, 255, 0.25)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  cartBarTotalText: {
-    color: '#FFFFFF',
-    fontSize: 15,
-    fontWeight: '800',
-  },
-  cartBarRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  cartBarActionText: {
-    color: '#FFFFFF',
-    fontSize: 15,
-    fontWeight: '700',
-  },
-
-  /* Empty & Loading States */
+  /* Empty & Loading */
   loadingGridContainer: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
     padding: 32,
-    gap: 12,
+    gap: 8,
   },
   loadingText: {
     fontSize: 13,
     color: '#64748B',
-    fontWeight: '500',
+    fontWeight: '600',
   },
   emptyContainer: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
     padding: 32,
-    gap: 12,
+    gap: 8,
   },
   emptyTitle: {
-    fontSize: 17,
-    fontWeight: '700',
-    color: '#1E293B',
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#0F172A',
   },
   emptySubtitle: {
-    fontSize: 13,
+    fontSize: 12,
     color: '#64748B',
     textAlign: 'center',
-    maxWidth: 240,
-    lineHeight: 18,
+    marginBottom: 8,
   },
   resetFilterBtn: {
-    marginTop: 8,
     paddingHorizontal: 16,
     paddingVertical: 8,
-    backgroundColor: '#1F4B99',
-    borderRadius: 10,
+    backgroundColor: '#FF6B0B',
+    borderRadius: 8,
   },
   resetFilterBtnText: {
     color: '#FFFFFF',
-    fontSize: 13,
-    fontWeight: '600',
+    fontSize: 12,
+    fontWeight: '700',
   },
 
+  /* 7. Sticky Cart Bar (Floating above safe area) */
+  stickyCartBarWrap: {
+    position: 'absolute',
+    left: 12,
+    right: 12,
+    zIndex: 99,
+  },
+  stickyCartBar: {
+    height: 52,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#0F172A',
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+  cartBarLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  cartBarIconBadge: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: '#FF6B0B',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cartBarTotalText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  cartBarRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  cartBarActionText: {
+    color: '#FF6B0B',
+    fontSize: 13,
+    fontWeight: '800',
+  },
   pressedBtn: {
-    opacity: 0.88,
-    transform: [{ scale: 0.98 }],
+    opacity: 0.8,
   },
 });
