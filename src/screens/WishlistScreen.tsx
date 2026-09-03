@@ -52,10 +52,10 @@ export function WishlistScreen({ onBook, onExploreServices }: WishlistScreenProp
             id: cloth.id,
             name: cloth.name,
             category: cloth.categoryLabel || cloth.categoryTag || 'Fabric Care',
-            serviceType: primaryPrice ? primaryPrice.serviceName : 'Steam Press & Fold',
-            serviceId: primaryPrice ? primaryPrice.serviceId : 'srv-m-steam-iron',
+            serviceType: primaryPrice?.serviceName || 'Standard Service',
+            serviceId: primaryPrice?.serviceId || '',
             tat: `${primaryPrice?.turnaroundHours || 24}H`,
-            price: primaryPrice ? primaryPrice.price : 99,
+            price: primaryPrice?.price || 0,
             unit: 'pc',
             imageUrl:
               cloth.imageUrl ||
@@ -69,10 +69,10 @@ export function WishlistScreen({ onBook, onExploreServices }: WishlistScreenProp
         id,
         name: id.replace('cloth-', '').replace(/-/g, ' ').toUpperCase(),
         category: 'Fabric Care',
-        serviceType: 'Steam Press & Fold',
-        serviceId: 'srv-m-steam-iron',
+        serviceType: 'Standard Service',
+        serviceId: '',
         tat: '24H',
-        price: 99,
+        price: 0,
         unit: 'pc',
         imageUrl: getGarmentImageUrl(id),
       };
