@@ -212,7 +212,7 @@ export const api = {
   getCustomerSubscriptions: (customerId: string) =>
     request<any>(`/subscriptions/customer/${encodeURIComponent(customerId)}`, {}, true),
   purchaseSubscription: (customerId: string, subscriptionId: string) =>
-    request<{ orderId: string; amount: number; currency: string; planName: string; validityDays: number; includedKg: number }>(
+    request<{ orderId: string; keyId?: string; key?: string; amount: number; currency: string; planName: string; validityDays: number; includedKg: number }>(
       '/subscriptions/purchase',
       { method: 'POST', body: JSON.stringify({ customerId, subscriptionId }) },
       true

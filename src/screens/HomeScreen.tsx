@@ -491,7 +491,7 @@ export function HomeScreen({
         description: `${orderResponse.planName} - ${orderResponse.includedKg} KG, ${orderResponse.validityDays} Days`,
         image: 'https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/brand/logo.png',
         currency: orderResponse.currency,
-        key: process.env.EXPO_PUBLIC_RAZORPAY_KEY_ID || '',
+        key: (orderResponse as any).key || (orderResponse as any).keyId || process.env.EXPO_PUBLIC_RAZORPAY_KEY_ID || 'rzp_live_TO6q7NUVnPM6bA',
         amount: Math.round(orderResponse.amount * 100),
         order_id: orderResponse.orderId,
         name: 'LaundryFresh Subscription',
@@ -700,8 +700,10 @@ export function HomeScreen({
                       onViewServices();
                     }
                   }}
+                  accessibilityRole="button"
+                  accessibilityLabel={`View ${svc.title} service`}
                 >
-                  {/* Photo Thumbnail with Gradient Overlay */}
+                  {/* Rounded photo thumbnail */}
                   <View style={styles.luxuryServiceImgWrap}>
                     <Image
                       source={{ uri: svc.imageUrl }}
@@ -727,9 +729,6 @@ export function HomeScreen({
                   <View style={styles.luxuryServiceBody}>
                     <Text style={styles.luxuryServiceTitle} numberOfLines={1}>
                       {svc.title}
-                    </Text>
-                    <Text style={styles.luxuryServiceSub} numberOfLines={1}>
-                      {svc.subtitle}
                     </Text>
                     <View style={styles.luxuryServicePriceRow}>
                       <Text style={styles.luxuryServicePriceText}>{svc.priceText || 'From ₹49'}</Text>
@@ -812,14 +811,7 @@ export function HomeScreen({
             </Pressable>
           </View>
 
-          <ScrollView
-            horizontal
-            pagingEnabled={false}
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.subsScroll}
-            snapToInterval={290}
-            decelerationRate="fast"
-          >
+          <View style={styles.premiumSubGrid}>
             {(liveSubPlans.length > 0
               ? liveSubPlans.map((lp) => ({
                   id: lp.id,
@@ -913,7 +905,15 @@ export function HomeScreen({
                     gradientColors: ['#7C3AED', '#6D28D9'],
                   },
                 ]
-            ).map((plan) => (
+            ).slice(0, 4).map((plan) => {
+              const savings = plan.originalPrice && plan.originalPrice > plan.price
+                ? plan.originalPrice - plan.price
+                : 0;
+              const durationMonths = Math.max(1, Math.round(plan.validityDays / 30));
+              const billingPeriod = durationMonths === 1 ? 'month' : `${durationMonths} months`;
+              const hasFreePickup = plan.pickups === 'Free Doorstep';
+
+              return (
               <Pressable
                 key={plan.id}
                 style={({ pressed }) => [
@@ -922,6 +922,8 @@ export function HomeScreen({
                   pressed && styles.premiumSubCardPressed,
                 ]}
                 onPress={() => handleSubscriptionPurchase(plan)}
+                accessibilityRole="button"
+                accessibilityLabel={`Choose ${plan.name} subscription`}
               >
                 {/* Gradient Background Overlay */}
                 <LinearGradient
@@ -929,53 +931,46 @@ export function HomeScreen({
                   style={styles.premiumSubCardBg}
                 />
 
-                {/* Popular Badge - Top Right */}
-                {plan.popular && (
-                  <View style={styles.premiumSubPopularBadge}>
-                    <LinearGradient
-                      colors={['#FF7A00', '#FF5A00']}
-                      start={{ x: 0, y: 0 }}
-                      end={{ x: 1, y: 1 }}
-                      style={styles.premiumSubPopularGradient}
-                    >
-                      <MaterialCommunityIcons name="crown" size={14} color="#FFFFFF" />
-                      <Text style={styles.premiumSubPopularText}>POPULAR</Text>
-                    </LinearGradient>
-                  </View>
-                )}
-
-                {/* Top Tag */}
+                {/* Small status label keeps the compact cards scannable. */}
                 <View style={[styles.premiumSubTag, { backgroundColor: plan.badgeBg }]}>
-                  <Text style={[styles.premiumSubTagText, { color: plan.badgeColor }]}>{plan.tag}</Text>
+                  <MaterialCommunityIcons
+                    name={plan.popular ? 'crown' : 'ticket-percent-outline'}
+                    size={11}
+                    color={plan.badgeColor}
+                  />
+                  <Text style={[styles.premiumSubTagText, { color: plan.badgeColor }]}>
+                    {plan.popular ? 'MOST POPULAR' : savings > 0 ? `SAVE ₹${savings}` : 'MEMBERSHIP'}
+                  </Text>
                 </View>
 
                 {/* Plan Title */}
                 <Text style={styles.premiumSubTitle} numberOfLines={2}>{plan.name}</Text>
 
-                {/* Description */}
-                <Text style={styles.premiumSubDesc} numberOfLines={2}>{plan.desc}</Text>
-
-                {/* Key Features Grid */}
-                <View style={styles.premiumSubFeaturesGrid}>
-                  <View style={styles.premiumSubFeatureBox}>
-                    <MaterialCommunityIcons name="weight-kilogram" size={20} color={plan.badgeColor} />
-                    <Text style={styles.premiumSubFeatureLabel}>Allowance</Text>
-                    <Text style={styles.premiumSubFeatureValue}>{plan.kg}</Text>
+                <View style={styles.premiumSubMetricsRow}>
+                  <View style={styles.premiumSubMetric}>
+                    <MaterialCommunityIcons name="weight-kilogram" size={14} color={plan.badgeColor} />
+                    <Text style={styles.premiumSubMetricValue}>{plan.kg}</Text>
+                    <Text style={styles.premiumSubMetricLabel}>allowance</Text>
                   </View>
-                  <View style={styles.premiumSubFeatureBox}>
-                    <MaterialCommunityIcons name="truck-fast-outline" size={20} color={plan.badgeColor} />
-                    <Text style={styles.premiumSubFeatureLabel}>Pickups</Text>
-                    <Text style={styles.premiumSubFeatureValue}>{plan.pickups}</Text>
-                  </View>
-                  <View style={styles.premiumSubFeatureBox}>
-                    <MaterialCommunityIcons name="calendar-month" size={20} color={plan.badgeColor} />
-                    <Text style={styles.premiumSubFeatureLabel}>Validity</Text>
-                    <Text style={styles.premiumSubFeatureValue}>{Math.floor(plan.validityDays / 30)} Mon</Text>
+                  <View style={styles.premiumSubMetric}>
+                    <MaterialCommunityIcons name="calendar-month-outline" size={14} color={plan.badgeColor} />
+                    <Text style={styles.premiumSubMetricValue}>
+                      {durationMonths === 1 ? `${plan.validityDays}d` : `${durationMonths} mo`}
+                    </Text>
+                    <Text style={styles.premiumSubMetricLabel}>validity</Text>
                   </View>
                 </View>
 
-                {/* Divider */}
-                <View style={styles.premiumSubDivider} />
+                <View style={styles.premiumSubPickupRow}>
+                  <MaterialCommunityIcons
+                    name={hasFreePickup ? 'truck-delivery-outline' : 'calendar-clock-outline'}
+                    size={12}
+                    color={hasFreePickup ? '#16A34A' : '#64748B'}
+                  />
+                  <Text style={styles.premiumSubPickupText} numberOfLines={1}>
+                    {hasFreePickup ? 'Free doorstep pickup' : `${plan.validityDays}-day pass`}
+                  </Text>
+                </View>
 
                 {/* Pricing Section */}
                 <View style={styles.premiumSubPriceSection}>
@@ -985,39 +980,29 @@ export function HomeScreen({
                     )}
                     <View style={styles.premiumSubPriceRow}>
                       <Text style={styles.premiumSubPriceAmount}>₹{plan.price}</Text>
-                      <Text style={styles.premiumSubPricePeriod}>/month</Text>
+                      <Text style={styles.premiumSubPricePeriod}>/ {billingPeriod}</Text>
                     </View>
-                    {plan.originalPrice && plan.originalPrice > plan.price && (
-                      <View style={styles.premiumSubSavingsBadge}>
-                        <Text style={styles.premiumSubSavingsText}>
-                          Save ₹{plan.originalPrice - plan.price}
-                        </Text>
-                      </View>
-                    )}
                   </View>
-
-                  {/* Subscribe Button */}
-                  <Pressable
-                    style={({ pressed }) => [
-                      styles.premiumSubCta,
-                      pressed && styles.premiumSubCtaPressed,
-                    ]}
-                    onPress={() => handleSubscriptionPurchase(plan)}
-                  >
-                    <LinearGradient
-                      colors={(plan.gradientColors && plan.gradientColors.length >= 2 ? plan.gradientColors : ['#FF6418', '#FF8A00']) as [string, string, ...string[]]}
-                      start={{ x: 0, y: 0 }}
-                      end={{ x: 1, y: 1 }}
-                      style={styles.premiumSubCtaGradient}
-                    >
-                      <Text style={styles.premiumSubCtaText}>Subscribe</Text>
-                      <MaterialCommunityIcons name="arrow-right" size={16} color="#FFFFFF" />
-                    </LinearGradient>
-                  </Pressable>
+                  {savings > 0 && (
+                    <View style={styles.premiumSubSavingsBadge}>
+                      <Text style={styles.premiumSubSavingsText}>Save ₹{savings}</Text>
+                    </View>
+                  )}
                 </View>
+
+                <LinearGradient
+                  colors={(plan.gradientColors && plan.gradientColors.length >= 2 ? plan.gradientColors : ['#FF6418', '#FF8A00']) as [string, string, ...string[]]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={styles.premiumSubCtaGradient}
+                >
+                  <Text style={styles.premiumSubCtaText}>Choose plan</Text>
+                  <MaterialCommunityIcons name="arrow-right" size={14} color="#FFFFFF" />
+                </LinearGradient>
               </Pressable>
-            ))}
-          </ScrollView>
+              );
+            })}
+          </View>
         </View>
 
         {/* 3. WHY CHOOSE LAUNDRYFRESH VALUE PROPOSITIONS */}
@@ -2195,31 +2180,34 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#2563EB',
   },
-  subsScroll: {
-    paddingRight: 16,
-    gap: 16,
-    paddingLeft: 2,
+  premiumSubGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    gap: 12,
+    paddingHorizontal: 16,
   },
-  
-  // Premium Subscription Cards
+
+  // Compact Home preview cards — details remain available through "View All".
   premiumSubCard: {
-    width: 280,
+    width: '47.8%',
+    minHeight: 252,
     backgroundColor: '#FFFFFF',
-    borderRadius: 24,
-    padding: 20,
-    borderWidth: 2,
+    borderRadius: 18,
+    padding: 10,
+    borderWidth: 1,
     borderColor: '#E2E8F0',
     shadowColor: '#0F172A',
-    shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.12,
-    shadowRadius: 32,
-    elevation: 8,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 3,
     position: 'relative',
-    overflow: 'visible',
+    overflow: 'hidden',
   },
   premiumSubCardPopular: {
     borderColor: '#FF7A00',
-    borderWidth: 2.5,
+    borderWidth: 1.5,
   },
   premiumSubCardPressed: {
     transform: [{ scale: 0.98 }],
@@ -2231,163 +2219,133 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    borderRadius: 22,
-  },
-  premiumSubPopularBadge: {
-    position: 'absolute',
-    top: -8,
-    right: 16,
-    zIndex: 10,
-    borderRadius: 12,
-    overflow: 'hidden',
-    shadowColor: '#FF7A00',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 6,
-  },
-  premiumSubPopularGradient: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-  },
-  premiumSubPopularText: {
-    color: '#FFFFFF',
-    fontSize: 10,
-    fontWeight: '900',
-    letterSpacing: 0.5,
+    borderRadius: 17,
   },
   premiumSubTag: {
     alignSelf: 'flex-start',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 10,
-    marginBottom: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    paddingHorizontal: 6,
+    paddingVertical: 3,
+    borderRadius: 7,
+    marginBottom: 6,
   },
   premiumSubTagText: {
-    fontSize: 11,
+    fontSize: 8.5,
     fontWeight: '800',
-    letterSpacing: 0.3,
+    letterSpacing: 0.15,
   },
   premiumSubTitle: {
-    fontSize: 18,
-    fontWeight: '900',
+    minHeight: 34,
+    fontSize: 13,
+    fontWeight: '800',
     color: '#0F172A',
-    marginBottom: 6,
-    lineHeight: 24,
+    lineHeight: 17,
+    marginBottom: 8,
   },
-  premiumSubDesc: {
-    fontSize: 12.5,
-    color: '#64748B',
-    lineHeight: 18,
-    marginBottom: 16,
-    minHeight: 36,
-  },
-  premiumSubFeaturesGrid: {
+  premiumSubMetricsRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    gap: 8,
-    marginBottom: 16,
+    gap: 6,
   },
-  premiumSubFeatureBox: {
+  premiumSubMetric: {
     flex: 1,
     alignItems: 'center',
-    backgroundColor: '#F8FAFC',
-    borderRadius: 12,
-    padding: 10,
+    justifyContent: 'center',
+    minHeight: 51,
+    backgroundColor: 'rgba(248, 250, 252, 0.92)',
+    borderRadius: 10,
+    paddingHorizontal: 3,
+    paddingVertical: 5,
     borderWidth: 1,
     borderColor: '#E2E8F0',
   },
-  premiumSubFeatureLabel: {
-    fontSize: 9,
-    fontWeight: '600',
-    color: '#94A3B8',
-    marginTop: 4,
-    textTransform: 'uppercase',
-    letterSpacing: 0.3,
-  },
-  premiumSubFeatureValue: {
-    fontSize: 13,
+  premiumSubMetricValue: {
+    fontSize: 11.5,
     fontWeight: '800',
     color: '#0F172A',
     marginTop: 2,
   },
-  premiumSubDivider: {
-    height: 1,
-    backgroundColor: '#E2E8F0',
-    marginBottom: 16,
+  premiumSubMetricLabel: {
+    fontSize: 8,
+    fontWeight: '700',
+    color: '#94A3B8',
+    marginTop: 1,
+    textTransform: 'uppercase',
+  },
+  premiumSubPickupRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    minHeight: 20,
+    marginTop: 7,
+  },
+  premiumSubPickupText: {
+    flex: 1,
+    fontSize: 9.5,
+    fontWeight: '600',
+    color: '#475569',
   },
   premiumSubPriceSection: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-end',
     justifyContent: 'space-between',
+    marginTop: 5,
   },
   premiumSubPriceColumn: {
     flex: 1,
+    minWidth: 0,
   },
   premiumSubOriginalPrice: {
-    fontSize: 12,
+    fontSize: 9.5,
     fontWeight: '600',
     color: '#94A3B8',
     textDecorationLine: 'line-through',
-    marginBottom: 2,
   },
   premiumSubPriceRow: {
     flexDirection: 'row',
     alignItems: 'baseline',
-    marginBottom: 4,
   },
   premiumSubPriceAmount: {
-    fontSize: 26,
+    fontSize: 21,
     fontWeight: '900',
     color: '#0F172A',
-    letterSpacing: -0.5,
+    letterSpacing: -0.4,
   },
   premiumSubPricePeriod: {
-    fontSize: 13,
-    fontWeight: '600',
+    flexShrink: 1,
+    fontSize: 9,
+    fontWeight: '700',
     color: '#64748B',
-    marginLeft: 4,
+    marginLeft: 3,
   },
   premiumSubSavingsBadge: {
-    alignSelf: 'flex-start',
+    alignSelf: 'flex-end',
     backgroundColor: '#DCFCE7',
-    paddingHorizontal: 8,
+    paddingHorizontal: 5,
     paddingVertical: 3,
-    borderRadius: 8,
+    borderRadius: 6,
+    marginLeft: 4,
   },
   premiumSubSavingsText: {
-    fontSize: 10,
+    fontSize: 8.5,
     fontWeight: '800',
     color: '#16A34A',
-  },
-  premiumSubCta: {
-    borderRadius: 16,
-    overflow: 'hidden',
-    shadowColor: '#2563EB',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 12,
-    elevation: 5,
-  },
-  premiumSubCtaPressed: {
-    transform: [{ scale: 0.96 }],
-    opacity: 0.9,
   },
   premiumSubCtaGradient: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 20,
-    paddingVertical: 12,
+    justifyContent: 'center',
+    gap: 5,
+    minHeight: 42,
+    marginTop: 8,
+    paddingHorizontal: 8,
+    borderRadius: 12,
   },
   premiumSubCtaText: {
     color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: '900',
-    letterSpacing: 0.3,
+    fontSize: 11.5,
+    fontWeight: '800',
   },
   
   // Payment Loading Overlay
@@ -2426,13 +2384,15 @@ const styles = StyleSheet.create({
   luxuryServicesGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
+    justifyContent: 'space-between',
     gap: 12,
+    paddingHorizontal: 16,
   },
   luxuryServiceTile: {
-    width: '48%',
+    width: '47.8%',
     backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    overflow: 'hidden',
+    borderRadius: 20,
+    padding: 6,
     borderWidth: 1,
     borderColor: '#F1F5F9',
     shadowColor: '#0F172A',
@@ -2443,7 +2403,9 @@ const styles = StyleSheet.create({
   },
   luxuryServiceImgWrap: {
     width: '100%',
-    height: 105,
+    aspectRatio: 1.25,
+    borderRadius: 14,
+    overflow: 'hidden',
     position: 'relative',
     backgroundColor: '#0F172A',
   },
@@ -2487,36 +2449,30 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
   luxuryServiceBody: {
-    padding: 10,
+    paddingHorizontal: 4,
+    paddingTop: 9,
+    paddingBottom: 4,
   },
   luxuryServiceTitle: {
-    fontSize: 13.5,
+    fontSize: 13,
     fontWeight: '800',
     color: '#0F172A',
-    marginBottom: 2,
-  },
-  luxuryServiceSub: {
-    fontSize: 11,
-    color: '#64748B',
-    marginBottom: 8,
+    marginBottom: 5,
   },
   luxuryServicePriceRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingTop: 4,
-    borderTopWidth: 1,
-    borderTopColor: '#F8FAFC',
   },
   luxuryServicePriceText: {
-    fontSize: 12.5,
+    fontSize: 12,
     fontWeight: '800',
     color: '#FF7A00',
   },
   luxuryServiceArrowBox: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
     backgroundColor: '#FF7A00',
     alignItems: 'center',
     justifyContent: 'center',

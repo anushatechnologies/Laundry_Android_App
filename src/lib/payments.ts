@@ -18,7 +18,7 @@ export async function payWithRazorpay(payment: RazorpayPaymentOrder, customer: C
   }
 
   return RazorpayCheckout.open({
-    key: payment.key,
+    key: payment.key || process.env.EXPO_PUBLIC_RAZORPAY_KEY_ID || 'rzp_live_TO6q7NUVnPM6bA',
     amount: payment.amount,
     currency: payment.currency,
     name: 'LaundryFresh',
