@@ -36,7 +36,7 @@ function normalisePhone(value: string) {
 }
 
 export function AuthScreen({ reason = 'ACCOUNT', onBack }: AuthScreenProps) {
-  const { signIn } = useApp();
+  const { signIn, requestOtp } = useApp();
 
   const [mode, setMode] = useState<AuthMode>('LOGIN');
   const [phone, setPhone] = useState('');
@@ -129,8 +129,8 @@ export function AuthScreen({ reason = 'ACCOUNT', onBack }: AuthScreenProps) {
         return;
       }
 
-      // 2. User exists: Send OTP via Backend SMS Gateway (Fast2SMS/2Factor/Twilio)
-      await requestFirebasePhoneOtp(cleanPhone);
+      // 2. User exists: Send OTP (Firebase with automatic Backend fallback)
+      await requestOtp(cleanPhone);
       
       setPhone(cleanPhone);
       setMode('OTP');
@@ -163,8 +163,8 @@ export function AuthScreen({ reason = 'ACCOUNT', onBack }: AuthScreenProps) {
     setErrorMessage(null);
 
     try {
-      // Send OTP via Backend SMS Gateway (Fast2SMS/2Factor/Twilio)
-      await requestFirebasePhoneOtp(cleanPhone);
+      // Send OTP (Firebase with automatic Backend fallback)
+      await requestOtp(cleanPhone, name.trim(), email.trim());
       
       setPhone(cleanPhone);
       setMode('OTP');
@@ -204,8 +204,8 @@ export function AuthScreen({ reason = 'ACCOUNT', onBack }: AuthScreenProps) {
     setLoading(true);
     setErrorMessage(null);
     try {
-      // Send OTP via Backend SMS Gateway
-      await requestFirebasePhoneOtp(phone);
+      // Resend OTP (Firebase with automatic Backend fallback)
+      await requestOtp(phone, name.trim() || undefined, email.trim() || undefined);
       
       setCountdown(30);
       setCanResend(false);
