@@ -1,3 +1,5 @@
+import { PermissionsAndroid, Platform } from 'react-native';
+import * as Notifications from 'expo-notifications';
 import { getGarmentImageUrl } from '@/lib/garment-photos';
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type PropsWithChildren } from 'react';
 import { api, configureApiSession, createOrderPayload } from '@/lib/api';
@@ -470,17 +472,27 @@ export function AppProvider({ children }: PropsWithChildren) {
     }
   }, [cart, session]);
 
-  // Ask for the operating-system notification permission as the app opens.
-  // The helper only shows the prompt while the customer has not made a choice.
+  // Check notification status on startup. The sequential prompt flow is coordinated
+  // by permissionCoordinator on first launch so it never conflicts with location dialogs.
   useEffect(() => {
     let isMounted = true;
-    requestNotificationPermissionOnAppOpen()
-      .then((granted) => {
-        if (isMounted) setNotificationsAllowed(granted);
-      })
-      .catch(() => {
+    (async () => {
+      try {
+        if (Platform.OS === 'android') {
+          if (Platform.Version >= 33) {
+            const granted = await PermissionsAndroid.check(PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS);
+            if (isMounted) setNotificationsAllowed(granted);
+          } else {
+            if (isMounted) setNotificationsAllowed(true);
+          }
+        } else {
+          const res = await Notifications.getPermissionsAsync();
+          if (isMounted) setNotificationsAllowed(res.status === 'granted');
+        }
+      } catch {
         if (isMounted) setNotificationsAllowed(false);
-      });
+      }
+    })();
 
     return () => {
       isMounted = false;

@@ -24,9 +24,12 @@ import type {
   CustomerLocationSource,
   LocationPermissionPromptMode,
 } from '@/services/location/types';
+import { requestLocationPermissionInteractive } from '@/services/permissions/permissionCoordinator';
 
 interface MapLocationPickerScreenProps {
   initialLocation?: CustomerLocation | null;
+  initialGpsCoords?: Coordinates | null;
+  initialPermissionStatus?: 'granted' | 'denied' | 'blocked';
   autoPermissionPrompt?: LocationPermissionPromptMode;
   onLocationConfirmed: (location: CustomerLocation) => void | Promise<void>;
   onBack: () => void;
@@ -173,8 +176,8 @@ function subtitleForPhase(
 ): string {
   if (phase === 'locating') return 'Finding your current location...';
   if (phase === 'resolving') return 'Checking the address and pickup availability...';
-  if (phase === 'permission-denied') return 'Allow location to detect your delivery area automatically.';
-  if (phase === 'permission-blocked') return 'Enable location permission from your phone settings.';
+  if (phase === 'permission-denied') return 'Location permission is required to detect your delivery area automatically.';
+  if (phase === 'permission-blocked') return 'Location permission is disabled. Please enable it from Settings.';
   if (phase === 'location-off') return 'Your device location service is currently turned off.';
   if (phase === 'error') return errorMessage || 'Move the map and try again, or search for an address.';
 
@@ -188,15 +191,29 @@ export function MapLocationPickerScreen({
   onLocationConfirmed,
   onBack,
   initialLocation = null,
+  initialGpsCoords = null,
+  initialPermissionStatus = 'denied',
   autoPermissionPrompt = 'never',
 }: MapLocationPickerScreenProps) {
   const insets = useSafeAreaInsets();
-  const [coords, setCoords] = useState<Coordinates>(() => getInitialCoordinates(initialLocation));
+  const [coords, setCoords] = useState<Coordinates>(() => {
+    if (initialGpsCoords) return initialGpsCoords;
+    if (initialLocation?.latitude && initialLocation?.longitude) {
+      return { latitude: initialLocation.latitude, longitude: initialLocation.longitude };
+    }
+    return DEFAULT_MAP_VIEWPORT;
+  });
   const [resolvedLocation, setResolvedLocation] = useState<CustomerLocation | null>(initialLocation);
   const [selectionSource, setSelectionSource] = useState<CustomerLocationSource>(
-    initialLocation?.source === 'gps' ? 'gps' : 'manual',
+    initialGpsCoords ? 'gps' : initialLocation?.source === 'gps' ? 'gps' : 'manual',
   );
-  const [phase, setPhase] = useState<LocationPhase>('locating');
+  const [phase, setPhase] = useState<LocationPhase>(() => {
+    if (initialLocation?.address) return 'ready';
+    if (initialGpsCoords) return 'locating';
+    if (initialPermissionStatus === 'blocked') return 'permission-blocked';
+    if (initialPermissionStatus === 'denied') return 'permission-denied';
+    return 'locating';
+  });
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [mapReady, setMapReady] = useState(false);
@@ -213,6 +230,8 @@ export function MapLocationPickerScreen({
   const autoLocateAttemptedRef = useRef(false);
   const appStateRef = useRef(AppState.currentState);
   const phaseRef = useRef<LocationPhase>(phase);
+  const hasUserMovedMapRef = useRef(false);
+  const initialGpsHandledRef = useRef(false);
 
   const centreMap = useCallback((latitude: number, longitude: number) => {
     if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return;
@@ -272,6 +291,29 @@ export function MapLocationPickerScreen({
     centreMap(result.location.latitude, result.location.longitude);
   }, [centreMap]);
 
+const handleInteractiveLocate = useCallback(async () => {
+    setPhase('locating');
+    setErrorMessage(null);
+    const result = await requestLocationPermissionInteractive();
+    if (!result.granted) {
+      if (result.blocked) {
+        setPhase('permission-blocked');
+      } else {
+        setPhase('permission-denied');
+      }
+      return;
+    }
+
+    if (result.coords) {
+      setCoords(result.coords);
+      setSelectionSource('gps');
+      centreMap(result.coords.latitude, result.coords.longitude);
+      await resolveSelection(result.coords.latitude, result.coords.longitude, 'gps');
+    } else {
+      await handleLocateMe('always');
+    }
+  }, [centreMap, handleLocateMe, resolveSelection]);
+
   const handleMapMoving = useCallback(() => {
     // Invalidate any in-flight GPS/reverse-geocode result before the user lets
     // go of the map, so an old green result can never confirm a new pin.
@@ -322,10 +364,22 @@ export function MapLocationPickerScreen({
   }, [centreMap, resolveSelection]);
 
   useEffect(() => {
+    if (initialGpsCoords && !initialGpsHandledRef.current) {
+      initialGpsHandledRef.current = true;
+      setCoords(initialGpsCoords);
+      setSelectionSource('gps');
+      centreMap(initialGpsCoords.latitude, initialGpsCoords.longitude);
+      void resolveSelection(initialGpsCoords.latitude, initialGpsCoords.longitude, 'gps');
+    }
+  }, [centreMap, initialGpsCoords, resolveSelection]);
+
+  useEffect(() => {
     if (autoLocateAttemptedRef.current) return;
     autoLocateAttemptedRef.current = true;
-    void handleLocateMe(autoPermissionPrompt);
-  }, [autoPermissionPrompt, handleLocateMe]);
+    if (autoPermissionPrompt !== 'never' && !initialGpsCoords) {
+      void handleLocateMe(autoPermissionPrompt);
+    }
+  }, [autoPermissionPrompt, handleLocateMe, initialGpsCoords]);
 
   useEffect(() => {
     phaseRef.current = phase;
@@ -365,9 +419,13 @@ export function MapLocationPickerScreen({
       if (data.type === 'map_ready') {
         setMapReady(true);
         setMapError(null);
+        if (initialGpsCoords) {
+          centreMap(initialGpsCoords.latitude, initialGpsCoords.longitude);
+        }
         return;
       }
       if (data.type === 'map_moving') {
+        hasUserMovedMapRef.current = true;
         handleMapMoving();
         return;
       }
@@ -376,12 +434,16 @@ export function MapLocationPickerScreen({
         && typeof data.latitude === 'number'
         && typeof data.longitude === 'number'
       ) {
-        void resolveSelection(data.latitude, data.longitude, 'manual');
+        // Only reverse geocode center changes if the user actually dragged the map!
+        // This prevents the default viewport from claiming to be detected on initial load.
+        if (hasUserMovedMapRef.current) {
+          void resolveSelection(data.latitude, data.longitude, 'manual');
+        }
       }
     } catch {
       // Ignore malformed messages from the embedded map.
     }
-  }, [handleMapMoving, resolveSelection]);
+  }, [centreMap, handleMapMoving, initialGpsCoords, resolveSelection]);
 
   const handleEnableLocationServices = useCallback(async () => {
     setPhase('locating');
@@ -435,7 +497,7 @@ export function MapLocationPickerScreen({
         : null;
 
   const actionLabel = phase === 'permission-denied'
-    ? 'Allow Location'
+    ? 'Enable Location'
     : phase === 'permission-blocked'
       ? 'Open Settings'
       : phase === 'location-off'
@@ -451,7 +513,7 @@ export function MapLocationPickerScreen({
                 : 'Use This Location';
 
   const onPrimaryAction = () => {
-    if (phase === 'permission-denied') void handleLocateMe('always');
+    if (phase === 'permission-denied') void handleInteractiveLocate();
     else if (phase === 'permission-blocked') void openLocationSettings();
     else if (phase === 'location-off') void handleEnableLocationServices();
     else if (phase === 'error') handleRetrySelection();
@@ -511,7 +573,7 @@ export function MapLocationPickerScreen({
           </Pressable>
           <Pressable
             style={({ pressed }) => [styles.circularButton, pressed && styles.buttonPressed]}
-            onPress={() => void handleLocateMe('always')}
+            onPress={() => void handleInteractiveLocate()}
             accessibilityRole="button"
             accessibilityLabel="Use current location"
           >

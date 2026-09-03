@@ -28,6 +28,7 @@ import { ProfileScreen } from '@/screens/ProfileScreen';
 import { ServicesScreen } from '@/screens/ServicesScreen';
 import { SubscriptionsScreen } from '@/screens/SubscriptionsScreen';
 import { WelcomeScreen } from '@/screens/WelcomeScreen';
+import { runFirstLaunchPermissions } from '@/services/permissions/permissionCoordinator';
 import { WishlistScreen } from '@/screens/WishlistScreen';
 import { useCustomerLocation } from '@/services/location/useCustomerLocation';
 import type { CustomerLocation } from '@/services/location/types';
@@ -151,6 +152,42 @@ function DetailShell({ title, onBack, children }: { title: string; onBack: () =>
 function AuthenticatedApp() {
   const { ready, session, hasCompletedOnboarding, completeOnboarding, cartSummary, orders } = useApp();
   const [navigation, setNavigation] = useState<NavigationState>({ route: 'HOME', history: [] });
+  const [permissionsState, setPermissionsState] = useState<{
+    completed: boolean;
+    locationGranted: boolean;
+    locationBlocked: boolean;
+    gpsCoords: { latitude: number; longitude: number } | null;
+  }>({
+    completed: false,
+    locationGranted: false,
+    locationBlocked: false,
+    gpsCoords: null,
+  });
+  const permissionsRunRef = useRef(false);
+
+  useEffect(() => {
+    if (permissionsRunRef.current) return;
+    permissionsRunRef.current = true;
+    let isMounted = true;
+
+    (async () => {
+      // 200ms delay to allow native Activity window to attach completely
+      await new Promise((resolve) => setTimeout(resolve, 200));
+      const res = await runFirstLaunchPermissions();
+      if (!isMounted) return;
+
+      setPermissionsState({
+        completed: true,
+        locationGranted: res.locationGranted,
+        locationBlocked: res.locationBlocked,
+        gpsCoords: res.gpsCoords,
+      });
+    })();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
   const { route, history } = navigation;
   // First launch opens the real map flow directly; Back still reveals the brand landing page.
   const [onboardingStage, setOnboardingStage] = useState<OnboardingStage>('LOCATION');
@@ -348,7 +385,7 @@ function AuthenticatedApp() {
     return () => subscription.remove();
   }, [requestBack]);
 
-  if (!ready || !hasLoadedUserLocation) return <LoadingScreen />;
+  if (!ready || !hasLoadedUserLocation || !permissionsState.completed) return <LoadingScreen />;
 
   if (!hasCompletedOnboarding) {
     if (onboardingStage === 'LANDING') return <WelcomeScreen onContinue={openOnboardingLocationPicker} />;
@@ -356,7 +393,15 @@ function AuthenticatedApp() {
     return (
       <MapLocationPickerScreen
         initialLocation={locationState.deliveryLocation}
-        autoPermissionPrompt="if-undetermined"
+        initialGpsCoords={permissionsState.gpsCoords}
+        initialPermissionStatus={
+          permissionsState.locationGranted
+            ? 'granted'
+            : permissionsState.locationBlocked
+              ? 'blocked'
+              : 'denied'
+        }
+        autoPermissionPrompt="never"
         onLocationConfirmed={async (loc) => {
           await applyUserLocation(loc);
           await completeOnboarding();
