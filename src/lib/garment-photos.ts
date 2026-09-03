@@ -77,12 +77,20 @@ const GARMENT_PHOTO_MAP: Record<string, string> = {
   'blanket': 'https://images.unsplash.com/photo-1580301762395-21ce84d00bc6?auto=format&fit=crop&w=400&q=80',
   'curtain': 'https://images.unsplash.com/photo-1513694203232-719a280e022f?auto=format&fit=crop&w=400&q=80',
   'towel': 'https://images.unsplash.com/photo-1616627547584-bf28cee262db?auto=format&fit=crop&w=400&q=80',
+  'bulk': 'https://images.unsplash.com/photo-1582735689369-4fe89db7114c?auto=format&fit=crop&w=400&q=80',
+  'bulk-laundry': 'https://images.unsplash.com/photo-1582735689369-4fe89db7114c?auto=format&fit=crop&w=400&q=80',
+  'bulk-1': 'https://images.unsplash.com/photo-1545173168-9f1947eebb7f?auto=format&fit=crop&w=400&q=80',
+  'bulk-2': 'https://images.unsplash.com/photo-1582735689369-4fe89db7114c?auto=format&fit=crop&w=400&q=80',
+  'bulk-3': 'https://images.unsplash.com/photo-1512436991641-6745cdb1723f?auto=format&fit=crop&w=400&q=80',
+  'bulk-4': 'https://images.unsplash.com/photo-1545173168-9f1947eebb7f?auto=format&fit=crop&w=400&q=80',
 };
 
 export function getGarmentImageUrl(clothId: string, customUrl?: string, categoryTag?: string, clothName?: string): string {
   // 1. If explicit working URL (not 404 S3 bucket)
-  if (customUrl && typeof customUrl === 'string' && customUrl.trim().length > 10 && !customUrl.includes('laundry-storage-2026')) {
-    return customUrl.trim();
+  if (customUrl && typeof customUrl === 'string' && customUrl.trim().startsWith('http')) {
+    if (!customUrl.includes('1788334884393') && !customUrl.includes('1788337350676') && !customUrl.includes('.svg')) {
+      return customUrl.trim();
+    }
   }
 
   const cleanId = (clothId || '').toLowerCase().trim();
@@ -96,6 +104,9 @@ export function getGarmentImageUrl(clothId: string, customUrl?: string, category
   // 3. Match by name keywords
   const searchStr = `${cleanId} ${cleanName}`;
 
+  if (cleanId.startsWith('bulk') || searchStr.includes('bulk') || searchStr.includes('kg') || (categoryTag && categoryTag.toUpperCase().includes('BULK'))) {
+    return GARMENT_PHOTO_MAP['bulk'] || 'https://images.unsplash.com/photo-1582735689369-4fe89db7114c?auto=format&fit=crop&w=400&q=80';
+  }
   if (searchStr.includes('t-shirt') || searchStr.includes('tshirt') || searchStr.includes('polo')) {
     return GARMENT_PHOTO_MAP['tshirt'] || FALLBACK_PHOTO;
   }

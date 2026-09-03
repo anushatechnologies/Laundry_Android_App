@@ -126,8 +126,10 @@ export const SUBCATEGORY_DEFAULT_PHOTOS: Record<string, string> = {
 const DEFAULT_CATEGORY_FALLBACK = 'https://images.unsplash.com/photo-1507679799987-c73779587ccf?auto=format&fit=crop&w=400&q=80';
 
 export function getCategoryImageUrl(tag: string, customUrl?: string): string {
-  if (customUrl && typeof customUrl === 'string' && customUrl.trim().length > 10 && !customUrl.includes('laundry-storage-2026')) {
-    return customUrl.trim();
+  if (customUrl && typeof customUrl === 'string' && customUrl.trim().startsWith('http')) {
+    if (!customUrl.includes('1788334884393') && !customUrl.includes('1788337350676') && !customUrl.includes('.svg')) {
+      return customUrl.trim();
+    }
   }
   const cleanTag = (tag || 'MENS').toUpperCase().trim();
   return (
@@ -139,8 +141,10 @@ export function getCategoryImageUrl(tag: string, customUrl?: string): string {
 }
 
 export function getSubcategoryImageUrl(subName: string, categoryTag?: string, customUrl?: string): string {
-  if (customUrl && typeof customUrl === 'string' && customUrl.trim().length > 10 && !customUrl.includes('laundry-storage-2026')) {
-    return customUrl.trim();
+  if (customUrl && typeof customUrl === 'string' && customUrl.trim().startsWith('http')) {
+    if (!customUrl.includes('1788334884393') && !customUrl.includes('1788337350676') && !customUrl.includes('.svg')) {
+      return customUrl.trim();
+    }
   }
   const key = (subName || 'all').toLowerCase().trim();
   

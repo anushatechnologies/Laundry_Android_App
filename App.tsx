@@ -480,6 +480,7 @@ function AuthenticatedApp() {
         initialServiceName={selectedCategoryInfo.serviceName}
         onBack={() => goBack('HOME')}
         onOpenCart={() => navigateTo('CART')}
+        onOpenBulkLaundry={() => navigateTo('BULK_LAUNDRY')}
       />
     );
   } else if (route === 'LOCATION') {
@@ -495,7 +496,7 @@ function AuthenticatedApp() {
       />
     );
   } else if (route === 'SERVICES') {
-    screen = <ServicesScreen onBook={startBooking} />;
+    screen = <ServicesScreen onBook={startBooking} onOpenBulkLaundry={() => navigateTo('BULK_LAUNDRY')} />;
   } else if (route === 'CART') {
     screen = (
       <BookScreen

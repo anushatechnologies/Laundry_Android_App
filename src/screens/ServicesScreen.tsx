@@ -19,6 +19,7 @@ import type { ClothType, ServicePriceItem } from '@/types/domain';
 
 interface ServicesScreenProps {
   onBook: () => void;
+  onOpenBulkLaundry?: () => void;
 }
 
 interface DynamicCategory {
@@ -125,7 +126,7 @@ const CATEGORY_METAS: Record<string, {
   },
 };
 
-export function ServicesScreen({ onBook }: ServicesScreenProps) {
+export function ServicesScreen({ onBook, onOpenBulkLaundry }: ServicesScreenProps) {
   const {
     catalog,
     cart,
@@ -231,7 +232,7 @@ export function ServicesScreen({ onBook }: ServicesScreenProps) {
         imageUrl: 'https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/banners/banner-4.jpg',
       };
       allProducts.push(productItem);
-      if (categoryBuckets['bulk-kg']) { categoryBuckets['bulk-kg']!.items.push(productItem); }
+      if (categoryBuckets['BULK']) { categoryBuckets['BULK']!.items.push(productItem); }
     });
 
     // Build final Category list with computed counts & start prices
@@ -281,6 +282,12 @@ export function ServicesScreen({ onBook }: ServicesScreenProps) {
     };
 
   const handleOpenCategory = (catId: string) => {
+    if (catId === 'BULK' || catId === 'bulk-kg') {
+      if (onOpenBulkLaundry) {
+        onOpenBulkLaundry();
+        return;
+      }
+    }
     setSelectedCategoryId(catId);
     setSelectedSubCategory('All');
     setViewMode('SPLIT_VIEW');

@@ -26,6 +26,7 @@ interface CategoryCatalogScreenProps {
   onBack: () => void;
   onViewCart?: () => void;
   onOpenCart?: () => void;
+  onOpenBulkLaundry?: () => void;
 }
 
 type CatalogServiceCode = 'PRESS' | 'WASH_FOLD' | 'WASH_IRON' | 'DRY_CLEAN' | 'OTHER';
@@ -184,6 +185,7 @@ export function CategoryCatalogScreen({
   onBack,
   onViewCart,
   onOpenCart,
+  onOpenBulkLaundry,
 }: CategoryCatalogScreenProps) {
   const insets = useSafeAreaInsets();
   const { width: windowWidth } = useWindowDimensions();

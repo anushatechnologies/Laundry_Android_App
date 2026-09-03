@@ -97,6 +97,7 @@ export function BulkLaundryScreen({
   const [servicesList, setServicesList] = useState<BulkServiceOption[]>(DEFAULT_SERVICES);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [justAddedToast, setJustAddedToast] = useState<string | null>(null);
+  const [heroImgError, setHeroImgError] = useState<boolean>(false);
 
   // Fetch dynamic services and slabs from live backend API
   useEffect(() => {
@@ -278,10 +279,13 @@ export function BulkLaundryScreen({
         <View style={styles.cleanHeroCard}>
           <Image
             source={{
-              uri: 'https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/banners/banner-4.jpg',
+              uri: heroImgError
+                ? 'https://images.unsplash.com/photo-1582735689369-4fe89db7114c?auto=format&fit=crop&w=800&q=80'
+                : 'https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/banners/banner-bulk.jpg',
             }}
             style={styles.cleanHeroImage}
             resizeMode="cover"
+            onError={() => setHeroImgError(true)}
           />
           <LinearGradient
             colors={['rgba(0,0,0,0.02)', 'rgba(0,0,0,0.65)']}
