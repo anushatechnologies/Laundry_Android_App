@@ -1,4 +1,4 @@
-import { LinearGradient } from 'expo-linear-gradient';
+﻿import { LinearGradient } from 'expo-linear-gradient';
 import React, { useState, useEffect, useMemo } from 'react';
 import {
   Alert,
@@ -18,7 +18,6 @@ import { money, shortDate } from '@/ui/theme';
 import { api } from '@/lib/api';
 import { getGarmentImageUrl } from '@/lib/garment-photos';
 import { getCategoryImageUrl } from '@/lib/category-photos';
-import { STATIC_ITEMS_BY_CATEGORY } from '@/lib/static-catalog';
 import { Banner, SubscriptionPlan, ServiceMaster } from '@/types/domain';
 
 interface HomeScreenProps {
@@ -77,7 +76,7 @@ export function HomeScreen({
   } = useApp();
 
   const locationLabel = userLocation?.areaName || userLocation?.city || (
-    locationStatus === 'detecting' ? 'Detecting location…' : 'Location unavailable'
+    locationStatus === 'detecting' ? 'Detecting locationâ€¦' : 'Location unavailable'
   );
 
   const STATIC_BANNERS: Banner[] = [
@@ -126,8 +125,8 @@ export function HomeScreen({
     },
     {
       id: 'static-4',
-      title: 'Bulk Laundry ₹49/kg',
-      subtitle: 'Min 3 KG • Pickup & delivery included',
+      title: 'Bulk Laundry â‚¹49/kg',
+      subtitle: 'Min 3 KG â€¢ Pickup & delivery included',
       imageUrl: 'https://images.unsplash.com/photo-1582735689369-4fe89db7114c?auto=format&fit=crop&w=1200&q=80',
       isActive: true,
       badgeText: 'BEST VALUE',
@@ -290,26 +289,25 @@ export function HomeScreen({
         'womens-wear': (map['womens-wear'] || []).slice(0, 4),
         'wedding-silk': (map['wedding-silk'] || []).slice(0, 4),
         'winter-wear': (map['winter-wear'] || []).slice(0, 4),
-        'bulk-laundry': STATIC_ITEMS_BY_CATEGORY['bulk-laundry'] || [],
+        'bulk-laundry': (map['bulk-laundry'] || []).slice(0, 4),
         'home-textiles': (map['home-textiles'] || []).slice(0, 4),
       };
     }
 
-    return Object.fromEntries(
-      Object.entries(STATIC_ITEMS_BY_CATEGORY).map(([key, items]) => [
-        key,
-        items.map((item) => ({
-          ...item,
-          imageUrl: getGarmentImageUrl(item.id, item.imageUrl, key === 'womens-wear' ? 'WOMENS' : 'MENS'),
-        })),
-      ])
-    );
+    // No fallback to static data - always use API data
+    return {
+      'mens-wear': [],
+      'womens-wear': [],
+      'wedding-silk': [],
+      'winter-wear': [],
+      'bulk-laundry': [],
+      'home-textiles': [],
+    };
   }, [catalog]);
 
   const currentCategoryItems =
     dynamicItemsByCategory[selectedCategorySlug] ||
     dynamicItemsByCategory['mens-wear'] ||
-    STATIC_ITEMS_BY_CATEGORY['mens-wear'] ||
     [];
 
 
@@ -330,9 +328,9 @@ export function HomeScreen({
     // Check if icon field contains emoji (unicode characters)
     if (service.icon && /[\u{1F300}-\u{1F9FF}]/u.test(service.icon)) {
       // It's an emoji, but we'll map to icon name
-      if (service.icon.includes('👔') || iconStr.includes('iron')) return 'iron';
-      if (service.icon.includes('🧺') || iconStr.includes('wash')) return 'washing-machine';
-      if (service.icon.includes('✨')) return 'sparkles';
+      if (service.icon.includes('ðŸ‘”') || iconStr.includes('iron')) return 'iron';
+      if (service.icon.includes('ðŸ§º') || iconStr.includes('wash')) return 'washing-machine';
+      if (service.icon.includes('âœ¨')) return 'sparkles';
     }
 
     // Map by slug or name
@@ -389,13 +387,13 @@ export function HomeScreen({
   const formatPricing = (service: ServiceMaster): string => {
     if (service.pricingType === 'PER_KG') {
       if (service.baseKgPrice) {
-        return `From ₹${service.baseKgPrice}/kg`;
+        return `From â‚¹${service.baseKgPrice}/kg`;
       }
-      return 'From ₹60/kg';
+      return 'From â‚¹60/kg';
     }
     // For PER_ITEM, we'd ideally fetch min price from price_matrix
     // For now, show generic text
-    return 'From ₹49';
+    return 'From â‚¹49';
   };
 
   // Helper: Get service image URL
@@ -459,7 +457,7 @@ export function HomeScreen({
       { slug: 'womens-wear', tag: 'WOMENS', label: "Women's Wear", icon: 'hanger', count: getCount('WOMENS'), bg: '#FDF2F8', accent: '#DB2777', subtitle: 'Sarees, Lehengas, Dresses' },
       { slug: 'kids-baby', tag: 'KIDS', label: "Kids & Baby", icon: 'baby-carriage', count: getCount('KIDS'), bg: '#FEF3C7', accent: '#D97706', subtitle: 'Rompers, Frocks & Uniforms' },
       { slug: 'home-textiles', tag: 'HOME', label: 'Home Linen', icon: 'bed-outline', count: getCount('HOME'), bg: '#F0FDF4', accent: '#16A34A', subtitle: 'Bedsheets, Blankets, Curtains' },
-      { slug: 'bulk-laundry', tag: 'BULK', label: 'Bulk Laundry', icon: 'scale', count: minBulkKgPrice ? `From ₹${minBulkKgPrice}/KG` : 'Pay by KG', bg: '#FFF7ED', accent: '#FA5A13', subtitle: 'Wash & Fold by KG' },
+      { slug: 'bulk-laundry', tag: 'BULK', label: 'Bulk Laundry', icon: 'scale', count: minBulkKgPrice ? `From â‚¹${minBulkKgPrice}/KG` : 'Pay by KG', bg: '#FFF7ED', accent: '#FA5A13', subtitle: 'Wash & Fold by KG' },
       { slug: 'wedding-silk', tag: 'WEDDING', label: 'Wedding & Silk', icon: 'crown-outline', count: getCount('WEDDING'), bg: '#FAF5FF', accent: '#7C3AED', subtitle: 'Silk Sarees & Sherwanis' },
     ];
   }, [catalog?.clothTypes]);
@@ -521,7 +519,7 @@ export function HomeScreen({
 
             if (verifyResponse && verifyResponse.success) {
               Alert.alert(
-                '🎉 Subscription Activated!',
+                'ðŸŽ‰ Subscription Activated!',
                 `Your ${plan.name} has been successfully activated. Enjoy ${plan.kg} of laundry allowance!`,
                 [
                   { text: 'View My Subscriptions', onPress: () => onViewSubscriptions?.() },
@@ -550,7 +548,7 @@ export function HomeScreen({
 
   return (
     <View style={styles.outerWrap}>
-      {/* 🌟 PREMIUM TOP NAVIGATION BAR */}
+      {/* ðŸŒŸ PREMIUM TOP NAVIGATION BAR */}
       <View style={styles.stickyHeader}>
         <View style={styles.navMainRow}>
           {/* Left: Logo + Brand */}
@@ -564,7 +562,7 @@ export function HomeScreen({
             </View>
             <View style={styles.brandTextContainer}>
               <Text style={styles.greetingHeader} numberOfLines={1}>
-                {greeting}, {customerFirstName} 👋
+                {greeting}, {customerFirstName} ðŸ‘‹
               </Text>
               <Text style={styles.deliveryLabel}>Delivering to</Text>
               <Pressable
@@ -649,7 +647,7 @@ export function HomeScreen({
               <StatusPill status={activeOrder.currentStatus} />
             </View>
             <Text style={styles.trackerDetail}>
-              Pickup: {shortDate(activeOrder.pickupSlot.date)} • {activeOrder.pickupSlot.slot}
+              Pickup: {shortDate(activeOrder.pickupSlot.date)} â€¢ {activeOrder.pickupSlot.slot}
             </Text>
             <AppButton
               title="Track Live Order"
@@ -731,7 +729,7 @@ export function HomeScreen({
                       {svc.title}
                     </Text>
                     <View style={styles.luxuryServicePriceRow}>
-                      <Text style={styles.luxuryServicePriceText}>{svc.priceText || 'From ₹49'}</Text>
+                      <Text style={styles.luxuryServicePriceText}>{svc.priceText || 'From â‚¹49'}</Text>
                       <View style={styles.luxuryServiceArrowBox}>
                         <MaterialCommunityIcons name="arrow-right" size={13} color="#FFFFFF" />
                       </View>
@@ -758,7 +756,7 @@ export function HomeScreen({
               { slug: 'womens-wear', tag: 'WOMENS', label: "Women's Wear", count: '19 Items', accent: '#DB2777' },
               { slug: 'kids-baby', tag: 'KIDS', label: 'Kids & Baby', count: '24 Items', accent: '#D97706' },
               { slug: 'home-textiles', tag: 'HOME_TEXTILES', label: 'Home Linen', count: '41 Items', accent: '#16A34A' },
-              { slug: 'bulk-laundry', tag: 'BULK', label: 'Bulk Laundry', count: '₹60/KG', accent: '#FF7A00' },
+              { slug: 'bulk-laundry', tag: 'BULK', label: 'Bulk Laundry', count: 'â‚¹60/KG', accent: '#FF7A00' },
               { slug: 'wedding-silk', tag: 'WEDDING', label: 'Wedding & Silk', count: 'Premium', accent: '#7C3AED' },
             ].map((cat) => {
               const photoUrl = getCategoryImageUrl(cat.tag);
@@ -787,219 +785,6 @@ export function HomeScreen({
                   </View>
                   <Text style={styles.homeCatTitle} numberOfLines={1}>{cat.label}</Text>
                 </Pressable>
-              );
-            })}
-          </View>
-        </View>
-
-        {/* 2.8 LAUNDRYPASS MONTHLY MEMBERSHIPS (PREMIUM SWIPEABLE CARDS) */}
-        <View style={styles.subsSection}>
-          <View style={styles.sectionHeaderRow}>
-            <View>
-              <View style={styles.subsTitleTagRow}>
-                <MaterialCommunityIcons name="crown" size={18} color="#FF7A00" />
-                <Text style={styles.sectionHeading}>Monthly Laundry Passes</Text>
-              </View>
-              <Text style={styles.sectionSubheading}>Save up to 35% with scheduled weekly doorstep pickups</Text>
-            </View>
-            <Pressable
-              onPress={() => (onViewSubscriptions ? onViewSubscriptions() : onBook())}
-              style={styles.viewAllSubsBtn}
-            >
-              <Text style={styles.viewAllSubsText}>View All</Text>
-              <MaterialCommunityIcons name="arrow-right" size={13} color="#2563EB" />
-            </Pressable>
-          </View>
-
-          <View style={styles.premiumSubGrid}>
-            {(liveSubPlans.length > 0
-              ? liveSubPlans.map((lp) => ({
-                  id: lp.id,
-                  subscriptionId: lp.id,
-                  name: lp.name,
-                  tag: lp.popular ? '👑 MOST POPULAR' : (lp.originalPrice ? `SAVE ₹${lp.originalPrice - lp.price}` : 'VALUE PASS'),
-                  price: lp.price,
-                  originalPrice: lp.originalPrice,
-                  kg: `${lp.includedKg} KG`,
-                  includedKg: lp.includedKg,
-                  validityDays: lp.validityDays,
-                  pickups: lp.freePickupDelivery ? 'Free Doorstep' : `${lp.validityDays} Days`,
-                  desc: lp.features && lp.features.length > 0 ? lp.features[0] : `${lp.includedKg} KG allowance with free doorstep delivery`,
-                  features: lp.features || [],
-                  popular: Boolean(lp.popular),
-                  badgeBg: lp.popular ? '#FFF7ED' : '#EFF6FF',
-                  badgeColor: lp.popular ? '#FF7A00' : '#2563EB',
-                  gradientColors: lp.popular ? ['#FF7A00', '#FF5A00'] : ['#2563EB', '#1E40AF'],
-                }))
-              : [
-                  {
-                    id: 'home-sub-family',
-                    subscriptionId: 'sub-plan-family',
-                    name: 'Family Deluxe Pass',
-                    tag: '👑 MOST POPULAR',
-                    price: 1699,
-                    originalPrice: 2599,
-                    kg: '30 KG',
-                    includedKg: 30,
-                    validityDays: 30,
-                    pickups: 'Free Doorstep',
-                    desc: 'Perfect for families of 4-6 members with regular laundry needs',
-                    features: ['30 KG Wash & Fold', '4 Free Pickups', 'Priority Service', 'Ozone Sanitization'],
-                    popular: true,
-                    badgeBg: '#FFF7ED',
-                    badgeColor: '#FF7A00',
-                    gradientColors: ['#FF7A00', '#FF5A00'],
-                  },
-                  {
-                    id: 'home-sub-press',
-                    subscriptionId: 'sub-plan-press',
-                    name: 'Executive Steam Press',
-                    tag: '⚡ WORKWEAR',
-                    price: 999,
-                    originalPrice: 1499,
-                    kg: '60 Pieces',
-                    includedKg: 20,
-                    validityDays: 30,
-                    pickups: 'Free Doorstep',
-                    desc: 'Ideal for professionals who need crisp formal wear daily',
-                    features: ['60 Shirts/Pants', '8 Free Pickups', 'Wire Hangers', 'Express TAT'],
-                    popular: false,
-                    badgeBg: '#EFF6FF',
-                    badgeColor: '#2563EB',
-                    gradientColors: ['#2563EB', '#1E40AF'],
-                  },
-                  {
-                    id: 'home-sub-weekly',
-                    subscriptionId: 'sub-plan-weekly',
-                    name: 'Weekly Essentials',
-                    tag: '🧺 BEST VALUE',
-                    price: 899,
-                    originalPrice: 1299,
-                    kg: '15 KG',
-                    includedKg: 15,
-                    validityDays: 30,
-                    pickups: 'Free Doorstep',
-                    desc: 'Great for couples and singles with moderate laundry volume',
-                    features: ['15 KG Wash & Fold', '4 Free Pickups', 'Ozone Care', 'Eco-Friendly'],
-                    popular: false,
-                    badgeBg: '#F0FDF4',
-                    badgeColor: '#16A34A',
-                    gradientColors: ['#16A34A', '#15803D'],
-                  },
-                  {
-                    id: 'home-sub-student',
-                    subscriptionId: 'sub-plan-student',
-                    name: 'Student Saver Pass',
-                    tag: '🎓 BUDGET',
-                    price: 599,
-                    originalPrice: 899,
-                    kg: '10 KG',
-                    includedKg: 10,
-                    validityDays: 30,
-                    pickups: 'Free Doorstep',
-                    desc: 'Affordable plan designed for students and young professionals',
-                    features: ['10 KG Allowance', '2 Free Pickups', 'Zero Platform Fee', 'Gentle Care'],
-                    popular: false,
-                    badgeBg: '#FAF5FF',
-                    badgeColor: '#7C3AED',
-                    gradientColors: ['#7C3AED', '#6D28D9'],
-                  },
-                ]
-            ).slice(0, 4).map((plan) => {
-              const savings = plan.originalPrice && plan.originalPrice > plan.price
-                ? plan.originalPrice - plan.price
-                : 0;
-              const durationMonths = Math.max(1, Math.round(plan.validityDays / 30));
-              const billingPeriod = durationMonths === 1 ? 'month' : `${durationMonths} months`;
-              const hasFreePickup = plan.pickups === 'Free Doorstep';
-
-              return (
-              <Pressable
-                key={plan.id}
-                style={({ pressed }) => [
-                  styles.premiumSubCard,
-                  plan.popular && styles.premiumSubCardPopular,
-                  pressed && styles.premiumSubCardPressed,
-                ]}
-                onPress={() => handleSubscriptionPurchase(plan)}
-                accessibilityRole="button"
-                accessibilityLabel={`Choose ${plan.name} subscription`}
-              >
-                {/* Gradient Background Overlay */}
-                <LinearGradient
-                  colors={plan.popular ? ['rgba(255, 122, 0, 0.08)', 'rgba(255, 122, 0, 0.02)'] : ['rgba(37, 99, 235, 0.05)', 'rgba(37, 99, 235, 0.01)']}
-                  style={styles.premiumSubCardBg}
-                />
-
-                {/* Small status label keeps the compact cards scannable. */}
-                <View style={[styles.premiumSubTag, { backgroundColor: plan.badgeBg }]}>
-                  <MaterialCommunityIcons
-                    name={plan.popular ? 'crown' : 'ticket-percent-outline'}
-                    size={11}
-                    color={plan.badgeColor}
-                  />
-                  <Text style={[styles.premiumSubTagText, { color: plan.badgeColor }]}>
-                    {plan.popular ? 'MOST POPULAR' : savings > 0 ? `SAVE ₹${savings}` : 'MEMBERSHIP'}
-                  </Text>
-                </View>
-
-                {/* Plan Title */}
-                <Text style={styles.premiumSubTitle} numberOfLines={2}>{plan.name}</Text>
-
-                <View style={styles.premiumSubMetricsRow}>
-                  <View style={styles.premiumSubMetric}>
-                    <MaterialCommunityIcons name="weight-kilogram" size={14} color={plan.badgeColor} />
-                    <Text style={styles.premiumSubMetricValue}>{plan.kg}</Text>
-                    <Text style={styles.premiumSubMetricLabel}>allowance</Text>
-                  </View>
-                  <View style={styles.premiumSubMetric}>
-                    <MaterialCommunityIcons name="calendar-month-outline" size={14} color={plan.badgeColor} />
-                    <Text style={styles.premiumSubMetricValue}>
-                      {durationMonths === 1 ? `${plan.validityDays}d` : `${durationMonths} mo`}
-                    </Text>
-                    <Text style={styles.premiumSubMetricLabel}>validity</Text>
-                  </View>
-                </View>
-
-                <View style={styles.premiumSubPickupRow}>
-                  <MaterialCommunityIcons
-                    name={hasFreePickup ? 'truck-delivery-outline' : 'calendar-clock-outline'}
-                    size={12}
-                    color={hasFreePickup ? '#16A34A' : '#64748B'}
-                  />
-                  <Text style={styles.premiumSubPickupText} numberOfLines={1}>
-                    {hasFreePickup ? 'Free doorstep pickup' : `${plan.validityDays}-day pass`}
-                  </Text>
-                </View>
-
-                {/* Pricing Section */}
-                <View style={styles.premiumSubPriceSection}>
-                  <View style={styles.premiumSubPriceColumn}>
-                    {plan.originalPrice && plan.originalPrice > plan.price && (
-                      <Text style={styles.premiumSubOriginalPrice}>₹{plan.originalPrice}</Text>
-                    )}
-                    <View style={styles.premiumSubPriceRow}>
-                      <Text style={styles.premiumSubPriceAmount}>₹{plan.price}</Text>
-                      <Text style={styles.premiumSubPricePeriod}>/ {billingPeriod}</Text>
-                    </View>
-                  </View>
-                  {savings > 0 && (
-                    <View style={styles.premiumSubSavingsBadge}>
-                      <Text style={styles.premiumSubSavingsText}>Save ₹{savings}</Text>
-                    </View>
-                  )}
-                </View>
-
-                <LinearGradient
-                  colors={(plan.gradientColors && plan.gradientColors.length >= 2 ? plan.gradientColors : ['#FF6418', '#FF8A00']) as [string, string, ...string[]]}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                  style={styles.premiumSubCtaGradient}
-                >
-                  <Text style={styles.premiumSubCtaText}>Choose plan</Text>
-                  <MaterialCommunityIcons name="arrow-right" size={14} color="#FFFFFF" />
-                </LinearGradient>
-              </Pressable>
               );
             })}
           </View>
@@ -1051,7 +836,7 @@ export function HomeScreen({
           <View style={styles.guaranteeTextWrap}>
             <Text style={styles.guaranteeTitle}>The LaundryFresh Promise</Text>
             <Text style={styles.guaranteeSubtitle}>
-              100% Free Re-wash Guarantee • Zero Color Bleed Assurance • Digital Calibrated Scales
+              100% Free Re-wash Guarantee â€¢ Zero Color Bleed Assurance â€¢ Digital Calibrated Scales
             </Text>
           </View>
         </View>
@@ -2157,196 +1942,6 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
 
-  // Swipeable Subscription Passes (20px radius & soft shadow)
-  subsSection: {
-    marginBottom: 24,
-  },
-  subsTitleTagRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  viewAllSubsBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 2,
-    backgroundColor: '#EFF6FF',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 12,
-  },
-  viewAllSubsText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#2563EB',
-  },
-  premiumSubGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-    gap: 12,
-    paddingHorizontal: 16,
-  },
-
-  // Compact Home preview cards — details remain available through "View All".
-  premiumSubCard: {
-    width: '47.8%',
-    minHeight: 252,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 18,
-    padding: 10,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    shadowColor: '#0F172A',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
-    elevation: 3,
-    position: 'relative',
-    overflow: 'hidden',
-  },
-  premiumSubCardPopular: {
-    borderColor: '#FF7A00',
-    borderWidth: 1.5,
-  },
-  premiumSubCardPressed: {
-    transform: [{ scale: 0.98 }],
-    opacity: 0.95,
-  },
-  premiumSubCardBg: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    borderRadius: 17,
-  },
-  premiumSubTag: {
-    alignSelf: 'flex-start',
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 3,
-    paddingHorizontal: 6,
-    paddingVertical: 3,
-    borderRadius: 7,
-    marginBottom: 6,
-  },
-  premiumSubTagText: {
-    fontSize: 8.5,
-    fontWeight: '800',
-    letterSpacing: 0.15,
-  },
-  premiumSubTitle: {
-    minHeight: 34,
-    fontSize: 13,
-    fontWeight: '800',
-    color: '#0F172A',
-    lineHeight: 17,
-    marginBottom: 8,
-  },
-  premiumSubMetricsRow: {
-    flexDirection: 'row',
-    gap: 6,
-  },
-  premiumSubMetric: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    minHeight: 51,
-    backgroundColor: 'rgba(248, 250, 252, 0.92)',
-    borderRadius: 10,
-    paddingHorizontal: 3,
-    paddingVertical: 5,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-  },
-  premiumSubMetricValue: {
-    fontSize: 11.5,
-    fontWeight: '800',
-    color: '#0F172A',
-    marginTop: 2,
-  },
-  premiumSubMetricLabel: {
-    fontSize: 8,
-    fontWeight: '700',
-    color: '#94A3B8',
-    marginTop: 1,
-    textTransform: 'uppercase',
-  },
-  premiumSubPickupRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    minHeight: 20,
-    marginTop: 7,
-  },
-  premiumSubPickupText: {
-    flex: 1,
-    fontSize: 9.5,
-    fontWeight: '600',
-    color: '#475569',
-  },
-  premiumSubPriceSection: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    justifyContent: 'space-between',
-    marginTop: 5,
-  },
-  premiumSubPriceColumn: {
-    flex: 1,
-    minWidth: 0,
-  },
-  premiumSubOriginalPrice: {
-    fontSize: 9.5,
-    fontWeight: '600',
-    color: '#94A3B8',
-    textDecorationLine: 'line-through',
-  },
-  premiumSubPriceRow: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-  },
-  premiumSubPriceAmount: {
-    fontSize: 21,
-    fontWeight: '900',
-    color: '#0F172A',
-    letterSpacing: -0.4,
-  },
-  premiumSubPricePeriod: {
-    flexShrink: 1,
-    fontSize: 9,
-    fontWeight: '700',
-    color: '#64748B',
-    marginLeft: 3,
-  },
-  premiumSubSavingsBadge: {
-    alignSelf: 'flex-end',
-    backgroundColor: '#DCFCE7',
-    paddingHorizontal: 5,
-    paddingVertical: 3,
-    borderRadius: 6,
-    marginLeft: 4,
-  },
-  premiumSubSavingsText: {
-    fontSize: 8.5,
-    fontWeight: '800',
-    color: '#16A34A',
-  },
-  premiumSubCtaGradient: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 5,
-    minHeight: 42,
-    marginTop: 8,
-    paddingHorizontal: 8,
-    borderRadius: 12,
-  },
-  premiumSubCtaText: {
-    color: '#FFFFFF',
-    fontSize: 11.5,
-    fontWeight: '800',
-  },
   
   // Payment Loading Overlay
   paymentLoadingOverlay: {

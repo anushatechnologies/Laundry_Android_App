@@ -281,7 +281,28 @@ export function BookScreen({
         setStage('SUCCESS');
       }
     } catch (error) {
-      Alert.alert('Booking Failed', error instanceof Error ? error.message : 'Please check your connection and try again.');
+      if (paymentMethod === 'ONLINE_RAZORPAY') {
+        Alert.alert(
+          'Payment Incomplete',
+          'Your online payment was cancelled or not completed.\n\nYour order has NOT been placed. Your bag items have been saved so you can try again or switch to Cash on Delivery (COD).',
+          [
+            {
+              text: 'Switch to COD',
+              onPress: () => setPaymentMethod('COD'),
+            },
+            {
+              text: 'Retry Online',
+              style: 'cancel',
+            },
+          ]
+        );
+      } else {
+        Alert.alert(
+          'Booking Failed',
+          error instanceof Error ? error.message : 'Please check your connection and try again.',
+          [{ text: 'OK' }]
+        );
+      }
     }
   };
 

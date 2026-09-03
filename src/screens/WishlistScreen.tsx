@@ -12,7 +12,6 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useApp } from '@/context/AppContext';
 import { getGarmentImageUrl } from '@/lib/garment-photos';
-import { STATIC_CATALOG_MAP, type StaticCatalogItem } from '@/lib/static-catalog';
 
 interface WishlistScreenProps {
   onBook: () => void;
@@ -64,14 +63,8 @@ export function WishlistScreen({ onBook, onExploreServices }: WishlistScreenProp
           };
         }
       }
-      const staticItem = STATIC_CATALOG_MAP[id];
-      if (staticItem) {
-        return {
-          ...staticItem,
-          serviceId: 'srv-m-steam-iron',
-          imageUrl: getGarmentImageUrl(staticItem.id, staticItem.imageUrl),
-        };
-      }
+      
+      // No static fallback - only use API data
       return {
         id,
         name: id.replace('cloth-', '').replace(/-/g, ' ').toUpperCase(),

@@ -443,14 +443,16 @@ export function AppProvider({ children }: PropsWithChildren) {
         .reduce((sum, item) => sum + item.quantity, 0);
       await api.reserveSlot(input.slot.id, Math.max(totalKg, 1));
       const order = await api.createOrder(createOrderPayload(session, cart, input));
-      setOrders((current) => [order, ...current.filter((candidate) => candidate.id !== order.id)]);
-      setCart([]);
 
-            if (input.paymentMethod === 'COD') {
+      // COD: Confirm order and empty cart immediately
+      if (input.paymentMethod === 'COD') {
+        setOrders((current) => [order, ...current.filter((candidate) => candidate.id !== order.id)]);
+        setCart([]);
         return { order, paymentOutcome: 'COD' };
       }
 
-      // Online Razorpay Payment Flow
+      // Online Razorpay Payment Flow:
+      // DO NOT add order to orders list and DO NOT clear cart until payment succeeds!
       try {
         const paymentOrder = await api.createRazorpayOrder(order.id);
         const paymentResult = await payWithRazorpay(paymentOrder, session.user);
@@ -458,14 +460,28 @@ export function AppProvider({ children }: PropsWithChildren) {
           internalOrderId: order.id,
           ...paymentResult,
         });
+
+        // Payment successful & verified: Confirm order and empty bag
         setOrders((current) => [paidOrder, ...current.filter((candidate) => candidate.id !== paidOrder.id)]);
+        setCart([]);
         return { order: paidOrder, paymentOutcome: 'PAID' };
       } catch (err) {
-        // Online payment failed or was cancelled by user
+        // Online payment failed, dismissed, or was cancelled by user
+        // Mark backend order cancelled so no pickup is scheduled
         await api.markRazorpayPaymentFailed(order.id).catch(() => undefined);
+
+        // Ensure this unconfirmed order NEVER appears in customer's order history
+        setOrders((current) => current.filter((o) => o.id !== order.id));
+
+        // Restore bag items so customer can retry or switch to COD
         setCart(cartSnapshot);
-        const errDetail = err && typeof err === 'object' && 'description' in err ? (err as any).description : err instanceof Error ? err.message : 'Payment was not completed.';
-        throw new Error(`Online Payment Incomplete: ${errDetail}. Your bag items are saved. Please retry or choose Pay on Delivery.`);
+
+        const errDetail = err && typeof err === 'object' && 'description' in err
+          ? (err as any).description
+          : err instanceof Error
+            ? err.message
+            : 'Payment was not completed.';
+        throw new Error(errDetail || 'Payment cancelled');
       }
     } finally {
       setIsCheckingOut(false);
