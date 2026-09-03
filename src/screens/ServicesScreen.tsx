@@ -14,6 +14,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useApp } from '@/context/AppContext';
 import { money } from '@/ui/theme';
 import { getGarmentImageUrl } from '@/lib/garment-photos';
+import { CATEGORY_DEFAULT_PHOTOS } from '@/lib/category-photos';
 import type { ClothType, ServicePriceItem } from '@/types/domain';
 
 interface ServicesScreenProps {
@@ -75,7 +76,7 @@ const CATEGORY_METAS: Record<string, {
     iconBg: '#FFF1F2',
     iconColor: '#DB2777',
     tagline: 'Silk Sarees, Kurtis, Dresses & Tops',
-    bannerImage: 'https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/services/1788334884393-cloth-saree-reg-1788334882021.jpg',
+    bannerImage: 'https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/garments/cloth-saree-silk.jpg',
   },
   'KIDS': {
     name: 'Kids & Infants Care',
@@ -84,7 +85,7 @@ const CATEGORY_METAS: Record<string, {
     iconBg: '#F5F3FF',
     iconColor: '#7C3AED',
     tagline: 'Gentle Hypoallergenic Sanitized Wash',
-    bannerImage: 'https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/services/1788337350676-cloth-kid-shirt-1788337348727.jpg',
+    bannerImage: 'https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/garments/cloth-baby_toy.jpg',
   },
   'HOME_TEXTILES': {
     name: 'Home, Living & Linen',
@@ -93,7 +94,7 @@ const CATEGORY_METAS: Record<string, {
     iconBg: '#F0FDF4',
     iconColor: '#16A34A',
     tagline: 'Blankets, Quilts, Bedsheets & Curtains',
-    bannerImage: 'https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/garments/cloth-blanket.jpg',
+    bannerImage: 'https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/garments/cloth-bedsheet-s.jpg',
   },
   'FOOTWEAR': {
     name: 'Shoe & Sneaker Spa',
@@ -111,7 +112,7 @@ const CATEGORY_METAS: Record<string, {
     iconBg: '#FDF2F8',
     iconColor: '#E11D48',
     tagline: 'Backpacks, Handbags & Leather Goods',
-    bannerImage: 'https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/garments/cloth-bag-backpack.jpg',
+    bannerImage: 'https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/garments/cloth-handbag.jpg',
   },
   'BULK': {
     name: 'Daily Wash & Steam Press (KG)',
@@ -120,7 +121,7 @@ const CATEGORY_METAS: Record<string, {
     iconBg: '#FFF7ED',
     iconColor: '#EA580C',
     tagline: 'Bulk Everyday Laundry by Weight',
-    bannerImage: 'https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/banners/banner-4.jpg',
+    bannerImage: 'https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/banners/banner-bulk.jpg',
   },
 };
 
@@ -145,6 +146,7 @@ export function ServicesScreen({ onBook }: ServicesScreenProps) {
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>('MENS');
   const [selectedSubCategory, setSelectedSubCategory] = useState<string>('All');
   const [searchQuery, setSearchQuery] = useState<string>('');
+  const [imgErrors, setImgErrors] = useState<Record<string, boolean>>({});
 
   // 1. DYNAMICALLY MAP BACKEND DATA
   const { categoriesList, allProductsList } = useMemo(() => {
@@ -423,9 +425,14 @@ export function ServicesScreen({ onBook }: ServicesScreenProps) {
                 {/* Circular Image with Gold/Orange Accent Ring */}
                 <View style={styles.circleAvatarWrapper}>
                   <Image
-                    source={{ uri: cat.bannerImage }}
+                    source={{
+                      uri: imgErrors[cat.id]
+                        ? (CATEGORY_DEFAULT_PHOTOS[cat.id] || 'https://images.unsplash.com/photo-1507679799987-c73779587ccf?auto=format&fit=crop&w=400&q=80')
+                        : cat.bannerImage
+                    }}
                     style={styles.circleAvatarImg}
                     resizeMode="cover"
+                    onError={() => setImgErrors((prev) => ({ ...prev, [cat.id]: true }))}
                   />
                   {/* Subtle item count pill */}
                   <View style={styles.circlePillBadge}>

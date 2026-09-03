@@ -87,6 +87,7 @@ export function BookScreen({
   const [message, setMessage] = useState<string | null>(null);
   const [completedOrderId, setCompletedOrderId] = useState<string | null>(null);
   const [fetchingLocation, setFetchingLocation] = useState(false);
+  const [presetImgErrors, setPresetImgErrors] = useState<Record<string, boolean>>({});
 
   const pickupDates = useMemo(() => Array.from({ length: 7 }, (_, index) => localDateString(index)), []);
   const selectedAddress = addresses.find((a) => a.id === selectedAddressId) || addresses.find((a) => a.isDefault) || addresses[0];
@@ -434,6 +435,7 @@ export function BookScreen({
                         pricingModel: 'PER_KG' as const,
                         turnaroundHours: 24,
                         imageUrl: 'https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/banners/banner-bulk.jpg',
+                        fallbackUrl: 'https://images.unsplash.com/photo-1582735689369-4fe89db7114c?auto=format&fit=crop&w=300&q=80',
                         desc: 'Everyday casuals, t-shirts & bedsheets',
                       },
                       {
@@ -450,6 +452,7 @@ export function BookScreen({
                         pricingModel: 'PER_ITEM' as const,
                         turnaroundHours: 24,
                         imageUrl: 'https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/garments/cloth-shirt.jpg',
+                        fallbackUrl: 'https://images.unsplash.com/photo-1596755094514-f87e34085b2c?auto=format&fit=crop&w=300&q=80',
                         desc: 'Crisp hanger-finished executive shirts',
                       },
                       {
@@ -466,14 +469,16 @@ export function BookScreen({
                         pricingModel: 'PER_ITEM' as const,
                         turnaroundHours: 48,
                         imageUrl: 'https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/garments/cloth-saree-silk.jpg',
+                        fallbackUrl: 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?auto=format&fit=crop&w=300&q=80',
                         desc: 'Gentle organic dry cleaning & roll polish',
                       },
                     ].map((preset) => (
                       <View key={preset.id} style={styles.quickAddRowCard}>
                         <Image
-                          source={{ uri: preset.imageUrl }}
+                          source={{ uri: presetImgErrors[preset.id] ? (preset as any).fallbackUrl : preset.imageUrl }}
                           style={styles.quickAddThumb}
                           resizeMode="cover"
+                          onError={() => setPresetImgErrors((prev) => ({ ...prev, [preset.id]: true }))}
                         />
                         <View style={styles.quickAddInfo}>
                           <Text style={styles.quickAddName} numberOfLines={1}>{preset.serviceName}</Text>
