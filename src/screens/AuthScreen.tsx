@@ -130,7 +130,7 @@ export function AuthScreen({ reason = 'ACCOUNT', onBack }: AuthScreenProps) {
       }
 
       // 2. User exists: Send OTP via Backend SMS Gateway (Fast2SMS/2Factor/Twilio)
-      await api.sendOtp(cleanPhone);
+      await requestFirebasePhoneOtp(cleanPhone);
       
       setPhone(cleanPhone);
       setMode('OTP');
@@ -164,7 +164,7 @@ export function AuthScreen({ reason = 'ACCOUNT', onBack }: AuthScreenProps) {
 
     try {
       // Send OTP via Backend SMS Gateway (Fast2SMS/2Factor/Twilio)
-      await api.sendOtp(cleanPhone, name.trim() || undefined, email.trim() || undefined);
+      await requestFirebasePhoneOtp(cleanPhone);
       
       setPhone(cleanPhone);
       setMode('OTP');
@@ -205,7 +205,7 @@ export function AuthScreen({ reason = 'ACCOUNT', onBack }: AuthScreenProps) {
     setErrorMessage(null);
     try {
       // Send OTP via Backend SMS Gateway
-      await api.sendOtp(phone, name.trim() || undefined, email.trim() || undefined);
+      await requestFirebasePhoneOtp(phone);
       
       setCountdown(30);
       setCanResend(false);

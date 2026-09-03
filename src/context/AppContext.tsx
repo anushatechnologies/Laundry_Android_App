@@ -1,7 +1,7 @@
 import { getGarmentImageUrl } from '@/lib/garment-photos';
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type PropsWithChildren } from 'react';
 import { api, configureApiSession, createOrderPayload } from '@/lib/api';
-import { requestFirebasePhoneOtp, confirmFirebasePhoneOtp, signOutFirebasePhoneAuth } from '@/lib/firebase-phone-auth';
+import { requestFirebasePhoneOtp, confirmFirebasePhoneOtp, signOutFirebasePhoneAuth, hasPendingFirebaseConfirmation } from '@/lib/firebase-phone-auth';
 import { getFirebasePushToken, requestNotificationPermissionOnAppOpen } from '@/lib/notifications';
 import { payWithRazorpay } from '@/lib/payments';
 import {
@@ -219,23 +219,10 @@ export function AppProvider({ children }: PropsWithChildren) {
   // Unified auth verification: Validate via Firebase ID token or backend OTP store
   const signIn = useCallback(async (phone: string, otp: string, name?: string, email?: string) => {
     let nextSession: AuthSession;
-    let firebaseToken: string | undefined;
 
-    // Try to confirm a pending Firebase OTP
-    try {
+    if (hasPendingFirebaseConfirmation()) {
       const result = await confirmFirebasePhoneOtp(otp);
-      firebaseToken = result.idToken;
-    } catch {
-      // Firebase verification not active or not used — fallback to backend
-    }
-
-    if (firebaseToken) {
-      try {
-        nextSession = await api.loginWithFirebase(firebaseToken, name, email);
-      } catch (loginErr) {
-        console.warn('[AUTH] Firebase session creation failed, verifying against backend OTP:', loginErr);
-        nextSession = await api.verifyOtp(phone, otp, name, email);
-      }
+      nextSession = await api.loginWithFirebase(result.idToken, name, email);
     } else {
       nextSession = await api.verifyOtp(phone, otp, name, email);
     }
