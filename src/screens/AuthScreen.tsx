@@ -107,7 +107,7 @@ export function AuthScreen({ reason = 'ACCOUNT', onBack }: AuthScreenProps) {
     }).start();
   };
 
-  // Handle Login Submit (100% Pure Firebase Phone Auth)
+  // Handle Login Submit (Backend SMS OTP - No Firebase Required!)
   const handleLoginSubmit = async () => {
     const cleanPhone = normalisePhone(phone);
     if (cleanPhone.length !== 10) {
@@ -129,25 +129,21 @@ export function AuthScreen({ reason = 'ACCOUNT', onBack }: AuthScreenProps) {
         return;
       }
 
-      // 2. User exists: Dispatch Phone OTP SMS (Firebase with automatic Backend fallback)
-      try {
-        await requestFirebasePhoneOtp(cleanPhone);
-      } catch (fbErr: any) {
-        console.warn('[Auth] Firebase phone auth error, falling back to backend direct SMS OTP:', fbErr?.message);
-        await api.sendOtp(cleanPhone);
-      }
+      // 2. User exists: Send OTP via Backend SMS Gateway (Fast2SMS/2Factor/Twilio)
+      await api.sendOtp(cleanPhone);
+      
       setPhone(cleanPhone);
       setMode('OTP');
       setCountdown(30);
       setCanResend(false);
     } catch (err: any) {
-      setErrorMessage(err instanceof Error ? err.message : 'Unable to send Firebase OTP SMS. Please try again.');
+      setErrorMessage(err instanceof Error ? err.message : 'Unable to send OTP SMS. Please try again.');
     } finally {
       setLoading(false);
     }
   };
 
-  // Handle Register Submit (100% Pure Firebase Phone Auth)
+  // Handle Register Submit (Backend SMS OTP - No Firebase Required!)
   const handleRegisterSubmit = async () => {
     const cleanPhone = normalisePhone(phone);
     if (cleanPhone.length !== 10) {
@@ -167,18 +163,15 @@ export function AuthScreen({ reason = 'ACCOUNT', onBack }: AuthScreenProps) {
     setErrorMessage(null);
 
     try {
-      try {
-        await requestFirebasePhoneOtp(cleanPhone);
-      } catch (fbErr: any) {
-        console.warn('[Auth] Firebase phone auth error, falling back to backend direct SMS OTP:', fbErr?.message);
-        await api.sendOtp(cleanPhone, name.trim() || undefined, email.trim() || undefined);
-      }
+      // Send OTP via Backend SMS Gateway (Fast2SMS/2Factor/Twilio)
+      await api.sendOtp(cleanPhone, name.trim() || undefined, email.trim() || undefined);
+      
       setPhone(cleanPhone);
       setMode('OTP');
       setCountdown(30);
       setCanResend(false);
     } catch (err: any) {
-      setErrorMessage(err instanceof Error ? err.message : 'Unable to send Firebase OTP SMS.');
+      setErrorMessage(err instanceof Error ? err.message : 'Unable to send OTP SMS. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -205,18 +198,15 @@ export function AuthScreen({ reason = 'ACCOUNT', onBack }: AuthScreenProps) {
     }
   };
 
-  // Resend OTP
+  // Resend OTP (Backend SMS)
   const handleResendOtp = async () => {
     if (!canResend) return;
     setLoading(true);
     setErrorMessage(null);
     try {
-      try {
-        await requestFirebasePhoneOtp(phone);
-      } catch (fbErr: any) {
-        console.warn('[Auth] Firebase SMS fallback to backend:', fbErr?.message);
-        await api.sendOtp(phone, name.trim() || undefined, email.trim() || undefined);
-      }
+      // Send OTP via Backend SMS Gateway
+      await api.sendOtp(phone, name.trim() || undefined, email.trim() || undefined);
+      
       setCountdown(30);
       setCanResend(false);
       setOtp('');
