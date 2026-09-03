@@ -128,7 +128,29 @@ export function LiveChatSupportScreen() {
   });
 
   const sendMessage = (text: string) => {
-    if (!text.trim() || !roomId || !customerId) return;
+    // Validation checks with user feedback
+    if (!text.trim()) {
+      Alert.alert('Empty Message', 'Please enter a message');
+      return;
+    }
+    
+    if (!roomId) {
+      Alert.alert('Connection Error', 'Chat room not initialized. Please close and reopen chat.');
+      console.error('[Chat] Cannot send message: No roomId');
+      return;
+    }
+    
+    if (!customerId) {
+      Alert.alert('Authentication Error', 'User not authenticated. Please sign in again.');
+      console.error('[Chat] Cannot send message: No customerId');
+      return;
+    }
+    
+    if (!connectionStatus.connected) {
+      Alert.alert('Connection Error', 'Not connected to chat server. Please check your internet connection and try again.');
+      console.error('[Chat] Cannot send message: Socket not connected');
+      return;
+    }
 
     const messageText = text.trim();
 
@@ -145,8 +167,26 @@ export function LiveChatSupportScreen() {
     setMessages((prev) => [...prev, userMsg]);
     setInputText('');
 
-    // Send via WebSocket
-    sendSocketMessage(messageText, 'TEXT');
+    // Send via WebSocket with logging
+    console.log('[Chat] Sending message:', { 
+      roomId, 
+      customerId, 
+      message: messageText.substring(0, 50),
+      connected: connectionStatus.connected 
+    });
+    
+    const sent = sendSocketMessage(messageText, 'TEXT');
+    
+    if (!sent) {
+      console.error('[Chat] ❌ Message failed to send');
+      Alert.alert('Send Failed', 'Message could not be sent. Please check your connection and try again.');
+      // Remove the optimistic message if send failed
+      setMessages((prev) => prev.filter(msg => msg.id !== userMsg.id));
+      setInputText(messageText); // Restore the text
+      return;
+    }
+    
+    console.log('[Chat] ✅ Message sent successfully');
 
     // Scroll to bottom
     setTimeout(() => {

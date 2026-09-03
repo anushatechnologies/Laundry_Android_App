@@ -40,6 +40,87 @@ interface HomeScreenProps {
   onViewSubscriptions?: () => void;
 }
 
+const DEFAULT_BACKEND_SERVICES: ServiceMaster[] = [
+  {
+    id: 'srv-m-dry-clean',
+    name: 'Dry Cleaning',
+    slug: 'dry-cleaning',
+    serviceCode: 'DRY_CLEAN' as any,
+    pricingType: 'PER_ITEM',
+    turnaroundHours: 48,
+    description: 'Hydrocarbon solvent treatment with breathable garment cover',
+    isActive: true,
+    imageUrl: 'https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/services/service_dry_cleaning.jpg',
+  },
+  {
+    id: 'srv-m-steam-iron',
+    name: 'Steam Pressing',
+    slug: 'steam-iron',
+    serviceCode: 'PRESS' as any,
+    pricingType: 'PER_ITEM',
+    turnaroundHours: 18,
+    description: 'High-pressure wrinkle removal with shape restoration',
+    isActive: true,
+    imageUrl: 'https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/services/service_steam_press.jpg',
+  },
+  {
+    id: 'srv-m-wash-fold',
+    name: 'Wash & Fold',
+    slug: 'wash-and-fold',
+    serviceCode: 'WASH_FOLD' as any,
+    pricingType: 'PER_KG',
+    baseKgPrice: 60,
+    turnaroundHours: 24,
+    description: 'Hygienic wash, tumble dry, and neat compact fold',
+    isActive: true,
+    imageUrl: 'https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/services/service_wash_fold.jpg',
+  },
+  {
+    id: 'srv-m-wash-iron',
+    name: 'Wash & Steam Iron',
+    slug: 'wash-and-iron',
+    serviceCode: 'WASH_IRON' as any,
+    pricingType: 'PER_KG',
+    baseKgPrice: 85,
+    turnaroundHours: 36,
+    description: 'Eco-wash with crisp commercial steam pressing',
+    isActive: true,
+    imageUrl: 'https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/services/service_wash_iron.jpg',
+  },
+  {
+    id: 'srv-m-spa',
+    name: 'Shoe & Leather Spa',
+    slug: 'shoe-spa',
+    serviceCode: 'SHOE_SPA' as any,
+    pricingType: 'PER_ITEM',
+    turnaroundHours: 48,
+    description: 'Ultrasonic stain treatment & antibacterial ozone',
+    isActive: true,
+    imageUrl: 'https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/services/service_shoe_clean.jpg',
+  },
+  {
+    id: 'srv-m-express',
+    name: 'Express 24H Laundry',
+    slug: 'express-emergency',
+    serviceCode: 'EXPRESS' as any,
+    pricingType: 'PER_KG',
+    baseKgPrice: 120,
+    turnaroundHours: 12,
+    description: 'Dedicated machine slot with same-day emergency return',
+    isActive: true,
+    imageUrl: 'https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/services/delivery_van_driver.jpg',
+  },
+];
+
+const SERVICE_FALLBACK_IMAGES: Record<string, string> = {
+  'srv-m-dry-clean': 'https://images.unsplash.com/photo-1517677208171-0bc6725a3e60?auto=format&fit=crop&w=400&q=80',
+  'srv-m-steam-iron': 'https://images.unsplash.com/photo-1545173168-9f1947eebb7f?auto=format&fit=crop&w=400&q=80',
+  'srv-m-wash-fold': 'https://images.unsplash.com/photo-1582735689369-4fe89db7114c?auto=format&fit=crop&w=400&q=80',
+  'srv-m-wash-iron': 'https://images.unsplash.com/photo-1489274495757-95c7c837b101?auto=format&fit=crop&w=400&q=80',
+  'srv-m-spa': 'https://images.unsplash.com/photo-1549298916-b41d501d3772?auto=format&fit=crop&w=400&q=80',
+  'srv-m-express': 'https://images.unsplash.com/photo-1581578731548-c64695cc6952?auto=format&fit=crop&w=400&q=80',
+};
+
 export function HomeScreen({
   onBook,
   onViewOrders,
@@ -141,7 +222,8 @@ export function HomeScreen({
   const [banners, setBanners] = useState<Banner[]>(STATIC_BANNERS);
   const [liveSubPlans, setLiveSubPlans] = useState<SubscriptionPlan[]>([]);
   const [selectedCategorySlug, setSelectedCategorySlug] = useState('mens-wear');
-  const [serviceMasters, setServiceMasters] = useState<ServiceMaster[]>([]);
+  const [serviceMasters, setServiceMasters] = useState<ServiceMaster[]>(DEFAULT_BACKEND_SERVICES);
+  const [serviceImgErrors, setServiceImgErrors] = useState<Record<string, boolean>>({});
   const [servicesLoading, setServicesLoading] = useState(true);
 
   const activeOrder = orders.find(
@@ -243,72 +325,69 @@ export function HomeScreen({
     }
   };
 
+  // Helper: Map categoryTag to category slug
+  const getCategorySlug = (categoryTag: string): string => {
+    const normalized = categoryTag.toUpperCase().replace(/_/g, '-');
+    if (normalized === 'MENS') return 'mens-wear';
+    if (normalized === 'WOMENS') return 'womens-wear';
+    if (normalized === 'KIDS') return 'kids-baby';
+    if (normalized === 'HOME-TEXTILES') return 'home-textiles';
+    if (normalized === 'BULK') return 'bulk-laundry';
+    if (normalized === 'WEDDING') return 'wedding-silk';
+    return normalized.toLowerCase();
+  };
+
   const dynamicItemsByCategory = useMemo<Record<string, any[]>>(() => {
     if (catalog && catalog.clothTypes && catalog.clothTypes.length > 0) {
-      const map: Record<string, any[]> = {
-        'mens-wear': [],
-        'womens-wear': [],
-        'wedding-silk': [],
-        'winter-wear': [],
-        'bulk-laundry': [],
-        'home-textiles': [],
-      };
+      // Build category map dynamically from API data
+      const map: Record<string, any[]> = {};
 
       catalog.clothTypes.forEach((cloth) => {
         const prices = catalog.priceMatrix.filter((p) => p.clothTypeId === cloth.id && p.isActive);
         const primaryPrice = prices[0];
-        const svcId = primaryPrice?.serviceId || 'srv-m-steam-iron';
+        const svcId = primaryPrice?.serviceId || '';
         const itemObj = {
           id: cloth.id,
           name: cloth.name,
-          service: primaryPrice ? primaryPrice.serviceName : 'Steam Press & Fold',
+          service: primaryPrice ? primaryPrice.serviceName : 'Standard Service',
           serviceId: svcId,
           tatHours: primaryPrice?.turnaroundHours || 24,
-          price: primaryPrice ? primaryPrice.price : 99,
+          price: primaryPrice ? primaryPrice.price : 0,
           unit: 'pc',
           imageUrl: getGarmentImageUrl(cloth.id, cloth.imageUrl || cloth.image, cloth.categoryTag),
         };
 
-        if (cloth.categoryTag === 'MENS') (map['mens-wear'] = map['mens-wear'] || []).push(itemObj);
-        else if (cloth.categoryTag === 'WOMENS') {
-          (map['womens-wear'] = map['womens-wear'] || []).push(itemObj);
-          if (cloth.id.includes('saree') || cloth.id.includes('lehenga') || cloth.id.includes('sherwani')) {
-            (map['wedding-silk'] = map['wedding-silk'] || []).push(itemObj);
-          }
-        } else if (cloth.categoryTag === 'KIDS') (map['womens-wear'] = map['womens-wear'] || []).push(itemObj);
-        else if (cloth.categoryTag === 'HOME_TEXTILES') (map['home-textiles'] = map['home-textiles'] || []).push(itemObj);
-        else if (cloth.id.includes('jacket') || cloth.id.includes('sweater') || cloth.id.includes('blanket') || cloth.id.includes('shawl')) {
-          (map['winter-wear'] = map['winter-wear'] || []).push(itemObj);
-        } else {
-          (map['mens-wear'] = map['mens-wear'] || []).push(itemObj);
+        // Map to category dynamically based on API categoryTag
+        const categorySlug = getCategorySlug(cloth.categoryTag || 'MENS');
+        if (!map[categorySlug]) map[categorySlug] = [];
+        map[categorySlug].push(itemObj);
+        
+        // Also add to special categories
+        if (cloth.categoryTag === 'WOMENS' && (cloth.id.includes('saree') || cloth.id.includes('lehenga') || cloth.id.includes('sherwani'))) {
+          if (!map['wedding-silk']) map['wedding-silk'] = [];
+          map['wedding-silk'].push(itemObj);
+        }
+        if (cloth.id.includes('jacket') || cloth.id.includes('sweater') || cloth.id.includes('blanket') || cloth.id.includes('shawl')) {
+          if (!map['winter-wear']) map['winter-wear'] = [];
+          map['winter-wear'].push(itemObj);
         }
       });
 
-      return {
-        'mens-wear': (map['mens-wear'] || []).slice(0, 4),
-        'womens-wear': (map['womens-wear'] || []).slice(0, 4),
-        'wedding-silk': (map['wedding-silk'] || []).slice(0, 4),
-        'winter-wear': (map['winter-wear'] || []).slice(0, 4),
-        'bulk-laundry': (map['bulk-laundry'] || []).slice(0, 4),
-        'home-textiles': (map['home-textiles'] || []).slice(0, 4),
-      };
+      // Limit to 4 items per category for home screen showcase
+      const limitedMap: Record<string, any[]> = {};
+      Object.keys(map).forEach(key => {
+        limitedMap[key] = (map[key] || []).slice(0, 4);
+      });
+      
+      return limitedMap;
     }
 
-    // No fallback to static data - always use API data
-    return {
-      'mens-wear': [],
-      'womens-wear': [],
-      'wedding-silk': [],
-      'winter-wear': [],
-      'bulk-laundry': [],
-      'home-textiles': [],
-    };
+    // No fallback to static data - return empty object
+    return {};
   }, [catalog]);
 
   const currentCategoryItems =
-    dynamicItemsByCategory[selectedCategorySlug] ||
-    dynamicItemsByCategory['mens-wear'] ||
-    [];
+    dynamicItemsByCategory[selectedCategorySlug] || [];
 
 
   const greeting = useMemo(() => {
@@ -398,30 +477,29 @@ export function HomeScreen({
 
   // Helper: Get service image URL
   const getServiceImageUrl = (service: ServiceMaster): string => {
-    if (service.imageUrl && service.imageUrl.length > 10) {
+    if (service.imageUrl && service.imageUrl.length > 10 && !service.imageUrl.includes('placeholder')) {
       return service.imageUrl;
     }
-    if (service.image && service.image.length > 10) {
+    if (service.image && service.image.length > 10 && !service.image.includes('placeholder')) {
       return service.image;
     }
-    // Fallback images based on slug
+    // Fallback images based on slug & serviceCode
     const slug = service.slug?.toLowerCase() || '';
-    if (slug.includes('dry-clean')) return 'https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/services/dry-cleaning.jpg';
-    if (slug.includes('wash-fold')) return 'https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/services/wash-fold.jpg';
-    if (slug.includes('wash-iron')) return 'https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/services/wash-iron.jpg';
-    if (slug.includes('iron') || slug.includes('press')) return 'https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/services/steam-iron.jpg';
-    if (slug.includes('spa')) return 'https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/garments/cloth-shoes.jpg';
-    return 'https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/banners/banner-premium.jpg';
+    const code = (service.serviceCode || '').toUpperCase();
+    if (slug.includes('dry-clean') || code === 'DRY_CLEAN') return 'https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/services/service_dry_cleaning.jpg';
+    if (slug.includes('wash-fold') || slug.includes('wash-and-fold') || code === 'WASH_FOLD') return 'https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/services/service_wash_fold.jpg';
+    if (slug.includes('wash-iron') || slug.includes('wash-and-iron') || code === 'WASH_IRON') return 'https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/services/service_wash_iron.jpg';
+    if (slug.includes('iron') || slug.includes('press') || code === 'PRESS') return 'https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/services/service_steam_press.jpg';
+    if (slug.includes('spa') || slug.includes('shoe') || code === 'SHOE_SPA') return 'https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/services/service_shoe_clean.jpg';
+    if (slug.includes('express') || slug.includes('emergency') || code === 'EXPRESS') return 'https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/services/delivery_van_driver.jpg';
+    return 'https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/services/service_wash_iron.jpg';
   };
 
   // Dynamic services from backend service_masters
   const displayServices = useMemo(() => {
-    if (serviceMasters.length === 0) {
-      // Fallback to ensure UI never breaks
-      return [];
-    }
+    const source = serviceMasters.length > 0 ? serviceMasters : DEFAULT_BACKEND_SERVICES;
 
-    return serviceMasters.map((svc) => ({
+    return source.map((svc) => ({
       id: svc.id,
       serviceId: svc.id,
       title: svc.name,
@@ -433,6 +511,7 @@ export function HomeScreen({
       imageUrl: getServiceImageUrl(svc),
       priceText: formatPricing(svc),
       pricingType: svc.pricingType,
+      serviceCode: (svc.serviceCode || 'ALL') as any,
       slug: svc.slug,
     }));
   }, [serviceMasters]);
@@ -673,17 +752,10 @@ export function HomeScreen({
           </View>
 
           <View style={styles.luxuryServicesGrid}>
-            {servicesLoading ? (
-              <View style={styles.servicesLoadingState}>
-                <Text style={styles.loadingText}>Loading services...</Text>
-              </View>
-            ) : displayServices.length === 0 ? (
-              <View style={styles.servicesEmptyState}>
-                <MaterialCommunityIcons name="hanger" size={48} color="#CBD5E1" />
-                <Text style={styles.emptyStateText}>No services available</Text>
-              </View>
-            ) : (
-              displayServices.map((svc) => (
+            {displayServices.map((svc) => {
+              const fallbackUrl = SERVICE_FALLBACK_IMAGES[svc.id] || 'https://images.unsplash.com/photo-1545173168-9f1947eebb7f?auto=format&fit=crop&w=400&q=80';
+              const hasImgErr = serviceImgErrors[svc.id];
+              return (
                 <Pressable
                   key={svc.id}
                   style={({ pressed }) => [
@@ -691,9 +763,14 @@ export function HomeScreen({
                     pressed && styles.tileCardPressed,
                   ]}
                   onPress={() => {
-                    // Navigate to service details or category
+                    if (svc.slug === 'express-emergency' || svc.serviceCode === 'EXPRESS' || svc.slug === 'wash-and-fold') {
+                      if (onOpenBulkLaundry) {
+                        onOpenBulkLaundry();
+                        return;
+                      }
+                    }
                     if (onSelectService) {
-                      onSelectService('ALL' as any, svc.title);
+                      onSelectService(svc.serviceCode || 'ALL', svc.title);
                     } else {
                       onViewServices();
                     }
@@ -701,43 +778,47 @@ export function HomeScreen({
                   accessibilityRole="button"
                   accessibilityLabel={`View ${svc.title} service`}
                 >
-                  {/* Rounded photo thumbnail */}
-                  <View style={styles.luxuryServiceImgWrap}>
-                    <Image
-                      source={{ uri: svc.imageUrl }}
-                      style={styles.luxuryServiceImg}
-                      resizeMode="cover"
-                    />
-                    <LinearGradient
-                      colors={['transparent', 'rgba(15, 23, 42, 0.78)']}
-                      style={styles.luxuryServiceGradient}
-                    />
-                    {/* Badge */}
+                  {/* Top Bar with Badges */}
+                  <View style={styles.luxuryServiceTopRow}>
                     <View style={styles.luxuryServiceBadge}>
                       <Text style={styles.luxuryServiceBadgeText}>{svc.badge}</Text>
                     </View>
-                    {/* TAT overlay */}
-                    <View style={styles.luxuryServiceTat}>
-                      <MaterialCommunityIcons name="clock-outline" size={10} color="#FFFFFF" />
+                    <View style={styles.luxuryServiceTatPill}>
+                      <MaterialCommunityIcons name="clock-outline" size={10} color="#64748B" />
                       <Text style={styles.luxuryServiceTatText}>{svc.tat}</Text>
                     </View>
                   </View>
 
-                  {/* Service Details */}
-                  <View style={styles.luxuryServiceBody}>
-                    <Text style={styles.luxuryServiceTitle} numberOfLines={1}>
-                      {svc.title}
-                    </Text>
-                    <View style={styles.luxuryServicePriceRow}>
-                      <Text style={styles.luxuryServicePriceText}>{svc.priceText || 'From â‚¹49'}</Text>
-                      <View style={styles.luxuryServiceArrowBox}>
-                        <MaterialCommunityIcons name="arrow-right" size={13} color="#FFFFFF" />
-                      </View>
+                  {/* Rounded Service Image (Circular with Accent Ring) */}
+                  <View style={styles.luxuryServiceImgWrap}>
+                    <Image
+                      source={{ uri: hasImgErr ? fallbackUrl : svc.imageUrl }}
+                      style={styles.luxuryServiceImg}
+                      resizeMode="cover"
+                      onError={() => setServiceImgErrors((prev) => ({ ...prev, [svc.id]: true }))}
+                    />
+                  </View>
+
+                  {/* Service Title */}
+                  <Text style={styles.luxuryServiceTitle} numberOfLines={1}>
+                    {svc.title}
+                  </Text>
+
+                  {/* Service Description */}
+                  <Text style={styles.luxuryServiceDesc} numberOfLines={2}>
+                    {svc.subtitle}
+                  </Text>
+
+                  {/* Price Row & Action Arrow */}
+                  <View style={styles.luxuryServicePriceRow}>
+                    <Text style={styles.luxuryServicePriceText}>{svc.priceText || 'From ₹49'}</Text>
+                    <View style={styles.luxuryServiceArrowBox}>
+                      <MaterialCommunityIcons name="arrow-right" size={12} color="#FFFFFF" />
                     </View>
                   </View>
                 </Pressable>
-              ))
-            )}
+              );
+            })}
           </View>
         </View>
 
@@ -1984,10 +2065,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
   },
   luxuryServiceTile: {
-    width: '47.8%',
+    width: '48%',
     backgroundColor: '#FFFFFF',
     borderRadius: 20,
-    padding: 6,
+    padding: 12,
     borderWidth: 1,
     borderColor: '#F1F5F9',
     shadowColor: '#0F172A',
@@ -1995,73 +2076,96 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.06,
     shadowRadius: 10,
     elevation: 4,
+    alignItems: 'center',
+    marginBottom: 2,
   },
-  luxuryServiceImgWrap: {
+  luxuryServiceTopRow: {
     width: '100%',
-    aspectRatio: 1.25,
-    borderRadius: 14,
-    overflow: 'hidden',
-    position: 'relative',
-    backgroundColor: '#0F172A',
-  },
-  luxuryServiceImg: {
-    width: '100%',
-    height: '100%',
-  },
-  luxuryServiceGradient: {
-    ...StyleSheet.absoluteFill,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 6,
   },
   luxuryServiceBadge: {
-    position: 'absolute',
-    top: 8,
-    left: 8,
-    backgroundColor: 'rgba(255, 255, 255, 0.94)',
+    backgroundColor: '#FFF7ED',
     borderRadius: 6,
-    paddingHorizontal: 7,
-    paddingVertical: 3,
+    paddingHorizontal: 6,
+    paddingVertical: 2.5,
+    borderWidth: 1,
+    borderColor: '#FED7AA',
   },
   luxuryServiceBadgeText: {
     fontSize: 9,
     fontWeight: '800',
-    color: '#0F172A',
+    color: '#EA580C',
     letterSpacing: 0.2,
   },
-  luxuryServiceTat: {
-    position: 'absolute',
-    bottom: 8,
-    left: 8,
+  luxuryServiceTatPill: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 3,
-    backgroundColor: 'rgba(15, 23, 42, 0.75)',
+    backgroundColor: '#F8FAFC',
     borderRadius: 6,
-    paddingHorizontal: 6,
+    paddingHorizontal: 5,
     paddingVertical: 2.5,
   },
   luxuryServiceTatText: {
     fontSize: 9.5,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: '#64748B',
   },
-  luxuryServiceBody: {
-    paddingHorizontal: 4,
-    paddingTop: 9,
-    paddingBottom: 4,
+  luxuryServiceImgWrap: {
+    width: 78,
+    height: 78,
+    borderRadius: 39,
+    overflow: 'hidden',
+    backgroundColor: '#FFF7ED',
+    borderWidth: 2.5,
+    borderColor: '#FED7AA',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginVertical: 6,
+    shadowColor: '#EA580C',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.12,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+  luxuryServiceImg: {
+    width: '100%',
+    height: '100%',
   },
   luxuryServiceTitle: {
-    fontSize: 13,
+    width: '100%',
+    fontSize: 13.5,
     fontWeight: '800',
     color: '#0F172A',
-    marginBottom: 5,
+    textAlign: 'center',
+    marginTop: 4,
+    marginBottom: 2,
+  },
+  luxuryServiceDesc: {
+    width: '100%',
+    fontSize: 10.5,
+    fontWeight: '500',
+    color: '#64748B',
+    textAlign: 'center',
+    lineHeight: 14,
+    minHeight: 28,
+    marginBottom: 8,
   },
   luxuryServicePriceRow: {
+    width: '100%',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: '#F1F5F9',
   },
   luxuryServicePriceText: {
-    fontSize: 12,
-    fontWeight: '800',
+    fontSize: 12.5,
+    fontWeight: '900',
     color: '#FF7A00',
   },
   luxuryServiceArrowBox: {

@@ -78,9 +78,9 @@ export function SearchScreen({ onBook }: SearchScreenProps) {
         const primaryPrice = prices[0];
         const clothName = String(cloth.name || 'Garment');
         const categoryTag = String(cloth.categoryTag || 'MENS');
-        const srvName = String(primaryPrice?.serviceName || 'Steam Press & Fold');
+        const srvName = String(primaryPrice?.serviceName || 'Standard Service');
         const tat = `${primaryPrice?.turnaroundHours || 24}H Care`;
-        const price = Number(primaryPrice?.price || 49);
+        const price = Number(primaryPrice?.price || 0);
 
         return {
           id: String(cloth.id || `cloth-${Math.random()}`),
@@ -95,58 +95,8 @@ export function SearchScreen({ onBook }: SearchScreenProps) {
       });
     }
 
-    return [
-      {
-        id: 'cloth-shirt',
-        name: 'Cotton & Formal Shirts',
-        serviceName: 'Steam Press & Fold',
-        tat: '24H Care',
-        price: 99,
-        unit: 'pc',
-        imageUrl: getGarmentImageUrl('cloth-shirt'),
-        category: 'MENS',
-      },
-      {
-        id: 'cloth-suit-3p',
-        name: 'Suit 3-Piece (Jacket+Vest+Trouser)',
-        serviceName: 'Executive Dry Clean',
-        tat: '48H Care',
-        price: 349,
-        unit: 'set',
-        imageUrl: getGarmentImageUrl('cloth-suit-3p'),
-        category: 'MENS',
-      },
-      {
-        id: 'cloth-saree-silk',
-        name: 'Kanchipuram Silk Saree',
-        serviceName: 'Zero-Bleed Silk Spa',
-        tat: '48H Care',
-        price: 189,
-        unit: 'pc',
-        imageUrl: getGarmentImageUrl('cloth-saree-silk'),
-        category: 'WOMENS',
-      },
-      {
-        id: 'cloth-lehenga',
-        name: 'Bridal Designer Lehenga',
-        serviceName: 'Museum Box Spa',
-        tat: '48H Care',
-        price: 299,
-        unit: 'pc',
-        imageUrl: getGarmentImageUrl('cloth-lehenga'),
-        category: 'WOMENS',
-      },
-      {
-        id: 'cloth-blanket-d',
-        name: 'Double Mink Blanket / Razai',
-        serviceName: 'Anti-Allergen Thermal Wash',
-        tat: '48H Care',
-        price: 179,
-        unit: 'set',
-        imageUrl: getGarmentImageUrl('cloth-blanket-d'),
-        category: 'HOME_TEXTILES',
-      },
-    ];
+    // Return empty array instead of hardcoded items
+    return [];
   }, [catalog]);
 
   const searchResults = useMemo(() => {

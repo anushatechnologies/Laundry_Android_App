@@ -73,6 +73,7 @@ export interface ServiceMaster {
   pricingType: PricingModel | 'FIXED_PACKAGE';
   baseKgPrice?: number;
   minOrderKg?: number;
+  serviceCode?: string;
   turnaroundHours: number;
   description: string;
   isActive: boolean;

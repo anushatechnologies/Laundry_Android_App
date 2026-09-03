@@ -76,19 +76,24 @@ export function useChatSocket({
 
     // Connection events
     socket.on('connect', () => {
-      console.log('[ChatSocket] Connected');
+      console.log('[ChatSocket] ✅ Connected to:', SOCKET_URL);
+      console.log('[ChatSocket] Socket ID:', socket.id);
       setConnectionStatus({ connected: true, reconnecting: false });
 
       // Authenticate
+      console.log('[ChatSocket] Authenticating user:', { userId, userType });
       socket.emit('authenticate', { userId, userType });
     });
 
     socket.on('authenticated', (data) => {
-      console.log('[ChatSocket] Authenticated:', data);
+      console.log('[ChatSocket] ✅ Authenticated successfully:', data);
 
       // Join room if provided
       if (roomId) {
+        console.log('[ChatSocket] Joining room:', roomId);
         socket.emit('join_room', { roomId, userId });
+      } else {
+        console.log('[ChatSocket] ⚠️ No roomId available to join');
       }
     });
 
@@ -195,9 +200,14 @@ export function useChatSocket({
   // Send message
   const sendMessage = useCallback(
     (message: string, messageType: 'TEXT' | 'IMAGE' | 'FILE' = 'TEXT', attachmentUrl?: string) => {
-      if (!socketRef.current || !roomId) {
-        console.error('[ChatSocket] Cannot send message: not connected or no room');
-        return;
+      if (!socketRef.current) {
+        console.error('[ChatSocket] ❌ Cannot send message: Socket not initialized');
+        return false;
+      }
+      
+      if (!roomId) {
+        console.error('[ChatSocket] ❌ Cannot send message: No roomId');
+        return false;
       }
 
       const messageData = {
@@ -209,11 +219,19 @@ export function useChatSocket({
         attachmentUrl,
       };
 
-      console.log('[ChatSocket] Sending message:', messageData);
+      console.log('[ChatSocket] 📤 Sending message:', {
+        roomId,
+        messageLength: message.length,
+        messageType,
+        socketConnected: socketRef.current.connected,
+      });
+      
       socketRef.current.emit('send_message', messageData);
 
       // Stop typing indicator
       stopTyping();
+      
+      return true;
     },
     [roomId, userId, userType]
   );
