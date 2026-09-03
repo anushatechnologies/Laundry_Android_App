@@ -23,6 +23,20 @@ import type {
 
 type SessionListener = (session: AuthSession | null) => void | Promise<void>;
 
+export interface AddressSearchResult {
+  latitude: number;
+  longitude: number;
+  address?: string;
+  formattedAddress?: string;
+  areaName?: string;
+  city?: string;
+  state?: string;
+  country?: string;
+  pincode?: string;
+  isServiceable?: boolean | null;
+  message?: string;
+}
+
 let activeSession: AuthSession | null = null;
 let sessionListener: SessionListener | null = null;
 let refreshPromise: Promise<string | null> | null = null;
@@ -179,6 +193,8 @@ export const api = {
     request<{ pincode?: string; areaName?: string; city?: string; formattedAddress?: string; isServiceable?: boolean; message?: string }>(
       `/pincodes/reverse-geocode?lat=${encodeURIComponent(latitude)}&lng=${encodeURIComponent(longitude)}`,
     ),
+  searchAddressSuggestions: (query: string) =>
+    request<AddressSearchResult[]>(`/pincodes/search?q=${encodeURIComponent(query)}`),
   getSlots: (date: string) => request<PickupSlot[]>(`/slots?date=${encodeURIComponent(date)}`),
   reserveSlot: (slotId: string, orderKg: number) =>
     request<PickupSlot>('/slots/reserve', { method: 'POST', body: JSON.stringify({ slotId, orderKg }) }, true),

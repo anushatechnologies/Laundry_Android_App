@@ -7,6 +7,7 @@ import { AppButton, AppInput, Card, Chip, EmptyState, SectionTitle } from '@/ui/
 import { COLORS, localDateString, money, shortDate } from '@/ui/theme';
 import { getGarmentImageUrl } from '@/lib/garment-photos';
 import type { CustomerAddress, ExpressTier, PaymentMethod, PickupSlot } from '@/types/domain';
+import type { CustomerLocation } from '@/services/location/types';
 
 type BookingStage = 'BAG' | 'DETAILS' | 'REVIEW' | 'SUCCESS';
 type AddressDraft = Omit<CustomerAddress, 'id'>;
@@ -28,6 +29,7 @@ function newAddressDraft(name: string, phone: string): AddressDraft {
 interface BookScreenProps {
   onViewOrders: () => void;
   initialCouponCode?: string;
+  deliveryLocation?: CustomerLocation | null;
   onRequireSignIn: () => void;
   onBrowseServices: () => void;
   resumeCheckout?: boolean;
@@ -43,6 +45,7 @@ const QUICK_COUPONS = [
 export function BookScreen({
   onViewOrders,
   initialCouponCode,
+  deliveryLocation = null,
   onRequireSignIn,
   onBrowseServices,
   resumeCheckout = false,
@@ -88,6 +91,44 @@ export function BookScreen({
   const pickupDates = useMemo(() => Array.from({ length: 7 }, (_, index) => localDateString(index)), []);
   const selectedAddress = addresses.find((a) => a.id === selectedAddressId) || addresses.find((a) => a.isDefault) || addresses[0];
   const selectedSlot = slots.find((s) => s.id === selectedSlotId && s.isAvailable && !s.isPast);
+
+  // The location picker confirms an area, while checkout still needs a flat or
+  // house number. Prefill that checkout form instead of silently creating an
+  // incomplete saved address.
+  useEffect(() => {
+    if (!deliveryLocation || addresses.length > 0) return;
+
+    const street = deliveryLocation.formattedAddress || deliveryLocation.address || '';
+    const landmark = deliveryLocation.areaName || deliveryLocation.locality || '';
+    if (!street && !deliveryLocation.pincode) return;
+
+    setDraft((current) => ({
+      ...current,
+      street: current.street || street,
+      landmark: current.landmark || landmark,
+      city: deliveryLocation.city || current.city || 'Hyderabad',
+      state: deliveryLocation.state || current.state || 'Telangana',
+      pincode: current.pincode || deliveryLocation.pincode || '',
+    }));
+
+    if (typeof deliveryLocation.isServiceable === 'boolean') {
+      setPincodeCheck({
+        isServiceable: deliveryLocation.isServiceable,
+        message: deliveryLocation.serviceabilityMessage,
+      });
+    }
+  }, [
+    addresses.length,
+    deliveryLocation?.address,
+    deliveryLocation?.areaName,
+    deliveryLocation?.city,
+    deliveryLocation?.formattedAddress,
+    deliveryLocation?.isServiceable,
+    deliveryLocation?.locality,
+    deliveryLocation?.pincode,
+    deliveryLocation?.serviceabilityMessage,
+    deliveryLocation?.state,
+  ]);
 
   // GPS auto-fill shares the central permission, GPS, reverse-geocode, and serviceability flow.
   const handleUseCurrentLocation = async () => {
@@ -483,7 +524,7 @@ export function BookScreen({
                       rawClothId = item.id;
                     }
                   }
-                  const imageUrl = item.imageUrl || (isBulk ? 'https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/services/service_wash_fold.jpg' : getGarmentImageUrl(rawClothId || 'cloth-shirt'));
+                  const imageUrl = getGarmentImageUrl(rawClothId || 'cloth-shirt', item.imageUrl, item.categoryName, item.serviceName);
 
                   return (
                     <View key={item.id} style={styles.cartCard}>
@@ -496,7 +537,7 @@ export function BookScreen({
                       </View>
 
                       <View style={styles.cartCardDetails}>
-                        <Text style={styles.cartItemName} numberOfLines={1}>{item.serviceName}</Text>
+                        <Text style={styles.cartItemName} numberOfLines={1}>{item.serviceName ? item.serviceName.replace(/\s*\((null|undefined)\)/gi, '').trim() : 'Garment'}</Text>
                         <Text style={styles.cartItemRate}>₹{item.unitPrice}/{item.unit || (isBulk ? 'KG' : 'Piece')}</Text>
 
                         <View style={styles.cartCardActions}>

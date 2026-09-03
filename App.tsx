@@ -455,6 +455,7 @@ function AuthenticatedApp() {
     screen = (
       <BookScreen
         initialCouponCode={couponCode}
+        deliveryLocation={locationState.deliveryLocation}
         onViewOrders={() => navigateTo('ORDERS')}
         onRequireSignIn={startCheckout}
         onBrowseServices={() => navigateTo('SERVICES')}

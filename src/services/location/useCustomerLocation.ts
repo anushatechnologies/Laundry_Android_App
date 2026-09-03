@@ -1,7 +1,7 @@
 import { AppState } from 'react-native';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { readUserLocation, writeUserLocation, type StoredUserLocation } from '@/lib/storage';
-import { getCurrentCustomerLocation } from './locationService';
+import { getCurrentCustomerLocation, LOCATION_STALE_TIME } from './locationService';
 import type {
   CustomerLocation,
   CustomerLocationState,
@@ -123,8 +123,10 @@ export function useCustomerLocation({ ownerId = null, refreshOnForeground }: Use
 
         lastGpsRefreshAtRef.current = Date.now();
         const activeDelivery = deliveryLocationRef.current;
-        // A manually chosen pickup address is deliberate and must never be overwritten by GPS.
-        const shouldUpdateDeliveryAddress = !activeDelivery || activeDelivery.source !== 'manual';
+        // A confirmed pickup address is deliberate, even when it was originally
+        // chosen from GPS. Keep physical GPS fresh separately, but never move a
+        // delivery address without an explicit customer action.
+        const shouldUpdateDeliveryAddress = !activeDelivery;
         const deliveryLocation = shouldUpdateDeliveryAddress ? result.location : activeDelivery;
         if (shouldUpdateDeliveryAddress) {
           deliveryLocationRef.current = result.location;
@@ -154,8 +156,10 @@ export function useCustomerLocation({ ownerId = null, refreshOnForeground }: Use
 
   useEffect(() => {
     if (!hydrated || !refreshOnForeground) return;
-    // When map confirmation already obtained a GPS point, do not immediately ask the device twice.
-    if (Date.now() - lastGpsRefreshAtRef.current < 60_000) return;
+    // When map confirmation already obtained a GPS point, do not immediately
+    // ask the device twice. Foreground refreshes are also throttled for battery
+    // and network usage.
+    if (Date.now() - lastGpsRefreshAtRef.current < LOCATION_STALE_TIME) return;
     void refreshCurrentLocation('never');
   }, [hydrated, refreshCurrentLocation, refreshOnForeground]);
 
@@ -166,6 +170,7 @@ export function useCustomerLocation({ ownerId = null, refreshOnForeground }: Use
       const previousState = appStateRef.current;
       appStateRef.current = nextState;
       if ((previousState === 'background' || previousState === 'inactive') && nextState === 'active') {
+        if (Date.now() - lastGpsRefreshAtRef.current < LOCATION_STALE_TIME) return;
         void refreshCurrentLocation('never');
       }
     });
@@ -179,4 +184,3 @@ export function useCustomerLocation({ ownerId = null, refreshOnForeground }: Use
     refreshCurrentLocation,
   };
 }
-

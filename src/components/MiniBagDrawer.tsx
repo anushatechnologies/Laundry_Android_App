@@ -125,7 +125,7 @@ export function MiniBagDrawer({ visible, onClose, onProceed }: MiniBagDrawerProp
                     rawClothId = item.id;
                   }
                 }
-                const imageUrl = item.imageUrl || (isBulk ? 'https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/services/service_wash_fold.jpg' : getGarmentImageUrl(rawClothId || 'cloth-shirt'));
+                const imageUrl = getGarmentImageUrl(rawClothId || 'cloth-shirt', item.imageUrl, item.categoryName, item.serviceName);
 
                 return (
                   <View key={item.id} style={styles.itemRow}>
@@ -137,7 +137,7 @@ export function MiniBagDrawer({ visible, onClose, onProceed }: MiniBagDrawerProp
                     {/* Details */}
                     <View style={styles.itemInfo}>
                       <Text style={styles.itemName} numberOfLines={1}>
-                        {item.serviceName}
+                        {item.serviceName ? item.serviceName.replace(/\s*\((null|undefined)\)/gi, '').trim() : 'Garment'}
                       </Text>
                       <Text style={styles.itemMeta}>
                         ₹{item.unitPrice}/{item.unit || (isBulk ? 'KG' : 'Piece')}

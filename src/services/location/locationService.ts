@@ -1,6 +1,6 @@
 import { Linking, Platform } from 'react-native';
 import * as Location from 'expo-location';
-import { api } from '@/lib/api';
+import { api, type AddressSearchResult } from '@/lib/api';
 import type {
   CustomerLocation,
   CustomerLocationSource,
@@ -40,6 +40,28 @@ function joinAddress(...parts: Array<string | null | undefined>): string {
 function normalisePincode(value?: string | null): string {
   const pincode = String(value || '').replace(/\D/g, '');
   return pincode.length === 6 ? pincode : '';
+}
+
+// Android's native reverse geocoder can return a Plus Code as `name`. It is
+// useful for diagnostics, but it is not a delivery-address title.
+const PLUS_CODE_PREFIX = /^[23456789CFGHJMPQRVWX]{4,8}\+[23456789CFGHJMPQRVWX]{2,}\s*,?\s*/i;
+
+function cleanAddressText(value?: string | null): string {
+  if (typeof value !== 'string') return '';
+  return value.trim()
+    .replace(PLUS_CODE_PREFIX, '')
+    .replace(/^,\s*/, '')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+}
+
+function addressLineFromFormattedAddress(value?: string | null): string {
+  const parts = String(value || '')
+    .split(',')
+    .map((part) => cleanAddressText(part))
+    .filter(Boolean);
+
+  return parts.find((part) => !/^\d{6}$/.test(part)) || '';
 }
 
 function toPermissionInfo(response: Location.LocationPermissionResponse): LocationPermissionInfo {
@@ -169,20 +191,28 @@ export async function resolveCustomerLocationCoordinates(
   ]);
 
   const nativeAddress = nativeResult;
+  // The backend resolves the exact map centre, so its address/pincode is the
+  // canonical customer-facing result. Expo's geocoder only fills gaps.
+  const backendFormattedAddress = cleanAddressText(backendResult?.formattedAddress);
+  const nativeStreet = firstText(
+    cleanAddressText(nativeAddress?.street),
+    cleanAddressText(nativeAddress?.name),
+  );
   const street = firstText(
-    joinAddress(nativeAddress?.name, nativeAddress?.street),
-    backendResult?.formattedAddress,
+    addressLineFromFormattedAddress(backendFormattedAddress),
+    nativeStreet,
+    cleanAddressText(backendResult?.areaName),
   );
   const locality = firstText(
-    nativeAddress?.district,
+    backendResult?.areaName,
     nativeAddress?.subregion,
     nativeAddress?.city,
-    backendResult?.areaName,
+    nativeAddress?.district,
   );
-  const city = firstText(nativeAddress?.city, nativeAddress?.region, backendResult?.city);
-  const pincode = normalisePincode(nativeAddress?.postalCode || backendResult?.pincode);
+  const city = firstText(backendResult?.city, nativeAddress?.city, nativeAddress?.region);
+  const pincode = normalisePincode(backendResult?.pincode || nativeAddress?.postalCode);
   const formattedAddress = firstText(
-    backendResult?.formattedAddress,
+    backendFormattedAddress,
     joinAddress(street, locality, city, nativeAddress?.region, nativeAddress?.country, pincode),
   );
 
@@ -190,15 +220,19 @@ export async function resolveCustomerLocationCoordinates(
     throw new Error("We found your coordinates but couldn't identify the address. Please choose your location on the map.");
   }
 
-  let isServiceable: boolean | null = null;
-  let serviceabilityMessage: string | undefined;
-  try {
-    const serviceability = await api.checkPincode(pincode);
-    isServiceable = Boolean(serviceability.isServiceable || serviceability.serviceable);
-    serviceabilityMessage = serviceability.message;
-    debugLog('Serviceability checked', { pincode, isServiceable });
-  } catch {
-    serviceabilityMessage = 'We could not confirm service availability right now. Please check your connection and try again.';
+  let isServiceable: boolean | null = typeof backendResult?.isServiceable === 'boolean'
+    ? backendResult.isServiceable
+    : null;
+  let serviceabilityMessage: string | undefined = backendResult?.message;
+  if (isServiceable === null) {
+    try {
+      const serviceability = await api.checkPincode(pincode);
+      isServiceable = Boolean(serviceability.isServiceable || serviceability.serviceable);
+      serviceabilityMessage = serviceability.message;
+      debugLog('Serviceability checked', { pincode, isServiceable });
+    } catch {
+      serviceabilityMessage = 'We could not confirm service availability right now. Please check your connection and try again.';
+    }
   }
 
   let hubName: string | undefined;
@@ -235,6 +269,47 @@ export async function resolveCustomerLocationCoordinates(
 
   debugLog('Location resolved', { locality: location.locality, city: location.city, pincode: location.pincode });
   return location;
+}
+
+/** Search is deliberately explicit (not autocomplete-on-every-keystroke) to
+ * provide a usable no-GPS fallback without abusing the geocoding provider. */
+export async function searchCustomerAddresses(query: string): Promise<CustomerLocation[]> {
+  const normalizedQuery = query.trim();
+  if (normalizedQuery.length < 3) return [];
+
+  const suggestions = await api.searchAddressSuggestions(normalizedQuery);
+  const updatedAt = new Date().toISOString();
+
+  return suggestions
+    .filter((suggestion) => Number.isFinite(suggestion.latitude) && Number.isFinite(suggestion.longitude))
+    .map((suggestion: AddressSearchResult): CustomerLocation => {
+      const formattedAddress = cleanAddressText(suggestion.formattedAddress);
+      const address = firstText(
+        cleanAddressText(suggestion.address),
+        addressLineFromFormattedAddress(formattedAddress),
+        cleanAddressText(suggestion.areaName),
+        cleanAddressText(suggestion.city),
+      );
+
+      return {
+        latitude: suggestion.latitude,
+        longitude: suggestion.longitude,
+        address,
+        formattedAddress: formattedAddress || address,
+        street: address || undefined,
+        locality: cleanAddressText(suggestion.areaName) || undefined,
+        subLocality: cleanAddressText(suggestion.areaName) || undefined,
+        areaName: cleanAddressText(suggestion.areaName) || undefined,
+        city: cleanAddressText(suggestion.city) || undefined,
+        state: cleanAddressText(suggestion.state) || undefined,
+        country: cleanAddressText(suggestion.country) || undefined,
+        pincode: normalisePincode(suggestion.pincode) || undefined,
+        source: 'manual',
+        isServiceable: typeof suggestion.isServiceable === 'boolean' ? suggestion.isServiceable : null,
+        serviceabilityMessage: suggestion.message,
+        updatedAt,
+      };
+    });
 }
 
 /**

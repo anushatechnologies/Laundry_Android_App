@@ -79,6 +79,55 @@ const SERVICE_FILTERS = [
   { key: 'DRY_CLEAN', label: 'Dry Clean', icon: 'coat-rack' },
 ];
 
+
+function matchesSubcategoryKeyword(name: string, sub: string): boolean {
+  const n = (name || '').toLowerCase();
+  const s = (sub || '').toLowerCase();
+  if (s.includes('shirt') && !s.includes('t-shirt') && !s.includes('tshirt')) {
+    return n.includes('shirt') && !n.includes('t-shirt') && !n.includes('tshirt') && !n.includes('polo');
+  }
+  if (s.includes('t-shirt') || s.includes('tshirt')) {
+    return n.includes('t-shirt') || n.includes('tshirt') || n.includes('polo') || n.includes('tee');
+  }
+  if (s.includes('trouser') || s.includes('pant')) {
+    return n.includes('trouser') || n.includes('pant') || n.includes('chino') || n.includes('cargo') || n.includes('bottom');
+  }
+  if (s.includes('denim') || s.includes('jean')) {
+    return n.includes('jean') || n.includes('denim') || n.includes('jeggings');
+  }
+  if (s.includes('saree')) {
+    return n.includes('saree');
+  }
+  if (s.includes('kurti') || s.includes('kurta')) {
+    return n.includes('kurti') || n.includes('kurta');
+  }
+  if (s.includes('salwar') || s.includes('suit')) {
+    return n.includes('salwar') || n.includes('suit') || n.includes('churidar') || n.includes('dupatta');
+  }
+  if (s.includes('dress') || s.includes('gown')) {
+    return n.includes('dress') || n.includes('gown') || n.includes('maxi') || n.includes('skirt') || n.includes('top');
+  }
+  if (s.includes('winter') || s.includes('jacket') || s.includes('sweater')) {
+    return n.includes('winter') || n.includes('jacket') || n.includes('sweater') || n.includes('pullover') || n.includes('coat') || n.includes('hoodie') || n.includes('shawl');
+  }
+  if (s.includes('ethnic')) {
+    return n.includes('ethnic') || n.includes('kurta') || n.includes('sherwani') || n.includes('dhoti') || n.includes('pyjama');
+  }
+  if (s.includes('sport') || s.includes('gym')) {
+    return n.includes('short') || n.includes('bermuda') || n.includes('track') || n.includes('gym') || n.includes('sport');
+  }
+  if (s.includes('bedsheet')) {
+    return n.includes('bedsheet') || n.includes('bed sheet') || n.includes('linen');
+  }
+  if (s.includes('blanket') || s.includes('quilt') || s.includes('comforter')) {
+    return n.includes('blanket') || n.includes('quilt') || n.includes('comforter') || n.includes('duvet') || n.includes('razai');
+  }
+  if (s.includes('curtain')) {
+    return n.includes('curtain');
+  }
+  return false;
+}
+
 export function CategoryCatalogScreen({
   categoryTag = 'MENS',
   categoryTitle = "Men's Wear",
@@ -113,6 +162,7 @@ export function CategoryCatalogScreen({
 
   // Image error tracker
   const [imageErrors, setImageErrors] = useState<Record<string, boolean>>({});
+  const [imageLoading, setImageLoading] = useState<Record<string, boolean>>({});
 
   // Dynamic Catalog from backend
   const [dynamicCatalog, setDynamicCatalog] = useState<Catalog | null>(null);
@@ -268,7 +318,7 @@ export function CategoryCatalogScreen({
         categoryTag: cloth.categoryTag || activeCategoryTag,
         categoryLabel: cloth.categoryLabel || activeCategoryTitle,
         subcategory: cloth.subcategory || cloth.subCategory || 'General',
-        imageUrl: cloth.imageUrl || cloth.image,
+        imageUrl: getGarmentImageUrl(cloth.id, cloth.imageUrl || cloth.image, cloth.categoryTag, cloth.name),
         description: cloth.description,
         services: servicesForCloth,
         minPrice,
@@ -283,11 +333,13 @@ export function CategoryCatalogScreen({
     if (selectedSubcategory !== 'ALL') {
       const targetSub = selectedSubcategory.toLowerCase().trim();
       list = list.filter((p) => {
-        const itemSub = p.subcategory.toLowerCase().trim();
+        const itemSub = (p.subcategory || '').toLowerCase().trim();
+        const itemName = (p.name || '').toLowerCase().trim();
         return (
           itemSub === targetSub ||
           itemSub.includes(targetSub) ||
-          targetSub.includes(itemSub)
+          targetSub.includes(itemSub) ||
+          matchesSubcategoryKeyword(itemName, targetSub)
         );
       });
     }
@@ -317,19 +369,26 @@ export function CategoryCatalogScreen({
     return list;
   }, [products, selectedSubcategory, searchQuery, selectedServiceFilter, selectedSort]);
 
-  // Selected Service per Product
+  // Selected Service per Product - FIX: Ensure displayed price matches selected service filter
   const getSelectedServiceForCloth = (cloth: ProductItem): ServicePriceOption => {
+    // Priority 1: If user manually selected a service for this cloth, use that
     const selectedId = selectedClothServiceMap[cloth.id];
     if (selectedId) {
       const found = cloth.services.find((s) => s.serviceId === selectedId);
       if (found) return found;
     }
+    
+    // Priority 2: If a service filter is active (not 'ALL'), MUST show that service's price
     if (selectedServiceFilter !== 'ALL') {
       const matchedFilter = cloth.services.find((s) => s.serviceCode === selectedServiceFilter);
       if (matchedFilter) return matchedFilter;
+      // If the filtered service doesn't exist for this cloth, show first available with warning
+      console.warn(`Service filter ${selectedServiceFilter} not available for cloth ${cloth.name}`);
     }
+    
+    // Priority 3: Default to Wash & Iron as it's most common
     return (
-      cloth.services[1] ||
+      cloth.services.find((s) => s.serviceCode === 'WASH_IRON') ||
       cloth.services[0] || {
         serviceId: 'srv-m-wash-iron',
         serviceName: 'Wash & Iron',
@@ -338,7 +397,7 @@ export function CategoryCatalogScreen({
         icon: 'washing-machine',
         unit: 'Piece',
       }
-    ); // Default to Wash & Iron or first available
+    );
   };
 
   const handleSelectServiceForCloth = (clothId: string, serviceId: string) => {
@@ -351,10 +410,15 @@ export function CategoryCatalogScreen({
   // Cart Operations
   const handleAddToCart = (cloth: ProductItem, service: ServicePriceOption) => {
     const cartItemId = `${cloth.id}-${service.serviceId}`;
+    const cleanSvcName = service?.serviceName && service.serviceName !== 'null' && service.serviceName !== 'undefined'
+      ? service.serviceName
+      : (service?.serviceCode === 'PRESS' ? 'Steam Press' : service?.serviceCode === 'DRY_CLEAN' ? 'Dry Clean' : 'Wash & Iron');
+    const displayName = `${cloth.name} (${cleanSvcName})`;
+    
     addCartItem({
       id: cartItemId,
       serviceId: service.serviceId,
-      serviceName: `${cloth.name} (${service.serviceName})`,
+      serviceName: displayName,
       categoryName: activeCategoryTitle,
       pricingModel: service.unit === 'KG' ? 'PER_KG' : 'PER_ITEM',
       unitPrice: service.price,
@@ -430,7 +494,9 @@ export function CategoryCatalogScreen({
 
         <View style={styles.titleColumn}>
           <Text style={styles.topBarTitle} numberOfLines={1}>
-            {initialServiceName ? `${initialServiceName} • ${activeCategoryTitle}` : activeCategoryTitle}
+            {initialServiceName && initialServiceName !== activeCategoryTitle
+              ? `${initialServiceName} • ${activeCategoryTitle}`
+              : activeCategoryTitle}
           </Text>
           <Text style={styles.topBarSubtitle}>
             {filteredProducts.length} items available
@@ -496,7 +562,7 @@ export function CategoryCatalogScreen({
           <MaterialCommunityIcons name="magnify" size={20} color="#64748B" />
           <TextInput
             style={styles.searchInput}
-            placeholder={`Search in ${activeCategoryTitle}...`}
+            placeholder="Search all garments..."
             placeholderTextColor="#94A3B8"
             value={searchQuery}
             onChangeText={setSearchQuery}
@@ -589,10 +655,56 @@ export function CategoryCatalogScreen({
         </ScrollView>
       </View>
 
-      {/* 7. RESULT INFORMATION & SORT ROW */}
+      {/* 7. BREADCRUMB NAVIGATION - Show active filters clearly */}
+      {(selectedServiceFilter !== 'ALL' || selectedSubcategory !== 'ALL' || searchQuery.trim().length > 0) && (
+        <View style={styles.breadcrumbContainer}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.breadcrumbScroll}>
+            <View style={styles.breadcrumbChip}>
+              <Text style={styles.breadcrumbText}>{activeCategoryTitle}</Text>
+            </View>
+            {selectedServiceFilter !== 'ALL' && (
+              <>
+                <MaterialCommunityIcons name="chevron-right" size={14} color="#94A3B8" />
+                <View style={[styles.breadcrumbChip, styles.breadcrumbChipActive]}>
+                  <Text style={styles.breadcrumbTextActive}>
+                    {SERVICE_FILTERS.find(f => f.key === selectedServiceFilter)?.label || selectedServiceFilter}
+                  </Text>
+                  <Pressable onPress={() => setSelectedServiceFilter('ALL')} hitSlop={6}>
+                    <MaterialCommunityIcons name="close-circle" size={14} color="#FF6B0B" />
+                  </Pressable>
+                </View>
+              </>
+            )}
+            {selectedSubcategory !== 'ALL' && (
+              <>
+                <MaterialCommunityIcons name="chevron-right" size={14} color="#94A3B8" />
+                <View style={[styles.breadcrumbChip, styles.breadcrumbChipActive]}>
+                  <Text style={styles.breadcrumbTextActive}>{selectedSubcategory}</Text>
+                  <Pressable onPress={() => setSelectedSubcategory('ALL')} hitSlop={6}>
+                    <MaterialCommunityIcons name="close-circle" size={14} color="#FF6B0B" />
+                  </Pressable>
+                </View>
+              </>
+            )}
+            {searchQuery.trim().length > 0 && (
+              <>
+                <MaterialCommunityIcons name="chevron-right" size={14} color="#94A3B8" />
+                <View style={[styles.breadcrumbChip, styles.breadcrumbChipActive]}>
+                  <Text style={styles.breadcrumbTextActive}>"{searchQuery}"</Text>
+                  <Pressable onPress={() => setSearchQuery('')} hitSlop={6}>
+                    <MaterialCommunityIcons name="close-circle" size={14} color="#FF6B0B" />
+                  </Pressable>
+                </View>
+              </>
+            )}
+          </ScrollView>
+        </View>
+      )}
+
+      {/* 8. RESULT INFORMATION & SORT ROW */}
       <View style={styles.resultRow}>
         <Text style={styles.resultCountText}>
-          {activeCategoryTitle} • {filteredProducts.length} items
+          {filteredProducts.length} item{filteredProducts.length !== 1 ? 's' : ''} found
         </Text>
         <Pressable
           style={({ pressed }) => [styles.sortBtn, pressed && styles.pressedBtn]}
@@ -610,7 +722,7 @@ export function CategoryCatalogScreen({
         </Pressable>
       </View>
 
-      {/* 8. PRODUCT GRID (FULL SCREEN WIDTH 2-COLUMN GRID, ZERO SIDEBAR!) */}
+      {/* 9. PRODUCT GRID (FULL SCREEN WIDTH 2-COLUMN GRID, ZERO SIDEBAR!) */}
       {isLoading && filteredProducts.length === 0 ? (
         <View style={styles.loadingGridContainer}>
           <ActivityIndicator size="large" color="#FF6B0B" />
@@ -650,6 +762,7 @@ export function CategoryCatalogScreen({
               const chosenService = getSelectedServiceForCloth(cloth);
               const cartQty = getCartQuantityForProduct(cloth, chosenService.serviceId);
               const isImgBroken = imageErrors[cloth.id];
+              const isImageLoading = imageLoading[cloth.id];
               const photoUrl =
                 !isImgBroken && (cloth.imageUrl || getGarmentImageUrl(cloth.id, undefined, cloth.categoryTag));
               const isFavorite = wishlist.includes(cloth.id);
@@ -662,17 +775,28 @@ export function CategoryCatalogScreen({
                   {/* 10. PRODUCT IMAGE (1:1 Aspect Ratio, Rounded Top, Favorite & Badges) */}
                   <View style={styles.cardImageContainer}>
                     {photoUrl ? (
-                      <Image
-                        source={{ uri: photoUrl }}
-                        style={styles.cardImage}
-                        resizeMode="cover"
-                        onError={() => {
-                          setImageErrors((prev) => ({ ...prev, [cloth.id]: true }));
-                        }}
-                      />
+                      <>
+                        <Image
+                          source={{ uri: photoUrl }}
+                          style={styles.cardImage}
+                          resizeMode="cover"
+                          onLoadStart={() => setImageLoading((prev) => ({ ...prev, [cloth.id]: true }))}
+                          onLoadEnd={() => setImageLoading((prev) => ({ ...prev, [cloth.id]: false }))}
+                          onError={() => {
+                            setImageErrors((prev) => ({ ...prev, [cloth.id]: true }));
+                            setImageLoading((prev) => ({ ...prev, [cloth.id]: false }));
+                          }}
+                        />
+                        {isImageLoading && (
+                          <View style={styles.imageLoadingOverlay}>
+                            <ActivityIndicator size="small" color="#FF6B0B" />
+                          </View>
+                        )}
+                      </>
                     ) : (
                       <View style={styles.cardImageFallback}>
                         <MaterialCommunityIcons name="tshirt-crew" size={40} color="#94A3B8" />
+                        <Text style={styles.fallbackText}>No Image</Text>
                       </View>
                     )}
 
@@ -710,8 +834,8 @@ export function CategoryCatalogScreen({
                       </Text>
                     </View>
 
-                    {/* 16. Service Options (Selectable Chips: Press, Wash+Iron, Dry Clean) */}
-                    <View style={styles.serviceChipsRow}>
+                    {/* 16. ALL SERVICE PRICES DISPLAY - Show all prices at once for easy comparison */}
+                    <View style={styles.allPricesContainer}>
                       {cloth.services.map((srv) => {
                         const isChosen = chosenService.serviceId === srv.serviceId;
                         const label =
@@ -725,35 +849,47 @@ export function CategoryCatalogScreen({
                           <Pressable
                             key={srv.serviceId}
                             style={[
-                              styles.clothServiceChip,
-                              isChosen ? styles.clothServiceChipActive : styles.clothServiceChipInactive,
+                              styles.priceOptionRow,
+                              isChosen && styles.priceOptionRowActive,
                             ]}
                             onPress={() => handleSelectServiceForCloth(cloth.id, srv.serviceId)}
                             hitSlop={4}
                           >
+                            <View style={styles.priceOptionLeft}>
+                              <MaterialCommunityIcons 
+                                name={srv.icon as any} 
+                                size={14} 
+                                color={isChosen ? '#FF6B0B' : '#64748B'} 
+                              />
+                              <Text
+                                style={[
+                                  styles.priceOptionLabel,
+                                  isChosen && styles.priceOptionLabelActive,
+                                ]}
+                                numberOfLines={1}
+                              >
+                                {label}
+                              </Text>
+                            </View>
                             <Text
                               style={[
-                                styles.clothServiceChipText,
-                                isChosen ? styles.clothServiceChipTextActive : styles.clothServiceChipTextInactive,
+                                styles.priceOptionPrice,
+                                isChosen && styles.priceOptionPriceActive,
                               ]}
-                              numberOfLines={1}
                             >
-                              {label}
+                              ₹{srv.price}
                             </Text>
+                            {isChosen && (
+                              <View style={styles.priceOptionCheck}>
+                                <MaterialCommunityIcons name="check-circle" size={16} color="#FF6B0B" />
+                              </View>
+                            )}
                           </Pressable>
                         );
                       })}
                     </View>
 
-                    {/* 17. Price Area (₹75 in 20px 700 + service subtitle) */}
-                    <View style={styles.priceContainer}>
-                      <Text style={styles.priceText}>₹{chosenService.price}</Text>
-                      <Text style={styles.priceSubText} numberOfLines={1}>
-                        {chosenService.serviceName}
-                      </Text>
-                    </View>
-
-                    {/* 18. ADD Button & Stepper (EXACT SAME 42px HEIGHT, NO LAYOUT SHIFT) */}
+                    {/* 18. ADD TO CART BUTTON - Large, Prominent, Always Visible */}
                     <View style={styles.ctaContainer}>
                       {cartQty > 0 ? (
                         <View style={styles.stepperWrap}>
@@ -762,7 +898,7 @@ export function CategoryCatalogScreen({
                             onPress={() => handleDecrement(cloth, chosenService)}
                             hitSlop={8}
                           >
-                            <MaterialCommunityIcons name="minus" size={16} color="#FFFFFF" />
+                            <MaterialCommunityIcons name="minus" size={18} color="#FFFFFF" />
                           </Pressable>
                           <Text style={styles.stepperQtyText}>{cartQty}</Text>
                           <Pressable
@@ -770,7 +906,7 @@ export function CategoryCatalogScreen({
                             onPress={() => handleIncrement(cloth, chosenService)}
                             hitSlop={8}
                           >
-                            <MaterialCommunityIcons name="plus" size={16} color="#FFFFFF" />
+                            <MaterialCommunityIcons name="plus" size={18} color="#FFFFFF" />
                           </Pressable>
                         </View>
                       ) : (
@@ -779,8 +915,8 @@ export function CategoryCatalogScreen({
                           onPress={() => handleAddToCart(cloth, chosenService)}
                           hitSlop={8}
                         >
-                          <MaterialCommunityIcons name="plus" size={16} color="#FFFFFF" />
-                          <Text style={styles.addBtnText}>ADD</Text>
+                          <MaterialCommunityIcons name="cart-plus" size={18} color="#FFFFFF" />
+                          <Text style={styles.addBtnText}>ADD TO CART</Text>
                         </Pressable>
                       )}
                     </View>
@@ -1035,6 +1171,44 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
 
+  /* 6. Breadcrumb Navigation */
+  breadcrumbContainer: {
+    backgroundColor: '#FFFFFF',
+    borderBottomWidth: 1,
+    borderBottomColor: '#E2E8F0',
+    paddingVertical: 8,
+  },
+  breadcrumbScroll: {
+    paddingHorizontal: 16,
+    gap: 6,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  breadcrumbChip: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 8,
+    backgroundColor: '#F1F5F9',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  breadcrumbChipActive: {
+    backgroundColor: '#FFF7ED',
+    borderWidth: 1,
+    borderColor: '#FFEDD5',
+  },
+  breadcrumbText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#64748B',
+  },
+  breadcrumbTextActive: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#FF6B0B',
+  },
+
   /* 7. Result Information Row */
   resultRow: {
     flexDirection: 'row',
@@ -1109,6 +1283,22 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#E2E8F0',
+    gap: 6,
+  },
+  imageLoadingOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(241, 245, 249, 0.8)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  fallbackText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#94A3B8',
   },
   favoriteCircleBtn: {
     position: 'absolute',
@@ -1174,96 +1364,110 @@ const styles = StyleSheet.create({
     lineHeight: 19,
   },
 
-  /* Service Selectors on Card */
-  serviceChipsRow: {
+  /* All Service Prices Display - Show all prices for easy comparison */
+  allPricesContainer: {
+    gap: 6,
+    marginBottom: 8,
+  },
+  priceOptionRow: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 4,
-    height: 28,
     alignItems: 'center',
-    marginBottom: 8,
+    justifyContent: 'space-between',
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    borderRadius: 8,
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
   },
-  clothServiceChip: {
-    paddingHorizontal: 7,
-    paddingVertical: 3,
-    borderRadius: 6,
+  priceOptionRowActive: {
+    backgroundColor: '#FFF7ED',
+    borderColor: '#FF6B0B',
+    borderWidth: 2,
   },
-  clothServiceChipActive: {
-    backgroundColor: '#FF6B0B',
+  priceOptionLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    flex: 1,
   },
-  clothServiceChipInactive: {
-    backgroundColor: '#F1F5F9',
-  },
-  clothServiceChipText: {
-    fontSize: 10,
+  priceOptionLabel: {
+    fontSize: 12,
     fontWeight: '600',
+    color: '#64748B',
   },
-  clothServiceChipTextActive: {
-    color: '#FFFFFF',
+  priceOptionLabelActive: {
+    fontSize: 12,
     fontWeight: '700',
+    color: '#FF6B0B',
   },
-  clothServiceChipTextInactive: {
-    color: '#475569',
-  },
-
-  /* Price Area */
-  priceContainer: {
-    height: 42,
-    justifyContent: 'center',
-    marginBottom: 8,
-  },
-  priceText: {
-    fontSize: 19,
+  priceOptionPrice: {
+    fontSize: 14,
     fontWeight: '700',
     color: '#111827',
-    lineHeight: 22,
+    marginRight: 4,
   },
-  priceSubText: {
-    fontSize: 12,
-    color: '#64748B',
-    fontWeight: '500',
+  priceOptionPriceActive: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#FF6B0B',
+  },
+  priceOptionCheck: {
+    marginLeft: 4,
   },
 
-  /* 18. ADD Button & Stepper (Exactly 42px height across both states) */
+  /* 18. ADD Button & Stepper (Exactly 48px height for better visibility) */
+  /* 18. ADD Button & Stepper (Exactly 48px height for better visibility) */
   ctaContainer: {
-    height: 42,
+    height: 48,
   },
   addBtn: {
-    height: 42,
+    height: 48,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#FF6B0B',
     borderRadius: 12,
-    gap: 4,
+    gap: 6,
+    shadowColor: '#FF6B0B',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 3,
   },
   addBtnText: {
     color: '#FFFFFF',
     fontSize: 14,
     fontWeight: '800',
-    letterSpacing: 0.5,
+    letterSpacing: 0.8,
   },
   stepperWrap: {
-    height: 42,
+    height: 48,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     backgroundColor: '#FF6B0B',
     borderRadius: 12,
-    paddingHorizontal: 8,
+    paddingHorizontal: 10,
+    shadowColor: '#FF6B0B',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 3,
   },
   stepperActionBtn: {
-    width: 28,
-    height: 28,
+    width: 32,
+    height: 32,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 6,
+    borderRadius: 8,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
   },
   stepperQtyText: {
     color: '#FFFFFF',
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: '800',
-    minWidth: 24,
+    minWidth: 28,
     textAlign: 'center',
   },
 
