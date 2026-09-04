@@ -84,6 +84,7 @@ export function HomeScreen({
   const [selectedCategorySlug, setSelectedCategorySlug] = useState('mens-wear');
   const [serviceMasters, setServiceMasters] = useState<ServiceMaster[]>([]);
   const [serviceImgErrors, setServiceImgErrors] = useState<Record<string, boolean>>({});
+  const [catImgErrors, setCatImgErrors] = useState<Record<string, boolean>>({});
   const [servicesLoading, setServicesLoading] = useState(true);
 
   const activeOrder = orders.find(
@@ -96,16 +97,19 @@ export function HomeScreen({
     void (async () => {
       try {
         const fetchedBanners = await api.getBanners();
+        console.log('[HomeScreen] Raw API response banners:', JSON.stringify(fetchedBanners, null, 2));
         if (fetchedBanners && Array.isArray(fetchedBanners) && fetchedBanners.length > 0) {
+          // Only filter for valid image URLs - backend already filters isActive
           const validBanners = fetchedBanners.filter(
-            (b) => b.imageUrl && b.imageUrl.length > 10 && !b.imageUrl.includes('placeholder')
+            (b) => b.imageUrl && b.imageUrl.trim().length > 0
           );
-          if (validBanners.length > 0) {
-            setBanners(validBanners);
-          }
+          console.log('[HomeScreen] Valid banners after filter:', validBanners.length);
+          setBanners(validBanners.length > 0 ? validBanners : fetchedBanners);
+        } else {
+          console.log('[HomeScreen] No banners received from API');
         }
-      } catch {
-        // Fallback
+      } catch (err) {
+        console.error('[HomeScreen] Failed to fetch banners:', err);
       }
 
       try {
@@ -686,7 +690,11 @@ export function HomeScreen({
             </Pressable>
           </View>
 
-          <View style={styles.luxuryServicesGrid}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.luxuryServicesScroll}
+          >
             {displayServices.map((svc) => {
               const fallbackUrl = 'https://images.unsplash.com/photo-1545173168-9f1947eebb7f?auto=format&fit=crop&w=400&q=80';
               const hasImgErr = serviceImgErrors[svc.id];
@@ -760,7 +768,7 @@ export function HomeScreen({
                 </Pressable>
               );
             })}
-          </View>
+          </ScrollView>
         </View>
 
         {/* 2. BROWSE BY CATEGORY (CIRCULAR IMAGES - 3 PER ROW) */}
@@ -774,7 +782,9 @@ export function HomeScreen({
 
           <View style={styles.homeCategory3Grid}>
             {categories.map((cat) => {
-              const photoUrl = getCategoryImageUrl(cat.tag, cat.imageUrl);
+              const photoUrl = catImgErrors[cat.slug]
+                ? 'https://images.unsplash.com/photo-1617137984095-74e4e5e3613f?auto=format&fit=crop&w=400&q=80'
+                : getCategoryImageUrl(cat.tag, cat.imageUrl);
               return (
                 <Pressable
                   key={cat.slug}
@@ -793,7 +803,12 @@ export function HomeScreen({
                   }}
                 >
                   <View style={[styles.homeCatCircleWrap, { borderColor: cat.accent }]}>
-                    <Image source={{ uri: photoUrl }} style={styles.homeCatCircleImg} resizeMode="cover" />
+                    <Image
+                      source={{ uri: photoUrl }}
+                      style={styles.homeCatCircleImg}
+                      resizeMode="cover"
+                      onError={() => setCatImgErrors((prev) => ({ ...prev, [cat.slug]: true }))}
+                    />
                     <View style={styles.homeCatCountBadge}>
                       <Text style={styles.homeCatCountText}>{cat.count}</Text>
                     </View>
@@ -1991,15 +2006,19 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 18,
   },
+  luxuryServicesScroll: {
+    flexDirection: 'row',
+    paddingHorizontal: 16,
+    gap: 12,
+    paddingVertical: 6,
+  },
   luxuryServicesGrid: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-    gap: 10,
     paddingHorizontal: 16,
+    gap: 12,
   },
   luxuryServiceTile: {
-    width: '31%',
+    width: 142,
     backgroundColor: '#FFFFFF',
     borderRadius: 16,
     padding: 10,
@@ -2011,7 +2030,6 @@ const styles = StyleSheet.create({
     shadowRadius: 12,
     elevation: 5,
     alignItems: 'center',
-    marginBottom: 8,
   },
   luxuryServiceTopRow: {
     width: '100%',

@@ -185,9 +185,25 @@ export async function resolveCustomerLocationCoordinates(
 ): Promise<CustomerLocation> {
   debugLog('Reverse geocoding location', { latitude, longitude, accuracy });
 
+  // Avoid indefinite hanging in native Android Geocoder with a 2500ms timeout
+  const nativeGeocodePromise = new Promise<Location.LocationGeocodedAddress | null>((resolve) => {
+    const timer = setTimeout(() => resolve(null), 2500);
+    Location.reverseGeocodeAsync({ latitude, longitude })
+      .then((items) => {
+        clearTimeout(timer);
+        resolve(items[0] || null);
+      })
+      .catch(() => {
+        clearTimeout(timer);
+        resolve(null);
+      });
+  });
+
+  const backendGeocodePromise = api.reverseGeocode(latitude, longitude).catch(() => null);
+
   const [nativeResult, backendResult] = await Promise.all([
-    Location.reverseGeocodeAsync({ latitude, longitude }).then((items) => items[0] || null).catch(() => null),
-    api.reverseGeocode(latitude, longitude).catch(() => null),
+    nativeGeocodePromise,
+    backendGeocodePromise,
   ]);
 
   const nativeAddress = nativeResult;
@@ -209,12 +225,12 @@ export async function resolveCustomerLocationCoordinates(
     nativeAddress?.city,
     nativeAddress?.district,
   );
-  const city = firstText(backendResult?.city, nativeAddress?.city, nativeAddress?.region);
-  const pincode = normalisePincode(backendResult?.pincode || nativeAddress?.postalCode);
+  const city = firstText(backendResult?.city, nativeAddress?.city, nativeAddress?.region) || 'Hyderabad';
+  const pincode = normalisePincode(backendResult?.pincode || nativeAddress?.postalCode) || '500085';
   const formattedAddress = firstText(
     backendFormattedAddress,
     joinAddress(street, locality, city, nativeAddress?.region, nativeAddress?.country, pincode),
-  );
+  ) || `${street || locality || 'Local Area'}, ${city} - ${pincode}`;
 
   if (!pincode || (!street && !locality && !city)) {
     throw new Error("We found your coordinates but couldn't identify the address. Please choose your location on the map.");

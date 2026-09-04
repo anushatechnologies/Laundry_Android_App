@@ -193,7 +193,7 @@ export function MapLocationPickerScreen({
   initialLocation = null,
   initialGpsCoords = null,
   initialPermissionStatus = 'denied',
-  autoPermissionPrompt = 'never',
+  autoPermissionPrompt = 'if-undetermined',
 }: MapLocationPickerScreenProps) {
   const insets = useSafeAreaInsets();
   const [coords, setCoords] = useState<Coordinates>(() => {

@@ -401,7 +401,7 @@ function AuthenticatedApp() {
               ? 'blocked'
               : 'denied'
         }
-        autoPermissionPrompt="never"
+        autoPermissionPrompt="if-undetermined"
         onLocationConfirmed={async (loc) => {
           await applyUserLocation(loc);
           await completeOnboarding();
@@ -487,7 +487,7 @@ function AuthenticatedApp() {
     screen = (
       <MapLocationPickerScreen
         initialLocation={locationState.deliveryLocation}
-        autoPermissionPrompt="never"
+        autoPermissionPrompt="if-undetermined"
         onLocationConfirmed={async (loc) => {
           await applyUserLocation(loc);
           goBack('HOME');
