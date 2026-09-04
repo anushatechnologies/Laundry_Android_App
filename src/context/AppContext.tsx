@@ -1,7 +1,7 @@
 import { PermissionsAndroid, Platform } from 'react-native';
 import * as Notifications from 'expo-notifications';
 import { getGarmentImageUrl } from '@/lib/garment-photos';
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type PropsWithChildren } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type PropsWithChildren } from 'react';
 import { api, configureApiSession, createOrderPayload } from '@/lib/api';
 import { requestFirebasePhoneOtp, confirmFirebasePhoneOtp, signOutFirebasePhoneAuth } from '@/lib/firebase-phone-auth';
 import { getFirebasePushToken, requestNotificationPermissionOnAppOpen } from '@/lib/notifications';
@@ -197,17 +197,52 @@ export function AppProvider({ children }: PropsWithChildren) {
     void refreshAccountData().catch(() => undefined);
   }, [ready, session?.user.id, refreshAccountData]);
 
-  // Firebase is the only phone-verification provider. Errors are intentionally
-  // surfaced to the screen; we must never claim an OTP was sent after a failure.
+  const pendingPhoneRef = useRef<string | null>(null);
+  const useBackendOtpRef = useRef<boolean>(false);
+
+  // Dual OTP strategy:
+  // 1. Attempts Google Firebase Phone Auth first
+  // 2. If blocked by Google Play Integrity on sideloaded APKs, automatically
+  //    falls back to the EC2 Backend Indian SMS Gateway (Fast2SMS).
   const requestOtp = useCallback(async (phone: string) => {
-    await requestFirebasePhoneOtp(phone);
+    pendingPhoneRef.current = phone;
+    try {
+      await requestFirebasePhoneOtp(phone);
+      useBackendOtpRef.current = false;
+    } catch (firebaseErr: any) {
+      console.warn('[Phone Auth] Firebase native auth failed. Trying Backend Fast2SMS gateway fallback:', firebaseErr?.message);
+      try {
+        const res = await api.sendOtp(phone);
+        if (!res.success) {
+          throw new Error(res.message || 'Unable to send OTP via SMS.');
+        }
+        useBackendOtpRef.current = true;
+        console.log('[Phone Auth] OTP successfully dispatched via backend gateway:', res.gateway);
+      } catch (backendErr: any) {
+        throw new Error(backendErr instanceof Error ? backendErr.message : firebaseErr?.message || 'Could not send verification code.');
+      }
+    }
   }, []);
 
-  // Firebase confirms the code locally, then the backend verifies its Firebase
-  // ID token before issuing the application's customer session.
+  // Confirms OTP via either Backend Fast2SMS verification or Firebase Phone Auth
   const signIn = useCallback(async (otp: string, name?: string, email?: string) => {
-    const result = await confirmFirebasePhoneOtp(otp);
-    const nextSession = await api.loginWithFirebase(result.idToken, name, email);
+    let nextSession: AuthSession;
+
+    if (useBackendOtpRef.current && pendingPhoneRef.current) {
+      nextSession = await api.verifyOtp(pendingPhoneRef.current, otp, name, email);
+    } else {
+      try {
+        const result = await confirmFirebasePhoneOtp(otp);
+        nextSession = await api.loginWithFirebase(result.idToken, name, email);
+      } catch (firebaseConfirmErr) {
+        if (pendingPhoneRef.current) {
+          console.log('[Phone Auth] Firebase confirmation failed, trying backend verify-otp fallback...');
+          nextSession = await api.verifyOtp(pendingPhoneRef.current, otp, name, email);
+        } else {
+          throw firebaseConfirmErr;
+        }
+      }
+    }
 
     // Fix #2: pass the listener so token refreshes are persisted in SecureStore
     configureApiSession(nextSession, async (next) => {

@@ -104,19 +104,12 @@ export function HomeScreen({
             (b) => b.imageUrl && b.imageUrl.trim().length > 0
           );
           console.log('[HomeScreen] Valid banners after filter:', validBanners.length);
-          const bannersToSet = validBanners.length > 0 ? validBanners : fetchedBanners;
-          console.log('[HomeScreen] Setting banners state with:', bannersToSet.length, 'banners');
-          setBanners(bannersToSet);
-          
-          // Debug alert to confirm banners were fetched
-          Alert.alert('Banner Debug', `Fetched ${fetchedBanners.length} banners, showing ${bannersToSet.length}`);
+          setBanners(validBanners.length > 0 ? validBanners : fetchedBanners);
         } else {
-          console.log('[HomeScreen] No banners received from API or invalid response');
-          Alert.alert('Banner Debug', 'No banners received from API');
+          console.log('[HomeScreen] No banners received from API');
         }
       } catch (err) {
         console.error('[HomeScreen] Failed to fetch banners:', err);
-        Alert.alert('Banner Error', `Failed to load banners: ${err instanceof Error ? err.message : String(err)}`);
       }
 
       try {
@@ -657,20 +650,9 @@ export function HomeScreen({
         showsVerticalScrollIndicator={false}
       >
         {/* PROMOTIONAL HERO BANNER CAROUSEL */}
-        {/* Debug: Always show banner section with count */}
-        <View style={{ padding: 16, backgroundColor: '#FFF3CD' }}>
-          <Text style={{ fontSize: 14, fontWeight: 'bold', color: '#856404' }}>
-            🔍 Debug: Banners loaded = {banners.length}
-          </Text>
-        </View>
-        
         {banners.length > 0 ? (
           <BannerCarousel banners={banners} onSelectBanner={handleSelectBanner} showHomeHero={false} />
-        ) : (
-          <View style={{ padding: 20, backgroundColor: '#F8D7DA', margin: 16, borderRadius: 8 }}>
-            <Text style={{ color: '#721C24', fontWeight: 'bold' }}>No banners available</Text>
-          </View>
-        )}
+        ) : null}
 
         {/* ACTIVE ORDER TRACKER */}
         {activeOrder ? (
