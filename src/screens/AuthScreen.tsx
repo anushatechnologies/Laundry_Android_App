@@ -17,7 +17,6 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useApp } from '@/context/AppContext';
 import { api } from '@/lib/api';
-import { requestFirebasePhoneOtp } from '@/lib/firebase-phone-auth';
 import { COLORS } from '@/ui/theme';
 
 const brandLogo = require('../../assets/brand-logo.png');
@@ -107,7 +106,7 @@ export function AuthScreen({ reason = 'ACCOUNT', onBack }: AuthScreenProps) {
     }).start();
   };
 
-  // Handle Login Submit (Backend SMS OTP - No Firebase Required!)
+  // Existing customers request their verification code from Firebase.
   const handleLoginSubmit = async () => {
     const cleanPhone = normalisePhone(phone);
     if (cleanPhone.length !== 10) {
@@ -129,7 +128,7 @@ export function AuthScreen({ reason = 'ACCOUNT', onBack }: AuthScreenProps) {
         return;
       }
 
-      // 2. User exists: Send OTP (Firebase with automatic Backend fallback)
+      // 2. User exists: Firebase sends the verification code.
       await requestOtp(cleanPhone);
       
       setPhone(cleanPhone);
@@ -137,13 +136,13 @@ export function AuthScreen({ reason = 'ACCOUNT', onBack }: AuthScreenProps) {
       setCountdown(30);
       setCanResend(false);
     } catch (err: any) {
-      setErrorMessage(err instanceof Error ? err.message : 'Unable to send OTP SMS. Please try again.');
+      setErrorMessage(err instanceof Error ? err.message : 'Firebase could not send a verification code. Please try again.');
     } finally {
       setLoading(false);
     }
   };
 
-  // Handle Register Submit (Backend SMS OTP - No Firebase Required!)
+  // New customers are created only after Firebase verifies their phone number.
   const handleRegisterSubmit = async () => {
     const cleanPhone = normalisePhone(phone);
     if (cleanPhone.length !== 10) {
@@ -163,15 +162,15 @@ export function AuthScreen({ reason = 'ACCOUNT', onBack }: AuthScreenProps) {
     setErrorMessage(null);
 
     try {
-      // Send OTP (Firebase with automatic Backend fallback)
-      await requestOtp(cleanPhone, name.trim(), email.trim());
+      // Firebase sends the verification code.
+      await requestOtp(cleanPhone);
       
       setPhone(cleanPhone);
       setMode('OTP');
       setCountdown(30);
       setCanResend(false);
     } catch (err: any) {
-      setErrorMessage(err instanceof Error ? err.message : 'Unable to send OTP SMS. Please try again.');
+      setErrorMessage(err instanceof Error ? err.message : 'Firebase could not send a verification code. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -189,7 +188,7 @@ export function AuthScreen({ reason = 'ACCOUNT', onBack }: AuthScreenProps) {
     setErrorMessage(null);
 
     try {
-      await signIn(phone, cleanOtp, name.trim() || undefined, email.trim() || undefined);
+      await signIn(cleanOtp, name.trim() || undefined, email.trim() || undefined);
       // Successful sign in automatically triggers navigation back in App.tsx!
     } catch (err) {
       setErrorMessage(err instanceof Error ? err.message : 'Invalid or expired verification code.');
@@ -198,14 +197,13 @@ export function AuthScreen({ reason = 'ACCOUNT', onBack }: AuthScreenProps) {
     }
   };
 
-  // Resend OTP (Backend SMS)
+  // Firebase sends every resend request too.
   const handleResendOtp = async () => {
     if (!canResend) return;
     setLoading(true);
     setErrorMessage(null);
     try {
-      // Resend OTP (Firebase with automatic Backend fallback)
-      await requestOtp(phone, name.trim() || undefined, email.trim() || undefined);
+      await requestOtp(phone);
       
       setCountdown(30);
       setCanResend(false);

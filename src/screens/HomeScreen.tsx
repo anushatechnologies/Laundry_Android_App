@@ -763,14 +763,25 @@ export function HomeScreen({
                     pressed && styles.tileCardPressed,
                   ]}
                   onPress={() => {
-                    if (svc.slug === 'express-emergency' || svc.serviceCode === 'EXPRESS' || svc.slug === 'wash-and-fold') {
+                    // Per-KG services belong in the dedicated bulk flow. Sending
+                    // them to an item catalog produced the duplicated “Express
+                    // Emergency Laundry” header seen in the APK.
+                    if (svc.pricingType === 'PER_KG') {
                       if (onOpenBulkLaundry) {
                         onOpenBulkLaundry();
                         return;
                       }
                     }
                     if (onSelectService) {
-                      onSelectService(svc.serviceCode || 'ALL', svc.title);
+                      const serviceCode = ['PRESS', 'WASH_IRON', 'DRY_CLEAN'].includes(svc.serviceCode)
+                        ? svc.serviceCode
+                        : 'ALL';
+                      const category = svc.serviceCode === 'SHOE_SPA'
+                        ? { tag: 'FOOTWEAR', title: 'Footwear' }
+                        : svc.serviceCode === 'SAREE_POLISH'
+                        ? { tag: 'WOMENS', title: "Women's Wear" }
+                        : { tag: 'MENS', title: "Men's Wear" };
+                      onSelectService(serviceCode as any, svc.title, category.tag, category.title);
                     } else {
                       onViewServices();
                     }

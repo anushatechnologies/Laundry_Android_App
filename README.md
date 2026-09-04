@@ -236,8 +236,6 @@ The app requires these Android permissions:
 
 ```
 Authentication:
-POST   /customers/send-otp
-POST   /customers/verify-otp
 POST   /customers/firebase-login
 
 Services:

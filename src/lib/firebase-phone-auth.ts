@@ -25,14 +25,14 @@ function friendlyFirebaseError(error: unknown) {
   return 'Firebase could not complete phone verification. Please try again.';
 }
 
-export function hasPendingFirebaseConfirmation(): boolean {
-  return pendingConfirmation !== null;
-}
-
 /** Sends Firebase's native Android Phone Auth SMS. This requires a development or production build. */
 export async function requestFirebasePhoneOtp(phone: string) {
   const normalized = normaliseIndianPhone(phone);
   if (normalized.length !== 10) throw new Error('Enter a valid 10-digit Indian mobile number.');
+
+  // A new request invalidates any previous in-memory challenge. Never let an
+  // old challenge be verified after a failed or repeated resend attempt.
+  pendingConfirmation = null;
 
   try {
     const auth = getAuth();
@@ -40,6 +40,7 @@ export async function requestFirebasePhoneOtp(phone: string) {
     pendingConfirmation = await signInWithPhoneNumber(auth, `+91${normalized}`);
     console.log('[Firebase Phone Auth] SMS verification code sent via Google Firebase SMS Gateway!');
   } catch (error) {
+    pendingConfirmation = null;
     throw new Error(friendlyFirebaseError(error));
   }
 }

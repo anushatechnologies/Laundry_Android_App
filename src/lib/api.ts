@@ -136,21 +136,6 @@ async function request<T>(path: string, options: RequestInit = {}, authenticated
 export const api = {
   checkPhone: (phone: string) => request<{ exists: boolean; message?: string }>(`/customers/check-phone?phone=${encodeURIComponent(phone)}`),
 
-  async sendOtp(phone: string, name?: string, email?: string) {
-    return request<{ exists: boolean; message: string }>('/customers/send-otp', {
-      method: 'POST',
-      body: JSON.stringify({ phone, name, email }),
-    });
-  },
-
-  async verifyOtp(phone: string, otp: string, name?: string, email?: string): Promise<AuthSession> {
-    const payload = await request<AuthSession & { data?: AuthSession }>('/customers/verify-otp', {
-      method: 'POST',
-      body: JSON.stringify({ phone, otp, name, email }),
-    });
-    return payload.data ?? payload;
-  },
-
   async loginWithFirebase(idToken: string, name?: string, email?: string): Promise<AuthSession> {
     const payload = await request<AuthSession & { data?: AuthSession }>('/customers/firebase-login', {
       method: 'POST',

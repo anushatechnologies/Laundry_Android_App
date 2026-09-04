@@ -3,7 +3,7 @@ import * as Notifications from 'expo-notifications';
 import { getGarmentImageUrl } from '@/lib/garment-photos';
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type PropsWithChildren } from 'react';
 import { api, configureApiSession, createOrderPayload } from '@/lib/api';
-import { requestFirebasePhoneOtp, confirmFirebasePhoneOtp, signOutFirebasePhoneAuth, hasPendingFirebaseConfirmation } from '@/lib/firebase-phone-auth';
+import { requestFirebasePhoneOtp, confirmFirebasePhoneOtp, signOutFirebasePhoneAuth } from '@/lib/firebase-phone-auth';
 import { getFirebasePushToken, requestNotificationPermissionOnAppOpen } from '@/lib/notifications';
 import { payWithRazorpay } from '@/lib/payments';
 import {
@@ -57,7 +57,8 @@ interface AppContextValue {
   wishlist: string[];
   toggleWishlist: (itemId: string) => void;
   isInWishlist: (itemId: string) => boolean;
-  requestOtp: (phone: string, name?: string, email?: string) => Promise<{ exists: boolean; message: string }>;  signIn: (phone: string, otp: string, name?: string, email?: string) => Promise<void>;
+  requestOtp: (phone: string) => Promise<void>;
+  signIn: (otp: string, name?: string, email?: string) => Promise<void>;
   signOut: () => Promise<void>;
   completeOnboarding: () => Promise<void>;
   refreshCatalog: () => Promise<void>;
@@ -196,38 +197,17 @@ export function AppProvider({ children }: PropsWithChildren) {
     void refreshAccountData().catch(() => undefined);
   }, [ready, session?.user.id, refreshAccountData]);
 
-  // Unified resilient OTP request: Try Firebase phone auth, fallback seamlessly to backend SMS OTP
-  const requestOtp = useCallback(async (phone: string, name?: string, email?: string) => {
-    const customer = await api.checkPhone(phone);
-
-    try {
-      await requestFirebasePhoneOtp(phone);
-      return {
-        exists: customer.exists,
-        message: 'OTP verification code has been sent to your mobile number via SMS.',
-      };
-    } catch (firebaseError: any) {
-      console.warn('[AUTH] Firebase phone auth unavailable, switching to backend direct SMS OTP:', firebaseError?.message);
-
-      // Robust fallback to backend SMS OTP
-      const backendOtpRes = await api.sendOtp(phone, name, email);
-      return {
-        exists: customer.exists,
-        message: backendOtpRes.message || `Verification code sent to +91 ${phone} via SMS.`,
-      };
-    }
+  // Firebase is the only phone-verification provider. Errors are intentionally
+  // surfaced to the screen; we must never claim an OTP was sent after a failure.
+  const requestOtp = useCallback(async (phone: string) => {
+    await requestFirebasePhoneOtp(phone);
   }, []);
 
-  // Unified auth verification: Validate via Firebase ID token or backend OTP store
-  const signIn = useCallback(async (phone: string, otp: string, name?: string, email?: string) => {
-    let nextSession: AuthSession;
-
-    if (hasPendingFirebaseConfirmation()) {
-      const result = await confirmFirebasePhoneOtp(otp);
-      nextSession = await api.loginWithFirebase(result.idToken, name, email);
-    } else {
-      nextSession = await api.verifyOtp(phone, otp, name, email);
-    }
+  // Firebase confirms the code locally, then the backend verifies its Firebase
+  // ID token before issuing the application's customer session.
+  const signIn = useCallback(async (otp: string, name?: string, email?: string) => {
+    const result = await confirmFirebasePhoneOtp(otp);
+    const nextSession = await api.loginWithFirebase(result.idToken, name, email);
 
     // Fix #2: pass the listener so token refreshes are persisted in SecureStore
     configureApiSession(nextSession, async (next) => {

@@ -118,6 +118,11 @@ function getServiceDetails(serviceId: string, serviceName?: string, serviceCode?
   return { serviceCode: 'OTHER' as const, displayName, shortLabel: displayName, icon: 'star-four-points-outline' };
 }
 
+function formatTurnaround(hours?: number): string | null {
+  if (!hours || hours <= 0) return null;
+  return hours <= 24 ? `${hours}h` : `${Math.ceil(hours / 24)}d`;
+}
+
 function getSubcategoryFallbackIcon(subcategory: string, categoryTag: string): string {
   const source = `${subcategory} ${categoryTag}`.toLowerCase();
   if (source.includes('shoe') || source.includes('footwear')) return 'shoe-sneaker';
@@ -181,7 +186,6 @@ export function CategoryCatalogScreen({
   categoryTag = 'MENS',
   categoryTitle = "Men's Wear",
   initialServiceFilter = 'ALL',
-  initialServiceName,
   onBack,
   onViewCart,
   onOpenCart,
@@ -212,7 +216,7 @@ export function CategoryCatalogScreen({
   const [selectedClothServiceMap, setSelectedClothServiceMap] = useState<Record<string, string>>({});
 
   // Image error tracker
-  const [imageFailures, setImageFailures] = useState<Record<string, boolean>>({});
+  const [imageFailures, setImageFailures] = useState<Record<string, 'primary' | 'fallback'>>({});
   const [imageLoading, setImageLoading] = useState<Record<string, boolean>>({});
   const [subcategoryImageErrors, setSubcategoryImageErrors] = useState<Record<string, boolean>>({});
 
@@ -440,14 +444,22 @@ export function CategoryCatalogScreen({
       );
     }
 
+    const priceForSort = (product: ProductItem) => {
+      const filterMatch = selectedServiceFilter === 'ALL'
+        ? undefined
+        : product.services.find((service) => service.serviceCode === selectedServiceFilter);
+      const manualMatch = product.services.find((service) => service.serviceId === selectedClothServiceMap[product.id]);
+      return manualMatch?.price ?? filterMatch?.price ?? product.minPrice;
+    };
+
     if (selectedSort === 'PRICE_LOW') {
-      list = [...list].sort((a, b) => a.minPrice - b.minPrice);
+      list = [...list].sort((a, b) => priceForSort(a) - priceForSort(b));
     } else if (selectedSort === 'PRICE_HIGH') {
-      list = [...list].sort((a, b) => b.minPrice - a.minPrice);
+      list = [...list].sort((a, b) => priceForSort(b) - priceForSort(a));
     }
 
     return list;
-  }, [products, selectedSubcategory, selectedServiceFilter, searchQuery, selectedSort]);
+  }, [products, selectedSubcategory, selectedServiceFilter, searchQuery, selectedSort, selectedClothServiceMap]);
 
   const getSelectedServiceForCloth = (cloth: ProductItem): ServicePriceOption => {
     if (selectedServiceFilter !== 'ALL') {
@@ -469,6 +481,9 @@ export function CategoryCatalogScreen({
       ...prev,
       [clothId]: serviceId,
     }));
+    // A card-level choice supersedes the broad filter. This keeps the highlighted
+    // service and the price customers add to their bag in sync.
+    setSelectedServiceFilter('ALL');
   };
 
   // Cart Operations
@@ -560,7 +575,9 @@ export function CategoryCatalogScreen({
             {displayTitle}
           </Text>
           <Text style={styles.topBarSubtitle}>
-            {filteredProducts.length} {filteredProducts.length === 1 ? 'item' : 'items'} available
+            {selectedServiceFilter !== 'ALL'
+              ? `${availableServiceFilters.find((filter) => filter.key === selectedServiceFilter)?.label || 'Selected service'} · ${filteredProducts.length} items`
+              : `${filteredProducts.length} ${filteredProducts.length === 1 ? 'item' : 'items'} available`}
           </Text>
         </View>
 
@@ -598,11 +615,18 @@ export function CategoryCatalogScreen({
                   isSelected ? styles.categoryPillSelected : styles.categoryPillUnselected,
                 ]}
                 onPress={() => {
+                  if (c.tag === 'BULK' && onOpenBulkLaundry) {
+                    onOpenBulkLaundry();
+                    return;
+                  }
                   setActiveCategoryTag(c.tag);
                   setActiveCategoryTitle(c.label);
                   setSelectedSubcategory('ALL');
                 }}
                 hitSlop={4}
+                accessibilityRole="tab"
+                accessibilityState={{ selected: isSelected }}
+                accessibilityLabel={`Show ${c.label} garments`}
               >
                 <MaterialCommunityIcons
                   name={c.icon as any}
@@ -636,9 +660,10 @@ export function CategoryCatalogScreen({
             onChangeText={setSearchQuery}
             returnKeyType="search"
             clearButtonMode="while-editing"
+            accessibilityLabel="Search garments"
           />
           {searchQuery.length > 0 && (
-            <Pressable onPress={() => setSearchQuery('')} hitSlop={8}>
+            <Pressable onPress={() => setSearchQuery('')} hitSlop={8} accessibilityRole="button" accessibilityLabel="Clear garment search">
               <MaterialCommunityIcons name="close-circle" size={16} color="#94A3B8" />
             </Pressable>
           )}
@@ -668,6 +693,9 @@ export function CategoryCatalogScreen({
                 style={styles.subcatCircleItem}
                 onPress={() => setSelectedSubcategory(sub)}
                 hitSlop={4}
+                accessibilityRole="tab"
+                accessibilityState={{ selected: isSelected }}
+                accessibilityLabel={`Show ${displayName} garments`}
               >
                 <View
                   style={[
@@ -725,6 +753,9 @@ export function CategoryCatalogScreen({
                 ]}
                 onPress={() => setSelectedServiceFilter(item.key)}
                 hitSlop={4}
+                accessibilityRole="tab"
+                accessibilityState={{ selected: isSelected }}
+                accessibilityLabel={`Filter by ${item.label}`}
               >
                 <MaterialCommunityIcons
                   name={item.icon as any}
@@ -756,7 +787,7 @@ export function CategoryCatalogScreen({
         >
           <MaterialCommunityIcons name="swap-vertical" size={13} color="#FF6B0B" />
           <Text style={styles.sortButtonPillText}>
-            {selectedSort === 'POPULAR' ? 'Popular' : selectedSort === 'PRICE_LOW' ? 'Price: Low' : 'Price: High'}
+            {selectedSort === 'POPULAR' ? 'Recommended' : selectedSort === 'PRICE_LOW' ? 'Price: Low' : 'Price: High'}
           </Text>
           <MaterialCommunityIcons name="chevron-down" size={13} color="#64748B" />
         </Pressable>
@@ -788,12 +819,12 @@ export function CategoryCatalogScreen({
         </View>
       ) : (
         <ScrollView
+          style={styles.productsScroll}
           showsVerticalScrollIndicator={false}
           contentContainerStyle={[
             styles.productsScrollContent,
             {
-              // Generous bottom padding: Cart bar (56) + safe area + margin
-              paddingBottom: 72 + Math.max(insets.bottom, 16) + 24,
+              paddingBottom: 24,
             },
           ]}
         >
@@ -801,12 +832,18 @@ export function CategoryCatalogScreen({
             {filteredProducts.map((cloth) => {
               const chosenService = getSelectedServiceForCloth(cloth);
               const cartQty = getCartQuantityForProduct(cloth, chosenService.serviceId);
-              const isImgBroken = imageFailures[cloth.id];
-              const isImageLoading = imageLoading[cloth.id];
-              const photoUrl = !isImgBroken
+              const imageFailure = imageFailures[cloth.id];
+              const primaryPhotoUrl = cloth.imageUrl
                 ? getGarmentImageUrl(cloth.id, cloth.imageUrl, cloth.categoryTag, cloth.name)
-                : null;
+                : cloth.fallbackImageUrl;
+              const photoUrl = imageFailure === 'fallback'
+                ? undefined
+                : imageFailure === 'primary'
+                ? cloth.fallbackImageUrl
+                : primaryPhotoUrl;
+              const isImageLoading = imageLoading[cloth.id];
               const isFavorite = wishlist.includes(cloth.id);
+              const turnaround = formatTurnaround(chosenService.turnaroundHours);
 
               return (
                 <View
@@ -824,7 +861,12 @@ export function CategoryCatalogScreen({
                           onLoadStart={() => setImageLoading((prev) => ({ ...prev, [cloth.id]: true }))}
                           onLoadEnd={() => setImageLoading((prev) => ({ ...prev, [cloth.id]: false }))}
                           onError={() => {
-                            setImageFailures((prev) => ({ ...prev, [cloth.id]: true }));
+                            setImageFailures((current) => ({
+                              ...current,
+                              [cloth.id]: !current[cloth.id] && primaryPhotoUrl !== cloth.fallbackImageUrl
+                                ? 'primary'
+                                : 'fallback',
+                            }));
                             setImageLoading((prev) => ({ ...prev, [cloth.id]: false }));
                           }}
                         />
@@ -845,6 +887,8 @@ export function CategoryCatalogScreen({
                       style={styles.favoriteCircleBtn}
                       onPress={() => toggleWishlist(cloth.id)}
                       hitSlop={6}
+                      accessibilityRole="button"
+                      accessibilityLabel={isFavorite ? `Remove ${cloth.name} from saved items` : `Save ${cloth.name}`}
                     >
                       <MaterialCommunityIcons
                         name={isFavorite ? 'heart' : 'heart-outline'}
@@ -853,16 +897,13 @@ export function CategoryCatalogScreen({
                       />
                     </Pressable>
 
-                    {/* 24h Express Badge */}
-                    <View style={styles.expressBadge}>
-                      <Text style={styles.expressBadgeText}>⚡ 24h</Text>
-                    </View>
+                    {turnaround ? (
+                      <View style={styles.turnaroundBadge}>
+                        <MaterialCommunityIcons name="clock-outline" size={10} color="#2563EB" />
+                        <Text style={styles.turnaroundBadgeText}>{turnaround} TAT</Text>
+                      </View>
+                    ) : null}
 
-                    {/* Rating Badge */}
-                    <View style={styles.ratingBadge}>
-                      <MaterialCommunityIcons name="star" size={10} color="#F59E0B" />
-                      <Text style={styles.ratingBadgeText}>4.9</Text>
-                    </View>
                   </View>
 
                   {/* PRODUCT CARD BODY (Compact ~95px, clear price & service selection) */}
@@ -894,6 +935,9 @@ export function CategoryCatalogScreen({
                             ]}
                             onPress={() => handleSelectServiceForCloth(cloth.id, srv.serviceId)}
                             hitSlop={4}
+                            accessibilityRole="radio"
+                            accessibilityState={{ selected: isChosen }}
+                            accessibilityLabel={`Choose ${srv.displayName} for ${cloth.name}, ${String.fromCharCode(0x20B9)}${srv.price} per ${srv.unit.toLowerCase()}`}
                           >
                             <Text
                               style={[
@@ -912,7 +956,9 @@ export function CategoryCatalogScreen({
                     <View style={styles.priceAndActionRow}>
                       <View style={styles.priceCol}>
                         <Text style={styles.priceText}>₹{chosenService.price}</Text>
-                        <Text style={styles.priceUnitText}>/{chosenService.unit === 'KG' ? 'kg' : 'pc'}</Text>
+                        <Text style={styles.priceUnitText} numberOfLines={1}>
+                          {chosenService.shortLabel} · /{chosenService.unit === 'KG' ? 'kg' : 'pc'}
+                        </Text>
                       </View>
 
                       {cartQty > 0 ? (
@@ -921,6 +967,8 @@ export function CategoryCatalogScreen({
                             style={styles.stepperActionBtnCompact}
                             onPress={() => handleDecrement(cloth, chosenService)}
                             hitSlop={6}
+                            accessibilityRole="button"
+                            accessibilityLabel={`Remove one ${cloth.name}`}
                           >
                             <MaterialCommunityIcons name="minus" size={13} color="#FFFFFF" />
                           </Pressable>
@@ -929,6 +977,8 @@ export function CategoryCatalogScreen({
                             style={styles.stepperActionBtnCompact}
                             onPress={() => handleIncrement(cloth, chosenService)}
                             hitSlop={6}
+                            accessibilityRole="button"
+                            accessibilityLabel={`Add one ${cloth.name}`}
                           >
                             <MaterialCommunityIcons name="plus" size={13} color="#FFFFFF" />
                           </Pressable>
@@ -938,6 +988,8 @@ export function CategoryCatalogScreen({
                           style={styles.addBtnCompact}
                           onPress={() => handleAddToCart(cloth, chosenService)}
                           hitSlop={6}
+                          accessibilityRole="button"
+                          accessibilityLabel={`Add ${cloth.name}, ${chosenService.displayName}, ${String.fromCharCode(0x20B9)}${chosenService.price}, to bag`}
                         >
                           <MaterialCommunityIcons name="plus" size={13} color="#FF6B0B" />
                           <Text style={styles.addBtnTextCompact}>ADD</Text>
@@ -952,12 +1004,15 @@ export function CategoryCatalogScreen({
         </ScrollView>
       )}
 
-      {/* 7. VIEW BAG BAR (Floating sticky bar with generous safe-area margin) */}
+      {/* The bag is a real footer rather than an overlay, so the grid can never
+          scroll beneath it. */}
       {cartSummary.itemCount > 0 && (
-        <View style={[styles.stickyCartBarWrap, { bottom: Math.max(insets.bottom, 12) + 6 }]}>
+        <View style={[styles.stickyCartBarWrap, { paddingBottom: Math.max(insets.bottom, 12) }]}>
           <Pressable
             style={({ pressed }) => [styles.stickyCartBar, pressed && styles.pressedBtn]}
             onPress={handleCartClick}
+            accessibilityRole="button"
+            accessibilityLabel={`View bag with ${cartSummary.itemCount} items, total ${String.fromCharCode(0x20B9)}${cartSummary.itemTotal}`}
           >
             <View style={styles.cartBarLeft}>
               <View style={styles.cartBarIconBadge}>
@@ -1238,6 +1293,9 @@ const styles = StyleSheet.create({
   },
 
   /* 6. Product Grid */
+  productsScroll: {
+    flex: 1,
+  },
   productsScrollContent: {
     paddingHorizontal: 12,
     paddingTop: 10,
@@ -1297,10 +1355,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     elevation: 2,
   },
-  expressBadge: {
+  turnaroundBadge: {
     position: 'absolute',
-    bottom: 6,
     left: 6,
+    bottom: 6,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
     backgroundColor: '#EFF6FF',
     paddingHorizontal: 5,
     paddingVertical: 2,
@@ -1308,27 +1369,10 @@ const styles = StyleSheet.create({
     borderWidth: 0.5,
     borderColor: '#BFDBFE',
   },
-  expressBadgeText: {
+  turnaroundBadgeText: {
     fontSize: 9.5,
     fontWeight: '800',
     color: '#2563EB',
-  },
-  ratingBadge: {
-    position: 'absolute',
-    bottom: 6,
-    right: 6,
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.92)',
-    paddingHorizontal: 5,
-    paddingVertical: 2,
-    borderRadius: 4,
-    gap: 2,
-  },
-  ratingBadgeText: {
-    fontSize: 9.5,
-    fontWeight: '800',
-    color: '#0F172A',
   },
 
   /* Card Body */
@@ -1374,6 +1418,8 @@ const styles = StyleSheet.create({
   priceCol: {
     flexDirection: 'row',
     alignItems: 'baseline',
+    flex: 1,
+    minWidth: 0,
   },
   priceText: {
     fontSize: 16,
@@ -1466,12 +1512,11 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
 
-  /* 7. Sticky Cart Bar (Floating above safe area) */
+  /* 7. Sticky Cart Footer */
   stickyCartBarWrap: {
-    position: 'absolute',
-    left: 12,
-    right: 12,
-    zIndex: 99,
+    backgroundColor: '#F8FAFC',
+    paddingHorizontal: 12,
+    paddingTop: 8,
   },
   stickyCartBar: {
     height: 52,
