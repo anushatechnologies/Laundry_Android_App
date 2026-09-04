@@ -555,7 +555,7 @@ export function BulkLaundryScreen({
             <Pressable
               style={({ pressed }) => [
                 styles.viewBagBtn,
-                pressed && styles.pressedBtn,
+                pressed ? styles.pressedBtn : null,
               ]}
               onPress={onViewCart}
             >

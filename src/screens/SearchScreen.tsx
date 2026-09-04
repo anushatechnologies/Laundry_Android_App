@@ -344,7 +344,7 @@ export function SearchScreen({ onBook }: SearchScreenProps) {
           style={({ pressed }) => [
             styles.floatingBagBar,
             { bottom: Math.max(insets.bottom, 16) + 12 },
-            pressed && { opacity: 0.92, transform: [{ scale: 0.98 }] },
+            pressed ? { opacity: 0.92, transform: [{ scale: 0.98 }] } : null,
           ]}
           onPress={onBook}
         >

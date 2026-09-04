@@ -1053,28 +1053,35 @@ export function CategoryCatalogScreen({
         </ScrollView>
       )}
 
-      {/* The bag is a real footer rather than an overlay, so the grid can never
-          scroll beneath it. */}
+      {/* 7. Bottom Sticky Bag Bar (100% Solid, High-contrast, Guaranteed above Android safe area) */}
       {cartSummary.itemCount > 0 && (
         <View style={[styles.stickyCartBarWrap, { paddingBottom: Math.max(insets.bottom, 12) }]}>
           <Pressable
-            style={({ pressed }) => [styles.stickyCartBar, pressed && styles.pressedBtn]}
+            style={({ pressed }) => [styles.cartBarPressable, pressed ? styles.pressedBtn : null]}
             onPress={handleCartClick}
             accessibilityRole="button"
             accessibilityLabel={`View bag with ${cartSummary.itemCount} items, total ${String.fromCharCode(0x20B9)}${cartSummary.itemTotal}`}
           >
-            <View style={styles.cartBarLeft}>
-              <View style={styles.cartBarIconBadge}>
-                <MaterialCommunityIcons name="shopping" size={16} color="#FFFFFF" />
+            <View style={styles.stickyCartBar}>
+              <View style={styles.cartBarLeft}>
+                <View style={styles.cartBarIconBadge}>
+                  <MaterialCommunityIcons name="shopping" size={18} color="#FFFFFF" />
+                </View>
+                <View style={styles.cartBarInfo}>
+                  <Text style={styles.cartBarTotalText}>
+                    <Text style={styles.cartBarCountText}>
+                      {cartSummary.itemCount} {cartSummary.itemCount === 1 ? 'item' : 'items'}
+                    </Text>
+                    <Text style={styles.cartBarDotText}> • </Text>
+                    <Text style={styles.cartBarPriceText}>₹{cartSummary.itemTotal}</Text>
+                  </Text>
+                </View>
               </View>
-              <Text style={styles.cartBarTotalText}>
-                {cartSummary.itemCount} {cartSummary.itemCount === 1 ? 'item' : 'items'} • ₹{cartSummary.itemTotal}
-              </Text>
-            </View>
 
-            <View style={styles.cartBarRight}>
-              <Text style={styles.cartBarActionText}>View Bag</Text>
-              <MaterialCommunityIcons name="arrow-right" size={16} color="#FFFFFF" />
+              <View style={styles.cartBarRightBtn}>
+                <Text style={styles.cartBarActionText}>View Bag</Text>
+                <MaterialCommunityIcons name="arrow-right" size={16} color="#FFFFFF" />
+              </View>
             </View>
           </Pressable>
         </View>
@@ -1573,53 +1580,81 @@ const styles = StyleSheet.create({
 
   /* 7. Sticky Cart Footer */
   stickyCartBarWrap: {
-    backgroundColor: '#F8FAFC',
-    paddingHorizontal: 12,
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 14,
     paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: '#E2E8F0',
+  },
+  cartBarPressable: {
+    width: '100%',
   },
   stickyCartBar: {
-    height: 52,
+    height: 56,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     backgroundColor: '#0F172A',
-    borderRadius: 14,
+    borderRadius: 16,
     paddingHorizontal: 14,
     shadowColor: '#000000',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
+    shadowOpacity: 0.25,
     shadowRadius: 8,
-    elevation: 6,
+    elevation: 8,
   },
   cartBarLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 10,
+    flex: 1,
   },
   cartBarIconBadge: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
+    width: 34,
+    height: 34,
+    borderRadius: 17,
     backgroundColor: '#FF6B0B',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  cartBarTotalText: {
-    color: '#FFFFFF',
-    fontSize: 13,
-    fontWeight: '800',
+  cartBarInfo: {
+    justifyContent: 'center',
   },
-  cartBarRight: {
+  cartBarTotalText: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+  },
+  cartBarCountText: {
+    color: '#E2E8F0',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  cartBarDotText: {
+    color: '#94A3B8',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  cartBarPriceText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '900',
+  },
+  cartBarRightBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#FF6B0B',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 12,
   },
   cartBarActionText: {
-    color: '#FF6B0B',
-    fontSize: 13,
+    color: '#FFFFFF',
+    fontSize: 13.5,
     fontWeight: '800',
+    letterSpacing: 0.3,
   },
   pressedBtn: {
-    opacity: 0.8,
+    opacity: 0.88,
   },
 });
