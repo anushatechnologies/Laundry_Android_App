@@ -370,23 +370,103 @@ export function HomeScreen({
     return 'https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/services/service_wash_iron.jpg';
   };
 
-  // Dynamic services from backend service_masters
-  const displayServices = useMemo(() => {
-    return serviceMasters.map((svc) => ({
-      id: svc.id,
-      serviceId: svc.id,
-      title: svc.name,
-      subtitle: svc.description || 'Premium laundry care',
-      icon: getServiceIcon(svc),
-      accent: getServiceAccent(svc),
-      badge: getServiceBadge(svc),
-      tat: formatTAT(svc.turnaroundHours),
-      imageUrl: getServiceImageUrl(svc),
-      priceText: formatPricing(svc),
-      pricingType: svc.pricingType,
-      serviceCode: (svc.serviceCode || 'ALL') as any,
-      slug: svc.slug,
-    }));
+  // Helper: Clean, elegant, readable category names that fit neatly in 4-column layout
+  const getCleanCategoryName = (name: string, slug?: string): string => {
+    const s = (slug || '').toLowerCase();
+    const n = (name || '').toLowerCase();
+    if (s === 'laundry' || n.includes('wash & fold') || n.includes('wash and fold')) return 'Wash & Fold';
+    if (s === 'special-treatments' || n.includes('special')) return 'Special Care';
+    if (s === 'pet-cleaning' || n.includes('pet')) return 'Pet Care';
+    if (s === 'sports-fitness' || n.includes('sport') || n.includes('fitness')) return 'Activewear';
+    if (s === 'express-services' || n.includes('express')) return 'Express 24h';
+    if (s === 'seasonal-laundry' || n.includes('seasonal')) return 'Seasonal';
+    if (s === 'ironing' || n.includes('steam iron') || n.includes('ironing')) return 'Steam Press';
+    if (s === 'dry-cleaning' || n.includes('dry clean')) return 'Dry Clean';
+    if (s === 'wedding-wear' || n.includes('wedding') || n.includes('bridal') || n.includes('traditional')) return 'Wedding Care';
+    if (s === 'home-textiles' || n.includes('textiles') || n.includes('linen')) return 'Home Linen';
+    if (s === 'home-cleaning' || n.includes('home clean')) return 'Home Care';
+    if (s === 'bags-accessories' || n.includes('bags') || n.includes('accessories')) return 'Bags & Shoes';
+    if (s === 'baby-kids' || n.includes('baby') || n.includes('kids')) return 'Kids Wear';
+    if (s === 'corporate' || n.includes('corporate') || n.includes('hospitality')) return 'Corporate';
+    if (n.includes('men')) return "Men's Wear";
+    if (n.includes('women')) return "Women's Wear";
+    return name.replace(/\s*\([^)]*\)/g, '').trim();
+  };
+
+  // The 4 core services formatted cleanly for 1 row of 4
+  const coreServices = useMemo(() => {
+    const findMaster = (keywords: string[]) => {
+      return serviceMasters.find((s) => {
+        const sName = (s.name || '').toLowerCase();
+        const sSlug = (s.slug || '').toLowerCase();
+        const sCode = (s.serviceCode || '').toLowerCase();
+        return keywords.some((k) => sName.includes(k) || sSlug.includes(k) || sCode.includes(k));
+      });
+    };
+
+    const washFoldMaster = findMaster(['wash & fold', 'wash-and-fold', 'wash_fold']);
+    const washIronMaster = findMaster(['wash & steam iron', 'wash-and-iron', 'wash_iron']);
+    const pressMaster = findMaster(['iron only', 'steam-iron', 'press']);
+    const dryCleanMaster = findMaster(['dry clean', 'dry-cleaning', 'dry_clean']);
+
+    return [
+      {
+        id: washFoldMaster?.id || 'srv-m-wash-fold',
+        serviceId: washFoldMaster?.id || 'srv-m-wash-fold',
+        title: 'Wash & Fold',
+        tat: '24h TAT',
+        badge: 'Daily Fresh',
+        accent: '#0891B2',
+        imageUrl: washFoldMaster?.imageUrl || 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/services/service_wash_fold.jpg',
+        fallbackUrl: 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/services/service_wash_fold.jpg',
+        priceText: washFoldMaster ? formatPricing(washFoldMaster) : 'From ₹60/kg',
+        pricingType: 'PER_KG',
+        serviceCode: 'WASH_IRON',
+        slug: 'wash-and-fold',
+      },
+      {
+        id: washIronMaster?.id || 'srv-m-wash-iron',
+        serviceId: washIronMaster?.id || 'srv-m-wash-iron',
+        title: 'Wash & Iron',
+        tat: '24h TAT',
+        badge: 'Crease-Free',
+        accent: '#7C3AED',
+        imageUrl: washIronMaster?.imageUrl || 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/services/service_wash_iron.jpg',
+        fallbackUrl: 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/services/service_wash_iron.jpg',
+        priceText: washIronMaster ? formatPricing(washIronMaster) : 'From ₹85/kg',
+        pricingType: 'PER_KG',
+        serviceCode: 'WASH_IRON',
+        slug: 'wash-and-iron',
+      },
+      {
+        id: pressMaster?.id || 'srv-m-steam-iron',
+        serviceId: pressMaster?.id || 'srv-m-steam-iron',
+        title: 'Steam Press',
+        tat: '12h Express',
+        badge: 'Zero Wrinkles',
+        accent: '#D97706',
+        imageUrl: pressMaster?.imageUrl || 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/services/service_steam_press.jpg',
+        fallbackUrl: 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/services/service_steam_press.jpg',
+        priceText: pressMaster ? formatPricing(pressMaster) : 'From ₹18',
+        pricingType: 'PER_ITEM',
+        serviceCode: 'PRESS',
+        slug: 'steam-iron',
+      },
+      {
+        id: dryCleanMaster?.id || 'srv-m-dry-clean',
+        serviceId: dryCleanMaster?.id || 'srv-m-dry-clean',
+        title: 'Dry Clean',
+        tat: '48h TAT',
+        badge: 'Ozone Sanitized',
+        accent: '#2563EB',
+        imageUrl: dryCleanMaster?.imageUrl || 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/services/service_dry_cleaning.jpg',
+        fallbackUrl: 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/services/service_dry_cleaning.jpg',
+        priceText: dryCleanMaster ? formatPricing(dryCleanMaster) : 'From ₹70',
+        pricingType: 'PER_ITEM',
+        serviceCode: 'DRY_CLEAN',
+        slug: 'dry-cleaning',
+      },
+    ];
   }, [serviceMasters, catalog]);
 
   const categories = useMemo(() => {
@@ -459,9 +539,10 @@ export function HomeScreen({
           id: cat.id,
           slug: cat.slug,
           tag,
-          label: cat.name,
+          label: getCleanCategoryName(cat.name, cat.slug),
+          fullTitle: cat.name,
           icon: cat.icon || 'hanger',
-          imageUrl: cat.imageUrl || cat.image || '',
+          imageUrl: cat.imageUrl || cat.image || getCategoryImageUrl(tag),
           count: countText,
           accent: getAccent(cat.color, cat.slug),
           subtitle: cat.description || 'Premium fabric care',
@@ -471,12 +552,20 @@ export function HomeScreen({
 
     // Fallback if catalog is still loading
     return [
-      { id: 'cat-1', slug: 'mens-wear', tag: 'MENS', label: "Men's Wear", icon: 'tshirt-crew-outline', imageUrl: 'https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/categories/mens-wear.jpg', count: getCount('MENS', 'mens-wear'), accent: '#2563EB', subtitle: 'Shirts, Suits, Kurta & Denim' },
-      { id: 'cat-2', slug: 'womens-wear', tag: 'WOMENS', label: "Women's Wear", icon: 'hanger', imageUrl: 'https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/categories/womens-wear.jpg', count: getCount('WOMENS', 'womens-wear'), accent: '#DB2777', subtitle: 'Sarees, Lehengas, Dresses' },
-      { id: 'cat-3', slug: 'bridal-wear', tag: 'WEDDING', label: 'Wedding & Silk', icon: 'crown-outline', imageUrl: 'https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/categories/wedding-silk.jpg', count: getCount('WEDDING', 'bridal-wear'), accent: '#7C3AED', subtitle: 'Silk Sarees & Sherwanis' },
-      { id: 'cat-4', slug: 'kids-wear', tag: 'KIDS', label: 'Kids & Baby', icon: 'baby-carriage', imageUrl: 'https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/categories/kids-baby.jpg', count: getCount('KIDS', 'kids-wear'), accent: '#D97706', subtitle: 'Rompers, Frocks & Uniforms' },
-      { id: 'cat-5', slug: 'home-textiles', tag: 'HOME_TEXTILES', label: 'Home Linen', icon: 'bed-outline', imageUrl: 'https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/categories/home-textiles.jpg', count: getCount('HOME_TEXTILES', 'home-textiles'), accent: '#16A34A', subtitle: 'Bedsheets, Blankets, Curtains' },
-      { id: 'cat-7', slug: 'bulk-laundry', tag: 'BULK', label: 'Bulk Laundry', icon: 'scale', imageUrl: 'https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/banners/banner-bulk.jpg', count: minBulkKgPrice ? `₹${minBulkKgPrice}/KG` : 'Pay by KG', accent: '#FF7A00', subtitle: 'Wash & Fold by KG' },
+      { id: 'cat-1', slug: 'laundry', tag: 'MENS', label: 'Wash & Fold', imageUrl: 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/services/service_wash_fold.jpg', count: getCount('MENS', 'mens-wear'), accent: '#2563EB', subtitle: 'Shirts, Suits, Kurta & Denim' },
+      { id: 'cat-2', slug: 'special-treatments', tag: 'SPECIAL', label: 'Special Care', imageUrl: 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/categories/cat-special-treatments.jpg', count: '16 Items', accent: '#4F46E5', subtitle: 'Special Care Treatments' },
+      { id: 'cat-3', slug: 'pet-cleaning', tag: 'SPECIAL', label: 'Pet Care', imageUrl: 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/categories/cat-pet-cleaning.jpg', count: 'Explore', accent: '#D97706', subtitle: 'Beds, Blankets & Leashes' },
+      { id: 'cat-4', slug: 'sports-fitness', tag: 'MENS', label: 'Activewear', imageUrl: 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/garments/cloth-tracksuit-m.jpg', count: 'Explore', accent: '#0D9488', subtitle: 'Jerseys, Gym wear & Shorts' },
+      { id: 'cat-5', slug: 'express-services', tag: 'BULK', label: 'Express 24h', imageUrl: 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/services/delivery_van_driver.jpg', count: '24h TAT', accent: '#EA580C', subtitle: 'Urgent turnaround' },
+      { id: 'cat-6', slug: 'seasonal-laundry', tag: 'HOME_TEXTILES', label: 'Seasonal', imageUrl: 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/garments/cloth-blanket-double.jpg', count: 'Explore', accent: '#16A34A', subtitle: 'Blankets, Quilts & Razai' },
+      { id: 'cat-7', slug: 'ironing', tag: 'PRESS', label: 'Steam Press', imageUrl: 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/services/service_steam_press.jpg', count: 'Explore', accent: '#D97706', subtitle: 'Crisp shape restoration' },
+      { id: 'cat-8', slug: 'dry-cleaning', tag: 'DRY_CLEAN', label: 'Dry Clean', imageUrl: 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/services/service_dry_cleaning.jpg', count: 'Explore', accent: '#2563EB', subtitle: 'Eco hydrocarbon cleaning' },
+      { id: 'cat-9', slug: 'wedding-wear', tag: 'WEDDING', label: 'Wedding Care', imageUrl: 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/categories/cat-wedding-silk.jpg', count: '41 Items', accent: '#7C3AED', subtitle: 'Silk Sarees & Sherwanis' },
+      { id: 'cat-10', slug: 'home-textiles', tag: 'HOME_TEXTILES', label: 'Home Linen', imageUrl: 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/garments/cloth-bedsheet-king.jpg', count: '41 Items', accent: '#16A34A', subtitle: 'Bedsheets, Curtains & Covers' },
+      { id: 'cat-11', slug: 'home-cleaning', tag: 'HOME_TEXTILES', label: 'Home Care', imageUrl: 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/garments/cloth-sofa-cover-3s.jpg', count: '41 Items', accent: '#0D9488', subtitle: 'Sofa covers & drapes' },
+      { id: 'cat-12', slug: 'bags-accessories', tag: 'ACCESSORIES', label: 'Bags & Shoes', imageUrl: 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/garments/cloth-bag-luxury.jpg', count: 'Explore', accent: '#DB2777', subtitle: 'Luxury bags, shoes & helmets' },
+      { id: 'cat-13', slug: 'baby-kids', tag: 'KIDS', label: 'Kids Wear', imageUrl: 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/categories/cat-school-uniforms.jpg', count: '24 Items', accent: '#D97706', subtitle: 'Uniforms & Baby wear' },
+      { id: 'cat-14', slug: 'corporate', tag: 'MENS', label: 'Corporate', imageUrl: 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/garments/cloth-suit-2p.jpg', count: 'Explore', accent: '#2563EB', subtitle: 'Hotel linen & uniforms' },
     ];
   }, [catalog?.categories, catalog?.clothTypes, minBulkKgPrice]);
 
@@ -677,7 +766,7 @@ export function HomeScreen({
           </Card>
         ) : null}
 
-        {/* 1. OUR SERVICES SECTION (PRIMARY 2-COLUMN GRID) */}
+        {/* 1. OUR SERVICES SECTION (ONE ROW OF 4 CARDS) */}
         <View style={styles.servicesSection}>
           <View style={styles.sectionHeaderRow}>
             <View>
@@ -690,25 +779,17 @@ export function HomeScreen({
             </Pressable>
           </View>
 
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.luxuryServicesScroll}
-          >
-            {displayServices.map((svc) => {
-              const fallbackUrl = 'https://images.unsplash.com/photo-1545173168-9f1947eebb7f?auto=format&fit=crop&w=400&q=80';
+          <View style={styles.services4Row}>
+            {coreServices.map((svc) => {
               const hasImgErr = serviceImgErrors[svc.id];
               return (
                 <Pressable
                   key={svc.id}
                   style={({ pressed }) => [
-                    styles.luxuryServiceTile,
+                    styles.service4Tile,
                     pressed && styles.tileCardPressed,
                   ]}
                   onPress={() => {
-                    // Per-KG services belong in the dedicated bulk flow. Sending
-                    // them to an item catalog produced the duplicated “Express
-                    // Emergency Laundry” header seen in the APK.
                     if (svc.pricingType === 'PER_KG') {
                       if (onOpenBulkLaundry) {
                         onOpenBulkLaundry();
@@ -732,46 +813,37 @@ export function HomeScreen({
                   accessibilityRole="button"
                   accessibilityLabel={`View ${svc.title} service`}
                 >
-                  {/* Top Bar with Badges */}
-                  <View style={styles.luxuryServiceTopRow}>
-                    <View style={styles.luxuryServiceBadge}>
-                      <Text style={styles.luxuryServiceBadgeText}>{svc.badge}</Text>
-                    </View>
-                    <View style={styles.luxuryServiceTatPill}>
-                      <MaterialCommunityIcons name="clock-outline" size={8} color="#64748B" />
-                      <Text style={styles.luxuryServiceTatText}>{svc.tat}</Text>
-                    </View>
+                  {/* Top TAT Badge */}
+                  <View style={styles.service4TatPill}>
+                    <Text style={styles.service4TatText}>{svc.tat}</Text>
                   </View>
 
-                  {/* Rounded Service Image (Circular with Accent Ring) */}
-                  <View style={styles.luxuryServiceImgWrap}>
+                  {/* Circular Image with Accent Ring */}
+                  <View style={[styles.service4ImgWrap, { borderColor: svc.accent || '#FED7AA' }]}>
                     <Image
-                      source={{ uri: hasImgErr ? fallbackUrl : svc.imageUrl }}
-                      style={styles.luxuryServiceImg}
+                      source={{ uri: hasImgErr ? svc.fallbackUrl : svc.imageUrl }}
+                      style={styles.service4Img}
                       resizeMode="cover"
                       onError={() => setServiceImgErrors((prev) => ({ ...prev, [svc.id]: true }))}
                     />
                   </View>
 
                   {/* Service Title */}
-                  <Text style={styles.luxuryServiceTitle} numberOfLines={1}>
+                  <Text style={styles.service4Title} numberOfLines={1}>
                     {svc.title}
                   </Text>
 
-                  {/* Price Row & Action Arrow */}
-                  <View style={styles.luxuryServicePriceRow}>
-                    <Text style={styles.luxuryServicePriceText}>{svc.priceText || 'From ₹49'}</Text>
-                    <View style={styles.luxuryServiceArrowBox}>
-                      <MaterialCommunityIcons name="arrow-right" size={10} color="#FFFFFF" />
-                    </View>
-                  </View>
+                  {/* Starting Price */}
+                  <Text style={styles.service4PriceText} numberOfLines={1}>
+                    {svc.priceText}
+                  </Text>
                 </Pressable>
               );
             })}
-          </ScrollView>
+          </View>
         </View>
 
-        {/* 2. BROWSE BY CATEGORY (CIRCULAR IMAGES - 3 PER ROW) */}
+        {/* 2. BROWSE BY CATEGORY (4 PER ROW) */}
         <View style={styles.categoriesSection}>
           <View style={styles.sectionHeaderRow}>
             <View>
@@ -780,20 +852,20 @@ export function HomeScreen({
             </View>
           </View>
 
-          <View style={styles.homeCategory3Grid}>
+          <View style={styles.homeCategory4Grid}>
             {categories.map((cat) => {
               const photoUrl = catImgErrors[cat.slug]
-                ? 'https://images.unsplash.com/photo-1617137984095-74e4e5e3613f?auto=format&fit=crop&w=400&q=80'
-                : getCategoryImageUrl(cat.tag, cat.imageUrl);
+                ? getCategoryImageUrl(cat.tag)
+                : (cat.imageUrl || getCategoryImageUrl(cat.tag));
               return (
                 <Pressable
                   key={cat.slug}
                   style={({ pressed }) => [
-                    styles.homeCategory3Col,
+                    styles.homeCategory4Col,
                     pressed && styles.categoryItemPressed,
                   ]}
                   onPress={() => {
-                    if (cat.tag === 'BULK' || cat.slug === 'bulk-laundry') {
+                    if (cat.tag === 'BULK' || cat.slug === 'bulk-laundry' || cat.slug === 'express-services') {
                       if (onOpenBulkLaundry) onOpenBulkLaundry();
                       return;
                     }
@@ -898,60 +970,129 @@ export function HomeScreen({
 }
 
 const styles = StyleSheet.create({
-  homeCategory3Grid: {
+  // Our Services: 1 row of 4
+  services4Row: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingHorizontal: 12,
+    marginTop: 4,
+    gap: 6,
+  },
+  service4Tile: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    paddingVertical: 8,
+    paddingHorizontal: 2,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  service4TatPill: {
+    backgroundColor: '#F8FAFC',
+    borderRadius: 4,
+    paddingHorizontal: 4,
+    paddingVertical: 1.5,
+    marginBottom: 4,
+  },
+  service4TatText: {
+    fontSize: 7.5,
+    fontWeight: '700',
+    color: '#64748B',
+  },
+  service4ImgWrap: {
+    width: 46,
+    height: 46,
+    borderRadius: 23,
+    overflow: 'hidden',
+    backgroundColor: '#FFF7ED',
+    borderWidth: 1.5,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 4,
+  },
+  service4Img: {
+    width: '100%',
+    height: '100%',
+  },
+  service4Title: {
+    width: '100%',
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#0F172A',
+    textAlign: 'center',
+    marginBottom: 2,
+  },
+  service4PriceText: {
+    fontSize: 9.5,
+    fontWeight: '900',
+    color: '#FF7A00',
+    textAlign: 'center',
+  },
+
+  // Browse Categories: 4 per row
+  homeCategory4Grid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'flex-start',
     marginTop: 4,
+    paddingHorizontal: 8,
   },
-  homeCategory3Col: {
-    width: '33.333%',
+  homeCategory4Col: {
+    width: '25%',
     alignItems: 'center',
-    marginBottom: 16,
-    paddingHorizontal: 4,
+    marginBottom: 14,
+    paddingHorizontal: 2,
   },
   homeCatCircleWrap: {
-    width: 78,
-    height: 78,
-    borderRadius: 39,
-    borderWidth: 2.5,
-    padding: 2.5,
+    width: 62,
+    height: 62,
+    borderRadius: 31,
+    borderWidth: 2,
+    padding: 2,
     backgroundColor: '#FFFFFF',
     position: 'relative',
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.1,
-    shadowRadius: 6,
-    elevation: 4,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
+    elevation: 3,
   },
   homeCatCircleImg: {
     width: '100%',
     height: '100%',
-    borderRadius: 36,
+    borderRadius: 27,
   },
   homeCatCountBadge: {
     position: 'absolute',
-    bottom: -4,
+    bottom: -3,
     backgroundColor: '#0F172A',
-    borderRadius: 8,
-    paddingHorizontal: 6,
+    borderRadius: 6,
+    paddingHorizontal: 4,
     paddingVertical: 1,
     borderWidth: 1,
     borderColor: '#FFFFFF',
   },
   homeCatCountText: {
-    fontSize: 9,
+    fontSize: 7.5,
     fontWeight: '700',
     color: '#FFFFFF',
   },
   homeCatTitle: {
-    fontSize: 12,
+    width: '100%',
+    fontSize: 10,
     fontWeight: '700',
     color: '#1E293B',
     textAlign: 'center',
-    marginTop: 8,
+    marginTop: 4,
+    lineHeight: 12,
   },
 
   greetingHeader: {

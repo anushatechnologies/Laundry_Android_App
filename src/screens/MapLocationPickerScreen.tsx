@@ -248,7 +248,18 @@ export function MapLocationPickerScreen({
     selectionVersionRef.current = selectionVersion;
     setCoords({ latitude, longitude });
     setSelectionSource(source);
-    setResolvedLocation(null);
+
+    // Provide immediate coordinate-based fallback location so the button is immediately clickable
+    const fallbackLoc: CustomerLocation = {
+      address: `Selected Location (${latitude.toFixed(4)}, ${longitude.toFixed(4)})`,
+      formattedAddress: `Selected Location (${latitude.toFixed(4)}, ${longitude.toFixed(4)})`,
+      latitude,
+      longitude,
+      source,
+      isServiceable: null,
+      updatedAt: new Date().toISOString(),
+    };
+    setResolvedLocation((prev) => prev?.address ? { ...prev, latitude, longitude, source } : fallbackLoc);
     setErrorMessage(null);
     setPhase('resolving');
 
@@ -259,9 +270,9 @@ export function MapLocationPickerScreen({
       setPhase('ready');
     } catch (error) {
       if (selectionVersion !== selectionVersionRef.current) return;
-      setErrorMessage(error instanceof Error ? error.message : 'We could not identify this address. Move the map and try again.');
-      setResolvedLocation(null);
-      setPhase('error');
+      // Fall back to coordinate representation instead of error blocking the user
+      setResolvedLocation(fallbackLoc);
+      setPhase('ready');
     }
   }, []);
 
@@ -315,11 +326,8 @@ const handleInteractiveLocate = useCallback(async () => {
   }, [centreMap, handleLocateMe, resolveSelection]);
 
   const handleMapMoving = useCallback(() => {
-    // Invalidate any in-flight GPS/reverse-geocode result before the user lets
-    // go of the map, so an old green result can never confirm a new pin.
     selectionVersionRef.current += 1;
     setSelectionSource('manual');
-    setResolvedLocation(null);
     setErrorMessage(null);
     setPhase('resolving');
   }, []);
@@ -376,10 +384,11 @@ const handleInteractiveLocate = useCallback(async () => {
   useEffect(() => {
     if (autoLocateAttemptedRef.current) return;
     autoLocateAttemptedRef.current = true;
-    if (autoPermissionPrompt !== 'never' && !initialGpsCoords) {
+    // Don't auto-locate if initialLocation or initialGpsCoords already exists
+    if (autoPermissionPrompt !== 'never' && !initialGpsCoords && !initialLocation?.address) {
       void handleLocateMe(autoPermissionPrompt);
     }
-  }, [autoPermissionPrompt, handleLocateMe, initialGpsCoords]);
+  }, [autoPermissionPrompt, handleLocateMe, initialGpsCoords, initialLocation?.address]);
 
   useEffect(() => {
     phaseRef.current = phase;
@@ -402,10 +411,6 @@ const handleInteractiveLocate = useCallback(async () => {
   }, [handleLocateMe]);
 
   useEffect(() => {
-    if (mapReady) centreMap(coords.latitude, coords.longitude);
-  }, [centreMap, coords, mapReady]);
-
-  useEffect(() => {
     if (mapReady || mapError) return;
     const timer = setTimeout(() => {
       setMapError('The map is taking too long to load. Check your connection and try again.');
@@ -419,9 +424,7 @@ const handleInteractiveLocate = useCallback(async () => {
       if (data.type === 'map_ready') {
         setMapReady(true);
         setMapError(null);
-        if (initialGpsCoords) {
-          centreMap(initialGpsCoords.latitude, initialGpsCoords.longitude);
-        }
+        centreMap(coords.latitude, coords.longitude);
         return;
       }
       if (data.type === 'map_moving') {
@@ -435,15 +438,15 @@ const handleInteractiveLocate = useCallback(async () => {
         && typeof data.longitude === 'number'
       ) {
         // Only reverse geocode center changes if the user actually dragged the map!
-        // This prevents the default viewport from claiming to be detected on initial load.
         if (hasUserMovedMapRef.current) {
+          hasUserMovedMapRef.current = false;
           void resolveSelection(data.latitude, data.longitude, 'manual');
         }
       }
     } catch {
       // Ignore malformed messages from the embedded map.
     }
-  }, [centreMap, handleMapMoving, initialGpsCoords, resolveSelection]);
+  }, [centreMap, coords.latitude, coords.longitude, handleMapMoving, resolveSelection]);
 
   const handleEnableLocationServices = useCallback(async () => {
     setPhase('locating');
@@ -460,7 +463,7 @@ const handleInteractiveLocate = useCallback(async () => {
   }, [coords.latitude, coords.longitude, resolveSelection, selectionSource]);
 
   const handleConfirm = useCallback(async () => {
-    if (!resolvedLocation || phase !== 'ready') return;
+    if (!resolvedLocation) return;
 
     setIsSubmitting(true);
     try {
@@ -468,7 +471,7 @@ const handleInteractiveLocate = useCallback(async () => {
     } finally {
       setIsSubmitting(false);
     }
-  }, [onLocationConfirmed, phase, resolvedLocation, selectionSource]);
+  }, [onLocationConfirmed, resolvedLocation, selectionSource]);
 
   const retryMap = useCallback(() => {
     setMapReady(false);
@@ -476,9 +479,9 @@ const handleInteractiveLocate = useCallback(async () => {
     setMapReloadKey((value) => value + 1);
   }, []);
 
-  const canUseLocation = phase === 'ready' && Boolean(resolvedLocation);
-  const isCheckingSelection = phase === 'locating' || phase === 'resolving';
-  const serviceability = isCheckingSelection
+  const canUseLocation = Boolean(resolvedLocation) && (phase === 'ready' || phase === 'resolving');
+  const isCheckingSelection = phase === 'locating' || (phase === 'resolving' && !resolvedLocation);
+  const serviceability = phase === 'locating'
     ? { state: 'checking' as const, text: 'Detecting pickup area...' }
     : resolvedLocation?.isServiceable === true
       ? { state: 'available' as const, text: 'Pickup is available for this PIN code.' }
@@ -496,9 +499,7 @@ const handleInteractiveLocate = useCallback(async () => {
           ? 'Try This Pin Again'
           : isSubmitting
             ? 'Saving location...'
-            : isCheckingSelection
-              ? 'Checking location...'
-              : 'Use This Location';
+            : 'Use This Location';
 
   const onPrimaryAction = () => {
     if (phase === 'permission-denied') void handleInteractiveLocate();
@@ -665,18 +666,20 @@ const handleInteractiveLocate = useCallback(async () => {
           <Pressable
             style={({ pressed }) => [
               styles.useLocationBtn,
-              pressed && !isCheckingSelection && phase !== 'ready' ? styles.buttonPressed : null,
-              ((phase === 'ready' && !canUseLocation) || isSubmitting || isCheckingSelection) && styles.btnDisabled,
+              pressed && canUseLocation ? styles.buttonPressed : null,
+              (!canUseLocation || isSubmitting) && styles.btnDisabled,
             ]}
             onPress={onPrimaryAction}
-            disabled={(phase === 'ready' && !canUseLocation) || isSubmitting || isCheckingSelection}
+            disabled={!canUseLocation || isSubmitting}
             accessibilityRole="button"
             accessibilityLabel={actionLabel}
           >
-            {isSubmitting || isCheckingSelection ? <ActivityIndicator size="small" color="#FFFFFF" /> : (
+            {isSubmitting ? (
+              <ActivityIndicator size="small" color="#FFFFFF" />
+            ) : (
               <View style={styles.btnContentRow}>
                 <Text style={styles.useLocationBtnText}>{actionLabel}</Text>
-                {phase === 'ready' && canUseLocation ? <MaterialCommunityIcons name="arrow-right" size={20} color="#FFFFFF" /> : null}
+                {canUseLocation ? <MaterialCommunityIcons name="arrow-right" size={20} color="#FFFFFF" /> : null}
               </View>
             )}
           </Pressable>

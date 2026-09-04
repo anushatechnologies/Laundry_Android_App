@@ -788,6 +788,7 @@ export function CategoryCatalogScreen({
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
+          style={styles.serviceFilterScrollView}
           contentContainerStyle={styles.serviceFilterScroll}
         >
           {availableServiceFilters.map((item) => {
@@ -1286,14 +1287,18 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     backgroundColor: '#FFFFFF',
     paddingVertical: 6,
-    paddingHorizontal: 16,
+    paddingHorizontal: 12,
     borderBottomWidth: 1,
     borderBottomColor: '#E2E8F0',
-    gap: 10,
+    gap: 8,
+  },
+  serviceFilterScrollView: {
+    flex: 1,
   },
   serviceFilterScroll: {
     gap: 6,
     alignItems: 'center',
+    paddingRight: 6,
   },
   serviceChipCompact: {
     height: 28,
@@ -1324,15 +1329,21 @@ const styles = StyleSheet.create({
     color: '#64748B',
   },
   sortButtonPill: {
+    flexShrink: 0,
     height: 28,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 8,
+    paddingHorizontal: 9,
     borderRadius: 14,
-    backgroundColor: '#F8FAFC',
-    borderWidth: 1,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1.5,
     borderColor: '#E2E8F0',
     gap: 3,
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 2,
   },
   sortButtonPillText: {
     fontSize: 11,
