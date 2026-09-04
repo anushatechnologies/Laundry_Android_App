@@ -461,14 +461,6 @@ const handleInteractiveLocate = useCallback(async () => {
 
   const handleConfirm = useCallback(async () => {
     if (!resolvedLocation || phase !== 'ready') return;
-    if (resolvedLocation.isServiceable === false) {
-      setErrorMessage('Pickup is not available for this PIN code yet. Choose another location.');
-      return;
-    }
-    if (resolvedLocation.isServiceable === null || resolvedLocation.isServiceable === undefined) {
-      await resolveSelection(coords.latitude, coords.longitude, selectionSource);
-      return;
-    }
 
     setIsSubmitting(true);
     try {
@@ -476,7 +468,7 @@ const handleInteractiveLocate = useCallback(async () => {
     } finally {
       setIsSubmitting(false);
     }
-  }, [coords.latitude, coords.longitude, onLocationConfirmed, phase, resolvedLocation, resolveSelection, selectionSource]);
+  }, [onLocationConfirmed, phase, resolvedLocation, selectionSource]);
 
   const retryMap = useCallback(() => {
     setMapReady(false);
@@ -484,16 +476,14 @@ const handleInteractiveLocate = useCallback(async () => {
     setMapReloadKey((value) => value + 1);
   }, []);
 
-  const canUseLocation = phase === 'ready'
-    && Boolean(resolvedLocation)
-    && resolvedLocation?.isServiceable === true;
+  const canUseLocation = phase === 'ready' && Boolean(resolvedLocation);
   const isCheckingSelection = phase === 'locating' || phase === 'resolving';
   const serviceability = isCheckingSelection
-    ? { state: 'checking' as const, text: 'Checking pickup availability...' }
+    ? { state: 'checking' as const, text: 'Detecting pickup area...' }
     : resolvedLocation?.isServiceable === true
       ? { state: 'available' as const, text: 'Pickup is available for this PIN code.' }
       : resolvedLocation?.isServiceable === false
-        ? { state: 'unavailable' as const, text: 'Pickup is not available for this PIN code yet.' }
+        ? { state: 'unavailable' as const, text: `Area detected (PIN ${resolvedLocation.pincode || 'detected'}). Serviceability checked at checkout.` }
         : null;
 
   const actionLabel = phase === 'permission-denied'
@@ -508,9 +498,7 @@ const handleInteractiveLocate = useCallback(async () => {
             ? 'Saving location...'
             : isCheckingSelection
               ? 'Checking location...'
-              : resolvedLocation?.isServiceable === false
-                ? 'Choose another location'
-                : 'Use This Location';
+              : 'Use This Location';
 
   const onPrimaryAction = () => {
     if (phase === 'permission-denied') void handleInteractiveLocate();

@@ -74,6 +74,9 @@ export function BookScreen({
   const [addingAddress, setAddingAddress] = useState(false);
   const [draft, setDraft] = useState<AddressDraft>(() => newAddressDraft(session?.user.name || '', session?.user.phone || ''));
   const [pincodeCheck, setPincodeCheck] = useState<{ isServiceable: boolean; message?: string } | null>(null);
+  const [selectedAddressServiceable, setSelectedAddressServiceable] = useState<boolean | null>(null);
+  const [selectedAddressMessage, setSelectedAddressMessage] = useState<string | null>(null);
+  const [checkingAddressServiceable, setCheckingAddressServiceable] = useState(false);
   const [slotDate, setSlotDate] = useState(localDateString());
   const [slots, setSlots] = useState<PickupSlot[]>([]);
   const [selectedSlotId, setSelectedSlotId] = useState('');
@@ -92,6 +95,33 @@ export function BookScreen({
   const pickupDates = useMemo(() => Array.from({ length: 7 }, (_, index) => localDateString(index)), []);
   const selectedAddress = addresses.find((a) => a.id === selectedAddressId) || addresses.find((a) => a.isDefault) || addresses[0];
   const selectedSlot = slots.find((s) => s.id === selectedSlotId && s.isAvailable && !s.isPast);
+
+  // Validate serviceability when an address is selected or pre-filled
+  useEffect(() => {
+    const pin = selectedAddress?.pincode?.trim();
+    if (!pin || pin.length < 6) {
+      setSelectedAddressServiceable(null);
+      setSelectedAddressMessage(null);
+      return;
+    }
+    let active = true;
+    setCheckingAddressServiceable(true);
+    validatePincode(pin)
+      .then((res) => {
+        if (active) {
+          const ok = Boolean(res.isServiceable || res.serviceable);
+          setSelectedAddressServiceable(ok);
+          setSelectedAddressMessage(res.message || (ok ? 'Serviceable for doorstep pickup' : 'Not currently serviceable for pickup'));
+        }
+      })
+      .catch(() => {
+        if (active) setSelectedAddressServiceable(null);
+      })
+      .finally(() => {
+        if (active) setCheckingAddressServiceable(false);
+      });
+    return () => { active = false; };
+  }, [selectedAddress?.id, selectedAddress?.pincode, validatePincode]);
 
   // The location picker confirms an area, while checkout still needs a flat or
   // house number. Prefill that checkout form instead of silently creating an
@@ -258,6 +288,23 @@ export function BookScreen({
       Alert.alert('Address Required', 'Please select or add a doorstep pickup address.');
       return;
     }
+    const pin = selectedAddress.pincode?.trim();
+    if (pin) {
+      try {
+        const check = await validatePincode(pin);
+        const ok = Boolean(check.isServiceable || check.serviceable);
+        if (!ok) {
+          Alert.alert(
+            'Address Not Serviceable',
+            check.message || `Doorstep pickup is not available for PIN ${pin} yet. Please select or add an address in a serviceable area.`,
+            [{ text: 'OK' }]
+          );
+          return;
+        }
+      } catch (e) {
+        // network issue fallback
+      }
+    }
     if (!selectedSlot) {
       Alert.alert('Time Slot Required', 'Please choose an available pickup time slot.');
       return;
@@ -267,6 +314,23 @@ export function BookScreen({
 
   const placeOrder = async () => {
     if (!selectedAddress || !selectedSlot) return;
+    const pin = selectedAddress.pincode?.trim();
+    if (pin) {
+      try {
+        const check = await validatePincode(pin);
+        const ok = Boolean(check.isServiceable || check.serviceable);
+        if (!ok) {
+          Alert.alert(
+            'Address Not Serviceable',
+            check.message || `Doorstep pickup is not available for PIN ${pin} yet. Please choose a serviceable address.`,
+            [{ text: 'OK' }]
+          );
+          return;
+        }
+      } catch (e) {
+        // network issue fallback
+      }
+    }
     try {
       const result = await checkout({
         address: selectedAddress,
@@ -758,6 +822,21 @@ export function BookScreen({
 
                       <Text style={styles.addressCardName}>{item.contactName} • +91 {item.contactPhone}</Text>
                       <Text style={styles.addressCardStreet}>{item.street}, {item.city} - {item.pincode}</Text>
+                      {isSelected && selectedAddressServiceable === false ? (
+                        <View style={styles.addressServiceNotice}>
+                          <MaterialCommunityIcons name="alert-circle" size={14} color="#DC2626" />
+                          <Text style={styles.addressServiceNoticeText}>
+                            {selectedAddressMessage || `PIN ${item.pincode} is not currently serviceable for pickup.`}
+                          </Text>
+                        </View>
+                      ) : isSelected && selectedAddressServiceable === true ? (
+                        <View style={styles.addressServiceAvailableNotice}>
+                          <MaterialCommunityIcons name="check-circle" size={13} color="#16A34A" />
+                          <Text style={styles.addressServiceAvailableText}>
+                            Serviceable for doorstep pickup
+                          </Text>
+                        </View>
+                      ) : null}
                     </Pressable>
                   );
                 })}
@@ -1533,6 +1612,42 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '800',
     color: '#1C0B18',
+  },
+  addressServiceNotice: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: '#FEF2F2',
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    borderRadius: 8,
+    marginTop: 4,
+    borderWidth: 1,
+    borderColor: '#FECACA',
+  },
+  addressServiceNoticeText: {
+    color: '#DC2626',
+    fontSize: 11,
+    fontWeight: '700',
+    flex: 1,
+  },
+  addressServiceAvailableNotice: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: '#F0FDF4',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    marginTop: 4,
+    borderWidth: 1,
+    borderColor: '#BBF7D0',
+  },
+  addressServiceAvailableText: {
+    color: '#16A34A',
+    fontSize: 11,
+    fontWeight: '700',
+    flex: 1,
   },
   addressCardStreet: {
     fontSize: 12,
