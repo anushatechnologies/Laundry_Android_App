@@ -815,11 +815,6 @@ export function HomeScreen({
                     {svc.title}
                   </Text>
 
-                  {/* Service Description */}
-                  <Text style={styles.luxuryServiceDesc} numberOfLines={2}>
-                    {svc.subtitle}
-                  </Text>
-
                   {/* Price Row & Action Arrow */}
                   <View style={styles.luxuryServicePriceRow}>
                     <Text style={styles.luxuryServicePriceText}>{svc.priceText || 'From ₹49'}</Text>
@@ -2152,8 +2147,8 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: '#0F172A',
     textAlign: 'center',
-    marginTop: 4,
-    marginBottom: 2,
+    marginTop: 6,
+    marginBottom: 10,
   },
   luxuryServiceDesc: {
     width: '100%',
@@ -2170,7 +2165,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingTop: 8,
+    paddingTop: 10,
     borderTopWidth: 1,
     borderTopColor: '#F1F5F9',
   },
