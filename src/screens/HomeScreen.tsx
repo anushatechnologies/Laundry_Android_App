@@ -795,7 +795,7 @@ export function HomeScreen({
                       <Text style={styles.luxuryServiceBadgeText}>{svc.badge}</Text>
                     </View>
                     <View style={styles.luxuryServiceTatPill}>
-                      <MaterialCommunityIcons name="clock-outline" size={10} color="#64748B" />
+                      <MaterialCommunityIcons name="clock-outline" size={8} color="#64748B" />
                       <Text style={styles.luxuryServiceTatText}>{svc.tat}</Text>
                     </View>
                   </View>
@@ -819,7 +819,7 @@ export function HomeScreen({
                   <View style={styles.luxuryServicePriceRow}>
                     <Text style={styles.luxuryServicePriceText}>{svc.priceText || 'From ₹49'}</Text>
                     <View style={styles.luxuryServiceArrowBox}>
-                      <MaterialCommunityIcons name="arrow-right" size={12} color="#FFFFFF" />
+                      <MaterialCommunityIcons name="arrow-right" size={10} color="#FFFFFF" />
                     </View>
                   </View>
                 </Pressable>
@@ -2067,14 +2067,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
-    gap: 14,
+    gap: 10,
     paddingHorizontal: 16,
   },
   luxuryServiceTile: {
-    width: '48%',
+    width: '31%',
     backgroundColor: '#FFFFFF',
-    borderRadius: 20,
-    padding: 14,
+    borderRadius: 16,
+    padding: 10,
     borderWidth: 1,
     borderColor: '#F1F5F9',
     shadowColor: '#0F172A',
@@ -2094,14 +2094,14 @@ const styles = StyleSheet.create({
   },
   luxuryServiceBadge: {
     backgroundColor: '#FFF7ED',
-    borderRadius: 6,
-    paddingHorizontal: 6,
-    paddingVertical: 2.5,
+    borderRadius: 4,
+    paddingHorizontal: 4,
+    paddingVertical: 2,
     borderWidth: 1,
     borderColor: '#FED7AA',
   },
   luxuryServiceBadgeText: {
-    fontSize: 9,
+    fontSize: 7.5,
     fontWeight: '800',
     color: '#EA580C',
     letterSpacing: 0.2,
@@ -2109,32 +2109,32 @@ const styles = StyleSheet.create({
   luxuryServiceTatPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 3,
+    gap: 2,
     backgroundColor: '#F8FAFC',
-    borderRadius: 6,
-    paddingHorizontal: 5,
-    paddingVertical: 2.5,
+    borderRadius: 4,
+    paddingHorizontal: 4,
+    paddingVertical: 2,
   },
   luxuryServiceTatText: {
-    fontSize: 9.5,
+    fontSize: 7.5,
     fontWeight: '700',
     color: '#64748B',
   },
   luxuryServiceImgWrap: {
-    width: 78,
-    height: 78,
-    borderRadius: 39,
+    width: 60,
+    height: 60,
+    borderRadius: 30,
     overflow: 'hidden',
     backgroundColor: '#FFF7ED',
-    borderWidth: 2.5,
+    borderWidth: 2,
     borderColor: '#FED7AA',
     alignItems: 'center',
     justifyContent: 'center',
-    marginVertical: 6,
+    marginVertical: 4,
     shadowColor: '#EA580C',
-    shadowOffset: { width: 0, height: 3 },
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.12,
-    shadowRadius: 6,
+    shadowRadius: 4,
     elevation: 2,
   },
   luxuryServiceImg: {
@@ -2143,12 +2143,12 @@ const styles = StyleSheet.create({
   },
   luxuryServiceTitle: {
     width: '100%',
-    fontSize: 13.5,
+    fontSize: 11,
     fontWeight: '800',
     color: '#0F172A',
     textAlign: 'center',
-    marginTop: 6,
-    marginBottom: 10,
+    marginTop: 4,
+    marginBottom: 6,
   },
   luxuryServiceDesc: {
     width: '100%',
@@ -2165,19 +2165,19 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingTop: 10,
+    paddingTop: 6,
     borderTopWidth: 1,
     borderTopColor: '#F1F5F9',
   },
   luxuryServicePriceText: {
-    fontSize: 12.5,
+    fontSize: 10.5,
     fontWeight: '900',
     color: '#FF7A00',
   },
   luxuryServiceArrowBox: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
+    width: 18,
+    height: 18,
+    borderRadius: 9,
     backgroundColor: '#FF7A00',
     alignItems: 'center',
     justifyContent: 'center',
