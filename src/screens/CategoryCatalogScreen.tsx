@@ -70,13 +70,13 @@ const SUBCATEGORY_MAP: Record<string, string[]> = {
 
 // Available Main Categories
 const MAIN_CATEGORIES: Array<{ tag: string; label: string; icon: string; imageUrl?: string; slug?: string }> = [
-  { tag: 'MENS', label: "Men's", icon: 'tshirt-crew', imageUrl: 'https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/categories/mens-wear.jpg', slug: 'mens-wear' },
-  { tag: 'WOMENS', label: "Women's", icon: 'hanger', imageUrl: 'https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/categories/womens-wear.jpg', slug: 'womens-wear' },
-  { tag: 'KIDS', label: 'Kids', icon: 'baby-carriage', imageUrl: 'https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/categories/kids-baby.jpg', slug: 'kids-wear' },
-  { tag: 'HOME_TEXTILES', label: 'Home Linen', icon: 'bed-outline', imageUrl: 'https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/categories/home-textiles.jpg', slug: 'home-textiles' },
-  { tag: 'FOOTWEAR', label: 'Footwear', icon: 'shoe-sneaker', imageUrl: 'https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/services/shoe-spa.jpg', slug: 'shoe-care' },
+  { tag: 'MENS', label: "Men's", icon: 'tshirt-crew', imageUrl: 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/categories/mens-wear.jpg', slug: 'mens-wear' },
+  { tag: 'WOMENS', label: "Women's", icon: 'hanger', imageUrl: 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/categories/womens-wear.jpg', slug: 'womens-wear' },
+  { tag: 'KIDS', label: 'Kids', icon: 'baby-carriage', imageUrl: 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/categories/kids-baby.jpg', slug: 'kids-wear' },
+  { tag: 'HOME_TEXTILES', label: 'Home Linen', icon: 'bed-outline', imageUrl: 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/categories/home-textiles.jpg', slug: 'home-textiles' },
+  { tag: 'FOOTWEAR', label: 'Footwear', icon: 'shoe-sneaker', imageUrl: 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/services/shoe-spa.jpg', slug: 'shoe-care' },
   { tag: 'ACCESSORIES', label: 'Accessories', icon: 'bag-personal-outline', slug: 'accessories' },
-  { tag: 'BULK', label: 'Bulk KG', icon: 'scale', imageUrl: 'https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/banners/banner-bulk.jpg', slug: 'bulk-laundry' },
+  { tag: 'BULK', label: 'Bulk KG', icon: 'scale', imageUrl: 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/banners/banner-bulk.jpg', slug: 'bulk-laundry' },
 ];
 
 // Service filter options

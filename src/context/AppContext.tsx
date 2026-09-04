@@ -408,7 +408,7 @@ export function AppProvider({ children }: PropsWithChildren) {
       quantity,
       unit: 'KG',
       subtotal: basePrice * quantity,
-      imageUrl: 'https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/banners/banner-4.jpg',
+      imageUrl: 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/banners/banner-4.jpg',
     });
     return quantity;
   }, [addCartItem, catalog]);
