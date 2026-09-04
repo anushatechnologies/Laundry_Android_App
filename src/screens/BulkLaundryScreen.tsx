@@ -41,6 +41,32 @@ interface BulkServiceOption {
   tat: string;
 }
 
+const DEFAULT_SERVICES: BulkServiceOption[] = [
+  {
+    id: 'srv-m-wash-fold',
+    name: 'Wash & Fold',
+    icon: 'washing-machine',
+    subtitle: 'Daily wear, t-shirts, pyjamas & bedsheets',
+    baseKgPrice: 60,
+    tat: '24h Express',
+  },
+  {
+    id: 'srv-m-wash-iron',
+    name: 'Wash & Steam Iron',
+    icon: 'iron',
+    subtitle: 'Crisp pressed shirts, trousers & office wear',
+    baseKgPrice: 85,
+    tat: '36h Standard',
+  },
+];
+
+const PRESET_WEIGHTS = [
+  { kg: 5, label: 'Standard Bag', approx: '15-20 clothes (Daily wear for 1-2 people)', clothes: '15-20 clothes', tag: 'STARTER' },
+  { kg: 7, label: 'Family Pack', approx: '22-28 clothes (Weekly laundry for 3-4 members)', clothes: '22-28 clothes', tag: 'MOST POPULAR' },
+  { kg: 10, label: 'Super Saver', approx: '35-45 clothes (Large household / heavy loads)', clothes: '35-45 clothes', tag: 'BEST VALUE' },
+  { kg: 15, label: 'Jumbo Load', approx: '55-65 clothes (Bedding, blankets & bulk clothes)', clothes: '55-65 clothes', tag: 'MAX SAVINGS' },
+];
+
 export function BulkLaundryScreen({
   onBack,
   onViewCart,
@@ -122,10 +148,10 @@ export function BulkLaundryScreen({
     };
   }, []);
 
-  const currentService: BulkServiceOption | null = useMemo(() => {
-    if (servicesList.length === 0) return null;
+  const currentService: BulkServiceOption = useMemo(() => {
+    if (servicesList.length === 0) return DEFAULT_SERVICES[0]!;
     const found = servicesList.find((s) => s.id === selectedServiceId);
-    return found || servicesList[0];
+    return (found || servicesList[0] || DEFAULT_SERVICES[0])!;
   }, [servicesList, selectedServiceId]);
 
   // Helper to calculate price for any given weight
