@@ -466,13 +466,24 @@ export function HomeScreen({
   const formatPricing = (service: ServiceMaster): string => {
     if (service.pricingType === 'PER_KG') {
       if (service.baseKgPrice) {
-        return `From â‚¹${service.baseKgPrice}/kg`;
+        return `From ₹${service.baseKgPrice}/kg`;
       }
-      return 'From â‚¹60/kg';
+      return 'From ₹60/kg';
     }
-    // For PER_ITEM, we'd ideally fetch min price from price_matrix
-    // For now, show generic text
-    return 'From â‚¹49';
+    
+    // For PER_ITEM, fetch min price from price_matrix
+    if (catalog?.priceMatrix && catalog.priceMatrix.length > 0) {
+      const servicePrices = catalog.priceMatrix
+        .filter(item => item.serviceId === service.id && item.isActive && item.price > 0)
+        .map(item => item.price);
+      
+      if (servicePrices.length > 0) {
+        const minPrice = Math.min(...servicePrices);
+        return `From ₹${minPrice}`;
+      }
+    }
+    
+    return 'From ₹49';
   };
 
   // Helper: Get service image URL
@@ -514,7 +525,7 @@ export function HomeScreen({
       serviceCode: (svc.serviceCode || 'ALL') as any,
       slug: svc.slug,
     }));
-  }, [serviceMasters]);
+  }, [serviceMasters, catalog]);
 
   const categories = useMemo(() => {
     const cloths = catalog?.clothTypes || [];
