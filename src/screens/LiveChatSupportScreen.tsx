@@ -135,8 +135,16 @@ export function LiveChatSupportScreen() {
     }
     
     if (!roomId) {
-      Alert.alert('Connection Error', 'Chat room not initialized. Please close and reopen chat.');
-      console.error('[Chat] Cannot send message: No roomId');
+      // Room is still initializing — re-trigger initialization and let the user know gently
+      console.warn('[Chat] roomId not ready yet — re-initializing chat room...');
+      if (customerId) {
+        api.createChatRoom(customerId, 'Customer Support').then((roomResponse) => {
+          if (roomResponse.success && roomResponse.data) {
+            setRoomId(roomResponse.data.id);
+          }
+        }).catch(() => {});
+      }
+      Alert.alert('Connecting...', 'Still connecting to chat. Please wait a moment and try again.');
       return;
     }
     

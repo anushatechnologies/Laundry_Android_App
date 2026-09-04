@@ -420,8 +420,8 @@ export function HomeScreen({
         imageUrl: washFoldMaster?.imageUrl || 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/services/service_wash_fold.jpg',
         fallbackUrl: 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/services/service_wash_fold.jpg',
         priceText: washFoldMaster ? formatPricing(washFoldMaster) : 'From ₹60/kg',
-        pricingType: 'PER_KG',
-        serviceCode: 'WASH_IRON',
+        pricingType: 'PER_ITEM',
+        serviceCode: 'WASH_FOLD',
         slug: 'wash-and-fold',
       },
       {
@@ -434,7 +434,7 @@ export function HomeScreen({
         imageUrl: washIronMaster?.imageUrl || 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/services/service_wash_iron.jpg',
         fallbackUrl: 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/services/service_wash_iron.jpg',
         priceText: washIronMaster ? formatPricing(washIronMaster) : 'From ₹85/kg',
-        pricingType: 'PER_KG',
+        pricingType: 'PER_ITEM',
         serviceCode: 'WASH_IRON',
         slug: 'wash-and-iron',
       },
@@ -790,14 +790,16 @@ export function HomeScreen({
                     pressed && styles.tileCardPressed,
                   ]}
                   onPress={() => {
-                    if (svc.pricingType === 'PER_KG') {
+                    // Only open Bulk Laundry for the actual bulk-laundry KG service, not for Wash & Fold / Wash & Iron
+                    const isBulkService = svc.slug === 'bulk-laundry' || svc.pricingType === 'PER_KG' && svc.slug === 'bulk-laundry';
+                    if (isBulkService) {
                       if (onOpenBulkLaundry) {
                         onOpenBulkLaundry();
                         return;
                       }
                     }
                     if (onSelectService) {
-                      const serviceCode = ['PRESS', 'WASH_IRON', 'DRY_CLEAN'].includes(svc.serviceCode)
+                      const serviceCode = ['PRESS', 'WASH_IRON', 'DRY_CLEAN', 'WASH_FOLD'].includes(svc.serviceCode)
                         ? svc.serviceCode
                         : 'ALL';
                       const category = svc.serviceCode === 'SHOE_SPA'
