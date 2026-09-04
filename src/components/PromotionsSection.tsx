@@ -15,48 +15,6 @@ interface PromotionsSectionProps {
   onPressPromotion: (couponCode?: string) => void;
 }
 
-const STATIC_FALLBACK_OFFERS: Coupon[] = [
-  {
-    id: 'promo-1',
-    code: 'WELCOME100',
-    title: 'Flat ₹100 Off First Order',
-    description: 'Flat ₹100 discount on orders above ₹299',
-    discountType: 'FLAT',
-    discountValue: 100,
-    minOrderValue: 299,
-    firstOrderOnly: true,
-    isActive: true,
-    expiryDate: '2026-12-31',
-    usageCount: 840,
-  },
-  {
-    id: 'promo-2',
-    code: 'SILKSPA',
-    title: '25% Off Wedding Silk Spa',
-    description: 'Zero colour-bleed polish for Sarees & Sherwanis',
-    discountType: 'PERCENTAGE',
-    discountValue: 25,
-    minOrderValue: 499,
-    firstOrderOnly: false,
-    isActive: true,
-    expiryDate: '2026-12-31',
-    usageCount: 620,
-  },
-  {
-    id: 'promo-3',
-    code: 'BULK50',
-    title: 'Wash & Fold @ ₹49/KG',
-    description: 'Special weekend saver rate on bulk clothes',
-    discountType: 'FLAT',
-    discountValue: 50,
-    minOrderValue: 399,
-    firstOrderOnly: false,
-    isActive: true,
-    expiryDate: '2026-12-31',
-    usageCount: 410,
-  },
-];
-
 export function PromotionsSection({ onPressPromotion }: PromotionsSectionProps) {
   const { width: windowWidth } = useWindowDimensions();
   const screenWidth = windowWidth > 0 ? windowWidth : 360;
@@ -64,7 +22,7 @@ export function PromotionsSection({ onPressPromotion }: PromotionsSectionProps) 
   const cardWidth = Math.max(280, Math.round(screenWidth * 0.82));
   const cardSpacing = 12;
 
-  const [promotions, setPromotions] = useState<Coupon[]>(STATIC_FALLBACK_OFFERS);
+  const [promotions, setPromotions] = useState<Coupon[]>([]);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {

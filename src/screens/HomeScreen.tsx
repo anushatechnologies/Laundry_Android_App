@@ -1,4 +1,4 @@
-﻿import { LinearGradient } from 'expo-linear-gradient';
+import { LinearGradient } from 'expo-linear-gradient';
 import React, { useState, useEffect, useMemo } from 'react';
 import {
   Alert,
@@ -40,87 +40,6 @@ interface HomeScreenProps {
   onViewSubscriptions?: () => void;
 }
 
-const DEFAULT_BACKEND_SERVICES: ServiceMaster[] = [
-  {
-    id: 'srv-m-dry-clean',
-    name: 'Dry Cleaning',
-    slug: 'dry-cleaning',
-    serviceCode: 'DRY_CLEAN' as any,
-    pricingType: 'PER_ITEM',
-    turnaroundHours: 48,
-    description: 'Hydrocarbon solvent treatment with breathable garment cover',
-    isActive: true,
-    imageUrl: 'https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/services/service_dry_cleaning.jpg',
-  },
-  {
-    id: 'srv-m-steam-iron',
-    name: 'Steam Pressing',
-    slug: 'steam-iron',
-    serviceCode: 'PRESS' as any,
-    pricingType: 'PER_ITEM',
-    turnaroundHours: 18,
-    description: 'High-pressure wrinkle removal with shape restoration',
-    isActive: true,
-    imageUrl: 'https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/services/service_steam_press.jpg',
-  },
-  {
-    id: 'srv-m-wash-fold',
-    name: 'Wash & Fold',
-    slug: 'wash-and-fold',
-    serviceCode: 'WASH_FOLD' as any,
-    pricingType: 'PER_KG',
-    baseKgPrice: 60,
-    turnaroundHours: 24,
-    description: 'Hygienic wash, tumble dry, and neat compact fold',
-    isActive: true,
-    imageUrl: 'https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/services/service_wash_fold.jpg',
-  },
-  {
-    id: 'srv-m-wash-iron',
-    name: 'Wash & Steam Iron',
-    slug: 'wash-and-iron',
-    serviceCode: 'WASH_IRON' as any,
-    pricingType: 'PER_KG',
-    baseKgPrice: 85,
-    turnaroundHours: 36,
-    description: 'Eco-wash with crisp commercial steam pressing',
-    isActive: true,
-    imageUrl: 'https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/services/service_wash_iron.jpg',
-  },
-  {
-    id: 'srv-m-spa',
-    name: 'Shoe & Leather Spa',
-    slug: 'shoe-spa',
-    serviceCode: 'SHOE_SPA' as any,
-    pricingType: 'PER_ITEM',
-    turnaroundHours: 48,
-    description: 'Ultrasonic stain treatment & antibacterial ozone',
-    isActive: true,
-    imageUrl: 'https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/services/service_shoe_clean.jpg',
-  },
-  {
-    id: 'srv-m-express',
-    name: 'Express 24H Laundry',
-    slug: 'express-emergency',
-    serviceCode: 'EXPRESS' as any,
-    pricingType: 'PER_KG',
-    baseKgPrice: 120,
-    turnaroundHours: 12,
-    description: 'Dedicated machine slot with same-day emergency return',
-    isActive: true,
-    imageUrl: 'https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/services/delivery_van_driver.jpg',
-  },
-];
-
-const SERVICE_FALLBACK_IMAGES: Record<string, string> = {
-  'srv-m-dry-clean': 'https://images.unsplash.com/photo-1517677208171-0bc6725a3e60?auto=format&fit=crop&w=400&q=80',
-  'srv-m-steam-iron': 'https://images.unsplash.com/photo-1545173168-9f1947eebb7f?auto=format&fit=crop&w=400&q=80',
-  'srv-m-wash-fold': 'https://images.unsplash.com/photo-1582735689369-4fe89db7114c?auto=format&fit=crop&w=400&q=80',
-  'srv-m-wash-iron': 'https://images.unsplash.com/photo-1489274495757-95c7c837b101?auto=format&fit=crop&w=400&q=80',
-  'srv-m-spa': 'https://images.unsplash.com/photo-1549298916-b41d501d3772?auto=format&fit=crop&w=400&q=80',
-  'srv-m-express': 'https://images.unsplash.com/photo-1581578731548-c64695cc6952?auto=format&fit=crop&w=400&q=80',
-};
-
 export function HomeScreen({
   onBook,
   onViewOrders,
@@ -157,72 +76,13 @@ export function HomeScreen({
   } = useApp();
 
   const locationLabel = userLocation?.areaName || userLocation?.city || (
-    locationStatus === 'detecting' ? 'Detecting locationâ€¦' : 'Location unavailable'
+    locationStatus === 'detecting' ? 'Detecting location…' : 'Location unavailable'
   );
 
-  const STATIC_BANNERS: Banner[] = [
-    {
-      id: 'static-1',
-      title: 'Flat 50% OFF on First Order',
-      subtitle: 'Premium dry cleaning & laundry at your door',
-      imageUrl: 'https://images.unsplash.com/photo-1545173168-9f1947eebb7f?auto=format&fit=crop&w=1200&q=80',
-      isActive: true,
-      badgeText: 'NEW USER OFFER',
-      couponCode: 'FIRST50',
-      discountPercent: 50,
-      actionType: 'OFFER',
-      actionTarget: '',
-      displayOrder: 1,
-      createdAt: '2026-01-01 00:00:00',
-      updatedAt: '2026-01-01 00:00:00',
-    },
-    {
-      id: 'static-2',
-      title: 'Silk Saree Expert Care',
-      subtitle: 'Zero colour-bleed charak polish & steam roll',
-      imageUrl: 'https://images.unsplash.com/photo-1517677208171-0bc6725a3e60?auto=format&fit=crop&w=1200&q=80',
-      isActive: true,
-      badgeText: 'PREMIUM CARE',
-      discountPercent: 20,
-      actionType: 'CATEGORY',
-      actionTarget: 'womens-wear',
-      displayOrder: 2,
-      createdAt: '2026-01-01 00:00:00',
-      updatedAt: '2026-01-01 00:00:00',
-    },
-    {
-      id: 'static-3',
-      title: 'Suits & Formal Wear',
-      subtitle: 'Ozone dry clean + crease-free press',
-      imageUrl: 'https://images.unsplash.com/photo-1594938298603-c8148c4dae35?auto=format&fit=crop&w=1200&q=80',
-      isActive: true,
-      badgeText: 'EXECUTIVE CARE',
-      discountPercent: 15,
-      actionType: 'CATEGORY',
-      actionTarget: 'mens-wear',
-      displayOrder: 3,
-      createdAt: '2026-01-01 00:00:00',
-      updatedAt: '2026-01-01 00:00:00',
-    },
-    {
-      id: 'static-4',
-      title: 'Bulk Laundry â‚¹49/kg',
-      subtitle: 'Min 3 KG â€¢ Pickup & delivery included',
-      imageUrl: 'https://images.unsplash.com/photo-1582735689369-4fe89db7114c?auto=format&fit=crop&w=1200&q=80',
-      isActive: true,
-      badgeText: 'BEST VALUE',
-      actionType: 'CATEGORY',
-      actionTarget: 'bulk-laundry',
-      displayOrder: 4,
-      createdAt: '2026-01-01 00:00:00',
-      updatedAt: '2026-01-01 00:00:00',
-    },
-  ];
-
-  const [banners, setBanners] = useState<Banner[]>(STATIC_BANNERS);
+  const [banners, setBanners] = useState<Banner[]>([]);
   const [liveSubPlans, setLiveSubPlans] = useState<SubscriptionPlan[]>([]);
   const [selectedCategorySlug, setSelectedCategorySlug] = useState('mens-wear');
-  const [serviceMasters, setServiceMasters] = useState<ServiceMaster[]>(DEFAULT_BACKEND_SERVICES);
+  const [serviceMasters, setServiceMasters] = useState<ServiceMaster[]>([]);
   const [serviceImgErrors, setServiceImgErrors] = useState<Record<string, boolean>>({});
   const [servicesLoading, setServicesLoading] = useState(true);
 
@@ -508,9 +368,7 @@ export function HomeScreen({
 
   // Dynamic services from backend service_masters
   const displayServices = useMemo(() => {
-    const source = serviceMasters.length > 0 ? serviceMasters : DEFAULT_BACKEND_SERVICES;
-
-    return source.map((svc) => ({
+    return serviceMasters.map((svc) => ({
       id: svc.id,
       serviceId: svc.id,
       title: svc.name,
@@ -529,28 +387,94 @@ export function HomeScreen({
 
   const categories = useMemo(() => {
     const cloths = catalog?.clothTypes || [];
-    const getCount = (tag: string) => {
+
+    const getCount = (tag: string, slug: string) => {
       const cleanTag = tag.toUpperCase().replace(/_/g, '-');
+      const cleanSlug = slug.toLowerCase().replace(/_/g, '-');
       const filtered = cloths.filter((item: any) => {
         const cTag = (item.categoryTag || '').toUpperCase().replace(/_/g, '-');
+        const cSlug = (item.categorySlug || '').toLowerCase().replace(/_/g, '-');
         return (
           cTag === cleanTag ||
-          (cleanTag === 'HOME' && cTag === 'HOME-TEXTILES') ||
-          (cleanTag === 'HOME-TEXTILES' && cTag === 'HOME')
+          cSlug === cleanSlug ||
+          (cleanTag === 'MENS' && (cTag === 'MENS' || cSlug.includes('men'))) ||
+          (cleanTag === 'WOMENS' && (cTag === 'WOMENS' || cSlug.includes('women'))) ||
+          (cleanTag === 'KIDS' && (cTag === 'KIDS' || cSlug.includes('kid') || cSlug.includes('baby'))) ||
+          (cleanTag === 'HOME-TEXTILES' && (cTag === 'HOME-TEXTILES' || cTag === 'HOME' || cSlug.includes('home'))) ||
+          (cleanTag === 'BRIDAL' && (cTag === 'BRIDAL' || cTag === 'WEDDING' || cSlug.includes('bridal') || cSlug.includes('wedding'))) ||
+          (cleanTag === 'SPECIAL' && (cTag === 'SPECIAL' || cSlug.includes('special')))
         );
       });
-      return filtered.length > 0 ? `${filtered.length} items` : 'Explore';
+      return filtered.length > 0 ? `${filtered.length} Items` : 'Explore';
     };
 
+    const getAccent = (color?: string, slug?: string): string => {
+      if (color) {
+        const c = color.toLowerCase();
+        if (c.includes('blue')) return '#2563EB';
+        if (c.includes('pink')) return '#DB2777';
+        if (c.includes('purple')) return '#7C3AED';
+        if (c.includes('amber') || c.includes('yellow')) return '#D97706';
+        if (c.includes('teal')) return '#0D9488';
+        if (c.includes('green') || c.includes('emerald')) return '#16A34A';
+        if (c.includes('indigo')) return '#4F46E5';
+        if (c.includes('orange') || c.includes('red')) return '#EA580C';
+      }
+      const s = (slug || '').toLowerCase();
+      if (s.includes('men')) return '#2563EB';
+      if (s.includes('women')) return '#DB2777';
+      if (s.includes('kid') || s.includes('baby')) return '#D97706';
+      if (s.includes('home') || s.includes('textile') || s.includes('linen')) return '#16A34A';
+      if (s.includes('bulk')) return '#FF7A00';
+      if (s.includes('wedding') || s.includes('bridal') || s.includes('silk')) return '#7C3AED';
+      if (s.includes('special')) return '#4F46E5';
+      return '#2563EB';
+    };
+
+    const getTag = (slug: string): string => {
+      const s = slug.toLowerCase();
+      if (s.includes('men')) return 'MENS';
+      if (s.includes('women')) return 'WOMENS';
+      if (s.includes('kid') || s.includes('baby')) return 'KIDS';
+      if (s.includes('home') || s.includes('textile') || s.includes('linen')) return 'HOME_TEXTILES';
+      if (s.includes('bulk')) return 'BULK';
+      if (s.includes('wedding') || s.includes('bridal') || s.includes('silk')) return 'WEDDING';
+      if (s.includes('special')) return 'SPECIAL';
+      return slug.toUpperCase().replace(/-/g, '_');
+    };
+
+    if (catalog?.categories && Array.isArray(catalog.categories) && catalog.categories.length > 0) {
+      return catalog.categories.map((cat) => {
+        const tag = getTag(cat.slug);
+        const isBulk = tag === 'BULK' || cat.slug.includes('bulk');
+        const countText = isBulk
+          ? (minBulkKgPrice ? `₹${minBulkKgPrice}/KG` : 'Pay by KG')
+          : getCount(tag, cat.slug);
+
+        return {
+          id: cat.id,
+          slug: cat.slug,
+          tag,
+          label: cat.name,
+          icon: cat.icon || 'hanger',
+          imageUrl: cat.imageUrl || cat.image || '',
+          count: countText,
+          accent: getAccent(cat.color, cat.slug),
+          subtitle: cat.description || 'Premium fabric care',
+        };
+      });
+    }
+
+    // Fallback if catalog is still loading
     return [
-      { slug: 'mens-wear', tag: 'MENS', label: "Men's Wear", icon: 'tshirt-crew-outline', count: getCount('MENS'), bg: '#EFF6FF', accent: '#2563EB', subtitle: 'Shirts, Suits, Kurta & Denim' },
-      { slug: 'womens-wear', tag: 'WOMENS', label: "Women's Wear", icon: 'hanger', count: getCount('WOMENS'), bg: '#FDF2F8', accent: '#DB2777', subtitle: 'Sarees, Lehengas, Dresses' },
-      { slug: 'kids-baby', tag: 'KIDS', label: "Kids & Baby", icon: 'baby-carriage', count: getCount('KIDS'), bg: '#FEF3C7', accent: '#D97706', subtitle: 'Rompers, Frocks & Uniforms' },
-      { slug: 'home-textiles', tag: 'HOME', label: 'Home Linen', icon: 'bed-outline', count: getCount('HOME'), bg: '#F0FDF4', accent: '#16A34A', subtitle: 'Bedsheets, Blankets, Curtains' },
-      { slug: 'bulk-laundry', tag: 'BULK', label: 'Bulk Laundry', icon: 'scale', count: minBulkKgPrice ? `From â‚¹${minBulkKgPrice}/KG` : 'Pay by KG', bg: '#FFF7ED', accent: '#FA5A13', subtitle: 'Wash & Fold by KG' },
-      { slug: 'wedding-silk', tag: 'WEDDING', label: 'Wedding & Silk', icon: 'crown-outline', count: getCount('WEDDING'), bg: '#FAF5FF', accent: '#7C3AED', subtitle: 'Silk Sarees & Sherwanis' },
+      { id: 'cat-1', slug: 'mens-wear', tag: 'MENS', label: "Men's Wear", icon: 'tshirt-crew-outline', imageUrl: 'https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/categories/mens-wear.jpg', count: getCount('MENS', 'mens-wear'), accent: '#2563EB', subtitle: 'Shirts, Suits, Kurta & Denim' },
+      { id: 'cat-2', slug: 'womens-wear', tag: 'WOMENS', label: "Women's Wear", icon: 'hanger', imageUrl: 'https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/categories/womens-wear.jpg', count: getCount('WOMENS', 'womens-wear'), accent: '#DB2777', subtitle: 'Sarees, Lehengas, Dresses' },
+      { id: 'cat-3', slug: 'bridal-wear', tag: 'WEDDING', label: 'Wedding & Silk', icon: 'crown-outline', imageUrl: 'https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/categories/wedding-silk.jpg', count: getCount('WEDDING', 'bridal-wear'), accent: '#7C3AED', subtitle: 'Silk Sarees & Sherwanis' },
+      { id: 'cat-4', slug: 'kids-wear', tag: 'KIDS', label: 'Kids & Baby', icon: 'baby-carriage', imageUrl: 'https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/categories/kids-baby.jpg', count: getCount('KIDS', 'kids-wear'), accent: '#D97706', subtitle: 'Rompers, Frocks & Uniforms' },
+      { id: 'cat-5', slug: 'home-textiles', tag: 'HOME_TEXTILES', label: 'Home Linen', icon: 'bed-outline', imageUrl: 'https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/categories/home-textiles.jpg', count: getCount('HOME_TEXTILES', 'home-textiles'), accent: '#16A34A', subtitle: 'Bedsheets, Blankets, Curtains' },
+      { id: 'cat-7', slug: 'bulk-laundry', tag: 'BULK', label: 'Bulk Laundry', icon: 'scale', imageUrl: 'https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/banners/banner-bulk.jpg', count: minBulkKgPrice ? `₹${minBulkKgPrice}/KG` : 'Pay by KG', accent: '#FF7A00', subtitle: 'Wash & Fold by KG' },
     ];
-  }, [catalog?.clothTypes]);
+  }, [catalog?.categories, catalog?.clothTypes, minBulkKgPrice]);
 
   // Subscription Purchase with Razorpay Payment
   const [purchaseLoading, setPurchaseLoading] = useState(false);
@@ -764,7 +688,7 @@ export function HomeScreen({
 
           <View style={styles.luxuryServicesGrid}>
             {displayServices.map((svc) => {
-              const fallbackUrl = SERVICE_FALLBACK_IMAGES[svc.id] || 'https://images.unsplash.com/photo-1545173168-9f1947eebb7f?auto=format&fit=crop&w=400&q=80';
+              const fallbackUrl = 'https://images.unsplash.com/photo-1545173168-9f1947eebb7f?auto=format&fit=crop&w=400&q=80';
               const hasImgErr = serviceImgErrors[svc.id];
               return (
                 <Pressable
@@ -849,15 +773,8 @@ export function HomeScreen({
           </View>
 
           <View style={styles.homeCategory3Grid}>
-            {[
-              { slug: 'mens-wear', tag: 'MENS', label: "Men's Wear", count: '16 Items', accent: '#2563EB' },
-              { slug: 'womens-wear', tag: 'WOMENS', label: "Women's Wear", count: '19 Items', accent: '#DB2777' },
-              { slug: 'kids-baby', tag: 'KIDS', label: 'Kids & Baby', count: '24 Items', accent: '#D97706' },
-              { slug: 'home-textiles', tag: 'HOME_TEXTILES', label: 'Home Linen', count: '41 Items', accent: '#16A34A' },
-              { slug: 'bulk-laundry', tag: 'BULK', label: 'Bulk Laundry', count: 'â‚¹60/KG', accent: '#FF7A00' },
-              { slug: 'wedding-silk', tag: 'WEDDING', label: 'Wedding & Silk', count: 'Premium', accent: '#7C3AED' },
-            ].map((cat) => {
-              const photoUrl = getCategoryImageUrl(cat.tag);
+            {categories.map((cat) => {
+              const photoUrl = getCategoryImageUrl(cat.tag, cat.imageUrl);
               return (
                 <Pressable
                   key={cat.slug}
@@ -866,7 +783,7 @@ export function HomeScreen({
                     pressed && styles.categoryItemPressed,
                   ]}
                   onPress={() => {
-                    if (cat.tag === 'BULK') {
+                    if (cat.tag === 'BULK' || cat.slug === 'bulk-laundry') {
                       if (onOpenBulkLaundry) onOpenBulkLaundry();
                       return;
                     }

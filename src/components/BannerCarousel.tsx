@@ -17,13 +17,6 @@ interface BannerCarouselProps {
   showHomeHero?: boolean;
 }
 
-const DEFAULT_BANNER_PHOTOS = [
-  'https://images.unsplash.com/photo-1545173168-9f1947eebb7f?auto=format&fit=crop&w=1200&q=80',
-  'https://images.unsplash.com/photo-1517677208171-0bc6725a3e60?auto=format&fit=crop&w=1200&q=80',
-  'https://images.unsplash.com/photo-1594938298603-c8148c4dae35?auto=format&fit=crop&w=1200&q=80',
-  'https://images.unsplash.com/photo-1582735689369-4fe89db7114c?auto=format&fit=crop&w=1200&q=80',
-];
-
 export function BannerCarousel({ banners, onSelectBanner }: BannerCarouselProps) {
   const { width: windowWidth } = useWindowDimensions();
   const screenWidth = windowWidth > 0 ? windowWidth : 360;
@@ -33,46 +26,7 @@ export function BannerCarousel({ banners, onSelectBanner }: BannerCarouselProps)
   const [imageErrors, setImageErrors] = useState<Record<string, boolean>>({});
   const flatListRef = useRef<FlatList>(null);
 
-  const activeBanners = banners && banners.length > 0
-    ? banners.filter((b) => b.isActive)
-    : [
-        {
-          id: 'def-1',
-          title: '50% Flat Discount',
-          subtitle: '',
-          imageUrl: DEFAULT_BANNER_PHOTOS[0],
-          actionType: 'BOOK' as const,
-          actionTarget: '',
-          displayOrder: 1,
-          isActive: true,
-          createdAt: '',
-          updatedAt: '',
-        },
-        {
-          id: 'def-2',
-          title: 'Silk Saree & Bridal Spa',
-          subtitle: '',
-          imageUrl: DEFAULT_BANNER_PHOTOS[1],
-          actionType: 'BOOK' as const,
-          actionTarget: '',
-          displayOrder: 2,
-          isActive: true,
-          createdAt: '',
-          updatedAt: '',
-        },
-        {
-          id: 'def-3',
-          title: 'Suits & Blazers',
-          subtitle: '',
-          imageUrl: DEFAULT_BANNER_PHOTOS[2],
-          actionType: 'BOOK' as const,
-          actionTarget: '',
-          displayOrder: 3,
-          isActive: true,
-          createdAt: '',
-          updatedAt: '',
-        },
-      ];
+  const activeBanners = banners && banners.length > 0 ? banners.filter((b) => b.isActive) : [];
 
   // Auto-scroll every 4.5 seconds
   useEffect(() => {
@@ -131,7 +85,7 @@ export function BannerCarousel({ banners, onSelectBanner }: BannerCarouselProps)
         }}
         renderItem={({ item, index }) => {
           const isLast = index === activeBanners.length - 1;
-          const fallbackUri = DEFAULT_BANNER_PHOTOS[index % DEFAULT_BANNER_PHOTOS.length];
+          const fallbackUri = 'https://images.unsplash.com/photo-1545173168-9f1947eebb7f?auto=format&fit=crop&w=1200&q=80';
           const hasError = imageErrors[item.id];
           const imageUri = (!hasError && item.imageUrl && !item.imageUrl.includes('laundry-storage-2026'))
             ? item.imageUrl

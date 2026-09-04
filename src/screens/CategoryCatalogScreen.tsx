@@ -69,14 +69,14 @@ const SUBCATEGORY_MAP: Record<string, string[]> = {
 };
 
 // Available Main Categories
-const MAIN_CATEGORIES = [
-  { tag: 'MENS', label: "Men's", icon: 'tshirt-crew' },
-  { tag: 'WOMENS', label: "Women's", icon: 'hanger' },
-  { tag: 'KIDS', label: 'Kids', icon: 'baby-carriage' },
-  { tag: 'HOME_TEXTILES', label: 'Home Linen', icon: 'bed-outline' },
-  { tag: 'FOOTWEAR', label: 'Footwear', icon: 'shoe-sneaker' },
-  { tag: 'ACCESSORIES', label: 'Accessories', icon: 'bag-personal-outline' },
-  { tag: 'BULK', label: 'Bulk KG', icon: 'scale' },
+const MAIN_CATEGORIES: Array<{ tag: string; label: string; icon: string; imageUrl?: string; slug?: string }> = [
+  { tag: 'MENS', label: "Men's", icon: 'tshirt-crew', imageUrl: 'https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/categories/mens-wear.jpg', slug: 'mens-wear' },
+  { tag: 'WOMENS', label: "Women's", icon: 'hanger', imageUrl: 'https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/categories/womens-wear.jpg', slug: 'womens-wear' },
+  { tag: 'KIDS', label: 'Kids', icon: 'baby-carriage', imageUrl: 'https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/categories/kids-baby.jpg', slug: 'kids-wear' },
+  { tag: 'HOME_TEXTILES', label: 'Home Linen', icon: 'bed-outline', imageUrl: 'https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/categories/home-textiles.jpg', slug: 'home-textiles' },
+  { tag: 'FOOTWEAR', label: 'Footwear', icon: 'shoe-sneaker', imageUrl: 'https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/services/shoe-spa.jpg', slug: 'shoe-care' },
+  { tag: 'ACCESSORIES', label: 'Accessories', icon: 'bag-personal-outline', slug: 'accessories' },
+  { tag: 'BULK', label: 'Bulk KG', icon: 'scale', imageUrl: 'https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/banners/banner-bulk.jpg', slug: 'bulk-laundry' },
 ];
 
 // Service filter options
@@ -315,6 +315,43 @@ export function CategoryCatalogScreen({
     [activeServiceMasters]
   );
 
+  // Dynamic Categories List from backend catalog
+  const categoriesList = useMemo(() => {
+    const rawCategories = dynamicCatalog?.categories || catalog?.categories;
+    if (rawCategories && Array.isArray(rawCategories) && rawCategories.length > 0) {
+      return rawCategories.map((rc) => {
+        let tag = rc.slug.toUpperCase().replace(/-/g, '_');
+        if (rc.slug.includes('men') && !rc.slug.includes('women')) tag = 'MENS';
+        else if (rc.slug.includes('women')) tag = 'WOMENS';
+        else if (rc.slug.includes('kid') || rc.slug.includes('baby')) tag = 'KIDS';
+        else if (rc.slug.includes('home') || rc.slug.includes('textile') || rc.slug.includes('linen')) tag = 'HOME_TEXTILES';
+        else if (rc.slug.includes('bulk')) tag = 'BULK';
+        else if (rc.slug.includes('shoe') || rc.slug.includes('footwear')) tag = 'FOOTWEAR';
+        else if (rc.slug.includes('bridal') || rc.slug.includes('wedding') || rc.slug.includes('silk')) tag = 'WEDDING';
+        else if (rc.slug.includes('special')) tag = 'SPECIAL';
+
+        let icon = 'tshirt-crew';
+        if (tag === 'WOMENS') icon = 'hanger';
+        else if (tag === 'KIDS') icon = 'baby-carriage';
+        else if (tag === 'HOME_TEXTILES') icon = 'bed-outline';
+        else if (tag === 'FOOTWEAR') icon = 'shoe-sneaker';
+        else if (tag === 'ACCESSORIES') icon = 'bag-personal-outline';
+        else if (tag === 'BULK') icon = 'scale';
+        else if (tag === 'WEDDING') icon = 'crown-outline';
+        else if (tag === 'SPECIAL') icon = 'sparkles';
+
+        return {
+          tag,
+          label: rc.name,
+          icon,
+          imageUrl: rc.imageUrl || rc.image,
+          slug: rc.slug,
+        };
+      });
+    }
+    return MAIN_CATEGORIES;
+  }, [dynamicCatalog?.categories, catalog?.categories]);
+
   // Subcategories List extracted dynamically
   const subcategoriesList = useMemo(() => {
     const rawSet = new Set<string>();
@@ -323,6 +360,13 @@ export function CategoryCatalogScreen({
       if (sub && typeof sub === 'string' && sub.trim().length > 0) {
         rawSet.add(sub.trim());
       }
+    });
+
+    const activeSubs = (dynamicCatalog?.subcategories || catalog?.subcategories || []).filter(
+      (s: any) => s.categoryTag === activeCategoryTag && s.isActive !== false
+    );
+    activeSubs.forEach((s: any) => {
+      if (s.name) rawSet.add(s.name.trim());
     });
 
     const fallbackList =
@@ -341,7 +385,7 @@ export function CategoryCatalogScreen({
       : fallbackList;
 
     return ['ALL', ...orderedSubcategories];
-  }, [activeClothTypes, activeCategoryTag]);
+  }, [activeClothTypes, activeCategoryTag, dynamicCatalog?.subcategories, catalog?.subcategories]);
 
   // Build product items with price options
   const products: ProductItem[] = useMemo(() => {
@@ -547,7 +591,7 @@ export function CategoryCatalogScreen({
   const handleCartClick = onOpenCart || onViewCart || (() => {});
 
   // Clean Header Title (Issue 2: No duplicate text, clear title)
-  const displayTitle = MAIN_CATEGORIES.find((cat) => cat.tag === activeCategoryTag)?.label || activeCategoryTitle || 'Catalog';
+  const displayTitle = categoriesList.find((cat) => cat.tag === activeCategoryTag)?.label || activeCategoryTitle || 'Catalog';
 
   // Responsive Grid Widths
   const screenPadding = 12;
@@ -605,7 +649,7 @@ export function CategoryCatalogScreen({
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.categoryTabsScroll}
         >
-          {MAIN_CATEGORIES.map((c) => {
+          {categoriesList.map((c) => {
             const isSelected = activeCategoryTag === c.tag;
             return (
               <Pressable
@@ -681,9 +725,13 @@ export function CategoryCatalogScreen({
             const isSelected = selectedSubcategory === sub;
             const isAll = sub === 'ALL';
             const subcategoryKey = `${activeCategoryTag}-${sub}`;
+            const currentCatObj = categoriesList.find((c) => c.tag === activeCategoryTag);
+            const matchedSubObj = (dynamicCatalog?.subcategories || catalog?.subcategories || []).find(
+              (s: any) => s.categoryTag === activeCategoryTag && s.name.toLowerCase() === sub.toLowerCase()
+            );
             const subPhotoUrl = isAll
-              ? getCategoryImageUrl(activeCategoryTag)
-              : getSubcategoryImageUrl(sub, activeCategoryTag);
+              ? getCategoryImageUrl(activeCategoryTag, currentCatObj?.imageUrl)
+              : getSubcategoryImageUrl(sub, activeCategoryTag, matchedSubObj?.imageUrl);
             const displayName = isAll ? 'All' : sub;
             const hasImgError = subcategoryImageErrors[subcategoryKey];
 

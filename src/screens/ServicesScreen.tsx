@@ -245,6 +245,21 @@ export function ServicesScreen({ onBook, onOpenBulkLaundry }: ServicesScreenProp
         const subSet = new Set<string>(['All']);
         bucket.items.forEach((i) => subSet.add(i.subCategory));
 
+        const matchingBackendCat = (catalog?.categories || []).find((c: any) => {
+          const cSlug = (c.slug || '').toLowerCase();
+          const metaId = (meta.id || '').toLowerCase();
+          return (
+            cSlug === metaId ||
+            c.id === meta.id ||
+            (metaId === 'mens' && cSlug.includes('men') && !cSlug.includes('women')) ||
+            (metaId === 'womens' && cSlug.includes('women')) ||
+            (metaId === 'kids' && (cSlug.includes('kid') || cSlug.includes('baby'))) ||
+            (metaId === 'home_textiles' && (cSlug.includes('home') || cSlug.includes('textile'))) ||
+            (metaId === 'bulk' && cSlug.includes('bulk'))
+          );
+        });
+        const dynamicImage = matchingBackendCat?.imageUrl || matchingBackendCat?.image || meta.bannerImage;
+
         return {
           id: meta.id || 'MENS',
           name: meta.name || "Men's Wear",
@@ -253,7 +268,7 @@ export function ServicesScreen({ onBook, onOpenBulkLaundry }: ServicesScreenProp
           iconBg: meta.iconBg || '#EFF6FF',
           iconColor: meta.iconColor || '#2563EB',
           tagline: meta.tagline || 'Executive Care',
-          bannerImage: meta.bannerImage || 'https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/banners/banner-1.jpg',
+          bannerImage: dynamicImage || 'https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/categories/mens-wear.jpg',
           startPrice: minPrice,
           itemCount: bucket.items.length,
           items: bucket.items,

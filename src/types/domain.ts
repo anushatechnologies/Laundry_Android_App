@@ -47,6 +47,18 @@ export interface ServiceCategory {
   icon: string;
   description: string;
   isPopular?: boolean;
+  color?: string;
+  imageUrl?: string;
+  image?: string;
+}
+
+export interface Subcategory {
+  id: string;
+  categoryTag: string;
+  name: string;
+  imageUrl?: string;
+  isActive: boolean;
+  sortOrder: number;
 }
 
 export interface ClothType {
@@ -106,6 +118,7 @@ export interface PricingSettings {
 
 export interface Catalog {
   categories: ServiceCategory[];
+  subcategories?: Subcategory[];
   clothTypes: ClothType[];
   serviceMasters: ServiceMaster[];
   priceMatrix: ServicePriceItem[];
