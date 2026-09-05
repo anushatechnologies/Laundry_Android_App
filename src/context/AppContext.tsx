@@ -470,7 +470,9 @@ export function AppProvider({ children }: PropsWithChildren) {
       // DO NOT add order to orders list and DO NOT clear cart until payment succeeds!
       try {
         const paymentOrder = await api.createRazorpayOrder(order.id);
-        const paymentResult = await payWithRazorpay(paymentOrder, session.user);
+        const paymentResult = input.onLaunchOnlinePayment
+          ? await input.onLaunchOnlinePayment(paymentOrder)
+          : await payWithRazorpay(paymentOrder, session.user);
         const paidOrder = await api.verifyRazorpayPayment({
           internalOrderId: order.id,
           ...paymentResult,

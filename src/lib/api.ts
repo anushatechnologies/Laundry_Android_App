@@ -14,6 +14,7 @@ import type {
   Order,
   PincodeCheck,
   PickupSlot,
+  PricingSettings,
   RazorpayPaymentOrder,
   ServiceMaster,
   ServicePriceItem,
@@ -181,6 +182,7 @@ export const api = {
   },
   getServices: (categoryId?: string) =>
     request<{ services: any[]; categories: any[] }>(categoryId ? `/services?categoryId=${encodeURIComponent(categoryId)}` : '/services'),
+  getPricingSettings: () => request<PricingSettings>('/services/settings'),
   getCoupons: () => request<Coupon[]>('/coupons'),
   applyCoupon: (code: string, orderTotal: number, isFirstOrder: boolean) =>
     request<CouponApplication>('/coupons/apply', {

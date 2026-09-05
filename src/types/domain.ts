@@ -114,6 +114,7 @@ export interface PricingSettings {
   standardDeliveryFee: number;
   expressDeliveryFee: number;
   extraKgPrice: number;
+  isGstEnabled?: boolean;
 }
 
 export interface Catalog {
@@ -309,6 +310,11 @@ export interface CheckoutInput {
   paymentMethod: PaymentMethod;
   couponCode?: string;
   notes?: string;
+  onLaunchOnlinePayment?: (paymentOrder: RazorpayPaymentOrder) => Promise<{
+    razorpay_order_id: string;
+    razorpay_payment_id: string;
+    razorpay_signature: string;
+  }>;
 }
 
 export interface HubBranch {

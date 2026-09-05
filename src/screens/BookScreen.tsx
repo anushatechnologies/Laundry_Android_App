@@ -2,11 +2,14 @@ import { useEffect, useMemo, useState } from 'react';
 import { Alert, Image, Linking, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useApp } from '@/context/AppContext';
+import { api } from '@/lib/api';
+import { RazorpayModal } from '@/components/RazorpayModal';
 import { getCurrentCustomerLocation } from '@/services/location/locationService';
 import { AppButton, AppInput, Card, Chip, EmptyState, SectionTitle } from '@/ui/components';
 import { COLORS, localDateString, money, shortDate } from '@/ui/theme';
 import { getGarmentImageUrl } from '@/lib/garment-photos';
-import type { CustomerAddress, ExpressTier, PaymentMethod, PickupSlot } from '@/types/domain';
+import type { Coupon, CustomerAddress, ExpressTier, PaymentMethod, PickupSlot, PricingSettings, RazorpayPaymentOrder } from '@/types/domain';
+import type { RazorpayResult } from '@/lib/payments';
 import type { CustomerLocation } from '@/services/location/types';
 
 type BookingStage = 'BAG' | 'DETAILS' | 'REVIEW' | 'SUCCESS';
@@ -57,6 +60,7 @@ export function BookScreen({
     cart,
     cartSummary,
     addresses,
+    orders,
     addCartItem,
     addGarmentToCart,
     addBulkToCart,
@@ -91,6 +95,14 @@ export function BookScreen({
   const [completedOrderId, setCompletedOrderId] = useState<string | null>(null);
   const [fetchingLocation, setFetchingLocation] = useState(false);
   const [presetImgErrors, setPresetImgErrors] = useState<Record<string, boolean>>({});
+  const [pricingSettings, setPricingSettings] = useState<PricingSettings | null>(catalog?.settings || null);
+  const [availableCoupons, setAvailableCoupons] = useState<Coupon[]>([]);
+  const [razorpayModalVisible, setRazorpayModalVisible] = useState(false);
+  const [pendingPaymentOrder, setPendingPaymentOrder] = useState<RazorpayPaymentOrder | null>(null);
+  const [paymentResolver, setPaymentResolver] = useState<{
+    resolve: (res: RazorpayResult) => void;
+    reject: (err: any) => void;
+  } | null>(null);
 
   const pickupDates = useMemo(() => Array.from({ length: 7 }, (_, index) => localDateString(index)), []);
   const selectedAddress = addresses.find((a) => a.id === selectedAddressId) || addresses.find((a) => a.isDefault) || addresses[0];
@@ -210,14 +222,40 @@ export function BookScreen({
   };
 
   useEffect(() => {
-    if (initialCouponCode) {
-      setCouponCode(initialCouponCode);
-      setCouponApplied(true);
-      if (initialCouponCode === 'FIRST50') {
-        setCouponDiscount(Math.min(cartSummary.itemTotal * 0.5, 250));
-      } else {
-        setCouponDiscount(100);
+    api.getPricingSettings()
+      .then((res) => { if (res) setPricingSettings(res); })
+      .catch(() => undefined);
+    api.getCoupons()
+      .then((items) => { if (items && items.length) setAvailableCoupons(items); })
+      .catch(() => undefined);
+  }, []);
+
+  const handleApplyCoupon = async (code: string) => {
+    const cleanCode = code.trim().toUpperCase();
+    if (!cleanCode) return;
+    if (!cartSummary.itemTotal) {
+      Alert.alert('Empty Bag', 'Please add garments to your bag first before applying a coupon.');
+      return;
+    }
+    try {
+      const isFirstOrder = !orders.some((o) => o.currentStatus !== 'CANCELLED');
+      const res = await api.applyCoupon(cleanCode, cartSummary.itemTotal, isFirstOrder);
+      if (!res.isValid) {
+        Alert.alert('Coupon Notice', res.message || 'That coupon is not valid for this order.');
+        return;
       }
+      setCouponCode(cleanCode);
+      setCouponApplied(true);
+      setCouponDiscount(Math.round(res.discount));
+      Alert.alert('Coupon Applied! 🎉', `${res.message}\nYou saved ₹${Math.round(res.discount)}!`);
+    } catch (err: any) {
+      Alert.alert('Coupon Error', err?.message || 'Could not validate coupon.');
+    }
+  };
+
+  useEffect(() => {
+    if (initialCouponCode && cartSummary.itemTotal > 0 && !couponApplied) {
+      handleApplyCoupon(initialCouponCode);
     }
   }, [initialCouponCode, cartSummary.itemTotal]);
 
@@ -240,36 +278,70 @@ export function BookScreen({
     };
   }, [getSlots, slotDate]);
 
-  const handleApplyCoupon = (code: string) => {
-    const cleanCode = code.trim().toUpperCase();
-    if (!cleanCode) return;
-    setCouponCode(cleanCode);
-    setCouponApplied(true);
-    if (cleanCode === 'FIRST50') {
-      const disc = Math.round(Math.min(cartSummary.itemTotal * 0.5, 250));
-      setCouponDiscount(disc);
-      Alert.alert('Coupon Applied! 🎉', `FIRST50 applied! You saved ₹${disc} on your laundry.`);
-    } else if (cleanCode === 'SILKSPA') {
-      setCouponDiscount(150);
-      Alert.alert('Coupon Applied! 🎉', `SILKSPA applied! ₹150 discount credited.`);
-    } else if (cleanCode === 'BULKSAVE') {
-      setCouponDiscount(100);
-      Alert.alert('Coupon Applied! 🎉', `BULKSAVE applied! ₹100 discount credited.`);
-    } else {
-      setCouponDiscount(50);
-      Alert.alert('Coupon Applied! 🎉', `${cleanCode} applied successfully!`);
-    }
-  };
-
   const handleRemoveCoupon = () => {
     setCouponCode('');
     setCouponApplied(false);
     setCouponDiscount(0);
   };
 
-  const expressCharge = expressTier === 'EXPRESS_24H' ? 99 : 0;
-  const gstCharge = Math.round((cartSummary.itemTotal - couponDiscount) * 0.18);
-  const finalPayable = Math.max(0, cartSummary.itemTotal + expressCharge + gstCharge - couponDiscount);
+  const standardDeliveryFee = pricingSettings?.standardDeliveryFee ?? 30;
+  const freeDeliveryThreshold = pricingSettings?.freeDeliveryThreshold ?? 499;
+  const isFreeDelivery = cartSummary.itemTotal >= freeDeliveryThreshold;
+  const deliveryFee = isFreeDelivery ? 0 : standardDeliveryFee;
+
+  const expressCharge = expressTier === 'EXPRESS_24H'
+    ? (pricingSettings?.expressDeliveryFee ?? 80)
+    : expressTier === 'SAME_DAY'
+      ? (pricingSettings?.expressDeliveryFee ? pricingSettings.expressDeliveryFee * 2 : 160)
+      : 0;
+
+  const taxableAmount = Math.max(0, cartSummary.itemTotal - couponDiscount + deliveryFee + expressCharge);
+  const isGstEnabled = pricingSettings?.isGstEnabled !== false;
+  const taxPercentage = isGstEnabled ? (pricingSettings?.taxPercentage ?? 5) : 0;
+  const gstCharge = Math.round(taxableAmount * (taxPercentage / 100));
+  const finalPayable = Math.max(0, taxableAmount + gstCharge);
+  const totalSavings = couponDiscount + (isFreeDelivery ? standardDeliveryFee : 0);
+
+  const handleLaunchOnlinePayment = (paymentOrder: RazorpayPaymentOrder): Promise<RazorpayResult> => {
+    return new Promise((resolve, reject) => {
+      if (paymentOrder.isMock || paymentOrder.key?.includes('mock') || paymentOrder.orderId?.startsWith('order_sand_')) {
+        resolve({
+          razorpay_order_id: paymentOrder.orderId,
+          razorpay_payment_id: `pay_sand_${Date.now()}`,
+          razorpay_signature: '0'.repeat(64),
+        });
+        return;
+      }
+
+      setPendingPaymentOrder(paymentOrder);
+      setPaymentResolver({ resolve, reject });
+      setRazorpayModalVisible(true);
+    });
+  };
+
+  const handlePaymentSuccess = (result: RazorpayResult) => {
+    setRazorpayModalVisible(false);
+    if (paymentResolver) {
+      paymentResolver.resolve(result);
+      setPaymentResolver(null);
+    }
+  };
+
+  const handlePaymentCancel = () => {
+    setRazorpayModalVisible(false);
+    if (paymentResolver) {
+      paymentResolver.reject(new Error('Payment was cancelled by user.'));
+      setPaymentResolver(null);
+    }
+  };
+
+  const handlePaymentError = (errMsg: string) => {
+    setRazorpayModalVisible(false);
+    if (paymentResolver) {
+      paymentResolver.reject(new Error(errMsg || 'Payment failed.'));
+      setPaymentResolver(null);
+    }
+  };
 
   const continueToDetails = () => {
     if (!cart.length) {
@@ -339,13 +411,21 @@ export function BookScreen({
         paymentMethod,
         couponCode: couponApplied ? couponCode : undefined,
         notes: notes.trim() || undefined,
+        onLaunchOnlinePayment: paymentMethod === 'ONLINE_RAZORPAY' ? handleLaunchOnlinePayment : undefined,
       });
       if (result.paymentOutcome === 'PAID' || result.paymentOutcome === 'COD') {
         setCompletedOrderId(result.order.id);
         setStage('SUCCESS');
       }
-    } catch (error) {
-      if (paymentMethod === 'ONLINE_RAZORPAY') {
+    } catch (error: any) {
+      const errMsg = error instanceof Error ? error.message : String(error || '');
+      const isPaymentCancel =
+        paymentMethod === 'ONLINE_RAZORPAY' &&
+        (errMsg.toLowerCase().includes('cancel') ||
+         errMsg.toLowerCase().includes('dismiss') ||
+         errMsg.toLowerCase().includes('incomplete'));
+
+      if (isPaymentCancel) {
         Alert.alert(
           'Payment Incomplete',
           'Your online payment was cancelled or not completed.\n\nYour order has NOT been placed. Your bag items have been saved so you can try again or switch to Cash on Delivery (COD).',
@@ -363,7 +443,7 @@ export function BookScreen({
       } else {
         Alert.alert(
           'Booking Failed',
-          error instanceof Error ? error.message : 'Please check your connection and try again.',
+          errMsg || 'Please check your connection and try again.',
           [{ text: 'OK' }]
         );
       }
@@ -1036,7 +1116,13 @@ export function BookScreen({
               {/* Quick Coupon Pills */}
               {!couponApplied && (
                 <View style={styles.quickCouponsRow}>
-                  {QUICK_COUPONS.map((c) => (
+                  {(availableCoupons.length > 0
+                    ? availableCoupons.slice(0, 5).map((c) => ({
+                        code: c.code,
+                        label: c.description || (c.discountType === 'PERCENTAGE' ? `${c.discountValue}% OFF` : `₹${c.discountValue} OFF`),
+                      }))
+                    : QUICK_COUPONS
+                  ).map((c) => (
                     <Pressable
                       key={c.code}
                       style={styles.quickCouponChip}
@@ -1098,26 +1184,36 @@ export function BookScreen({
 
               <View style={styles.billLine}>
                 <Text style={styles.billLineLabel}>Doorstep Pickup & Delivery</Text>
-                <Text style={[styles.billLineVal, { color: '#16A34A' }]}>FREE</Text>
+                {isFreeDelivery ? (
+                  <Text style={[styles.billLineVal, { color: '#16A34A', fontWeight: '700' }]}>FREE</Text>
+                ) : (
+                  <Text style={styles.billLineVal}>{money(deliveryFee)}</Text>
+                )}
               </View>
 
               {expressCharge > 0 && (
                 <View style={styles.billLine}>
                   <Text style={styles.billLineLabel}>12H Priority Express Fee</Text>
-                  <Text style={styles.billLineVal}>+₹99</Text>
+                  <Text style={styles.billLineVal}>+₹{expressCharge}</Text>
                 </View>
               )}
 
               {couponDiscount > 0 && (
                 <View style={styles.billLine}>
                   <Text style={[styles.billLineLabel, { color: '#16A34A' }]}>Coupon Discount ({couponCode})</Text>
-                  <Text style={[styles.billLineVal, { color: '#16A34A' }]}>-₹{couponDiscount}</Text>
+                  <Text style={[styles.billLineVal, { color: '#16A34A', fontWeight: '700' }]}>-₹{couponDiscount}</Text>
                 </View>
               )}
 
               <View style={styles.billLine}>
-                <Text style={styles.billLineLabel}>GST (18% Included)</Text>
-                <Text style={styles.billLineVal}>₹{gstCharge}</Text>
+                <Text style={styles.billLineLabel}>
+                  {!isGstEnabled || taxPercentage === 0
+                    ? 'GST (Temporarily Waived)'
+                    : `GST (${taxPercentage}%)`}
+                </Text>
+                <Text style={[styles.billLineVal, (!isGstEnabled || taxPercentage === 0) && { color: '#16A34A' }]}>
+                  {!isGstEnabled || taxPercentage === 0 ? '₹0 (0%)' : `₹${gstCharge}`}
+                </Text>
               </View>
 
               <View style={styles.billDivider} />
@@ -1125,7 +1221,9 @@ export function BookScreen({
               <View style={styles.billFinalRow}>
                 <View>
                   <Text style={styles.billGrandLabel}>Total Payable</Text>
-                  <Text style={styles.billSavingsText}>You saved ₹{couponDiscount + 49} on this order</Text>
+                  {totalSavings > 0 && (
+                    <Text style={styles.billSavingsText}>You saved ₹{totalSavings} on this order</Text>
+                  )}
                 </View>
                 <Text style={styles.billGrandVal}>{money(finalPayable)}</Text>
               </View>
@@ -1182,6 +1280,17 @@ export function BookScreen({
           </Pressable>
         )}
       </View>
+
+      {/* RAZORPAY WEBVIEW MODAL */}
+      {pendingPaymentOrder && (
+        <RazorpayModal
+          visible={razorpayModalVisible}
+          paymentOrder={pendingPaymentOrder}
+          onSuccess={handlePaymentSuccess}
+          onCancel={handlePaymentCancel}
+          onError={handlePaymentError}
+        />
+      )}
     </View>
   );
 }
