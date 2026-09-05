@@ -232,9 +232,27 @@ export function BookScreen({
       Alert.alert('Empty Bag', 'Please add garments to your bag first before applying a coupon.');
       return;
     }
+    
+    // Calculate pre-coupon order total (items + delivery + express + tax)
+    const standardDeliveryFee = pricingSettings?.standardDeliveryFee ?? 30;
+    const freeDeliveryThreshold = pricingSettings?.freeDeliveryThreshold ?? 499;
+    const isFreeDelivery = cartSummary.itemTotal >= freeDeliveryThreshold;
+    const deliveryFee = isFreeDelivery ? 0 : standardDeliveryFee;
+    const expressCharge = expressTier === 'EXPRESS_24H'
+      ? (pricingSettings?.expressDeliveryFee ?? 80)
+      : expressTier === 'SAME_DAY'
+      ? (pricingSettings?.expressDeliveryFee ? pricingSettings.expressDeliveryFee * 2 : 160)
+      : 0;
+    const taxableAmount = cartSummary.itemTotal + deliveryFee + expressCharge;
+    const isGstEnabled = pricingSettings?.isGstEnabled !== false;
+    const taxPercentage = isGstEnabled ? (pricingSettings?.taxPercentage ?? 5) : 0;
+    const gstCharge = Math.round(taxableAmount * (taxPercentage / 100));
+    const preCouponTotal = taxableAmount + gstCharge;
+    
     try {
       const isFirstOrder = !orders.some((o) => o.currentStatus !== 'CANCELLED');
-      const res = await api.applyCoupon(cleanCode, cartSummary.itemTotal, isFirstOrder);
+      // Pass the pre-coupon final total instead of just item subtotal
+      const res = await api.applyCoupon(cleanCode, preCouponTotal, isFirstOrder);
       if (!res.isValid) {
         setCouponApplied(false);
         setCouponDiscount(0);
@@ -252,9 +270,12 @@ export function BookScreen({
 
   useEffect(() => {
     if (initialCouponCode && cartSummary.itemTotal > 0 && !couponApplied) {
-      handleApplyCoupon(initialCouponCode);
+      // Only auto-apply after pricing settings are loaded
+      if (pricingSettings) {
+        handleApplyCoupon(initialCouponCode);
+      }
     }
-  }, [initialCouponCode, cartSummary.itemTotal]);
+  }, [initialCouponCode, cartSummary.itemTotal, pricingSettings]);
 
   useEffect(() => {
     let active = true;
