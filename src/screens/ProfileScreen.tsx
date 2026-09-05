@@ -99,6 +99,11 @@ export function ProfileScreen({
       Alert.alert('Required', 'Please enter your name.');
       return;
     }
+    // Validate name contains only letters, spaces, dots, hyphens
+    if (!/^[a-zA-Z\s.\-]+$/.test(editName.trim())) {
+      Alert.alert('Invalid Name', 'Name should only contain letters, spaces, dots, and hyphens.');
+      return;
+    }
 
     setSavingProfile(true);
     try {
@@ -466,7 +471,12 @@ export function ProfileScreen({
                   style={styles.textInput}
                   placeholder="Enter your full name"
                   value={editName}
-                  onChangeText={setEditName}
+                  onChangeText={(val) => {
+                    // Only allow letters, spaces, dots, and hyphens (no numbers)
+                    const filtered = val.replace(/[^a-zA-Z\s.\-]/g, '');
+                    setEditName(filtered);
+                  }}
+                  keyboardType="default"
                 />
 
                 <Text style={[styles.inputLabel, { marginTop: 14 }]}>Email Address</Text>

@@ -40,6 +40,11 @@ export function SettingsScreen({ onSignIn }: SettingsScreenProps) {
       Alert.alert('Required', 'Please enter your name.');
       return;
     }
+    // Validate name contains only letters, spaces, dots, hyphens
+    if (!/^[a-zA-Z\s.\-]+$/.test(nameInput.trim())) {
+      Alert.alert('Invalid Name', 'Name should only contain letters, spaces, dots, and hyphens.');
+      return;
+    }
     try {
       await updateUserProfile(nameInput.trim(), emailInput.trim());
       setEditingProfile(false);
@@ -365,7 +370,12 @@ export function SettingsScreen({ onSignIn }: SettingsScreenProps) {
                 placeholder="Full Name"
                 placeholderTextColor="#A1A1AA"
                 value={nameInput}
-                onChangeText={setNameInput}
+                onChangeText={(val) => {
+                  // Only allow letters, spaces, dots, and hyphens
+                  const filtered = val.replace(/[^a-zA-Z\s.\-]/g, '');
+                  setNameInput(filtered);
+                }}
+                keyboardType="default"
               />
 
               <Text style={[styles.formLabel, { marginTop: 10 }]}>Email Address</Text>

@@ -150,7 +150,12 @@ export function AuthScreen({ reason = 'ACCOUNT', onBack }: AuthScreenProps) {
       return;
     }
     if (name.trim().length < 2) {
-      setErrorMessage('Please enter your full name.');
+      setErrorMessage('Please enter your full name (letters only).');
+      return;
+    }
+    // Additional name validation - check if it contains only letters, spaces, dots, hyphens
+    if (!/^[a-zA-Z\s.\-]+$/.test(name.trim())) {
+      setErrorMessage('Name should only contain letters, spaces, dots, and hyphens.');
       return;
     }
     if (email.trim() && !email.includes('@')) {
@@ -432,8 +437,14 @@ export function AuthScreen({ reason = 'ACCOUNT', onBack }: AuthScreenProps) {
                       placeholder="Enter your full name"
                       placeholderTextColor="#A3A3A3"
                       value={name}
-                      onChangeText={(val) => { setName(val); setErrorMessage(null); }}
+                      onChangeText={(val) => {
+                        // Only allow letters, spaces, dots, and hyphens (no numbers or special chars)
+                        const filtered = val.replace(/[^a-zA-Z\s.\-]/g, '');
+                        setName(filtered);
+                        setErrorMessage(null);
+                      }}
                       accessibilityLabel="Full name input"
+                      keyboardType="default"
                     />
                   </View>
                 </View>
