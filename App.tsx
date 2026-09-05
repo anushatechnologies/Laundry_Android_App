@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { BackHandler, Image, PanResponder, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Animated, BackHandler, Easing, Image, PanResponder, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as Notifications from 'expo-notifications';
@@ -104,7 +104,57 @@ const detailBackRoute: Record<DetailRoute, MainTab> = {
 function LoadingScreen() {
   const [displayText, setDisplayText] = useState('');
   const appName = 'LaundryFresh';
+  
+  // Animation values
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const scaleAnim = useRef(new Animated.Value(0.3)).current;
+  const pulseAnim = useRef(new Animated.Value(1)).current;
+  const spinnerRotate = useRef(new Animated.Value(0)).current;
 
+  // Logo entrance animation
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 800,
+        useNativeDriver: true,
+      }),
+      Animated.spring(scaleAnim, {
+        toValue: 1,
+        friction: 4,
+        tension: 40,
+        useNativeDriver: true,
+      }),
+    ]).start();
+
+    // Continuous pulse animation
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, {
+          toValue: 1.1,
+          duration: 1000,
+          useNativeDriver: true,
+        }),
+        Animated.timing(pulseAnim, {
+          toValue: 1,
+          duration: 1000,
+          useNativeDriver: true,
+        }),
+      ])
+    ).start();
+
+    // Spinner rotation
+    Animated.loop(
+      Animated.timing(spinnerRotate, {
+        toValue: 1,
+        duration: 1500,
+        easing: Easing.linear,
+        useNativeDriver: true,
+      })
+    ).start();
+  }, []);
+
+  // Typewriter effect
   useEffect(() => {
     let charIndex = 0;
     const interval = setInterval(() => {
@@ -118,21 +168,79 @@ function LoadingScreen() {
     return () => clearInterval(interval);
   }, []);
 
+  const spin = spinnerRotate.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['0deg', '360deg'],
+  });
+
   return (
     <View style={styles.loadingRoot}>
       <StatusBar style="light" />
-      <View style={styles.loadingMark}>
-        <Image source={brandLogo} style={styles.loadingLogo} resizeMode="contain" accessibilityLabel="LaundryFresh logo" />
-      </View>
-      <View style={styles.titleRow}>
+      
+      {/* Animated Logo */}
+      <Animated.View
+        style={[
+          styles.loadingMark,
+          {
+            opacity: fadeAnim,
+            transform: [{ scale: scaleAnim }],
+          },
+        ]}
+      >
+        <Image
+          source={brandLogo}
+          style={styles.loadingLogo}
+          resizeMode="contain"
+          accessibilityLabel="LaundryFresh logo"
+        />
+      </Animated.View>
+
+      {/* Animated Title */}
+      <Animated.View style={[styles.titleRow, { opacity: fadeAnim }]}>
         <Text style={styles.loadingTitle}>{displayText}</Text>
         <Text style={styles.cursor}>|</Text>
-      </View>
-      <Text style={styles.loadingTagline}>LUXURY FABRIC CARE & DOORSTEP LAUNDRY</Text>
-      <View style={styles.loadingBadge}>
+      </Animated.View>
+
+      {/* Tagline */}
+      <Animated.Text style={[styles.loadingTagline, { opacity: fadeAnim }]}>
+        LUXURY FABRIC CARE & DOORSTEP LAUNDRY
+      </Animated.Text>
+
+      {/* Badge */}
+      <Animated.View
+        style={[
+          styles.loadingBadge,
+          {
+            opacity: fadeAnim,
+            transform: [{ scale: pulseAnim }],
+          },
+        ]}
+      >
         <MaterialCommunityIcons name="shield-check-outline" size={16} color={COLORS.gold} />
         <Text style={styles.badgeText}>100% Pure Ozone Hygiene</Text>
-      </View>
+      </Animated.View>
+
+      {/* Loading Spinner */}
+      <Animated.View
+        style={[
+          styles.spinnerContainer,
+          {
+            opacity: fadeAnim,
+            transform: [{ rotate: spin }],
+          },
+        ]}
+      >
+        <View style={styles.spinner}>
+          <View style={[styles.spinnerDot, styles.spinnerDot1]} />
+          <View style={[styles.spinnerDot, styles.spinnerDot2]} />
+          <View style={[styles.spinnerDot, styles.spinnerDot3]} />
+        </View>
+      </Animated.View>
+
+      {/* Loading Text */}
+      <Animated.Text style={[styles.loadingText, { opacity: fadeAnim }]}>
+        Loading your laundry experience...
+      </Animated.Text>
     </View>
   );
 }
@@ -807,6 +915,13 @@ const styles = StyleSheet.create({
   loadingTagline: { color: COLORS.gold, fontSize: 11, fontWeight: '800', letterSpacing: 2, marginTop: 8, textAlign: 'center' },
   loadingBadge: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 24, paddingVertical: 8, paddingHorizontal: 16, backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 20 },
   badgeText: { color: COLORS.white, fontSize: 12, fontWeight: '700' },
+  spinnerContainer: { marginTop: 32, width: 50, height: 50, alignItems: 'center', justifyContent: 'center' },
+  spinner: { width: 50, height: 50, position: 'relative' },
+  spinnerDot: { position: 'absolute', width: 12, height: 12, borderRadius: 6, backgroundColor: COLORS.gold },
+  spinnerDot1: { top: 0, left: 19 },
+  spinnerDot2: { top: 19, left: 38 },
+  spinnerDot3: { top: 38, left: 19 },
+  loadingText: { color: 'rgba(255,255,255,0.6)', fontSize: 13, fontWeight: '600', marginTop: 16, textAlign: 'center' },
   detailRoot: { flex: 1, backgroundColor: COLORS.cream },
   appbar: { backgroundColor: COLORS.white },
   appbarTitle: { color: COLORS.plumDark, fontWeight: '900' },
