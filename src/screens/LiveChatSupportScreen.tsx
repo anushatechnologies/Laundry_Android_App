@@ -52,7 +52,7 @@ export function LiveChatSupportScreen() {
   // HTTP polling mode - no WebSocket needed
   const connectionStatus = { connected: true, reconnecting: false };
 
-  // Initialize chat room
+  // Initialize chat room automatically in background
   useEffect(() => {
     if (!customerId) return;
 
@@ -60,14 +60,14 @@ export function LiveChatSupportScreen() {
       try {
         setLoading(true);
         
-        // Create or get existing chat room
+        // Silently create or get existing chat room in background
         const roomResponse = await api.createChatRoom(customerId, 'Customer Support');
         
         if (roomResponse.success && roomResponse.data) {
           const room = roomResponse.data;
           setRoomId(room.id);
 
-          // Load message history
+          // Load message history if room exists
           const messagesResponse = await api.getChatMessages(room.id, 50, 0);
           
           if (messagesResponse.success && messagesResponse.data) {
@@ -77,23 +77,10 @@ export function LiveChatSupportScreen() {
             }));
             setMessages(formattedMessages);
           }
-
-          // Add initial welcome message if new room
-          if (roomResponse.isNew) {
-            const welcomeMsg: ChatMessage = {
-              id: `welcome-${Date.now()}`,
-              senderId: 'system',
-              senderType: 'AGENT',
-              message: 'Hello! I am Priya from LaundryFresh Master Fabric Care Concierge. How may I assist you with your garments today?',
-              createdAt: new Date().toISOString(),
-              time: 'Just now',
-            };
-            setMessages([welcomeMsg]);
-          }
         }
       } catch (error) {
-        console.error('Error initializing chat:', error);
-        Alert.alert('Error', 'Failed to initialize chat. Please try again.');
+        console.error('[Chat] Error initializing:', error);
+        // Don't show error to user - they can still type and send
       } finally {
         setLoading(false);
       }
@@ -141,26 +128,42 @@ export function LiveChatSupportScreen() {
   const handleInputChange = (text: string) => {
     setInputText(text);
   };
-    // Validation checks with user feedback
+
+  const sendMessage = async (text: string) => {
+    // Validation
     if (!text.trim()) {
-      Alert.alert('Empty Message', 'Please enter a message');
-      return;
-    }
-    
-    if (!roomId) {
-      Alert.alert('Connecting...', 'Still connecting to chat. Please wait a moment and try again.');
-      return;
+      return; // Just ignore empty messages
     }
     
     if (!customerId) {
-      Alert.alert('Authentication Error', 'User not authenticated. Please sign in again.');
+      Alert.alert('Error', 'Please sign in to send messages');
       return;
     }
 
     const messageText = text.trim();
     setInputText('');
 
-    // Create optimistic message
+    // If no roomId yet, create one now
+    let currentRoomId = roomId;
+    if (!currentRoomId) {
+      try {
+        const roomResponse = await api.createChatRoom(customerId, 'Customer Support');
+        if (roomResponse.success && roomResponse.data) {
+          currentRoomId = roomResponse.data.id;
+          setRoomId(currentRoomId);
+        } else {
+          Alert.alert('Error', 'Could not create chat session. Please try again.');
+          setInputText(messageText);
+          return;
+        }
+      } catch (error) {
+        Alert.alert('Error', 'Could not create chat session. Please try again.');
+        setInputText(messageText);
+        return;
+      }
+    }
+
+    // Show message immediately (optimistic UI)
     const userMsg: ChatMessage = {
       id: `temp-${Date.now()}`,
       senderId: customerId,
@@ -169,29 +172,20 @@ export function LiveChatSupportScreen() {
       createdAt: new Date().toISOString(),
       time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
     };
-
     setMessages((prev) => [...prev, userMsg]);
 
-    // Send via HTTP API
+    // Send to backend - admin will see it immediately
     try {
-      console.log('[Chat] Sending message via HTTP:', { roomId, message: messageText.substring(0, 50) });
-      
-      const response = await api.saveChatMessage({
-        roomId,
+      await api.saveChatMessage({
+        roomId: currentRoomId,
         senderId: customerId,
         senderType: 'CUSTOMER',
         message: messageText,
         messageType: 'TEXT',
       });
       
-      if (!response.success) {
-        throw new Error(response.message || 'Failed to send message');
-      }
-      
-      console.log('[Chat] ✅ Message sent successfully');
-      
-      // Refresh messages to get the saved message with proper ID
-      const messagesResponse = await api.getChatMessages(roomId, 50, 0);
+      // Refresh to get real message from server
+      const messagesResponse = await api.getChatMessages(currentRoomId, 50, 0);
       if (messagesResponse.success && messagesResponse.data) {
         const formattedMessages = messagesResponse.data.map((msg: any) => ({
           ...msg,
@@ -201,11 +195,10 @@ export function LiveChatSupportScreen() {
       }
       
     } catch (error: any) {
-      console.error('[Chat] ❌ Message failed to send:', error);
-      Alert.alert('Send Failed', error.message || 'Message could not be sent. Please check your connection and try again.');
-      // Remove the optimistic message if send failed
+      // Remove optimistic message and restore text on error
       setMessages((prev) => prev.filter(msg => msg.id !== userMsg.id));
-      setInputText(messageText); // Restore the text
+      setInputText(messageText);
+      Alert.alert('Failed to Send', 'Please check your connection and try again.');
       return;
     }
 

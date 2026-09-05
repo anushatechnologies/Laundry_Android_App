@@ -456,8 +456,9 @@ export function AppProvider({ children }: PropsWithChildren) {
       const totalKg = cart
         .filter((item) => item.pricingModel === 'PER_KG')
         .reduce((sum, item) => sum + item.quantity, 0);
+      const payload = createOrderPayload(session, cart, input);
       await api.reserveSlot(input.slot.id, Math.max(totalKg, 1));
-      const order = await api.createOrder(createOrderPayload(session, cart, input));
+      const order = await api.createOrder(payload);
 
       // COD: Confirm order and empty cart immediately
       if (input.paymentMethod === 'COD') {
@@ -466,6 +467,7 @@ export function AppProvider({ children }: PropsWithChildren) {
         return { order, paymentOutcome: 'COD' };
       }
 
+      let paymentCompleted = false;
       // Online Razorpay Payment Flow:
       // DO NOT add order to orders list and DO NOT clear cart until payment succeeds!
       try {
@@ -473,6 +475,7 @@ export function AppProvider({ children }: PropsWithChildren) {
         const paymentResult = input.onLaunchOnlinePayment
           ? await input.onLaunchOnlinePayment(paymentOrder)
           : await payWithRazorpay(paymentOrder, session.user);
+        paymentCompleted = true;
         const paymentStatus = await api.verifyRazorpayPayment({
           internalOrderId: order.id,
           ...paymentResult,
@@ -485,6 +488,11 @@ export function AppProvider({ children }: PropsWithChildren) {
         setCart([]);
         return { order: paidOrder, paymentOutcome: 'PAID' };
       } catch (err) {
+        if (paymentCompleted) {
+          setOrders((current) => [order, ...current.filter((candidate) => candidate.id !== order.id)]);
+          setCart([]);
+          throw new Error(`Payment needs confirmation for order ${order.id}. Please contact support before paying again.`);
+        }
         // Online payment failed, dismissed, or was cancelled by user
         // Mark backend order cancelled so no pickup is scheduled
         await api.markRazorpayPaymentFailed(order.id).catch(() => undefined);

@@ -3,6 +3,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import {
   Alert,
   Image,
+  Modal,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -36,7 +37,7 @@ interface HomeScreenProps {
   onOpenOrderDetail?: (orderId: string) => void;
   onSelectCategory?: (tag: string, title: string) => void;
   onOpenBulkLaundry?: () => void;
-  onSelectService?: (serviceCode: 'ALL' | 'PRESS' | 'WASH_IRON' | 'DRY_CLEAN', serviceName: string, tag?: string, title?: string) => void;
+  onSelectService?: (serviceCode: string, serviceName: string, tag?: string, title?: string) => void;
   onViewSubscriptions?: () => void;
 }
 
@@ -92,6 +93,7 @@ export function HomeScreen({
   );
 
   const [minBulkKgPrice, setMinBulkKgPrice] = useState<number | null>(null);
+  const [showAllServicesModal, setShowAllServicesModal] = useState(false);
 
   useEffect(() => {
     void (async () => {
@@ -268,12 +270,11 @@ export function HomeScreen({
     const slug = service.slug?.toLowerCase() || '';
     const name = service.name?.toLowerCase() || '';
 
-    // Check if icon field contains emoji (unicode characters)
-    if (service.icon && /[\u{1F300}-\u{1F9FF}]/u.test(service.icon)) {
-      // It's an emoji, but we'll map to icon name
-      if (service.icon.includes('ðŸ‘”') || iconStr.includes('iron')) return 'iron';
-      if (service.icon.includes('ðŸ§º') || iconStr.includes('wash')) return 'washing-machine';
-      if (service.icon.includes('âœ¨')) return 'sparkles';
+    // Check if icon field contains emoji
+    if (service.icon) {
+      if (service.icon.includes('👔') || iconStr.includes('iron')) return 'iron';
+      if (service.icon.includes('🧺') || iconStr.includes('wash')) return 'washing-machine';
+      if (service.icon.includes('✨') || iconStr.includes('sparkles')) return 'sparkles';
     }
 
     // Map by slug or name
@@ -374,22 +375,14 @@ export function HomeScreen({
   const getCleanCategoryName = (name: string, slug?: string): string => {
     const s = (slug || '').toLowerCase();
     const n = (name || '').toLowerCase();
-    if (s === 'laundry' || n.includes('wash & fold') || n.includes('wash and fold')) return 'Wash & Fold';
-    if (s === 'special-treatments' || n.includes('special')) return 'Special Care';
-    if (s === 'pet-cleaning' || n.includes('pet')) return 'Pet Care';
-    if (s === 'sports-fitness' || n.includes('sport') || n.includes('fitness')) return 'Activewear';
-    if (s === 'express-services' || n.includes('express')) return 'Express 24h';
-    if (s === 'seasonal-laundry' || n.includes('seasonal')) return 'Seasonal';
-    if (s === 'ironing' || n.includes('steam iron') || n.includes('ironing')) return 'Steam Press';
-    if (s === 'dry-cleaning' || n.includes('dry clean')) return 'Dry Clean';
-    if (s === 'wedding-wear' || n.includes('wedding') || n.includes('bridal') || n.includes('traditional')) return 'Wedding Care';
-    if (s === 'home-textiles' || n.includes('textiles') || n.includes('linen')) return 'Home Linen';
-    if (s === 'home-cleaning' || n.includes('home clean')) return 'Home Care';
-    if (s === 'bags-accessories' || n.includes('bags') || n.includes('accessories')) return 'Bags & Shoes';
-    if (s === 'baby-kids' || n.includes('baby') || n.includes('kids')) return 'Kids Wear';
-    if (s === 'corporate' || n.includes('corporate') || n.includes('hospitality')) return 'Corporate';
-    if (n.includes('men')) return "Men's Wear";
-    if (n.includes('women')) return "Women's Wear";
+    if (s.includes('men') && !s.includes('women')) return "Men's Wear";
+    if (s.includes('women')) return "Women's Wear";
+    if (s.includes('kid') || s.includes('baby')) return 'Kids & Baby';
+    if (s.includes('home') || s.includes('textile') || s.includes('linen')) return 'Home Linen';
+    if (s.includes('footwear') || s.includes('shoe')) return 'Footwear & Shoes';
+    if (s.includes('bag') || s.includes('accessories')) return 'Bags & Accessories';
+    if (s.includes('wedding') || s.includes('bridal') || s.includes('silk')) return 'Wedding & Silk';
+    if (s.includes('bulk')) return 'Bulk Laundry';
     return name.replace(/\s*\([^)]*\)/g, '').trim();
   };
 
@@ -469,25 +462,169 @@ export function HomeScreen({
     ];
   }, [serviceMasters, catalog]);
 
+  // Full list of all 8 services for the All Services modal
+  const allServicesList = useMemo(() => {
+    const findMaster = (keywords: string[]) => {
+      return serviceMasters.find((s) => {
+        const sName = (s.name || '').toLowerCase();
+        const sSlug = (s.slug || '').toLowerCase();
+        const sCode = (s.serviceCode || '').toLowerCase();
+        return keywords.some((k) => sName.includes(k) || sSlug.includes(k) || sCode.includes(k));
+      });
+    };
+
+    const sWashFold = findMaster(['wash & fold', 'wash-and-fold', 'wash_fold']);
+    const sWashIron = findMaster(['wash & steam iron', 'wash-and-iron', 'wash_iron']);
+    const sPress = findMaster(['iron only', 'steam-iron', 'press', 'steam iron']);
+    const sDryClean = findMaster(['dry clean', 'dry-cleaning', 'dry_clean']);
+    const sSpa = findMaster(['shoe', 'spa', 'footwear']);
+    const sCharak = findMaster(['charak', 'saree', 'polish', 'silk care']);
+    const sStarch = findMaster(['starch', 'crisp']);
+    const sExpress = findMaster(['express', 'emergency', 'fast']);
+
+    return [
+      {
+        id: sWashFold?.id || 'srv-m-wash-fold',
+        title: 'Wash & Fold',
+        tat: '24h TAT',
+        badge: 'Daily Fresh',
+        accent: '#0891B2',
+        imageUrl: sWashFold?.imageUrl || 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/services/service_wash_fold.jpg',
+        fallbackUrl: 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/services/service_wash_fold.jpg',
+        priceText: sWashFold ? formatPricing(sWashFold) : 'From ₹60/kg',
+        pricingType: 'PER_KG',
+        serviceCode: 'WASH_FOLD',
+        slug: 'wash-and-fold',
+        description: 'Machine washed with eco detergent, tumble dried and neatly folded for daily clothes.',
+        icon: 'washing-machine',
+      },
+      {
+        id: sWashIron?.id || 'srv-m-wash-iron',
+        title: 'Wash & Steam Iron',
+        tat: '24h TAT',
+        badge: 'Crease-Free',
+        accent: '#7C3AED',
+        imageUrl: sWashIron?.imageUrl || 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/services/service_wash_iron.jpg',
+        fallbackUrl: 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/services/service_wash_iron.jpg',
+        priceText: sWashIron ? formatPricing(sWashIron) : 'From ₹85/kg',
+        pricingType: 'PER_KG',
+        serviceCode: 'WASH_IRON',
+        slug: 'wash-and-iron',
+        description: 'Complete hygienic wash followed by temperature-controlled steam ironing on hangers.',
+        icon: 'tshirt-crew',
+      },
+      {
+        id: sPress?.id || 'srv-m-steam-iron',
+        title: 'Steam Press',
+        tat: '12h Express',
+        badge: 'Zero Wrinkles',
+        accent: '#D97706',
+        imageUrl: sPress?.imageUrl || 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/services/service_steam_press.jpg',
+        fallbackUrl: 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/services/service_steam_press.jpg',
+        priceText: sPress ? formatPricing(sPress) : 'From ₹18',
+        pricingType: 'PER_ITEM',
+        serviceCode: 'PRESS',
+        slug: 'steam-iron',
+        description: 'High-pressure vacuum steam ironing that removes deep wrinkles without scorching delicate fabric.',
+        icon: 'iron',
+      },
+      {
+        id: sDryClean?.id || 'srv-m-dry-clean',
+        title: 'Dry Cleaning',
+        tat: '48h TAT',
+        badge: 'Ozone Sanitized',
+        accent: '#2563EB',
+        imageUrl: sDryClean?.imageUrl || 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/services/service_dry_cleaning.jpg',
+        fallbackUrl: 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/services/service_dry_cleaning.jpg',
+        priceText: sDryClean ? formatPricing(sDryClean) : 'From ₹70',
+        pricingType: 'PER_ITEM',
+        serviceCode: 'DRY_CLEAN',
+        slug: 'dry-cleaning',
+        description: 'Eco hydrocarbon dry cleaning for suits, designer lehengas, silk sarees and delicate couture.',
+        icon: 'coat-rack',
+      },
+      {
+        id: sSpa?.id || 'srv-m-spa',
+        title: 'Shoe & Sneaker Spa',
+        tat: '48h TAT',
+        badge: 'Deep Restored',
+        accent: '#059669',
+        imageUrl: sSpa?.imageUrl || 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/services/service_shoe_clean.jpg',
+        fallbackUrl: 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/services/service_shoe_clean.jpg',
+        priceText: sSpa ? formatPricing(sSpa) : 'From ₹199',
+        pricingType: 'PER_ITEM',
+        serviceCode: 'SHOE_SPA',
+        slug: 'shoe-spa',
+        description: 'Multi-step cleaning, deodorizing, mid-sole brightening and suede protection for all footwear.',
+        icon: 'shoe-sneaker',
+      },
+      {
+        id: sCharak?.id || 'srv-m-charak',
+        title: 'Saree Rolling & Charak Polish',
+        tat: '48h TAT',
+        badge: 'Zero Bleed Safe',
+        accent: '#9333EA',
+        imageUrl: sCharak?.imageUrl || 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/categories/wedding-wear.jpg',
+        fallbackUrl: 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/categories/wedding-wear.jpg',
+        priceText: sCharak ? formatPricing(sCharak) : 'From ₹149',
+        pricingType: 'PER_ITEM',
+        serviceCode: 'SAREE_POLISH',
+        slug: 'saree-polish-charak',
+        description: 'Traditional steam calendering and starch polishing to restore luster and fall of pure silk sarees.',
+        icon: 'crown-outline',
+      },
+      {
+        id: sStarch?.id || 'srv-m-starch',
+        title: 'Starch & Crisp Finish',
+        tat: '24h TAT',
+        badge: 'Crisp Finish',
+        accent: '#06B6D4',
+        imageUrl: sStarch?.imageUrl || 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/garments/cloth-shirt.jpg',
+        fallbackUrl: 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/garments/cloth-shirt.jpg',
+        priceText: sStarch ? formatPricing(sStarch) : 'From ₹49',
+        pricingType: 'PER_ITEM',
+        serviceCode: 'STARCH',
+        slug: 'starch-crisp',
+        description: 'Rice or chemical starch treatment for cotton kurtas, dhotis, shirts and table linens.',
+        icon: 'sparkles',
+      },
+      {
+        id: sExpress?.id || 'srv-m-express',
+        title: 'Express 24h Emergency',
+        tat: '12-24h Rapid',
+        badge: 'Emergency Care',
+        accent: '#EA580C',
+        imageUrl: sExpress?.imageUrl || 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/services/delivery_van_driver.jpg',
+        fallbackUrl: 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/services/delivery_van_driver.jpg',
+        priceText: sExpress ? formatPricing(sExpress) : 'From ₹120/kg',
+        pricingType: 'PER_KG',
+        serviceCode: 'EXPRESS',
+        slug: 'express-delivery',
+        description: 'Priority queue processing with expedited doorstep pickup and lightning delivery in 24 hours.',
+        icon: 'lightning-bolt',
+      },
+    ];
+  }, [serviceMasters, catalog]);
+
   const categories = useMemo(() => {
     const cloths = catalog?.clothTypes || [];
 
     const getCount = (tag: string, slug: string) => {
       const cleanTag = tag.toUpperCase().replace(/_/g, '-');
-      const cleanSlug = slug.toLowerCase().replace(/_/g, '-');
       const filtered = cloths.filter((item: any) => {
         const cTag = (item.categoryTag || '').toUpperCase().replace(/_/g, '-');
-        const cSlug = (item.categorySlug || '').toLowerCase().replace(/_/g, '-');
-        return (
-          cTag === cleanTag ||
-          cSlug === cleanSlug ||
-          (cleanTag === 'MENS' && (cTag === 'MENS' || cSlug.includes('men'))) ||
-          (cleanTag === 'WOMENS' && (cTag === 'WOMENS' || cSlug.includes('women'))) ||
-          (cleanTag === 'KIDS' && (cTag === 'KIDS' || cSlug.includes('kid') || cSlug.includes('baby'))) ||
-          (cleanTag === 'HOME-TEXTILES' && (cTag === 'HOME-TEXTILES' || cTag === 'HOME' || cSlug.includes('home'))) ||
-          (cleanTag === 'BRIDAL' && (cTag === 'BRIDAL' || cTag === 'WEDDING' || cSlug.includes('bridal') || cSlug.includes('wedding'))) ||
-          (cleanTag === 'SPECIAL' && (cTag === 'SPECIAL' || cSlug.includes('special')))
-        );
+        const cId = (item.id || '').toLowerCase();
+        const cName = (item.name || '').toLowerCase();
+        if (cleanTag === 'MENS') return cTag === 'MENS';
+        if (cleanTag === 'WOMENS') return cTag === 'WOMENS';
+        if (cleanTag === 'KIDS') return cTag === 'KIDS';
+        if (cleanTag === 'HOME-TEXTILES' || cleanTag === 'HOME') return cTag === 'HOME-TEXTILES' || cTag === 'HOME';
+        if (cleanTag === 'FOOTWEAR' || cleanTag === 'SHOES') return cTag === 'FOOTWEAR' || cTag === 'SHOES';
+        if (cleanTag === 'ACCESSORIES' || cleanTag === 'BAGS') return cTag === 'ACCESSORIES' || cTag === 'BAGS';
+        if (cleanTag === 'WEDDING') {
+          return cTag === 'WEDDING' || cId.includes('saree') || cId.includes('lehenga') || cId.includes('sherwani') || cName.includes('silk') || cName.includes('bridal');
+        }
+        return cTag === cleanTag;
       });
       return filtered.length > 0 ? `${filtered.length} Items` : 'Explore';
     };
@@ -502,28 +639,32 @@ export function HomeScreen({
         if (c.includes('teal')) return '#0D9488';
         if (c.includes('green') || c.includes('emerald')) return '#16A34A';
         if (c.includes('indigo')) return '#4F46E5';
+        if (c.includes('cyan')) return '#0891B2';
+        if (c.includes('rose')) return '#E11D48';
         if (c.includes('orange') || c.includes('red')) return '#EA580C';
       }
       const s = (slug || '').toLowerCase();
       if (s.includes('men')) return '#2563EB';
       if (s.includes('women')) return '#DB2777';
       if (s.includes('kid') || s.includes('baby')) return '#D97706';
-      if (s.includes('home') || s.includes('textile') || s.includes('linen')) return '#16A34A';
-      if (s.includes('bulk')) return '#FF7A00';
-      if (s.includes('wedding') || s.includes('bridal') || s.includes('silk')) return '#7C3AED';
-      if (s.includes('special')) return '#4F46E5';
+      if (s.includes('home') || s.includes('textile') || s.includes('linen')) return '#0D9488';
+      if (s.includes('footwear') || s.includes('shoe')) return '#0891B2';
+      if (s.includes('bag') || s.includes('accessories')) return '#7C3AED';
+      if (s.includes('wedding') || s.includes('bridal') || s.includes('silk')) return '#E11D48';
+      if (s.includes('bulk')) return '#059669';
       return '#2563EB';
     };
 
     const getTag = (slug: string): string => {
       const s = slug.toLowerCase();
-      if (s.includes('men')) return 'MENS';
+      if (s.includes('men') && !s.includes('women')) return 'MENS';
       if (s.includes('women')) return 'WOMENS';
       if (s.includes('kid') || s.includes('baby')) return 'KIDS';
       if (s.includes('home') || s.includes('textile') || s.includes('linen')) return 'HOME_TEXTILES';
-      if (s.includes('bulk')) return 'BULK';
+      if (s.includes('footwear') || s.includes('shoe')) return 'FOOTWEAR';
+      if (s.includes('bag') || s.includes('accessories')) return 'ACCESSORIES';
       if (s.includes('wedding') || s.includes('bridal') || s.includes('silk')) return 'WEDDING';
-      if (s.includes('special')) return 'SPECIAL';
+      if (s.includes('bulk')) return 'BULK';
       return slug.toUpperCase().replace(/-/g, '_');
     };
 
@@ -552,20 +693,14 @@ export function HomeScreen({
 
     // Fallback if catalog is still loading
     return [
-      { id: 'cat-1', slug: 'laundry', tag: 'MENS', label: 'Wash & Fold', imageUrl: 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/services/service_wash_fold.jpg', count: getCount('MENS', 'mens-wear'), accent: '#2563EB', subtitle: 'Shirts, Suits, Kurta & Denim' },
-      { id: 'cat-2', slug: 'special-treatments', tag: 'SPECIAL', label: 'Special Care', imageUrl: 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/categories/cat-special-treatments.jpg', count: '16 Items', accent: '#4F46E5', subtitle: 'Special Care Treatments' },
-      { id: 'cat-3', slug: 'pet-cleaning', tag: 'SPECIAL', label: 'Pet Care', imageUrl: 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/categories/cat-pet-cleaning.jpg', count: 'Explore', accent: '#D97706', subtitle: 'Beds, Blankets & Leashes' },
-      { id: 'cat-4', slug: 'sports-fitness', tag: 'MENS', label: 'Activewear', imageUrl: 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/garments/cloth-tracksuit-m.jpg', count: 'Explore', accent: '#0D9488', subtitle: 'Jerseys, Gym wear & Shorts' },
-      { id: 'cat-5', slug: 'express-services', tag: 'BULK', label: 'Express 24h', imageUrl: 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/services/delivery_van_driver.jpg', count: '24h TAT', accent: '#EA580C', subtitle: 'Urgent turnaround' },
-      { id: 'cat-6', slug: 'seasonal-laundry', tag: 'HOME_TEXTILES', label: 'Seasonal', imageUrl: 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/garments/cloth-blanket-double.jpg', count: 'Explore', accent: '#16A34A', subtitle: 'Blankets, Quilts & Razai' },
-      { id: 'cat-7', slug: 'ironing', tag: 'PRESS', label: 'Steam Press', imageUrl: 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/services/service_steam_press.jpg', count: 'Explore', accent: '#D97706', subtitle: 'Crisp shape restoration' },
-      { id: 'cat-8', slug: 'dry-cleaning', tag: 'DRY_CLEAN', label: 'Dry Clean', imageUrl: 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/services/service_dry_cleaning.jpg', count: 'Explore', accent: '#2563EB', subtitle: 'Eco hydrocarbon cleaning' },
-      { id: 'cat-9', slug: 'wedding-wear', tag: 'WEDDING', label: 'Wedding Care', imageUrl: 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/categories/cat-wedding-silk.jpg', count: '41 Items', accent: '#7C3AED', subtitle: 'Silk Sarees & Sherwanis' },
-      { id: 'cat-10', slug: 'home-textiles', tag: 'HOME_TEXTILES', label: 'Home Linen', imageUrl: 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/garments/cloth-bedsheet-king.jpg', count: '41 Items', accent: '#16A34A', subtitle: 'Bedsheets, Curtains & Covers' },
-      { id: 'cat-11', slug: 'home-cleaning', tag: 'HOME_TEXTILES', label: 'Home Care', imageUrl: 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/garments/cloth-sofa-cover-3s.jpg', count: '41 Items', accent: '#0D9488', subtitle: 'Sofa covers & drapes' },
-      { id: 'cat-12', slug: 'bags-accessories', tag: 'ACCESSORIES', label: 'Bags & Shoes', imageUrl: 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/garments/cloth-bag-luxury.jpg', count: 'Explore', accent: '#DB2777', subtitle: 'Luxury bags, shoes & helmets' },
-      { id: 'cat-13', slug: 'baby-kids', tag: 'KIDS', label: 'Kids Wear', imageUrl: 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/categories/cat-school-uniforms.jpg', count: '24 Items', accent: '#D97706', subtitle: 'Uniforms & Baby wear' },
-      { id: 'cat-14', slug: 'corporate', tag: 'MENS', label: 'Corporate', imageUrl: 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/garments/cloth-suit-2p.jpg', count: 'Explore', accent: '#2563EB', subtitle: 'Hotel linen & uniforms' },
+      { id: 'cat-1', slug: 'mens-wear', tag: 'MENS', label: "Men's Wear", imageUrl: 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/categories/mens-wear.jpg', count: getCount('MENS', 'mens-wear'), accent: '#2563EB', subtitle: 'Shirts, Suits, Kurta & Denim' },
+      { id: 'cat-2', slug: 'womens-wear', tag: 'WOMENS', label: "Women's Wear", imageUrl: 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/categories/womens-wear.jpg', count: getCount('WOMENS', 'womens-wear'), accent: '#DB2777', subtitle: 'Kurtis, Sarees & Dresses' },
+      { id: 'cat-3', slug: 'kids-wear', tag: 'KIDS', label: 'Kids & Baby', imageUrl: 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/categories/kids-baby.jpg', count: getCount('KIDS', 'kids-wear'), accent: '#D97706', subtitle: 'Uniforms & Baby wear' },
+      { id: 'cat-4', slug: 'home-textiles', tag: 'HOME_TEXTILES', label: 'Home Linen', imageUrl: 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/categories/home-textiles.jpg', count: getCount('HOME-TEXTILES', 'home-textiles'), accent: '#0D9488', subtitle: 'Bedsheets, Curtains & Covers' },
+      { id: 'cat-5', slug: 'footwear', tag: 'FOOTWEAR', label: 'Footwear & Shoes', imageUrl: 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/categories/footwear.jpg', count: getCount('FOOTWEAR', 'footwear'), accent: '#0891B2', subtitle: 'Sneakers, Formal & Suede' },
+      { id: 'cat-6', slug: 'bags-accessories', tag: 'ACCESSORIES', label: 'Bags & Accessories', imageUrl: 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/categories/bags-accessories.jpg', count: getCount('ACCESSORIES', 'bags-accessories'), accent: '#7C3AED', subtitle: 'Luxury bags & backpacks' },
+      { id: 'cat-7', slug: 'wedding-wear', tag: 'WEDDING', label: 'Wedding & Silk', imageUrl: 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/categories/wedding-wear.jpg', count: getCount('WEDDING', 'wedding-wear'), accent: '#E11D48', subtitle: 'Silk Sarees & Sherwanis' },
+      { id: 'cat-8', slug: 'bulk-laundry', tag: 'BULK', label: 'Bulk Laundry', imageUrl: 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/categories/bulk-laundry.jpg', count: minBulkKgPrice ? `₹${minBulkKgPrice}/KG` : 'Pay by KG', accent: '#059669', subtitle: 'Everyday wash charged by weight' },
     ];
   }, [catalog?.categories, catalog?.clothTypes, minBulkKgPrice]);
 

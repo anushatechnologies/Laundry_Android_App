@@ -312,6 +312,10 @@ export const api = {
 };
 
 export function createOrderPayload(session: AuthSession, cart: CartItem[], input: CheckoutInput) {
+  const requiredText = (value: string | null | undefined, label: string) => {
+    if (!value?.trim()) throw new Error(`Please add ${label} before booking.`);
+    return value.trim();
+  };
   // Normalize items to strictly match backend priceItems validation: `${clothTypeId}-${serviceId}`
   const cleanItems = cart.map((item) => {
     let cleanId = item.id.replace(/^(garment-|home-|bulk-svc-)/, '');
@@ -335,6 +339,8 @@ export function createOrderPayload(session: AuthSession, cart: CartItem[], input
     return {
       ...item,
       id: cleanId,
+      serviceName: requiredText(item.serviceName, 'the garment service'),
+      unit: requiredText(item.unit, 'the garment unit'),
       serviceId,
       categoryName: item.categoryName?.trim() || 'Laundry',
       specialInstructions: item.specialInstructions || undefined,
@@ -343,11 +349,14 @@ export function createOrderPayload(session: AuthSession, cart: CartItem[], input
 
   return {
     customerId: session.user.id,
-    customerName: session.user.name?.trim() || input.address.contactName?.trim(),
-    customerPhone: session.user.phone?.trim() || input.address.contactPhone?.trim(),
+    customerName: requiredText(session.user.name || input.address.contactName, 'your name in Profile or pickup contact'),
+    customerPhone: requiredText(session.user.phone || input.address.contactPhone, 'your contact phone number'),
     customerEmail: session.user.email || undefined,
     address: {
       ...input.address,
+      street: requiredText(input.address.street, 'the pickup street address'),
+      city: requiredText(input.address.city, 'the pickup city'),
+      pincode: requiredText(input.address.pincode, 'the pickup PIN code'),
       id: input.address.id || undefined,
       landmark: input.address.landmark || undefined,
     },

@@ -21,7 +21,7 @@ import type { Catalog } from '@/types/domain';
 interface CategoryCatalogScreenProps {
   categoryTag?: string; // 'MENS' | 'WOMENS' | 'KIDS' | 'HOME_TEXTILES' | 'ACCESSORIES' | 'ALL'
   categoryTitle?: string;
-  initialServiceFilter?: 'ALL' | 'PRESS' | 'WASH_IRON' | 'DRY_CLEAN';
+  initialServiceFilter?: string;
   initialServiceName?: string;
   onBack: () => void;
   onViewCart?: () => void;
@@ -29,7 +29,7 @@ interface CategoryCatalogScreenProps {
   onOpenBulkLaundry?: () => void;
 }
 
-type CatalogServiceCode = 'PRESS' | 'WASH_FOLD' | 'WASH_IRON' | 'DRY_CLEAN' | 'OTHER';
+type CatalogServiceCode = 'PRESS' | 'WASH_FOLD' | 'WASH_IRON' | 'DRY_CLEAN' | 'SHOE_SPA' | 'SAREE_POLISH' | 'STARCH' | 'EXPRESS' | 'OTHER';
 type CatalogServiceFilter = 'ALL' | CatalogServiceCode;
 
 interface ServicePriceOption {
@@ -65,18 +65,21 @@ const SUBCATEGORY_MAP: Record<string, string[]> = {
   HOME: ['Bedsheets', 'Bed Covers', 'Blankets', 'Comforters & Quilts', 'Curtains', 'Sofa & Cushion Covers', 'Towels'],
   FOOTWEAR: ['Sneakers', 'Formal Shoes', 'Leather & Suede', 'Sports Shoes'],
   ACCESSORIES: ['Backpacks', 'Handbags', 'Belts & Wallets', 'Caps & Hats'],
+  WEDDING: ['Silk Sarees', 'Lehengas', 'Sherwanis', 'Bridal Gowns', 'Designer Dupattas'],
   BULK: ['Daily Wash & Fold', 'Bed Linen Bulk', 'Express KG Wash'],
 };
 
 // Available Main Categories
 const MAIN_CATEGORIES: Array<{ tag: string; label: string; icon: string; imageUrl?: string; slug?: string }> = [
+  { tag: 'ALL', label: 'All Items', icon: 'view-grid-outline', slug: 'all' },
   { tag: 'MENS', label: "Men's", icon: 'tshirt-crew', imageUrl: 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/categories/mens-wear.jpg', slug: 'mens-wear' },
   { tag: 'WOMENS', label: "Women's", icon: 'hanger', imageUrl: 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/categories/womens-wear.jpg', slug: 'womens-wear' },
   { tag: 'KIDS', label: 'Kids', icon: 'baby-carriage', imageUrl: 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/categories/kids-baby.jpg', slug: 'kids-wear' },
   { tag: 'HOME_TEXTILES', label: 'Home Linen', icon: 'bed-outline', imageUrl: 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/categories/home-textiles.jpg', slug: 'home-textiles' },
-  { tag: 'FOOTWEAR', label: 'Footwear', icon: 'shoe-sneaker', imageUrl: 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/services/shoe-spa.jpg', slug: 'shoe-care' },
-  { tag: 'ACCESSORIES', label: 'Accessories', icon: 'bag-personal-outline', slug: 'accessories' },
-  { tag: 'BULK', label: 'Bulk KG', icon: 'scale', imageUrl: 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/banners/banner-bulk.jpg', slug: 'bulk-laundry' },
+  { tag: 'FOOTWEAR', label: 'Footwear', icon: 'shoe-sneaker', imageUrl: 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/categories/footwear.jpg', slug: 'footwear' },
+  { tag: 'ACCESSORIES', label: 'Accessories', icon: 'bag-personal-outline', imageUrl: 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/categories/bags-accessories.jpg', slug: 'bags-accessories' },
+  { tag: 'WEDDING', label: 'Wedding & Silk', icon: 'crown-outline', imageUrl: 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/categories/wedding-wear.jpg', slug: 'wedding-wear' },
+  { tag: 'BULK', label: 'Bulk KG', icon: 'scale', imageUrl: 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/categories/bulk-laundry.jpg', slug: 'bulk-laundry' },
 ];
 
 // Service filter options
@@ -86,15 +89,23 @@ const SERVICE_FILTERS: Array<{ key: CatalogServiceFilter; label: string; icon: s
   { key: 'WASH_FOLD', label: 'Wash & Fold', icon: 'tshirt-crew-outline' },
   { key: 'WASH_IRON', label: 'Wash & Iron', icon: 'washing-machine' },
   { key: 'DRY_CLEAN', label: 'Dry Clean', icon: 'coat-rack' },
+  { key: 'SHOE_SPA', label: 'Shoe Spa', icon: 'shoe-sneaker' },
+  { key: 'SAREE_POLISH', label: 'Saree Polish', icon: 'crown-outline' },
+  { key: 'STARCH', label: 'Starch & Crisp', icon: 'sparkles' },
+  { key: 'EXPRESS', label: 'Express 24h', icon: 'lightning-bolt' },
 ];
 
 function normalizeCategoryTag(tag?: string): string {
   const normalized = (tag || 'MENS').toUpperCase().trim().replace(/_/g, '-');
+  if (normalized === 'ALL') return 'ALL';
   if (['MENS', 'MEN', 'MENS-WEAR'].includes(normalized)) return 'MENS';
   if (['WOMENS', 'WOMEN', 'WOMENS-WEAR'].includes(normalized)) return 'WOMENS';
-  if (['HOME', 'HOME-TEXTILES'].includes(normalized)) return 'HOME_TEXTILES';
+  if (['KIDS', 'KID', 'KIDS-WEAR', 'KIDS-BABY', 'BABY-KIDS'].includes(normalized)) return 'KIDS';
+  if (['HOME', 'HOME-TEXTILES', 'HOME-LINEN'].includes(normalized)) return 'HOME_TEXTILES';
   if (['SHOES', 'FOOTWEAR'].includes(normalized)) return 'FOOTWEAR';
-  if (['BAGS', 'ACCESSORIES'].includes(normalized)) return 'ACCESSORIES';
+  if (['BAGS', 'ACCESSORIES', 'BAGS-ACCESSORIES'].includes(normalized)) return 'ACCESSORIES';
+  if (['WEDDING', 'WEDDING-WEAR', 'BRIDAL', 'SILK'].includes(normalized)) return 'WEDDING';
+  if (['BULK', 'BULK-LAUNDRY'].includes(normalized)) return 'BULK';
   return normalized.replace(/-/g, '_');
 }
 
@@ -112,6 +123,18 @@ function getServiceDetails(serviceId: string, serviceName?: string, serviceCode?
   }
   if (source.includes('steam-iron') || source.includes('steam press') || source.includes('iron only') || source.includes('press')) {
     return { serviceCode: 'PRESS' as const, displayName: 'Steam Press', shortLabel: 'Press', icon: 'iron' };
+  }
+  if (source.includes('spa') || source.includes('shoe')) {
+    return { serviceCode: 'SHOE_SPA' as const, displayName: 'Shoe Spa', shortLabel: 'Spa', icon: 'shoe-sneaker' };
+  }
+  if (source.includes('charak') || source.includes('saree') || source.includes('polish')) {
+    return { serviceCode: 'SAREE_POLISH' as const, displayName: 'Saree Polish & Charak', shortLabel: 'Polish', icon: 'crown-outline' };
+  }
+  if (source.includes('starch')) {
+    return { serviceCode: 'STARCH' as const, displayName: 'Starch & Crisp', shortLabel: 'Starch', icon: 'sparkles' };
+  }
+  if (source.includes('express')) {
+    return { serviceCode: 'EXPRESS' as const, displayName: 'Express 24h', shortLabel: 'Express', icon: 'lightning-bolt' };
   }
 
   const displayName = (serviceName || 'Special care').trim();
@@ -198,16 +221,16 @@ export function CategoryCatalogScreen({
 
   // Active Category State
   const [activeCategoryTag, setActiveCategoryTag] = useState<string>(
-    categoryTag === 'ALL' ? 'MENS' : initialCategoryTag
+    initialCategoryTag
   );
   const [activeCategoryTitle, setActiveCategoryTitle] = useState<string>(
-    categoryTitle || "Men's Wear"
+    categoryTitle || (categoryTag === 'ALL' ? 'All Garments' : "Men's Wear")
   );
 
   // Filters State
   const [selectedSubcategory, setSelectedSubcategory] = useState<string>('ALL');
   const [selectedServiceFilter, setSelectedServiceFilter] = useState<CatalogServiceFilter>(
-    initialServiceFilter || 'ALL'
+    (initialServiceFilter as any) || 'ALL'
   );
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [selectedSort, setSelectedSort] = useState<'POPULAR' | 'PRICE_LOW' | 'PRICE_HIGH'>('POPULAR');
@@ -226,14 +249,14 @@ export function CategoryCatalogScreen({
 
   // Sync categoryTag & service filter changes
   useEffect(() => {
-    if (categoryTag && categoryTag !== 'ALL') {
+    if (categoryTag) {
       const norm = normalizeCategoryTag(categoryTag);
       setActiveCategoryTag(norm);
     }
     if (categoryTitle) {
       setActiveCategoryTitle(categoryTitle);
     }
-    setSelectedServiceFilter(initialServiceFilter || 'ALL');
+    setSelectedServiceFilter((initialServiceFilter as any) || 'ALL');
   }, [categoryTag, categoryTitle, initialServiceFilter]);
 
   // Fetch full live catalog on mount
@@ -292,6 +315,11 @@ export function CategoryCatalogScreen({
     return list.filter((c: any) => {
       if (c?.isActive === false) return false;
       const cTag = (c.categoryTag || '').toUpperCase().replace(/_/g, '-');
+      const cId = (c.id || '').toLowerCase();
+      const cName = (c.name || '').toLowerCase();
+      if (cleanTag === 'WEDDING') {
+        return cTag === 'WEDDING' || cId.includes('saree') || cId.includes('lehenga') || cId.includes('sherwani') || cName.includes('silk') || cName.includes('bridal');
+      }
       return (
         cTag === cleanTag ||
         (cleanTag === 'HOME-TEXTILES' && (cTag === 'HOME' || cTag === 'HOME-TEXTILES')) ||
@@ -318,8 +346,10 @@ export function CategoryCatalogScreen({
   // Dynamic Categories List from backend catalog
   const categoriesList = useMemo(() => {
     const rawCategories = dynamicCatalog?.categories || catalog?.categories;
+    let list: Array<{ tag: string; label: string; icon: string; imageUrl?: string; slug?: string }> = [];
+
     if (rawCategories && Array.isArray(rawCategories) && rawCategories.length > 0) {
-      return rawCategories.map((rc) => {
+      list = rawCategories.map((rc) => {
         let tag = rc.slug.toUpperCase().replace(/-/g, '_');
         if (rc.slug.includes('men') && !rc.slug.includes('women')) tag = 'MENS';
         else if (rc.slug.includes('women')) tag = 'WOMENS';
@@ -327,6 +357,7 @@ export function CategoryCatalogScreen({
         else if (rc.slug.includes('home') || rc.slug.includes('textile') || rc.slug.includes('linen')) tag = 'HOME_TEXTILES';
         else if (rc.slug.includes('bulk')) tag = 'BULK';
         else if (rc.slug.includes('shoe') || rc.slug.includes('footwear')) tag = 'FOOTWEAR';
+        else if (rc.slug.includes('bag') || rc.slug.includes('accessories')) tag = 'ACCESSORIES';
         else if (rc.slug.includes('bridal') || rc.slug.includes('wedding') || rc.slug.includes('silk')) tag = 'WEDDING';
         else if (rc.slug.includes('special')) tag = 'SPECIAL';
 
@@ -348,8 +379,14 @@ export function CategoryCatalogScreen({
           slug: rc.slug,
         };
       });
+    } else {
+      list = MAIN_CATEGORIES.filter((c) => c.tag !== 'ALL');
     }
-    return MAIN_CATEGORIES;
+
+    return [
+      { tag: 'ALL', label: 'All Items', icon: 'view-grid-outline', slug: 'all' },
+      ...list,
+    ];
   }, [dynamicCatalog?.categories, catalog?.categories]);
 
   // Subcategories List extracted dynamically
@@ -591,7 +628,9 @@ export function CategoryCatalogScreen({
   const handleCartClick = onOpenCart || onViewCart || (() => {});
 
   // Clean Header Title (Issue 2: No duplicate text, clear title)
-  const displayTitle = categoriesList.find((cat) => cat.tag === activeCategoryTag)?.label || activeCategoryTitle || 'Catalog';
+  const displayTitle = activeCategoryTag === 'ALL'
+    ? (initialServiceName ? `${initialServiceName} Collection` : 'All Garments')
+    : (categoriesList.find((cat) => cat.tag === activeCategoryTag)?.label || activeCategoryTitle || 'Catalog');
 
   // Responsive Grid Widths
   const screenPadding = 12;

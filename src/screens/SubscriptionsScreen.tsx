@@ -12,6 +12,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useApp } from '@/context/AppContext';
 import { api } from '@/lib/api';
+import { payWithRazorpay } from '@/lib/payments';
 import type { SubscriptionPlan } from '@/types/domain';
 
 interface SubscriptionsScreenProps {
@@ -113,6 +114,9 @@ const FALLBACK_PLANS: SubscriptionPlan[] = [
 export function SubscriptionsScreen({ onBook, onSignIn }: SubscriptionsScreenProps) {
   const insets = useSafeAreaInsets();
   const { session } = useApp();
+  const [purchasing, setPurchasing] = useState(false);
+  const [memberships, setMemberships] = useState<any[]>([]);
+  const [membershipError, setMembershipError] = useState('');
   const [plans, setPlans] = useState<SubscriptionPlan[]>(FALLBACK_PLANS);
   const [selectedPlanId, setSelectedPlanId] = useState<string>('sub-plan-family');
 
@@ -131,25 +135,44 @@ export function SubscriptionsScreen({ onBook, onSignIn }: SubscriptionsScreenPro
     return () => { mounted = false; };
   }, []);
 
-  const handleSubscribe = (plan: SubscriptionPlan) => {
-    if (!session) {
-      if (onSignIn) onSignIn();
-      return;
+  const loadMemberships = async () => {
+    if (!session) { setMemberships([]); return; }
+    try {
+      setMembershipError('');
+      setMemberships(await api.getCustomerSubscriptions(session.user.id));
+    } catch (error) {
+      setMembershipError(error instanceof Error ? error.message : 'Unable to load memberships.');
     }
-    Alert.alert(
-      'Activate Membership Pass',
-      `Would you like to activate the "${plan.name}" for ₹${plan.price}/month? Your pickup quota will be credited instantly.`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Confirm & Pay',
-          onPress: () => {
-            Alert.alert('Subscription Activated! 🎉', 'Your membership pass is now active. Book your first free pickup anytime.');
-            onBook();
-          },
-        },
-      ]
-    );
+  };
+
+  useEffect(() => { void loadMemberships(); }, [session?.user.id]);
+
+  const handleSubscribe = async (plan: SubscriptionPlan) => {
+    if (!session) { onSignIn?.(); return; }
+    if (purchasing) return;
+    setPurchasing(true);
+    let paymentCompleted = false;
+    try {
+      const order = await api.purchaseSubscription(session.user.id, plan.id);
+      const payment = await payWithRazorpay({
+        key: order.key || order.keyId || '', orderId: order.orderId,
+        amount: Math.round(order.amount * 100), currency: order.currency,
+        internalOrderId: plan.name,
+      }, session.user);
+      paymentCompleted = true;
+      const membership = await api.verifySubscriptionPayment({
+        ...payment, customerId: session.user.id, subscriptionId: plan.id,
+      });
+      if (membership?.payment_status !== 'PAID') throw new Error('Activation could not be confirmed.');
+      await loadMemberships();
+      Alert.alert('Subscription Activated', 'Your paid membership is now active.', [
+        { text: 'OK' }, { text: 'Book Pickup', onPress: onBook },
+      ]);
+    } catch (error: any) {
+      Alert.alert(paymentCompleted ? 'Activation Pending' : 'Payment Not Completed',
+        paymentCompleted ? 'Your payment needs confirmation. Please contact support before paying again.'
+          : error?.description || error?.message || 'Please try again.');
+    } finally { setPurchasing(false); }
   };
 
   return (
@@ -158,6 +181,24 @@ export function SubscriptionsScreen({ onBook, onSignIn }: SubscriptionsScreenPro
       contentContainerStyle={[styles.content, { paddingBottom: Math.max(insets.bottom, 20) + 30 }]}
       showsVerticalScrollIndicator={false}
     >
+      {session && (
+        <View style={styles.heroHeader}>
+          <Text style={styles.heroTitle}>Your Memberships</Text>
+          {!!membershipError && <Text>{membershipError}</Text>}
+          {!membershipError && memberships.length === 0 && <Text>No purchased memberships yet.</Text>}
+          {memberships.map((membership) => {
+            const active = membership.status === 'ACTIVE' && membership.paymentStatus === 'PAID'
+              && new Date(membership.endDate).getTime() > Date.now();
+            return <View key={membership.id} style={{ marginVertical: 10 }}>
+              <Text style={styles.heroTagText}>{membership.planName || 'Laundry Pass'}</Text>
+              <Text>{active ? 'Active' : membership.status === 'ACTIVE' ? 'Expired' : membership.status}</Text>
+              <Text>{membership.remainingKg} KG remaining ? Valid until {new Date(membership.endDate).toLocaleDateString()}</Text>
+              <Text>{membership.autoRenew ? 'Auto-renew enabled' : 'No automatic renewal'}</Text>
+            </View>;
+          })}
+          <Pressable onPress={() => void loadMemberships()}><Text style={styles.heroTagText}>Refresh memberships</Text></Pressable>
+        </View>
+      )}
       {/* Hero Banner Header */}
       <View style={styles.heroHeader}>
         <View style={styles.heroTag}>
@@ -257,7 +298,8 @@ export function SubscriptionsScreen({ onBook, onSignIn }: SubscriptionsScreenPro
               {/* Action Button */}
               <Pressable
                 style={styles.subscribeBtnWrap}
-                onPress={() => handleSubscribe(plan)}
+                disabled={purchasing}
+                onPress={() => void handleSubscribe(plan)}
               >
                 <LinearGradient
                   colors={plan.popular ? ['#FF7A00', '#FF5A00'] : ['#2563EB', '#1E40AF']}
