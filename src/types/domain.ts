@@ -468,3 +468,16 @@ export interface ReferralSummary {
   history: { id: string; status: string; reason?: string; createdAt: string }[];
   rewards: { id: string; code: string; amount: number; minimumOrder: number; status: string; expiresAt: string; usedOrderId?: string }[];
 }
+
+export interface InAppNotification {
+  id: string;
+  customerId: string;
+  title: string;
+  body: string;
+  type: 'ORDER' | 'OFFER' | 'SYSTEM' | string;
+  channel: 'orders' | 'promotions' | string;
+  data?: Record<string, any>;
+  isRead: boolean;
+  createdAt: string;
+}
+

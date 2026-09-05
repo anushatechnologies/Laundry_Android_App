@@ -4,7 +4,12 @@ import { getGarmentImageUrl } from '@/lib/garment-photos';
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type PropsWithChildren } from 'react';
 import { api, configureApiSession, createOrderPayload } from '@/lib/api';
 import { requestFirebasePhoneOtp, confirmFirebasePhoneOtp, signOutFirebasePhoneAuth } from '@/lib/firebase-phone-auth';
-import { getFirebasePushToken, requestNotificationPermissionOnAppOpen } from '@/lib/notifications';
+import {
+  getFirebasePushToken,
+  requestNotificationPermissionOnAppOpen,
+  parseNotificationAction,
+  type NotificationNavAction,
+} from '@/lib/notifications';
 import { payWithRazorpay } from '@/lib/payments';
 import {
   clearSession,
@@ -29,6 +34,7 @@ import {
   type CustomerAddress,
   type CustomerPreferences,
   DEFAULT_CUSTOMER_PREFERENCES,
+  type InAppNotification,
   type Order,
   type PincodeCheck,
   type PickupSlot,
@@ -59,6 +65,14 @@ interface AppContextValue {
   isCheckingOut: boolean;
   catalogError: string | null;
   wishlist: string[];
+  inAppNotifications: InAppNotification[];
+  unreadNotificationCount: number;
+  fetchNotifications: () => Promise<void>;
+  markNotificationRead: (id: string) => Promise<void>;
+  markAllNotificationsRead: () => Promise<void>;
+  deleteNotificationItem: (id: string) => Promise<void>;
+  pendingNavAction: NotificationNavAction | null;
+  clearPendingNavAction: () => void;
   toggleWishlist: (itemId: string) => void;
   isInWishlist: (itemId: string) => boolean;
   requestOtp: (phone: string) => Promise<void>;
@@ -104,6 +118,9 @@ export function AppProvider({ children }: PropsWithChildren) {
   const [addresses, setAddresses] = useState<CustomerAddress[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
   const [preferences, setPreferences] = useState<CustomerPreferences>(DEFAULT_CUSTOMER_PREFERENCES);
+  const [inAppNotifications, setInAppNotifications] = useState<InAppNotification[]>([]);
+  const [unreadNotificationCount, setUnreadNotificationCount] = useState<number>(0);
+  const [pendingNavAction, setPendingNavAction] = useState<NotificationNavAction | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isCheckingOut, setIsCheckingOut] = useState(false);
   const [catalogError, setCatalogError] = useState<string | null>(null);
@@ -328,10 +345,18 @@ export function AppProvider({ children }: PropsWithChildren) {
   }, [wishlist]);
 
   const signOut = useCallback(async () => {
+    try {
+      const fcmToken = await getFirebasePushToken();
+      if (fcmToken) {
+        await api.unregisterPushDevice(fcmToken).catch(() => {});
+      }
+    } catch {}
     configureApiSession(null);
     setSession(null);
     setOrders([]);
     setAddresses([]);
+    setInAppNotifications([]);
+    setUnreadNotificationCount(0);
     setCart([]); // BigBasket pattern: clear active memory cart so next user never sees prior user's items
     setWishlist([]); // Clear active memory wishlist
     await clearSession();
@@ -571,6 +596,85 @@ export function AppProvider({ children }: PropsWithChildren) {
     };
   }, []);
 
+  const fetchNotifications = useCallback(async () => {
+    if (!session?.accessToken) {
+      setInAppNotifications([]);
+      setUnreadNotificationCount(0);
+      return;
+    }
+    try {
+      const res = await api.getNotifications();
+      if (res && Array.isArray(res.data)) {
+        setInAppNotifications(res.data);
+        setUnreadNotificationCount(res.unreadCount ?? res.data.filter((n) => !n.isRead).length);
+      }
+    } catch (err) {
+      console.warn('[Notifications] Error fetching feed:', err);
+    }
+  }, [session?.accessToken]);
+
+  const markNotificationRead = useCallback(async (id: string) => {
+    setInAppNotifications((prev) =>
+      prev.map((n) => (n.id === id ? { ...n, isRead: true } : n))
+    );
+    setUnreadNotificationCount((prev) => Math.max(0, prev - 1));
+    if (session?.accessToken) {
+      api.markNotificationAsRead(id).catch(() => {});
+    }
+  }, [session?.accessToken]);
+
+  const markAllNotificationsRead = useCallback(async () => {
+    setInAppNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
+    setUnreadNotificationCount(0);
+    if (session?.accessToken) {
+      api.markAllNotificationsAsRead().catch(() => {});
+    }
+  }, [session?.accessToken]);
+
+  const deleteNotificationItem = useCallback(async (id: string) => {
+    setInAppNotifications((prev) => {
+      const item = prev.find((n) => n.id === id);
+      if (item && !item.isRead) {
+        setUnreadNotificationCount((c) => Math.max(0, c - 1));
+      }
+      return prev.filter((n) => n.id !== id);
+    });
+    if (session?.accessToken) {
+      api.deleteNotification(id).catch(() => {});
+    }
+  }, [session?.accessToken]);
+
+  const clearPendingNavAction = useCallback(() => {
+    setPendingNavAction(null);
+  }, []);
+
+  // Listen for push notifications in foreground and notification response (taps)
+  useEffect(() => {
+    const receivedSub = Notifications.addNotificationReceivedListener(() => {
+      // Whenever any push notification arrives, auto-refresh the in-app feed
+      void fetchNotifications();
+    });
+
+    const responseSub = Notifications.addNotificationResponseReceivedListener((response) => {
+      const action = parseNotificationAction(response);
+      if (action) {
+        setPendingNavAction(action);
+      }
+    });
+
+    return () => {
+      receivedSub.remove();
+      responseSub.remove();
+    };
+  }, [fetchNotifications]);
+
+  // Fetch notifications whenever session changes
+  useEffect(() => {
+    if (session?.accessToken) {
+      void fetchNotifications();
+    }
+  }, [session?.accessToken, fetchNotifications]);
+
   // Once the customer is signed in and has allowed notifications, register the
   // native Android FCM token. Firebase Admin is the only delivery provider.
   useEffect(() => {
@@ -648,6 +752,14 @@ export function AppProvider({ children }: PropsWithChildren) {
     cart,
     cartSummary,
     wishlist,
+    inAppNotifications,
+    unreadNotificationCount,
+    fetchNotifications,
+    markNotificationRead,
+    markAllNotificationsRead,
+    deleteNotificationItem,
+    pendingNavAction,
+    clearPendingNavAction,
     toggleWishlist,
     isInWishlist,
     addresses,
@@ -679,7 +791,9 @@ export function AppProvider({ children }: PropsWithChildren) {
     trackOrder,
     checkout,
   }), [
-    ready, session, hasCompletedOnboarding, catalog, cart, cartSummary, wishlist, toggleWishlist, isInWishlist, addresses, orders, preferences, isRefreshing, isCheckingOut, catalogError,
+    ready, session, hasCompletedOnboarding, catalog, cart, cartSummary, wishlist, inAppNotifications, unreadNotificationCount,
+    fetchNotifications, markNotificationRead, markAllNotificationsRead, deleteNotificationItem, pendingNavAction, clearPendingNavAction,
+    toggleWishlist, isInWishlist, addresses, orders, preferences, isRefreshing, isCheckingOut, catalogError,
     requestOtp, signIn, signOut, completeOnboarding, refreshCatalog, refreshOrders, refreshAccountData, addCartItem, addGarmentToCart, addBulkToCart,
     setCartQuantity, removeFromCart, updateUserProfile, updatePreferences, deleteAccount, getSlots, validatePincode, reverseGeocode, saveAddress, deleteAddress,
     trackOrder, checkout,

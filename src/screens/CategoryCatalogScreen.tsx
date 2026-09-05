@@ -1,8 +1,9 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   ActivityIndicator,
   Image,
   Pressable,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
@@ -247,6 +248,20 @@ export function CategoryCatalogScreen({
   // Dynamic Catalog State
   const [dynamicCatalog, setDynamicCatalog] = useState<Catalog | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [refreshing, setRefreshing] = useState<boolean>(false);
+
+  // Pull-to-refresh handler
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      const freshCatalog = await api.getCatalog();
+      setDynamicCatalog(freshCatalog);
+    } catch (error) {
+      console.error('[CategoryCatalogScreen] Refresh error:', error);
+    } finally {
+      setRefreshing(false);
+    }
+  }, []);
 
   // Sync categoryTag & service filter changes
   useEffect(() => {
@@ -916,6 +931,14 @@ export function CategoryCatalogScreen({
               paddingBottom: 24,
             },
           ]}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={handleRefresh}
+              colors={['#2563EB', '#F97316']}
+              tintColor="#2563EB"
+            />
+          }
         >
           <View style={styles.productsGrid2Col}>
             {filteredProducts.map((cloth) => {

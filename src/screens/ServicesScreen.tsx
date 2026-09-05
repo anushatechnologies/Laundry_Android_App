@@ -1,9 +1,10 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import {
   ActivityIndicator,
   FlatList,
   Image,
   Pressable,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
@@ -148,6 +149,19 @@ export function ServicesScreen({ onBook, onOpenBulkLaundry }: ServicesScreenProp
   const [selectedSubCategory, setSelectedSubCategory] = useState<string>('All');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [imgErrors, setImgErrors] = useState<Record<string, boolean>>({});
+  const [refreshing, setRefreshing] = useState(false);
+
+  // Pull-to-refresh handler
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await refreshCatalog();
+    } catch (error) {
+      console.error('[ServicesScreen] Refresh error:', error);
+    } finally {
+      setRefreshing(false);
+    }
+  }, [refreshCatalog]);
 
   // 1. DYNAMICALLY MAP BACKEND DATA
   const { categoriesList, allProductsList } = useMemo(() => {
@@ -431,6 +445,14 @@ export function ServicesScreen({ onBook, onOpenBulkLaundry }: ServicesScreenProp
         <ScrollView
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.overviewScroll}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={handleRefresh}
+              colors={['#2563EB', '#F97316']}
+              tintColor="#2563EB"
+            />
+          }
         >
           <View style={styles.sectionHeaderRow}>
             <Text style={styles.overviewHeading}>Explore by Category ({categoriesList.length})</Text>

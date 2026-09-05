@@ -230,6 +230,11 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ pushToken, platform: Platform.OS }),
     }, true),
+  unregisterPushDevice: (pushToken: string) =>
+    request<{ removed: boolean }>('/devices/register', {
+      method: 'DELETE',
+      body: JSON.stringify({ pushToken }),
+    }, true),
   
   // Subscription APIs
   getCustomerSubscriptions: (customerId: string) =>
@@ -323,6 +328,22 @@ export const api = {
   closeChatRoom: (roomId: string) =>
     request<{ success: boolean; message: string }>(`/chat/rooms/${encodeURIComponent(roomId)}/close`, {
       method: 'PUT',
+    }, true),
+
+  // Notification Feed APIs
+  getNotifications: () =>
+    request<{ success: boolean; data: import('@/types/domain').InAppNotification[]; unreadCount: number }>('/notifications', {}, true),
+  markNotificationAsRead: (notificationId: string) =>
+    request<{ success: boolean }>(`/notifications/${encodeURIComponent(notificationId)}/read`, {
+      method: 'PATCH',
+    }, true),
+  markAllNotificationsAsRead: () =>
+    request<{ success: boolean }>('/notifications/mark-all-read', {
+      method: 'POST',
+    }, true),
+  deleteNotification: (notificationId: string) =>
+    request<{ success: boolean }>(`/notifications/${encodeURIComponent(notificationId)}`, {
+      method: 'DELETE',
     }, true),
 };
 

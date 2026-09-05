@@ -273,6 +273,12 @@ function AuthenticatedApp() {
     const data = response.notification.request.content.data as Record<string, any> | undefined;
     if (data?.orderId) {
       openOrderDetail(String(data.orderId));
+    } else if (data?.screen === 'OFFERS') {
+      navigateTo('OFFERS');
+    } else if (data?.screen === 'CHAT') {
+      navigateTo('LIVE_CHAT');
+    } else if (data?.screen === 'NOTIFICATIONS') {
+      navigateTo('NOTIFICATIONS');
     } else if (data?.screen === 'HOME') {
       resetRoute('HOME');
     } else {

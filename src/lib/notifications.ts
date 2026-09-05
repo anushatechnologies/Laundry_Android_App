@@ -121,3 +121,29 @@ export async function getFirebasePushToken(): Promise<string | null> {
     return null;
   }
 }
+
+export type NotificationNavAction = {
+  screen: 'ORDER_DETAIL' | 'OFFERS' | 'CHAT' | 'NOTIFICATIONS' | 'HOME';
+  orderId?: string;
+  couponCode?: string;
+};
+
+export function parseNotificationAction(response: Notifications.NotificationResponse): NotificationNavAction | null {
+  const data = response?.notification?.request?.content?.data;
+  if (!data) return null;
+
+  if (data.orderId) {
+    return { screen: 'ORDER_DETAIL', orderId: String(data.orderId) };
+  }
+  if (data.screen === 'OFFERS') {
+    return { screen: 'OFFERS', couponCode: data.couponCode ? String(data.couponCode) : undefined };
+  }
+  if (data.screen === 'CHAT') {
+    return { screen: 'CHAT' };
+  }
+  if (data.screen === 'NOTIFICATIONS') {
+    return { screen: 'NOTIFICATIONS' };
+  }
+  return { screen: 'HOME' };
+}
+

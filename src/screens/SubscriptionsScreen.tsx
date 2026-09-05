@@ -121,6 +121,7 @@ export function SubscriptionsScreen({ onBook, onSignIn }: SubscriptionsScreenPro
   const [memberships, setMemberships] = useState<CustomerSubscription[]>([]);
   const [tab, setTab] = useState<'purchased' | 'plans'>('purchased');
   const [loadingMemberships, setLoadingMemberships] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const requestId = useRef(0);
   const customerId = session?.user.id;
   const [membershipError, setMembershipError] = useState('');
@@ -156,6 +157,25 @@ export function SubscriptionsScreen({ onBook, onSignIn }: SubscriptionsScreenPro
       if (currentRequest === requestId.current) setLoadingMemberships(false);
     }
   }, [customerId]);
+
+  // Pull-to-refresh handler
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      // Refresh both memberships and plans
+      await Promise.all([
+        loadMemberships(),
+        api.getSubscriptionPlans().then((remotePlans) => {
+          if (remotePlans && remotePlans.length > 0) {
+            const active = remotePlans.filter((p) => p.isActive);
+            if (active.length > 0) setPlans(active);
+          }
+        }).catch(() => {}),
+      ]);
+    } finally {
+      setRefreshing(false);
+    }
+  }, [loadMemberships]);
 
   useEffect(() => {
     setMemberships([]);
@@ -200,7 +220,14 @@ export function SubscriptionsScreen({ onBook, onSignIn }: SubscriptionsScreenPro
       style={styles.root}
       contentContainerStyle={[styles.content, { paddingBottom: Math.max(insets.bottom, 20) + 30 }]}
       showsVerticalScrollIndicator={false}
-      refreshControl={<RefreshControl refreshing={loadingMemberships && !!session} onRefresh={() => void loadMemberships()} />}
+      refreshControl={
+        <RefreshControl
+          refreshing={refreshing}
+          onRefresh={handleRefresh}
+          colors={['#2563EB', '#F97316']}
+          tintColor="#2563EB"
+        />
+      }
     >
       <View style={{ flexDirection: 'row', gap: 12, marginBottom: 16 }}>
         {(['purchased', 'plans'] as const).map((value) => (

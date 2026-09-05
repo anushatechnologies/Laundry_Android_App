@@ -1,6 +1,5 @@
-import React, { useState, useMemo, useCallback, useEffect } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import {
-  Alert,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -9,8 +8,9 @@ import {
   View,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useApp } from '@/context/AppContext';
+import { InAppNotification } from '@/types/domain';
 
 interface NotificationsScreenProps {
   onOpenOrder: (orderId: string) => void;
@@ -21,7 +21,7 @@ type NotificationFilter = 'ALL' | 'ORDERS' | 'OFFERS' | 'SYSTEM';
 
 interface NotificationItem {
   id: string;
-  type: 'ORDER' | 'OFFER' | 'SYSTEM';
+  type: 'ORDER' | 'OFFER' | 'SYSTEM' | string;
   title: string;
   message: string;
   time: string;
@@ -33,114 +33,102 @@ interface NotificationItem {
   iconColor: string;
 }
 
-const INITIAL_NOTIFICATIONS: NotificationItem[] = [
-  {
-    id: 'n1',
-    type: 'ORDER',
-    title: 'Rider Assigned for Pickup 🛵',
-    message: 'Executive Ramesh K. has been assigned for your 24H laundry pickup slot.',
-    time: '15m ago',
-    section: 'TODAY',
-    read: false,
-    orderId: 'ORD-1042',
-    icon: 'moped',
-    iconBg: '#FFF7ED',
-    iconColor: '#FF7A00',
-  },
-  {
-    id: 'n2',
-    type: 'OFFER',
-    title: 'Flat 50% OFF on Silk & Suit Spa ✨',
-    message: 'Use coupon FIRST50 to claim 50% discount on luxury silk & wedding suits.',
-    time: '2h ago',
-    section: 'TODAY',
-    read: false,
-    icon: 'tag-percent',
-    iconBg: '#FEF3C7',
-    iconColor: '#D97706',
-  },
-  {
-    id: 'n3',
-    type: 'ORDER',
-    title: 'Garments Weighed & Verified ⚖️',
-    message: '4.6 KG bulk wash verified with digital scale. Fabric care & steam wash started.',
-    time: 'Yesterday, 4:30 PM',
-    section: 'YESTERDAY',
-    read: true,
-    orderId: 'ORD-1041',
-    icon: 'washing-machine',
-    iconBg: '#EFF6FF',
-    iconColor: '#2563EB',
-  },
-  {
-    id: 'n4',
-    type: 'SYSTEM',
-    title: 'Zero Color-Bleed Quality Assurance 🛡️',
-    message: 'All delicate silk, zari, and woolen fabrics undergo certified herbal non-solvent testing.',
-    time: '3 days ago',
-    section: 'EARLIER',
-    read: true,
-    icon: 'shield-check',
-    iconBg: '#F0FDF4',
-    iconColor: '#16A34A',
-  },
-  {
-    id: 'n5',
-    type: 'OFFER',
-    title: 'Weekend Blanket & Quilt Special 🛏️',
-    message: 'Double Mink Blanket Deep Wash starting at just ₹179. Free doorstep delivery.',
-    time: '4 days ago',
-    section: 'EARLIER',
-    read: true,
-    icon: 'gift-outline',
-    iconBg: '#FAF5FF',
-    iconColor: '#7C3AED',
-  },
-];
+function formatNotificationItem(n: InAppNotification): NotificationItem {
+  const createdAt = n.createdAt ? new Date(n.createdAt) : new Date();
+  const now = new Date();
+  const diffMs = now.getTime() - createdAt.getTime();
+  const diffMins = Math.max(0, Math.floor(diffMs / 60000));
+  const diffHours = Math.floor(diffMins / 60);
+  const diffDays = Math.floor(diffHours / 24);
+
+  let time = 'Just now';
+  let section: 'TODAY' | 'YESTERDAY' | 'EARLIER' = 'TODAY';
+
+  if (diffDays === 0) {
+    section = 'TODAY';
+    if (diffMins < 1) time = 'Just now';
+    else if (diffMins < 60) time = `${diffMins}m ago`;
+    else time = `${diffHours}h ago`;
+  } else if (diffDays === 1) {
+    section = 'YESTERDAY';
+    time = 'Yesterday';
+  } else {
+    section = 'EARLIER';
+    time = diffDays < 7 ? `${diffDays}d ago` : createdAt.toLocaleDateString();
+  }
+
+  let icon = 'bell-outline';
+  let iconBg = '#FFF7ED';
+  let iconColor = '#FF7A00';
+
+  if (n.type === 'ORDER' || n.channel === 'orders') {
+    icon = 'washing-machine';
+    iconBg = '#EFF6FF';
+    iconColor = '#2563EB';
+  } else if (n.type === 'OFFER' || n.channel === 'promotions') {
+    icon = 'tag-percent';
+    iconBg = '#FEF3C7';
+    iconColor = '#D97706';
+  } else if (n.type === 'SYSTEM') {
+    icon = 'shield-check';
+    iconBg = '#F0FDF4';
+    iconColor = '#16A34A';
+  }
+
+  return {
+    id: n.id,
+    type: n.type || (n.channel === 'promotions' ? 'OFFER' : 'ORDER'),
+    title: n.title,
+    message: n.body,
+    time,
+    section,
+    read: n.isRead,
+    orderId: n.data?.orderId,
+    icon,
+    iconBg,
+    iconColor,
+  };
+}
 
 export function NotificationsScreen({ onOpenOrder, onOpenOffers }: NotificationsScreenProps) {
   const insets = useSafeAreaInsets();
+  const {
+    inAppNotifications,
+    unreadNotificationCount,
+    fetchNotifications,
+    markNotificationRead,
+    markAllNotificationsRead,
+    deleteNotificationItem,
+  } = useApp();
+
   const [filter, setFilter] = useState<NotificationFilter>('ALL');
-  const [notifications, setNotifications] = useState<NotificationItem[]>(INITIAL_NOTIFICATIONS);
   const [refreshing, setRefreshing] = useState(false);
 
   // Pull-to-refresh handler
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
     try {
-      // Simulate fetching notifications from API
-      // In real app: const data = await api.getNotifications(userId);
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      // For now, just reset to initial notifications
-      setNotifications(INITIAL_NOTIFICATIONS);
+      await fetchNotifications();
     } catch (error) {
-      console.error('[NotificationsScreen] Refresh error:', error);
+      console.warn('[NotificationsScreen] Refresh error:', error);
     } finally {
       setRefreshing(false);
     }
-  }, []);
+  }, [fetchNotifications]);
+
+  const items = useMemo(() => {
+    return inAppNotifications.map(formatNotificationItem);
+  }, [inAppNotifications]);
 
   const filtered = useMemo(() => {
-    return notifications.filter((item) => {
+    return items.filter((item) => {
       if (filter === 'ALL') return true;
       return item.type === filter;
     });
-  }, [filter, notifications]);
-
-  const unreadCount = notifications.filter((n) => !n.read).length;
-
-  const markAllAsRead = () => {
-    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
-  };
-
-  const deleteNotification = (id: string) => {
-    setNotifications((prev) => prev.filter((n) => n.id !== id));
-  };
+  }, [filter, items]);
 
   const handleNotificationPress = (item: NotificationItem) => {
-    setNotifications((prev) =>
-      prev.map((n) => (n.id === item.id ? { ...n, read: true } : n))
-    );
+    markNotificationRead(item.id);
 
     if (item.type === 'ORDER' && item.orderId) {
       onOpenOrder(item.orderId);
@@ -202,7 +190,7 @@ export function NotificationsScreen({ onOpenOrder, onOpenOffers }: Notifications
               {/* Delete button */}
               <Pressable
                 style={styles.deleteBtn}
-                onPress={() => deleteNotification(item.id)}
+                onPress={() => deleteNotificationItem(item.id)}
                 hitSlop={8}
               >
                 <MaterialCommunityIcons name="close" size={15} color="#94A3B8" />
@@ -220,15 +208,15 @@ export function NotificationsScreen({ onOpenOrder, onOpenOffers }: Notifications
       <View style={styles.header}>
         <View style={styles.headerTitleRow}>
           <Text style={styles.headerTitle}>Notifications</Text>
-          {unreadCount > 0 && (
+          {unreadNotificationCount > 0 && (
             <View style={styles.unreadPill}>
-              <Text style={styles.unreadPillText}>{unreadCount} New</Text>
+              <Text style={styles.unreadPillText}>{unreadNotificationCount} New</Text>
             </View>
           )}
         </View>
 
-        {unreadCount > 0 && (
-          <Pressable onPress={markAllAsRead} hitSlop={8}>
+        {unreadNotificationCount > 0 && (
+          <Pressable onPress={markAllNotificationsRead} hitSlop={8}>
             <Text style={styles.markReadText}>Mark all read</Text>
           </Pressable>
         )}

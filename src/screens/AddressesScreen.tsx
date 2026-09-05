@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useState, useCallback } from 'react';
+import { Alert, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useApp } from '@/context/AppContext';
 import { getCurrentCustomerLocation } from '@/services/location/locationService';
@@ -30,7 +30,7 @@ function initialDraft(name: string, phone: string): AddressDraft {
 }
 
 export function AddressesScreen({ onBook, onSignIn }: AddressesScreenProps) {
-  const { session, addresses, saveAddress, deleteAddress, validatePincode } = useApp();
+  const { session, addresses, saveAddress, deleteAddress, validatePincode, refreshAccountData } = useApp();
   const [creating, setCreating] = useState(addresses.length === 0);
   const [draft, setDraft] = useState<AddressDraft>(() => initialDraft(session?.user.name || '', session?.user.phone || ''));
   const [availability, setAvailability] = useState<{ valid: boolean; message?: string } | null>(null);
@@ -38,6 +38,20 @@ export function AddressesScreen({ onBook, onSignIn }: AddressesScreenProps) {
   const [message, setMessage] = useState<string | null>(null);
   const [locationState, setLocationState] = useState<PickupLocationState>('idle');
   const [locationSummary, setLocationSummary] = useState('');
+  const [refreshing, setRefreshing] = useState(false);
+
+  // Pull-to-refresh handler
+  const handleRefresh = useCallback(async () => {
+    if (!session?.user.id) return;
+    setRefreshing(true);
+    try {
+      await refreshAccountData(); // Refresh addresses
+    } catch (error) {
+      console.error('[AddressesScreen] Refresh error:', error);
+    } finally {
+      setRefreshing(false);
+    }
+  }, [session?.user.id, refreshAccountData]);
 
   // --- GUEST VIEW (If not logged in) ---
   if (!session) {
@@ -165,7 +179,19 @@ export function AddressesScreen({ onBook, onSignIn }: AddressesScreenProps) {
   };
 
   return (
-    <ScrollView style={styles.root} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+    <ScrollView
+      style={styles.root}
+      contentContainerStyle={styles.content}
+      showsVerticalScrollIndicator={false}
+      refreshControl={
+        <RefreshControl
+          refreshing={refreshing}
+          onRefresh={handleRefresh}
+          colors={['#2563EB', '#F97316']}
+          tintColor="#2563EB"
+        />
+      }
+    >
       <View style={styles.header}>
         <Text style={styles.title}>Saved Addresses</Text>
         <Text style={styles.subtitle}>Doorstep pickup and delivery locations.</Text>
