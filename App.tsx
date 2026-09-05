@@ -203,7 +203,7 @@ function AuthenticatedApp() {
   const [selectedCategoryInfo, setSelectedCategoryInfo] = useState<{
     tag: string;
     title: string;
-    serviceCode?: 'ALL' | 'PRESS' | 'WASH_IRON' | 'DRY_CLEAN';
+    serviceCode?: string;
     serviceName?: string;
   }>({ tag: 'MENS', title: "Men's Wear", serviceCode: 'ALL', serviceName: 'All Services' });
   const [loginReason, setLoginReason] = useState<LoginReason>('ACCOUNT');

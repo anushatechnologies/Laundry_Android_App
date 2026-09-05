@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import {
   Alert,
+  KeyboardAvoidingView,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -71,7 +73,17 @@ export function RatingScreen({ orderId = 'ORD-1042', onComplete }: RatingScreenP
   };
 
   return (
-    <ScrollView style={styles.root} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+    <KeyboardAvoidingView
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      style={{ flex: 1 }}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+    >
+      <ScrollView
+        style={styles.root}
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+      >
       {/* 1. ORDER SUMMARY CARD */}
       <Card style={styles.orderCard}>
         <Text style={styles.orderLabel}>RATING ORDER</Text>
@@ -171,6 +183,7 @@ export function RatingScreen({ orderId = 'ORD-1042', onComplete }: RatingScreenP
         </Text>
       </Pressable>
     </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 

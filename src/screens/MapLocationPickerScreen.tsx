@@ -2,6 +2,8 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   AppState,
+  KeyboardAvoidingView,
+  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -512,8 +514,13 @@ const handleInteractiveLocate = useCallback(async () => {
   const WebViewComponent = WebView as any;
 
   return (
-    <View style={styles.root}>
-      <StatusBar style="dark" />
+    <KeyboardAvoidingView
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      style={{ flex: 1 }}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+    >
+      <View style={styles.root}>
+        <StatusBar style="dark" />
 
       <View style={styles.mapArea}>
         <WebViewComponent
@@ -700,6 +707,7 @@ const handleInteractiveLocate = useCallback(async () => {
         </View>
       </SafeAreaView>
     </View>
+    </KeyboardAvoidingView>
   );
 }
 

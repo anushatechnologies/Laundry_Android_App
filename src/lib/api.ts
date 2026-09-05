@@ -11,6 +11,7 @@ import type {
   Coupon,
   CouponApplication,
   CustomerAddress,
+  CustomerSubscription,
   Order,
   PincodeCheck,
   PickupSlot,
@@ -229,7 +230,7 @@ export const api = {
   
   // Subscription APIs
   getCustomerSubscriptions: (customerId: string) =>
-    request<any>(`/subscriptions/customer/${encodeURIComponent(customerId)}`, {}, true),
+    request<CustomerSubscription[]>(`/subscriptions/customer/${encodeURIComponent(customerId)}`, {}, true),
   purchaseSubscription: (customerId: string, subscriptionId: string) =>
     request<{ orderId: string; keyId?: string; key?: string; amount: number; currency: string; planName: string; validityDays: number; includedKg: number }>(
       '/subscriptions/purchase',

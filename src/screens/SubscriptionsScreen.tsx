@@ -1,6 +1,9 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Alert,
+  AppState,
+  ActivityIndicator,
+  RefreshControl,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -13,7 +16,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useApp } from '@/context/AppContext';
 import { api } from '@/lib/api';
 import { payWithRazorpay } from '@/lib/payments';
-import type { SubscriptionPlan } from '@/types/domain';
+import type { CustomerSubscription, SubscriptionPlan } from '@/types/domain';
 
 interface SubscriptionsScreenProps {
   onBook: () => void;
@@ -115,7 +118,11 @@ export function SubscriptionsScreen({ onBook, onSignIn }: SubscriptionsScreenPro
   const insets = useSafeAreaInsets();
   const { session } = useApp();
   const [purchasing, setPurchasing] = useState(false);
-  const [memberships, setMemberships] = useState<any[]>([]);
+  const [memberships, setMemberships] = useState<CustomerSubscription[]>([]);
+  const [tab, setTab] = useState<'purchased' | 'plans'>('purchased');
+  const [loadingMemberships, setLoadingMemberships] = useState(true);
+  const requestId = useRef(0);
+  const customerId = session?.user.id;
   const [membershipError, setMembershipError] = useState('');
   const [plans, setPlans] = useState<SubscriptionPlan[]>(FALLBACK_PLANS);
   const [selectedPlanId, setSelectedPlanId] = useState<string>('sub-plan-family');
@@ -135,17 +142,29 @@ export function SubscriptionsScreen({ onBook, onSignIn }: SubscriptionsScreenPro
     return () => { mounted = false; };
   }, []);
 
-  const loadMemberships = async () => {
-    if (!session) { setMemberships([]); return; }
+  const loadMemberships = useCallback(async () => {
+    const currentRequest = ++requestId.current;
+    if (!customerId) { setMemberships([]); setLoadingMemberships(false); return; }
+    setLoadingMemberships(true);
+    setMembershipError('');
     try {
-      setMembershipError('');
-      setMemberships(await api.getCustomerSubscriptions(session.user.id));
+      const data = await api.getCustomerSubscriptions(customerId);
+      if (currentRequest === requestId.current) setMemberships(data);
     } catch (error) {
-      setMembershipError(error instanceof Error ? error.message : 'Unable to load memberships.');
+      if (currentRequest === requestId.current) setMembershipError(error instanceof Error ? error.message : 'Unable to load memberships.');
+    } finally {
+      if (currentRequest === requestId.current) setLoadingMemberships(false);
     }
-  };
+  }, [customerId]);
 
-  useEffect(() => { void loadMemberships(); }, [session?.user.id]);
+  useEffect(() => {
+    setMemberships([]);
+    void loadMemberships();
+    const listener = AppState.addEventListener('change', (state) => {
+      if (state === 'active') void loadMemberships();
+    });
+    return () => { requestId.current++; listener.remove(); };
+  }, [loadMemberships]);
 
   const handleSubscribe = async (plan: SubscriptionPlan) => {
     if (!session) { onSignIn?.(); return; }
@@ -164,6 +183,7 @@ export function SubscriptionsScreen({ onBook, onSignIn }: SubscriptionsScreenPro
         ...payment, customerId: session.user.id, subscriptionId: plan.id,
       });
       if (membership?.payment_status !== 'PAID') throw new Error('Activation could not be confirmed.');
+      setTab('purchased');
       await loadMemberships();
       Alert.alert('Subscription Activated', 'Your paid membership is now active.', [
         { text: 'OK' }, { text: 'Book Pickup', onPress: onBook },
@@ -180,25 +200,48 @@ export function SubscriptionsScreen({ onBook, onSignIn }: SubscriptionsScreenPro
       style={styles.root}
       contentContainerStyle={[styles.content, { paddingBottom: Math.max(insets.bottom, 20) + 30 }]}
       showsVerticalScrollIndicator={false}
+      refreshControl={<RefreshControl refreshing={loadingMemberships && !!session} onRefresh={() => void loadMemberships()} />}
     >
-      {session && (
+      <View style={{ flexDirection: 'row', gap: 12, marginBottom: 16 }}>
+        {(['purchased', 'plans'] as const).map((value) => (
+          <Pressable key={value} onPress={() => setTab(value)} accessibilityRole="tab" accessibilityState={{ selected: tab === value }}
+            style={{ flex: 1, padding: 14, borderRadius: 12, backgroundColor: tab === value ? '#FF7A00' : '#FFFFFF' }}>
+            <Text style={{ textAlign: 'center', fontWeight: '700', color: tab === value ? '#FFFFFF' : '#111827' }}>
+              {value === 'purchased' ? 'Purchased Plans' : 'Browse Plans'}
+            </Text>
+          </Pressable>
+        ))}
+      </View>
+      {tab === 'purchased' && (
         <View style={styles.heroHeader}>
-          <Text style={styles.heroTitle}>Your Memberships</Text>
-          {!!membershipError && <Text>{membershipError}</Text>}
-          {!membershipError && memberships.length === 0 && <Text>No purchased memberships yet.</Text>}
-          {memberships.map((membership) => {
-            const active = membership.status === 'ACTIVE' && membership.paymentStatus === 'PAID'
-              && new Date(membership.endDate).getTime() > Date.now();
-            return <View key={membership.id} style={{ marginVertical: 10 }}>
-              <Text style={styles.heroTagText}>{membership.planName || 'Laundry Pass'}</Text>
-              <Text>{active ? 'Active' : membership.status === 'ACTIVE' ? 'Expired' : membership.status}</Text>
-              <Text>{membership.remainingKg} KG remaining ? Valid until {new Date(membership.endDate).toLocaleDateString()}</Text>
-              <Text>{membership.autoRenew ? 'Auto-renew enabled' : 'No automatic renewal'}</Text>
-            </View>;
-          })}
-          <Pressable onPress={() => void loadMemberships()}><Text style={styles.heroTagText}>Refresh memberships</Text></Pressable>
+          <Text style={styles.heroTitle}>Your Purchased Subscriptions</Text>
+          {!session ? <Pressable onPress={onSignIn}><Text style={styles.heroTagText}>Sign in to view your subscriptions</Text></Pressable> : <>
+            {loadingMemberships && <ActivityIndicator color="#FF7A00" />}
+            {!!membershipError && <Text accessibilityRole="alert">{membershipError}</Text>}
+            {!loadingMemberships && !membershipError && memberships.length === 0 && <>
+              <Text style={styles.heroSubtitle}>No purchased subscriptions found for this account.</Text>
+              <Pressable onPress={() => setTab('plans')}><Text style={styles.heroTagText}>Browse plans</Text></Pressable>
+            </>}
+            {[...memberships].sort((a, b) => Number(b.isActive) - Number(a.isActive)).map((membership) => (
+              <View key={membership.id} style={{ marginVertical: 12, padding: 16, backgroundColor: '#F8FAFC', borderRadius: 14 }}>
+                <Text style={styles.heroTitle}>{membership.planName}</Text>
+                <Text style={{ fontWeight: '800', color: membership.isActive ? '#15803D' : '#64748B' }}>
+                  {membership.status.replace(/_/g, ' ')}
+                </Text>
+                <Text style={styles.heroSubtitle}>{membership.remainingKg} of {membership.includedKg} KG remaining</Text>
+                <Text style={styles.heroSubtitle}>Used: {membership.usedKg} KG | Orders: {membership.ordersCount}</Text>
+                <Text style={styles.heroSubtitle}>Valid: {new Date(membership.startDate).toLocaleDateString()} to {new Date(membership.endDate).toLocaleDateString()}</Text>
+                <Text style={styles.heroSubtitle}>INR {membership.amount.toFixed(2)} | Payment: {membership.paymentStatus}</Text>
+                {!!membership.paymentId && <Text selectable style={styles.heroSubtitle}>Payment ID: {membership.paymentId}</Text>}
+                <Text style={styles.heroSubtitle}>{membership.autoRenew ? 'Auto-renew enabled' : 'No automatic renewal'}</Text>
+                {membership.isActive && <Pressable onPress={onBook} style={{ marginTop: 12 }}><Text style={styles.heroTagText}>Book a Pickup</Text></Pressable>}
+              </View>
+            ))}
+            <Pressable disabled={loadingMemberships} onPress={() => void loadMemberships()}><Text style={styles.heroTagText}>Refresh subscriptions</Text></Pressable>
+          </>}
         </View>
       )}
+      {tab === 'plans' && <>
       {/* Hero Banner Header */}
       <View style={styles.heroHeader}>
         <View style={styles.heroTag}>
@@ -322,9 +365,10 @@ export function SubscriptionsScreen({ onBook, onSignIn }: SubscriptionsScreenPro
       <View style={styles.termsNote}>
         <MaterialCommunityIcons name="information-outline" size={16} color="#94A3B8" />
         <Text style={styles.termsNoteText}>
-          Plans renew monthly. Unused pickup allowances can be rescheduled within the active billing cycle. Cancel anytime from your account settings.
+          Each purchase is valid for the period shown in the plan. Purchased passes do not automatically renew.
         </Text>
       </View>
+      </>}
     </ScrollView>
   );
 }

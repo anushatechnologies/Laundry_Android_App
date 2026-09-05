@@ -405,3 +405,23 @@ export interface PolicyData {
     highlights: string[];
   };
 }
+
+export interface CustomerSubscription {
+  id: string;
+  customerId: string;
+  subscriptionId: string;
+  planName: string;
+  status: string;
+  isActive: boolean;
+  paymentId?: string;
+  paymentStatus: string;
+  amount: number;
+  startDate: string;
+  endDate: string;
+  autoRenew: boolean;
+  usedKg: number;
+  remainingKg: number;
+  includedKg: number;
+  ordersCount: number;
+  features: string[];
+}

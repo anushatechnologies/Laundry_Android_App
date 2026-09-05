@@ -209,6 +209,7 @@ export function CategoryCatalogScreen({
   categoryTag = 'MENS',
   categoryTitle = "Men's Wear",
   initialServiceFilter = 'ALL',
+  initialServiceName,
   onBack,
   onViewCart,
   onOpenCart,

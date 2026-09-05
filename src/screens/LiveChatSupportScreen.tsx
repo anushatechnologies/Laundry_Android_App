@@ -177,7 +177,7 @@ export function LiveChatSupportScreen() {
     // Send to backend - admin will see it immediately
     try {
       await api.saveChatMessage({
-        roomId: currentRoomId,
+        roomId: currentRoomId!,
         senderId: customerId,
         senderType: 'CUSTOMER',
         message: messageText,
@@ -185,7 +185,7 @@ export function LiveChatSupportScreen() {
       });
       
       // Refresh to get real message from server
-      const messagesResponse = await api.getChatMessages(currentRoomId, 50, 0);
+      const messagesResponse = await api.getChatMessages(currentRoomId!, 50, 0);
       if (messagesResponse.success && messagesResponse.data) {
         const formattedMessages = messagesResponse.data.map((msg: any) => ({
           ...msg,
@@ -210,17 +210,6 @@ export function LiveChatSupportScreen() {
     // Handle WhatsApp trigger
     if (messageText.toLowerCase().includes('whatsapp') || messageText.toLowerCase().includes('manager')) {
       void Linking.openURL('whatsapp://send?phone=+919121999999&text=Hi%20LaundryFresh%20Care%20Manager');
-    }
-  };
-
-  const handleInputChange = (text: string) => {
-    setInputText(text);
-    
-    // Trigger typing indicator
-    if (text.length > 0) {
-      startTyping();
-    } else {
-      stopTyping();
     }
   };
 
@@ -301,13 +290,7 @@ export function LiveChatSupportScreen() {
             </View>
           );
         }}
-        ListFooterComponent={
-          agentTyping ? (
-            <View style={styles.typingBox}>
-              <Text style={styles.typingText}>Priya is typing a response...</Text>
-            </View>
-          ) : null
-        }
+        ListFooterComponent={null}
       />
 
       {/* 3. QUICK CHIPS */}
@@ -334,13 +317,12 @@ export function LiveChatSupportScreen() {
           value={inputText}
           onChangeText={handleInputChange}
           onSubmitEditing={() => sendMessage(inputText)}
-          onBlur={stopTyping}
-          editable={connectionStatus.connected}
+          editable={!loading}
         />
         <Pressable 
-          style={[styles.sendBtn, !connectionStatus.connected && styles.sendBtnDisabled]} 
+          style={[styles.sendBtn, !inputText.trim() && styles.sendBtnDisabled]} 
           onPress={() => sendMessage(inputText)}
-          disabled={!connectionStatus.connected}
+          disabled={!inputText.trim()}
         >
           <MaterialCommunityIcons name="send" size={18} color="#FFFFFF" />
         </Pressable>

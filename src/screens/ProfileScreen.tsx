@@ -2,8 +2,10 @@ import Constants from 'expo-constants';
 import React, { useState, useEffect } from 'react';
 import {
   Alert,
+  KeyboardAvoidingView,
   Linking,
   Modal,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -268,8 +270,8 @@ export function ProfileScreen({
             <MaterialCommunityIcons name="crown-outline" size={20} color="#F59E0B" />
           </View>
           <View style={styles.menuText}>
-            <Text style={styles.menuTitle}>Subscription Plans</Text>
-            <Text style={styles.menuSubtitle}>Save money with unlimited laundry</Text>
+            <Text style={styles.menuTitle}>My Subscriptions</Text>
+            <Text style={styles.menuSubtitle}>Purchased plans, balance and validity</Text>
           </View>
           <MaterialCommunityIcons name="chevron-right" size={20} color="#8A7A84" />
         </Pressable>
@@ -413,41 +415,50 @@ export function ProfileScreen({
 
       {/* --- MODAL 1: EDIT PROFILE (Name & Email) --- */}
       <Modal visible={isEditModalOpen} transparent animationType="slide">
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalCard}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Edit Profile Details</Text>
-              <Pressable onPress={() => setIsEditModalOpen(false)}>
-                <MaterialCommunityIcons name="close" size={22} color="#1C0B18" />
-              </Pressable>
-            </View>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={{ flex: 1 }}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalCard}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Edit Profile Details</Text>
+                <Pressable onPress={() => setIsEditModalOpen(false)}>
+                  <MaterialCommunityIcons name="close" size={22} color="#1C0B18" />
+                </Pressable>
+              </View>
 
-            <View style={styles.modalBody}>
-              <Text style={styles.inputLabel}>Full Name *</Text>
-              <TextInput
-                style={styles.textInput}
-                placeholder="Enter your full name"
-                value={editName}
-                onChangeText={setEditName}
-              />
+              <ScrollView
+                style={styles.modalBody}
+                keyboardShouldPersistTaps="handled"
+                showsVerticalScrollIndicator={false}
+              >
+                <Text style={styles.inputLabel}>Full Name *</Text>
+                <TextInput
+                  style={styles.textInput}
+                  placeholder="Enter your full name"
+                  value={editName}
+                  onChangeText={setEditName}
+                />
 
-              <Text style={[styles.inputLabel, { marginTop: 14 }]}>Email Address</Text>
-              <TextInput
-                style={styles.textInput}
-                placeholder="e.g. yourname@gmail.com"
-                keyboardType="email-address"
-                autoCapitalize="none"
-                value={editEmail}
-                onChangeText={setEditEmail}
-              />
+                <Text style={[styles.inputLabel, { marginTop: 14 }]}>Email Address</Text>
+                <TextInput
+                  style={styles.textInput}
+                  placeholder="e.g. yourname@gmail.com"
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  value={editEmail}
+                  onChangeText={setEditEmail}
+                />
 
-              <Text style={[styles.inputLabel, { marginTop: 14 }]}>Phone Number (Locked)</Text>
-              <TextInput
-                style={[styles.textInput, styles.disabledInput]}
-                value={session?.user.phone ? `+91 ${session.user.phone}` : '+91 8522918866'}
-                editable={false}
-              />
-            </View>
+                <Text style={[styles.inputLabel, { marginTop: 14 }]}>Phone Number (Locked)</Text>
+                <TextInput
+                  style={[styles.textInput, styles.disabledInput]}
+                  value={session?.user.phone ? `+91 ${session.user.phone}` : '+91 8522918866'}
+                  editable={false}
+                />
+              </ScrollView>
 
             <View style={styles.modalFooter}>
               <Pressable
@@ -469,6 +480,7 @@ export function ProfileScreen({
             </View>
           </View>
         </View>
+        </KeyboardAvoidingView>
       </Modal>
 
       {/* --- MODAL 2: POLICIES VIEWER --- */}

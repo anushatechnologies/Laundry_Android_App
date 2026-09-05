@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Alert, Image, Linking, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Alert, Image, KeyboardAvoidingView, Linking, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useApp } from '@/context/AppContext';
 import { api } from '@/lib/api';
@@ -464,53 +464,59 @@ export function BookScreen({
   }
 
   return (
-    <View style={styles.root}>
-      {/* 1. TOP STEP PROGRESS INDICATOR */}
-      <View style={styles.stepHeader}>
-        <View style={styles.stepsRow}>
-          <Pressable
-            style={[styles.stepDot, stage === 'BAG' ? styles.stepDotActive : styles.stepDotCompleted]}
-            onPress={() => setStage('BAG')}
-          >
-            <Text style={[styles.stepDotNum, (stage === 'BAG' || stage === 'DETAILS' || stage === 'REVIEW') && styles.stepDotNumActive]}>
-              1
-            </Text>
-          </Pressable>
-          <View style={[styles.stepLine, (stage === 'DETAILS' || stage === 'REVIEW') && styles.stepLineActive]} />
+    <KeyboardAvoidingView
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      style={{ flex: 1 }}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+    >
+      <View style={styles.root}>
+        {/* 1. TOP STEP PROGRESS INDICATOR */}
+        <View style={styles.stepHeader}>
+          <View style={styles.stepsRow}>
+            <Pressable
+              style={[styles.stepDot, stage === 'BAG' ? styles.stepDotActive : styles.stepDotCompleted]}
+              onPress={() => setStage('BAG')}
+            >
+              <Text style={[styles.stepDotNum, (stage === 'BAG' || stage === 'DETAILS' || stage === 'REVIEW') && styles.stepDotNumActive]}>
+                1
+              </Text>
+            </Pressable>
+            <View style={[styles.stepLine, (stage === 'DETAILS' || stage === 'REVIEW') && styles.stepLineActive]} />
 
-          <Pressable
-            style={[styles.stepDot, stage === 'DETAILS' ? styles.stepDotActive : stage === 'REVIEW' ? styles.stepDotCompleted : styles.stepDotPending]}
-            onPress={() => { if (cart.length > 0 && session) setStage('DETAILS'); }}
-          >
-            <Text style={[styles.stepDotNum, (stage === 'DETAILS' || stage === 'REVIEW') && styles.stepDotNumActive]}>
-              2
-            </Text>
-          </Pressable>
-          <View style={[styles.stepLine, stage === 'REVIEW' && styles.stepLineActive]} />
+            <Pressable
+              style={[styles.stepDot, stage === 'DETAILS' ? styles.stepDotActive : stage === 'REVIEW' ? styles.stepDotCompleted : styles.stepDotPending]}
+              onPress={() => { if (cart.length > 0 && session) setStage('DETAILS'); }}
+            >
+              <Text style={[styles.stepDotNum, (stage === 'DETAILS' || stage === 'REVIEW') && styles.stepDotNumActive]}>
+                2
+              </Text>
+            </Pressable>
+            <View style={[styles.stepLine, stage === 'REVIEW' && styles.stepLineActive]} />
 
-          <Pressable
-            style={[styles.stepDot, stage === 'REVIEW' ? styles.stepDotActive : styles.stepDotPending]}
-            onPress={() => { if (selectedAddress && selectedSlot) setStage('REVIEW'); }}
-          >
-            <Text style={[styles.stepDotNum, stage === 'REVIEW' && styles.stepDotNumActive]}>
-              3
-            </Text>
-          </Pressable>
+            <Pressable
+              style={[styles.stepDot, stage === 'REVIEW' ? styles.stepDotActive : styles.stepDotPending]}
+              onPress={() => { if (selectedAddress && selectedSlot) setStage('REVIEW'); }}
+            >
+              <Text style={[styles.stepDotNum, stage === 'REVIEW' && styles.stepDotNumActive]}>
+                3
+              </Text>
+            </Pressable>
+          </View>
+
+          <View style={styles.stepLabelsRow}>
+            <Text style={[styles.stepLabelText, stage === 'BAG' && styles.stepLabelTextActive]}>1. Bag</Text>
+            <Text style={[styles.stepLabelText, stage === 'DETAILS' && styles.stepLabelTextActive]}>2. Pickup & Slot</Text>
+            <Text style={[styles.stepLabelText, stage === 'REVIEW' && styles.stepLabelTextActive]}>3. Pay & Review</Text>
+          </View>
         </View>
 
-        <View style={styles.stepLabelsRow}>
-          <Text style={[styles.stepLabelText, stage === 'BAG' && styles.stepLabelTextActive]}>1. Bag</Text>
-          <Text style={[styles.stepLabelText, stage === 'DETAILS' && styles.stepLabelTextActive]}>2. Pickup & Slot</Text>
-          <Text style={[styles.stepLabelText, stage === 'REVIEW' && styles.stepLabelTextActive]}>3. Pay & Review</Text>
-        </View>
-      </View>
-
-      {/* 2. MAIN BODY ACCORDING TO ACTIVE STAGE */}
-      <ScrollView
-        style={styles.scrollArea}
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
+        {/* 2. MAIN BODY ACCORDING TO ACTIVE STAGE */}
+        <ScrollView
+          style={styles.scrollArea}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
         {/* ================= STAGE 1: BAG ================= */}
         {stage === 'BAG' && (
           <View style={styles.stageWrap}>
@@ -1242,6 +1248,7 @@ export function BookScreen({
 
 
     </View>
+    </KeyboardAvoidingView>
   );
 }
 

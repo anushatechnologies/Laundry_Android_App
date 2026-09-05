@@ -2539,7 +2539,7 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   allServicesModalBackdrop: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
   },
   allServicesModalContent: {
     backgroundColor: '#FFFFFF',
