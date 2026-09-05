@@ -18,17 +18,21 @@ import {
   writeOnboardingComplete,
   writeSession,
   writeWishlist,
+  readPreferences,
+  writePreferences,
 } from '@/lib/storage';
-import type {
-  AuthSession,
-  CartItem,
-  Catalog,
-  CheckoutInput,
-  CustomerAddress,
-  Order,
-  PincodeCheck,
-  PickupSlot,
-  TrackingOrder,
+import {
+  type AuthSession,
+  type CartItem,
+  type Catalog,
+  type CheckoutInput,
+  type CustomerAddress,
+  type CustomerPreferences,
+  DEFAULT_CUSTOMER_PREFERENCES,
+  type Order,
+  type PincodeCheck,
+  type PickupSlot,
+  type TrackingOrder,
 } from '@/types/domain';
 
 interface CartSummary {
@@ -77,6 +81,9 @@ interface AppContextValue {
   deleteAddress: (addressId: string) => Promise<void>;
   trackOrder: (orderId: string) => Promise<TrackingOrder>;
   checkout: (input: CheckoutInput) => Promise<CheckoutResult>;
+  preferences: CustomerPreferences;
+  updatePreferences: (updates: Partial<CustomerPreferences>) => Promise<void>;
+  deleteAccount: () => Promise<void>;
 }
 
 const AppContext = createContext<AppContextValue | null>(null);
@@ -96,6 +103,7 @@ export function AppProvider({ children }: PropsWithChildren) {
   const [wishlist, setWishlist] = useState<string[]>([]);
   const [addresses, setAddresses] = useState<CustomerAddress[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
+  const [preferences, setPreferences] = useState<CustomerPreferences>(DEFAULT_CUSTOMER_PREFERENCES);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isCheckingOut, setIsCheckingOut] = useState(false);
   const [catalogError, setCatalogError] = useState<string | null>(null);
@@ -127,13 +135,18 @@ export function AppProvider({ children }: PropsWithChildren) {
     if (!session?.user.id) return;
     setIsRefreshing(true);
     try {
-      const [nextOrders, nextAddresses, nextWishlist] = await Promise.all([
+      const [nextOrders, nextAddresses, nextWishlist, nextPreferences] = await Promise.all([
         api.getOrders(session.user.id),
         api.getAddresses(session.user.id),
         api.getWishlist(session.user.id).catch(() => []),
+        api.getPreferences(session.user.id).catch(() => null),
       ]);
       setOrders(nextOrders);
       setAddresses(nextAddresses);
+      if (nextPreferences) {
+        setPreferences(nextPreferences);
+        void writePreferences(nextPreferences, session.user.id);
+      }
       if (Array.isArray(nextWishlist) && nextWishlist.length) {
         setWishlist((current) => {
           const merged = Array.from(new Set([...current, ...nextWishlist]));
@@ -157,15 +170,17 @@ export function AppProvider({ children }: PropsWithChildren) {
     void (async () => {
       try {
         const storedSession = await readSession().catch(() => null);
-        const [storedCart, storedWishlist, onboardingComplete] = await Promise.all([
+        const [storedCart, storedWishlist, storedPreferences, onboardingComplete] = await Promise.all([
           readCart(storedSession?.user?.id).catch(() => []),
           readWishlist(storedSession?.user?.id).catch(() => []),
+          readPreferences(storedSession?.user?.id).catch(() => DEFAULT_CUSTOMER_PREFERENCES),
           readOnboardingComplete().catch(() => false),
         ]);
         if (!active) return;
         setSession(storedSession);
         setCart(normaliseCart(storedCart));
         setWishlist(storedWishlist);
+        setPreferences(storedPreferences);
         setHasCompletedOnboarding(onboardingComplete);
       } catch {
         // Safe default fallback
@@ -596,6 +611,35 @@ export function AppProvider({ children }: PropsWithChildren) {
     await writeSession(nextSession);
   }, [session]);
 
+  const updatePreferences = useCallback(async (updates: Partial<CustomerPreferences>) => {
+    setPreferences((current) => {
+      const next: CustomerPreferences = { ...current, ...updates };
+      void writePreferences(next, session?.user?.id);
+      return next;
+    });
+
+    if (session?.user?.id) {
+      try {
+        const synced = await api.updatePreferences(session.user.id, updates);
+        setPreferences(synced);
+        void writePreferences(synced, session.user.id);
+      } catch (err) {
+        console.warn('Could not sync preferences to backend:', err);
+      }
+    }
+  }, [session?.user?.id]);
+
+  const deleteAccount = useCallback(async () => {
+    if (session?.user?.id) {
+      try {
+        await api.deleteAccount(session.user.id);
+      } catch (err) {
+        console.warn('Backend deleteAccount failed:', err);
+      }
+    }
+    await signOut();
+  }, [session?.user?.id, signOut]);
+
   const value = useMemo<AppContextValue>(() => ({
     ready,
     session,
@@ -608,6 +652,7 @@ export function AppProvider({ children }: PropsWithChildren) {
     isInWishlist,
     addresses,
     orders,
+    preferences,
     isRefreshing,
     isCheckingOut,
     catalogError,
@@ -624,6 +669,8 @@ export function AppProvider({ children }: PropsWithChildren) {
     setCartQuantity,
     removeFromCart,
     updateUserProfile,
+    updatePreferences,
+    deleteAccount,
     getSlots,
     validatePincode,
     reverseGeocode,
@@ -632,9 +679,9 @@ export function AppProvider({ children }: PropsWithChildren) {
     trackOrder,
     checkout,
   }), [
-    ready, session, hasCompletedOnboarding, catalog, cart, cartSummary, wishlist, toggleWishlist, isInWishlist, addresses, orders, isRefreshing, isCheckingOut, catalogError,
+    ready, session, hasCompletedOnboarding, catalog, cart, cartSummary, wishlist, toggleWishlist, isInWishlist, addresses, orders, preferences, isRefreshing, isCheckingOut, catalogError,
     requestOtp, signIn, signOut, completeOnboarding, refreshCatalog, refreshOrders, refreshAccountData, addCartItem, addGarmentToCart, addBulkToCart,
-    setCartQuantity, removeFromCart, updateUserProfile, getSlots, validatePincode, reverseGeocode, saveAddress, deleteAddress,
+    setCartQuantity, removeFromCart, updateUserProfile, updatePreferences, deleteAccount, getSlots, validatePincode, reverseGeocode, saveAddress, deleteAddress,
     trackOrder, checkout,
   ]);
 

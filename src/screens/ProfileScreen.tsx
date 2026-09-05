@@ -1,5 +1,5 @@
 import Constants from 'expo-constants';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Alert,
   KeyboardAvoidingView,
@@ -7,6 +7,7 @@ import {
   Modal,
   Platform,
   Pressable,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
@@ -49,13 +50,27 @@ export function ProfileScreen({
   onViewLiveChat,
   onViewSubscriptions,
 }: ProfileScreenProps) {
-  const { session, addresses, orders, wishlist, signOut, updateUserProfile } = useApp();
+  const { session, addresses, orders, wishlist, signOut, updateUserProfile, refreshAccountData } = useApp();
 
   // Edit Profile Modal State
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editName, setEditName] = useState(session?.user.name || '');
   const [editEmail, setEditEmail] = useState(session?.user.email || '');
   const [savingProfile, setSavingProfile] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+
+  // Pull-to-refresh handler
+  const handleRefresh = useCallback(async () => {
+    if (!session?.user.id) return;
+    setRefreshing(true);
+    try {
+      await refreshAccountData();
+    } catch (error) {
+      console.error('[ProfileScreen] Refresh error:', error);
+    } finally {
+      setRefreshing(false);
+    }
+  }, [session?.user.id, refreshAccountData]);
 
   // Policies Modal State
   const [activePolicyModal, setActivePolicyModal] = useState<'REFUND' | 'TERMS' | 'PRIVACY' | null>(null);
@@ -132,7 +147,19 @@ export function ProfileScreen({
   };
 
   return (
-    <ScrollView style={styles.root} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+    <ScrollView
+      style={styles.root}
+      contentContainerStyle={styles.content}
+      showsVerticalScrollIndicator={false}
+      refreshControl={
+        <RefreshControl
+          refreshing={refreshing}
+          onRefresh={handleRefresh}
+          colors={['#2563EB', '#F97316']}
+          tintColor="#2563EB"
+        />
+      }
+    >
       {/* 1. PROFILE HERO CARD */}
       {session ? (
         <View style={styles.profileHeaderCard}>
@@ -299,7 +326,7 @@ export function ProfileScreen({
           </View>
           <View style={styles.menuText}>
             <Text style={styles.menuTitle}>Refer & Earn</Text>
-            <Text style={styles.menuSubtitle}>Give 50% OFF to friends, get ₹150 off next order</Text>
+            <Text style={styles.menuSubtitle}>Invite friends and track your reward coupons</Text>
           </View>
           <MaterialCommunityIcons name="chevron-right" size={20} color="#8A7A84" />
         </Pressable>

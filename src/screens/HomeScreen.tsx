@@ -1,10 +1,11 @@
 import { LinearGradient } from 'expo-linear-gradient';
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   Alert,
   Image,
   Modal,
   Pressable,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
@@ -74,6 +75,8 @@ export function HomeScreen({
     wishlist,
     toggleWishlist,
     isInWishlist,
+    refreshCatalog,
+    refreshOrders,
   } = useApp();
 
   const locationLabel = userLocation?.areaName 
@@ -89,6 +92,7 @@ export function HomeScreen({
   const [serviceImgErrors, setServiceImgErrors] = useState<Record<string, boolean>>({});
   const [catImgErrors, setCatImgErrors] = useState<Record<string, boolean>>({});
   const [servicesLoading, setServicesLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
   const activeOrder = orders.find(
     (order) => !['COMPLETED', 'DELIVERED', 'CANCELLED'].includes(order.currentStatus)
@@ -96,6 +100,36 @@ export function HomeScreen({
 
   const [minBulkKgPrice, setMinBulkKgPrice] = useState<number | null>(null);
   const [showAllServicesModal, setShowAllServicesModal] = useState(false);
+
+  // Pull-to-refresh handler
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await Promise.all([
+        // Refresh banners
+        api.getBanners().then((fetchedBanners) => {
+          if (fetchedBanners && Array.isArray(fetchedBanners) && fetchedBanners.length > 0) {
+            const validBanners = fetchedBanners.filter(
+              (b) => b.imageUrl && b.imageUrl.trim().length > 0
+            );
+            setBanners(validBanners.length > 0 ? validBanners : fetchedBanners);
+          }
+        }),
+        // Refresh services
+        api.getServices().then(setServiceMasters),
+        // Refresh subscription plans
+        api.getSubscriptionPlans().then(setLiveSubPlans),
+        // Refresh catalog from context
+        refreshCatalog(),
+        // Refresh orders from context
+        session?.user.id ? refreshOrders() : Promise.resolve(),
+      ]);
+    } catch (error) {
+      console.error('[HomeScreen] Refresh error:', error);
+    } finally {
+      setRefreshing(false);
+    }
+  }, [session?.user.id, refreshCatalog, refreshOrders]);
 
   useEffect(() => {
     void (async () => {
@@ -874,6 +908,14 @@ export function HomeScreen({
         style={styles.root}
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
+            colors={['#2563EB', '#F97316']}
+            tintColor="#2563EB"
+          />
+        }
       >
         {/* PROMOTIONAL HERO BANNER CAROUSEL */}
         {banners.length > 0 ? (

@@ -269,6 +269,17 @@ export const api = {
       method: 'PUT',
       body: JSON.stringify(data),
     }, true),
+  getPreferences: (customerId: string) =>
+    request<import('@/types/domain').CustomerPreferences>(`/customers/${encodeURIComponent(customerId)}/preferences`, {}, true),
+  updatePreferences: (customerId: string, data: Partial<import('@/types/domain').CustomerPreferences>) =>
+    request<import('@/types/domain').CustomerPreferences>(`/customers/${encodeURIComponent(customerId)}/preferences`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }, true),
+  deleteAccount: (customerId: string) =>
+    request<{ success: boolean; message: string }>(`/customers/${encodeURIComponent(customerId)}`, {
+      method: 'DELETE',
+    }, true),
   getPolicies: () => request<import('@/types/domain').PolicyData>('/customers/info/policies'),
   getWishlist: (customerId: string) => request<string[]>(`/customers/${encodeURIComponent(customerId)}/wishlist`, {}, true),
   addToWishlist: (customerId: string, itemId: string) =>

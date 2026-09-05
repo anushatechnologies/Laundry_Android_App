@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as SecureStore from 'expo-secure-store';
-import type { AuthSession, CartItem } from '@/types/domain';
+import { type AuthSession, type CartItem, type CustomerPreferences, DEFAULT_CUSTOMER_PREFERENCES } from '@/types/domain';
 import type { CustomerLocation } from '@/services/location/types';
 
 const SESSION_KEY = 'laundryfresh.customer.session.v1';
@@ -119,4 +119,27 @@ export async function readUserLocation(userId?: string | null): Promise<StoredUs
 
 export async function writeUserLocation(location: StoredUserLocation, userId?: string | null): Promise<void> {
   await AsyncStorage.setItem(getUserLocationKey(userId), JSON.stringify(location));
+}
+
+const PREFERENCES_KEY_BASE = 'laundryfresh.customer.preferences.v1';
+
+export function getPreferencesKey(userId?: string | null): string {
+  return userId ? `${PREFERENCES_KEY_BASE}.${userId}` : `${PREFERENCES_KEY_BASE}.guest`;
+}
+
+export async function readPreferences(userId?: string | null): Promise<CustomerPreferences> {
+  try {
+    const key = getPreferencesKey(userId);
+    const value = await AsyncStorage.getItem(key);
+    if (!value) return { ...DEFAULT_CUSTOMER_PREFERENCES };
+    const parsed = JSON.parse(value);
+    return { ...DEFAULT_CUSTOMER_PREFERENCES, ...(parsed && typeof parsed === 'object' ? parsed : {}) };
+  } catch {
+    return { ...DEFAULT_CUSTOMER_PREFERENCES };
+  }
+}
+
+export async function writePreferences(prefs: CustomerPreferences, userId?: string | null): Promise<void> {
+  const key = getPreferencesKey(userId);
+  await AsyncStorage.setItem(key, JSON.stringify(prefs));
 }

@@ -31,7 +31,31 @@ export interface Customer {
   phone: string;
   email?: string;
   role: 'CUSTOMER';
+  preferences?: CustomerPreferences;
 }
+
+export type StarchLevel = 'NONE' | 'LIGHT' | 'MEDIUM' | 'HEAVY';
+export type PackagingPreference = 'FOLDED' | 'HANGER';
+export type FragrancePreference = 'FRESH' | 'LAVENDER' | 'SCENT_FREE';
+export type DeliveryInstructions = 'RING_BELL' | 'LEAVE_AT_DOOR' | 'CALL_ON_ARRIVAL';
+
+export interface CustomerPreferences {
+  whatsappUpdates: boolean;
+  promotionalAlerts: boolean;
+  starchLevel: StarchLevel;
+  packagingPreference: PackagingPreference;
+  fragrancePreference: FragrancePreference;
+  deliveryInstructions: DeliveryInstructions;
+}
+
+export const DEFAULT_CUSTOMER_PREFERENCES: CustomerPreferences = {
+  whatsappUpdates: true,
+  promotionalAlerts: false,
+  starchLevel: 'NONE',
+  packagingPreference: 'FOLDED',
+  fragrancePreference: 'FRESH',
+  deliveryInstructions: 'RING_BELL',
+};
 
 export interface AuthSession {
   accessToken: string;

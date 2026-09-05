@@ -1,8 +1,9 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Linking,
   Pressable,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
@@ -72,6 +73,11 @@ export function OrdersScreen({ onBook, onSignIn, onBrowseServices, onOpenOrderDe
   const [tracking, setTracking] = useState<TrackingOrder | null>(null);
   const [loadingTracking, setLoadingTracking] = useState(false);
   const [filter, setFilter] = useState<OrderFilter>('ALL');
+
+  // Pull-to-refresh handler
+  const handleRefresh = useCallback(async () => {
+    await refreshOrders();
+  }, [refreshOrders]);
 
   useEffect(() => {
     if (!selectedOrder) {
@@ -327,7 +333,19 @@ export function OrdersScreen({ onBook, onSignIn, onBrowseServices, onOpenOrderDe
 
   // --- ALL ORDERS LIST VIEW (Authenticated) ---
   return (
-    <ScrollView style={styles.root} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+    <ScrollView
+      style={styles.root}
+      contentContainerStyle={styles.content}
+      showsVerticalScrollIndicator={false}
+      refreshControl={
+        <RefreshControl
+          refreshing={isRefreshing}
+          onRefresh={handleRefresh}
+          colors={['#2563EB', '#F97316']}
+          tintColor="#2563EB"
+        />
+      }
+    >
       {/* Header & Title */}
       <View style={styles.header}>
         <View>
