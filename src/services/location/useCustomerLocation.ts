@@ -156,11 +156,15 @@ export function useCustomerLocation({ ownerId = null, refreshOnForeground }: Use
 
   useEffect(() => {
     if (!hydrated || !refreshOnForeground) return;
-    // When map confirmation already obtained a GPS point, do not immediately
-    // ask the device twice. Foreground refreshes are also throttled for battery
-    // and network usage.
-    if (Date.now() - lastGpsRefreshAtRef.current < LOCATION_STALE_TIME) return;
-    void refreshCurrentLocation('never');
+    // Auto-refresh location on initial hydration if no delivery location exists
+    // or if the last GPS update is stale
+    const hasNoLocation = !deliveryLocationRef.current;
+    const isStale = Date.now() - lastGpsRefreshAtRef.current >= LOCATION_STALE_TIME;
+    
+    if (hasNoLocation || isStale) {
+      // Use 'if-undetermined' to silently get location if permission already granted
+      void refreshCurrentLocation('if-undetermined');
+    }
   }, [hydrated, refreshCurrentLocation, refreshOnForeground]);
 
   useEffect(() => {

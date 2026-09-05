@@ -75,7 +75,7 @@ const detailTitles: Record<DetailRoute, string> = {
   LIVE_CHAT: 'Concierge Care Chat',
   CATEGORY_CATALOG: 'Garment Collection',
   BULK_LAUNDRY: 'Bulk Laundry (Pay by KG)',
-  SUBSCRIPTIONS: 'Laundry Care Passes',
+  SUBSCRIPTIONS: 'My Subscriptions',
 };
 
 const detailBackRoute: Record<DetailRoute, MainTab> = {
@@ -195,10 +195,21 @@ function AuthenticatedApp() {
     state: locationState,
     hydrated: hasLoadedUserLocation,
     saveDeliveryLocation,
+    refreshCurrentLocation,
   } = useCustomerLocation({
     ownerId: session?.user.id ?? null,
     refreshOnForeground: hasCompletedOnboarding,
   });
+  
+  // Auto-detect location on app launch if no location is saved
+  useEffect(() => {
+    if (hasLoadedUserLocation && !locationState.deliveryLocation && hasCompletedOnboarding && ready) {
+      // Silently try to get GPS location without prompting (will use 'if-undetermined' mode)
+      refreshCurrentLocation('if-undetermined').catch(() => {
+        // Ignore errors - user can manually select location if needed
+      });
+    }
+  }, [hasLoadedUserLocation, locationState.deliveryLocation, hasCompletedOnboarding, ready, refreshCurrentLocation]);
   const [couponCode, setCouponCode] = useState('');
   const [selectedCategoryInfo, setSelectedCategoryInfo] = useState<{
     tag: string;
@@ -421,6 +432,7 @@ function AuthenticatedApp() {
   if (route === 'HOME') {
     screen = (
       <HomeScreen
+        onViewSubscriptions={() => navigateTo('SUBSCRIPTIONS')}
         onBook={startBooking}
         onViewOrders={() => navigateTo('ORDERS')}
         onViewServices={() => navigateTo('SERVICES')}

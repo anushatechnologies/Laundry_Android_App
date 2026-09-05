@@ -76,9 +76,11 @@ export function HomeScreen({
     isInWishlist,
   } = useApp();
 
-  const locationLabel = userLocation?.areaName || userLocation?.city || (
-    locationStatus === 'detecting' ? 'Detecting location…' : 'Location unavailable'
-  );
+  const locationLabel = userLocation?.areaName 
+    ? `${userLocation.areaName}${userLocation.pincode ? ` - ${userLocation.pincode}` : ''}` 
+    : userLocation?.city 
+    ? `${userLocation.city}${userLocation.pincode ? ` - ${userLocation.pincode}` : ''}` 
+    : (locationStatus === 'detecting' ? 'Detecting location…' : 'Tap to set location');
 
   const [banners, setBanners] = useState<Banner[]>([]);
   const [liveSubPlans, setLiveSubPlans] = useState<SubscriptionPlan[]>([]);

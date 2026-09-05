@@ -136,7 +136,7 @@ export function AuthScreen({ reason = 'ACCOUNT', onBack }: AuthScreenProps) {
       setCountdown(30);
       setCanResend(false);
     } catch (err: any) {
-      setErrorMessage(err instanceof Error ? err.message : 'Firebase could not send a verification code. Please try again.');
+      setErrorMessage(err instanceof Error ? err.message : 'Could not send verification code via SMS. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -170,7 +170,7 @@ export function AuthScreen({ reason = 'ACCOUNT', onBack }: AuthScreenProps) {
       setCountdown(30);
       setCanResend(false);
     } catch (err: any) {
-      setErrorMessage(err instanceof Error ? err.message : 'Firebase could not send a verification code. Please try again.');
+      setErrorMessage(err instanceof Error ? err.message : 'Could not send verification code via SMS. Please try again.');
     } finally {
       setLoading(false);
     }

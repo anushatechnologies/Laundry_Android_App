@@ -200,27 +200,31 @@ export function AppProvider({ children }: PropsWithChildren) {
   const pendingPhoneRef = useRef<string | null>(null);
   const useBackendOtpRef = useRef<boolean>(false);
 
-  // Dual OTP strategy:
-  // 1. Attempts Google Firebase Phone Auth first
-  // 2. If blocked by Google Play Integrity on sideloaded APKs, automatically
-  //    falls back to the EC2 Backend Indian SMS Gateway (Fast2SMS).
+  // High-Reliability OTP Strategy:
+  // 1. Primary: Fast2SMS Indian SMS Gateway (Direct delivery to Indian mobile numbers via recharged Fast2SMS account)
+  // 2. Fallback: Google Firebase Phone Auth (if backend SMS gateway is unreachable)
   const requestOtp = useCallback(async (phone: string) => {
     pendingPhoneRef.current = phone;
+
+    // 1. Dispatch via Fast2SMS Indian Gateway
+    try {
+      const res = await api.sendOtp(phone);
+      if (res.success) {
+        useBackendOtpRef.current = true;
+        console.log('[Phone Auth] Real OTP SMS sent via Fast2SMS gateway:', res.gateway);
+        return;
+      }
+    } catch (backendErr: any) {
+      console.warn('[Phone Auth] Fast2SMS dispatch failed, trying Firebase native auth fallback:', backendErr?.message);
+    }
+
+    // 2. Fallback to Firebase Phone Auth
     try {
       await requestFirebasePhoneOtp(phone);
       useBackendOtpRef.current = false;
+      console.log('[Phone Auth] Verification code requested via Firebase Phone Auth.');
     } catch (firebaseErr: any) {
-      console.warn('[Phone Auth] Firebase native auth failed. Trying Backend Fast2SMS gateway fallback:', firebaseErr?.message);
-      try {
-        const res = await api.sendOtp(phone);
-        if (!res.success) {
-          throw new Error(res.message || 'Unable to send OTP via SMS.');
-        }
-        useBackendOtpRef.current = true;
-        console.log('[Phone Auth] OTP successfully dispatched via backend gateway:', res.gateway);
-      } catch (backendErr: any) {
-        throw new Error(backendErr instanceof Error ? backendErr.message : firebaseErr?.message || 'Could not send verification code.');
-      }
+      throw new Error(firebaseErr instanceof Error ? firebaseErr.message : 'Could not send verification code.');
     }
   }, []);
 
@@ -229,7 +233,17 @@ export function AppProvider({ children }: PropsWithChildren) {
     let nextSession: AuthSession;
 
     if (useBackendOtpRef.current && pendingPhoneRef.current) {
-      nextSession = await api.verifyOtp(pendingPhoneRef.current, otp, name, email);
+      try {
+        nextSession = await api.verifyOtp(pendingPhoneRef.current, otp, name, email);
+      } catch (backendVerifyErr) {
+        // If backend verify failed, try firebase confirm as secondary fallback
+        try {
+          const result = await confirmFirebasePhoneOtp(otp);
+          nextSession = await api.loginWithFirebase(result.idToken, name, email);
+        } catch {
+          throw backendVerifyErr;
+        }
+      }
     } else {
       try {
         const result = await confirmFirebasePhoneOtp(otp);
