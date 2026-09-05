@@ -761,7 +761,7 @@ export function HomeScreen({
 
             if (verifyResponse?.payment_status === 'PAID') {
               Alert.alert(
-                'ðŸŽ‰ Subscription Activated!',
+                '🎉 Subscription Activated!',
                 `Your ${plan.name} has been successfully activated. Enjoy ${plan.kg} of laundry allowance!`,
                 [
                   { text: 'View My Subscriptions', onPress: () => onViewSubscriptions?.() },
@@ -790,7 +790,7 @@ export function HomeScreen({
 
   return (
     <View style={styles.outerWrap}>
-      {/* ðŸŒŸ PREMIUM TOP NAVIGATION BAR */}
+      {/* TOP NAVIGATION BAR */}
       <View style={styles.stickyHeader}>
         <View style={styles.navMainRow}>
           {/* Left: Logo + Brand */}
@@ -804,7 +804,7 @@ export function HomeScreen({
             </View>
             <View style={styles.brandTextContainer}>
               <Text style={styles.greetingHeader} numberOfLines={1}>
-                {greeting}, {customerFirstName} ðŸ‘‹
+                {greeting}, {customerFirstName} 👋
               </Text>
               <Text style={styles.deliveryLabel}>Delivering to</Text>
               <Pressable
@@ -889,7 +889,7 @@ export function HomeScreen({
               <StatusPill status={activeOrder.currentStatus} />
             </View>
             <Text style={styles.trackerDetail}>
-              Pickup: {shortDate(activeOrder.pickupSlot.date)} â€¢ {activeOrder.pickupSlot.slot}
+              Pickup: {shortDate(activeOrder.pickupSlot.date)} • {activeOrder.pickupSlot.slot}
             </Text>
             <AppButton
               title="Track Live Order"
@@ -908,7 +908,7 @@ export function HomeScreen({
               <Text style={styles.sectionHeading}>Our Services</Text>
               <Text style={styles.sectionSubheading}>Select a service to view garment rates & care options</Text>
             </View>
-            <Pressable onPress={onViewServices} style={styles.viewAllBtn}>
+            <Pressable onPress={() => setShowAllServicesModal(true)} style={styles.viewAllBtn}>
               <Text style={styles.viewAllText}>All Services</Text>
               <MaterialCommunityIcons name="chevron-right" size={16} color="#2563EB" />
             </Pressable>
@@ -926,7 +926,7 @@ export function HomeScreen({
                   ]}
                   onPress={() => {
                     // Only open Bulk Laundry for the actual bulk-laundry KG service, not for Wash & Fold / Wash & Iron
-                    const isBulkService = svc.slug === 'bulk-laundry' || svc.pricingType === 'PER_KG' && svc.slug === 'bulk-laundry';
+                    const isBulkService = svc.slug === 'bulk-laundry' || (svc.pricingType === 'PER_KG' && svc.slug === 'bulk-laundry');
                     if (isBulkService) {
                       if (onOpenBulkLaundry) {
                         onOpenBulkLaundry();
@@ -934,15 +934,13 @@ export function HomeScreen({
                       }
                     }
                     if (onSelectService) {
-                      const serviceCode = ['PRESS', 'WASH_IRON', 'DRY_CLEAN', 'WASH_FOLD'].includes(svc.serviceCode)
-                        ? svc.serviceCode
-                        : 'ALL';
+                      const serviceCode = svc.serviceCode || 'ALL';
                       const category = svc.serviceCode === 'SHOE_SPA'
-                        ? { tag: 'FOOTWEAR', title: 'Footwear' }
+                        ? { tag: 'FOOTWEAR', title: 'Footwear & Shoes' }
                         : svc.serviceCode === 'SAREE_POLISH'
                         ? { tag: 'WOMENS', title: "Women's Wear" }
-                        : { tag: 'MENS', title: "Men's Wear" };
-                      onSelectService(serviceCode as any, svc.title, category.tag, category.title);
+                        : { tag: 'ALL', title: 'All Garments' };
+                      onSelectService(serviceCode, svc.title, category.tag, category.title);
                     } else {
                       onViewServices();
                     }
@@ -1075,7 +1073,7 @@ export function HomeScreen({
           <View style={styles.guaranteeTextWrap}>
             <Text style={styles.guaranteeTitle}>The LaundryFresh Promise</Text>
             <Text style={styles.guaranteeSubtitle}>
-              100% Free Re-wash Guarantee â€¢ Zero Color Bleed Assurance â€¢ Digital Calibrated Scales
+              100% Free Re-wash Guarantee • Zero Color Bleed Assurance • Digital Calibrated Scales
             </Text>
           </View>
         </View>
@@ -1101,6 +1099,110 @@ export function HomeScreen({
           </View>
         </View>
       )}
+
+      {/* ALL SERVICES BOTTOM SHEET / MODAL */}
+      <Modal
+        visible={showAllServicesModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowAllServicesModal(false)}
+      >
+        <View style={styles.allServicesModalOverlay}>
+          <Pressable
+            style={styles.allServicesModalBackdrop}
+            onPress={() => setShowAllServicesModal(false)}
+          />
+          <View style={styles.allServicesModalContent}>
+            {/* Handle bar */}
+            <View style={styles.modalDragHandle} />
+
+            {/* Header */}
+            <View style={styles.allServicesModalHeader}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.allServicesModalTitle}>All Services & Care</Text>
+                <Text style={styles.allServicesModalSubtitle}>
+                  Choose from our 8 specialized garment care treatments
+                </Text>
+              </View>
+              <Pressable
+                style={styles.modalCloseBtn}
+                onPress={() => setShowAllServicesModal(false)}
+                hitSlop={8}
+                accessibilityLabel="Close modal"
+              >
+                <MaterialCommunityIcons name="close" size={20} color="#64748B" />
+              </Pressable>
+            </View>
+
+            {/* Services List */}
+            <ScrollView
+              style={styles.allServicesListScroll}
+              contentContainerStyle={styles.allServicesListContainer}
+              showsVerticalScrollIndicator={false}
+            >
+              {allServicesList.map((svc) => (
+                <Pressable
+                  key={svc.id}
+                  style={({ pressed }) => [
+                    styles.allServiceItemCard,
+                    pressed && styles.tileCardPressed,
+                  ]}
+                  onPress={() => {
+                    setShowAllServicesModal(false);
+                    if (svc.slug === 'bulk-laundry' || (svc.pricingType === 'PER_KG' && svc.serviceCode === 'EXPRESS')) {
+                      if (onOpenBulkLaundry) {
+                        onOpenBulkLaundry();
+                        return;
+                      }
+                    }
+                    if (onSelectService) {
+                      const category = svc.serviceCode === 'SHOE_SPA'
+                        ? { tag: 'FOOTWEAR', title: 'Footwear & Shoes' }
+                        : svc.serviceCode === 'SAREE_POLISH'
+                        ? { tag: 'WOMENS', title: "Women's Wear" }
+                        : { tag: 'ALL', title: 'All Garments' };
+                      onSelectService(svc.serviceCode, svc.title, category.tag, category.title);
+                    } else {
+                      onViewServices();
+                    }
+                  }}
+                >
+                  <View style={[styles.allServiceItemImgWrap, { borderColor: svc.accent || '#2563EB' }]}>
+                    <Image
+                      source={{ uri: svc.imageUrl }}
+                      style={styles.allServiceItemImg}
+                      resizeMode="cover"
+                    />
+                  </View>
+                  <View style={styles.allServiceItemInfo}>
+                    <View style={styles.allServiceItemTopRow}>
+                      <Text style={styles.allServiceItemTitle} numberOfLines={1}>
+                        {svc.title}
+                      </Text>
+                      <View style={[styles.allServiceItemBadge, { backgroundColor: `${svc.accent}15` }]}>
+                        <Text style={[styles.allServiceItemBadgeText, { color: svc.accent }]}>
+                          {svc.badge}
+                        </Text>
+                      </View>
+                    </View>
+                    <Text style={styles.allServiceItemDesc} numberOfLines={2}>
+                      {svc.description}
+                    </Text>
+                    <View style={styles.allServiceItemBottomRow}>
+                      <Text style={styles.allServiceItemPrice}>{svc.priceText}</Text>
+                      <View style={styles.allServiceItemTatPill}>
+                        <MaterialCommunityIcons name="clock-outline" size={11} color="#64748B" />
+                        <Text style={styles.allServiceItemTatText}>{svc.tat}</Text>
+                      </View>
+                    </View>
+                  </View>
+                  <MaterialCommunityIcons name="chevron-right" size={20} color="#94A3B8" />
+                </Pressable>
+              ))}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
 
     </View>
   );
@@ -2430,4 +2532,146 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
 
+  // All Services Modal Styles
+  allServicesModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(15, 23, 42, 0.6)',
+    justifyContent: 'flex-end',
+  },
+  allServicesModalBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  allServicesModalContent: {
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    maxHeight: '82%',
+    paddingBottom: 24,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 16,
+    elevation: 20,
+  },
+  modalDragHandle: {
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: '#CBD5E1',
+    alignSelf: 'center',
+    marginTop: 10,
+    marginBottom: 8,
+  },
+  allServicesModalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
+  },
+  allServicesModalTitle: {
+    fontSize: 17,
+    fontWeight: '800',
+    color: '#0F172A',
+  },
+  allServicesModalSubtitle: {
+    fontSize: 12,
+    color: '#64748B',
+    marginTop: 2,
+  },
+  modalCloseBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#F1F5F9',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  allServicesListScroll: {
+    paddingHorizontal: 16,
+  },
+  allServicesListContainer: {
+    paddingTop: 12,
+    paddingBottom: 20,
+    gap: 10,
+  },
+  allServiceItemCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F8FAFC',
+    borderRadius: 14,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  allServiceItemImgWrap: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    overflow: 'hidden',
+    borderWidth: 2,
+    marginRight: 12,
+  },
+  allServiceItemImg: {
+    width: '100%',
+    height: '100%',
+  },
+  allServiceItemInfo: {
+    flex: 1,
+    marginRight: 8,
+  },
+  allServiceItemTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 2,
+  },
+  allServiceItemTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#0F172A',
+    flex: 1,
+    marginRight: 6,
+  },
+  allServiceItemBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  allServiceItemBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+  },
+  allServiceItemDesc: {
+    fontSize: 11,
+    color: '#64748B',
+    lineHeight: 15,
+    marginBottom: 4,
+  },
+  allServiceItemBottomRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  allServiceItemPrice: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#FF7A00',
+  },
+  allServiceItemTatPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    backgroundColor: '#EDF2F7',
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    borderRadius: 4,
+  },
+  allServiceItemTatText: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: '#64748B',
+  },
 });

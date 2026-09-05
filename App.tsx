@@ -444,7 +444,7 @@ function AuthenticatedApp() {
         }}
         onSelectService={(serviceCode, serviceName, tag, title) => {
           setSelectedCategoryInfo({
-            tag: tag || 'MENS',
+            tag: tag || 'ALL',
             title: title || serviceName,
             serviceCode,
             serviceName,
