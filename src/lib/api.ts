@@ -17,6 +17,7 @@ import type {
   PickupSlot,
   PricingSettings,
   RazorpayPaymentOrder,
+  ReferralSummary,
   ServiceMaster,
   ServicePriceItem,
   SubscriptionPlan,
@@ -136,6 +137,8 @@ async function request<T>(path: string, options: RequestInit = {}, authenticated
 }
 
 export const api = {
+  getReferrals: () => request<ReferralSummary>('/referrals/me', {}, true),
+  applyReferral: (code: string) => request<ReferralSummary>('/referrals/apply', { method: 'POST', body: JSON.stringify({ code }) }, true),
   checkPhone: (phone: string) => request<{ exists: boolean; message?: string }>(`/customers/check-phone?phone=${encodeURIComponent(phone)}`),
 
   async loginWithFirebase(idToken: string, name?: string, email?: string): Promise<AuthSession> {
@@ -189,7 +192,7 @@ export const api = {
     request<CouponApplication>('/coupons/apply', {
       method: 'POST',
       body: JSON.stringify({ code, orderTotal, isFirstOrder }),
-    }),
+    }, true),
   getBulkPricing: () => request<BulkPricingFeed>('/bulk-pricing'),
   getSubscriptionPlans: () => request<SubscriptionPlan[]>('/subscriptions/plans'),
   checkPincode: (pincode: string) => request<PincodeCheck>(`/pincodes/check?pin=${encodeURIComponent(pincode)}`),

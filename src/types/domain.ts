@@ -425,3 +425,22 @@ export interface CustomerSubscription {
   ordersCount: number;
   features: string[];
 }
+
+export interface ReferralSettings {
+  enabled: boolean;
+  referrerReward: number;
+  friendReward: number;
+  minimumFirstOrder: number;
+  minimumRedemptionOrder: number;
+  rewardValidityDays: number;
+  shareUrl: string;
+}
+export interface ReferralSummary {
+  settings: ReferralSettings | null;
+  code: string | null;
+  canApply: boolean;
+  applied: { code: string; status: string; reason?: string; terms: ReferralSettings } | null;
+  stats: { invited: number; qualified: number; available: number };
+  history: { id: string; status: string; reason?: string; createdAt: string }[];
+  rewards: { id: string; code: string; amount: number; minimumOrder: number; status: string; expiresAt: string; usedOrderId?: string }[];
+}

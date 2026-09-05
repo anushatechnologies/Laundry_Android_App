@@ -67,7 +67,7 @@ const detailTitles: Record<DetailRoute, string> = {
   NOTIFICATIONS: 'Notification Center',
   HELP: 'Help & Customer Care',
   PAYMENT_METHODS: 'Saved Payment Methods',
-  REFERRAL: 'Refer & Earn ₹150',
+  REFERRAL: 'Refer & Earn',
   WALLET: 'LaundryFresh Wallet',
   SETTINGS: 'Settings & Preferences',
   RATING: 'Rate Order & Service',
@@ -201,15 +201,26 @@ function AuthenticatedApp() {
     refreshOnForeground: hasCompletedOnboarding,
   });
   
-  // Auto-detect location on app launch if no location is saved
+  // Auto-detect location AFTER onboarding completes, only once
+  const hasTriedAutoLocation = useRef(false);
   useEffect(() => {
-    if (hasLoadedUserLocation && !locationState.deliveryLocation && hasCompletedOnboarding && ready) {
-      // Silently try to get GPS location without prompting (will use 'if-undetermined' mode)
-      refreshCurrentLocation('if-undetermined').catch(() => {
-        // Ignore errors - user can manually select location if needed
-      });
+    if (
+      hasCompletedOnboarding && 
+      hasLoadedUserLocation && 
+      !locationState.deliveryLocation && 
+      !hasTriedAutoLocation.current &&
+      ready
+    ) {
+      hasTriedAutoLocation.current = true;
+      // Delay slightly to avoid blocking UI
+      const timer = setTimeout(() => {
+        refreshCurrentLocation('if-undetermined').catch(() => {
+          // Silent fail - user can set manually
+        });
+      }, 500);
+      return () => clearTimeout(timer);
     }
-  }, [hasLoadedUserLocation, locationState.deliveryLocation, hasCompletedOnboarding, ready, refreshCurrentLocation]);
+  }, [hasCompletedOnboarding, hasLoadedUserLocation, locationState.deliveryLocation, ready]);
   const [couponCode, setCouponCode] = useState('');
   const [selectedCategoryInfo, setSelectedCategoryInfo] = useState<{
     tag: string;
@@ -609,7 +620,7 @@ function AuthenticatedApp() {
   } else if (route === 'REFERRAL') {
     screen = (
       <DetailShell title={detailTitles.REFERRAL} onBack={() => goBack(detailBackRoute.REFERRAL)}>
-        <ReferralScreen />
+        <ReferralScreen onUseReward={startBooking} onSignIn={() => openLogin('ACCOUNT')} />
       </DetailShell>
     );
   } else if (route === 'SETTINGS') {

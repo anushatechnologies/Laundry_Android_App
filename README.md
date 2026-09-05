@@ -336,11 +336,11 @@ eas build --platform android --profile preview
 
 ## 📄 License
 
-Proprietary - © 2026 Anusha Technologies. All rights reserved.
+Proprietary - © 2026 Anusha Bazaar Technologies. All rights reserved.
 
 ## 👥 Team
 
-- **Company:** Anusha Technologies
+- **Company:** Anusha Bazaar Technologies
 - **Product:** LaundryFresh
 - **Type:** On-Demand Laundry Service Platform
 

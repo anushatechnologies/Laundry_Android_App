@@ -1,152 +1,115 @@
-import React, { useState } from 'react';
-import {
-  Alert,
-  Linking,
-  Pressable,
-  ScrollView,
-  Share,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { ActivityIndicator, Alert, AppState, Pressable, RefreshControl, ScrollView, Share, StyleSheet, Text, TextInput, View } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useApp } from '@/context/AppContext';
+import { api } from '@/lib/api';
 import { Card } from '@/ui/components';
-import { COLORS } from '@/ui/theme';
+import type { ReferralSummary } from '@/types/domain';
 
-export function ReferralScreen() {
+export function ReferralScreen({ onUseReward, onSignIn }: { onUseReward: (code: string) => void; onSignIn: () => void }) {
   const { session } = useApp();
-  const [copied, setCopied] = useState(false);
-
-  const referralCode = session?.user?.name
-    ? `${session.user.name.split(' ')[0] || 'FRESH'}50`.toUpperCase()
-    : 'FRESH50';
-
-  const shareMessage = `Hey! Check out LaundryFresh for 5-star organic dry cleaning and laundry with 24H doorstep delivery. Use my invite code *${referralCode}* to get 50% OFF your first pickup! 🎉 Download here: https://laundryfresh.app/invite`;
-
-  const copyToClipboard = () => {
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-    Alert.alert('Code Copied! 📋', `Your referral code "${referralCode}" has been copied to your clipboard.`);
-  };
-
-  const shareViaWhatsApp = () => {
-    void Linking.openURL(`whatsapp://send?text=${encodeURIComponent(shareMessage)}`);
-  };
-
-  const shareNative = async () => {
+  const customerId = session?.user.id;
+  const [data, setData] = useState<ReferralSummary | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+  const [inviteCode, setInviteCode] = useState('');
+  const requestId = useRef(0);
+  const load = useCallback(async () => {
+    const id = ++requestId.current;
+    if (!customerId) { setData(null); setLoading(false); return; }
+    setLoading(true);
+    setError('');
+    try { const summary = await api.getReferrals(); if (id === requestId.current) setData(summary); }
+    catch (err) { if (id === requestId.current) setError(err instanceof Error ? err.message : 'Unable to load referrals.'); }
+    finally { if (id === requestId.current) setLoading(false); }
+  }, [customerId]);
+  useEffect(() => {
+    setData(null);
+    void load();
+    const listener = AppState.addEventListener('change', state => { if (state === 'active') void load(); });
+    return () => { requestId.current++; listener.remove(); };
+  }, [load]);
+  const apply = async () => {
+    if (saving || !inviteCode.trim()) return;
+    const id = requestId.current;
+    setSaving(true);
     try {
-      await Share.share({
-        message: shareMessage,
-        title: 'Join LaundryFresh & Get 50% OFF',
-      });
-    } catch {
-      // Ignore
-    }
+      const summary = await api.applyReferral(inviteCode.trim().toUpperCase());
+      if (id !== requestId.current) return;
+      setData(summary);
+      setInviteCode('');
+      Alert.alert('Invite saved', 'Your reward will appear after your qualifying first order is paid and delivered.');
+    } catch (err) { Alert.alert('Invite not applied', err instanceof Error ? err.message : 'Please try again.'); }
+    finally { setSaving(false); }
   };
-
-  return (
-    <ScrollView style={styles.root} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-      {/* 1. HERO REWARD CARD */}
-      <View style={styles.heroCard}>
-        <View style={styles.heroIconCircle}>
-          <MaterialCommunityIcons name="gift-outline" size={40} color="#D6B36A" />
-        </View>
-
-        <Text style={styles.heroTitle}>Refer Friends, Earn ₹150 Cash</Text>
-        <Text style={styles.heroSubtitle}>
-          Give your friends 50% OFF their first order, and get ₹150 credited straight to your LaundryFresh Wallet.
-        </Text>
-      </View>
-
-      {/* 2. REFERRAL CODE BOX */}
-      <Card style={styles.codeCard}>
-        <Text style={styles.codeLabel}>YOUR UNIQUE INVITE CODE</Text>
-        <View style={styles.codeRow}>
-          <Text style={styles.codeText}>{referralCode}</Text>
-          <Pressable style={styles.copyBtn} onPress={copyToClipboard}>
-            <MaterialCommunityIcons name={copied ? 'check' : 'content-copy'} size={18} color="#FFFFFF" />
-            <Text style={styles.copyBtnText}>{copied ? 'Copied' : 'Copy'}</Text>
-          </Pressable>
-        </View>
-      </Card>
-
-      {/* 3. SHARING BUTTONS */}
-      <View style={styles.shareRow}>
-        <Pressable style={styles.whatsAppBtn} onPress={shareViaWhatsApp}>
-          <MaterialCommunityIcons name="whatsapp" size={20} color="#FFFFFF" />
-          <Text style={styles.whatsAppBtnText}>Share on WhatsApp</Text>
-        </Pressable>
-
-        <Pressable style={styles.moreShareBtn} onPress={shareNative}>
-          <MaterialCommunityIcons name="share-variant-outline" size={20} color="#1C0B18" />
-        </Pressable>
-      </View>
-
-      {/* 4. REFERRAL STATS */}
-      <Card style={styles.statsCard}>
-        <Text style={styles.statsSectionTitle}>Your Referral Earnings</Text>
-
-        <View style={styles.statsRow}>
-          <View style={styles.statCol}>
-            <Text style={styles.statNumber}>4</Text>
-            <Text style={styles.statLabel}>Friends Invited</Text>
-          </View>
-
-          <View style={styles.statDivider} />
-
-          <View style={styles.statCol}>
-            <Text style={styles.statNumber}>3</Text>
-            <Text style={styles.statLabel}>Orders Done</Text>
-          </View>
-
-          <View style={styles.statDivider} />
-
-          <View style={styles.statCol}>
-            <Text style={[styles.statNumber, { color: '#16A34A' }]}>₹450</Text>
-            <Text style={styles.statLabel}>Wallet Earned</Text>
-          </View>
-        </View>
-      </Card>
-
-      {/* 5. 3-STEP GUIDE */}
-      <View style={styles.stepsSection}>
-        <Text style={styles.stepsTitle}>How It Works</Text>
-
-        <View style={styles.stepsStack}>
-          <View style={styles.stepItem}>
-            <View style={styles.stepNumBox}>
-              <Text style={styles.stepNumText}>1</Text>
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.stepHeading}>Share Your Invite Link</Text>
-              <Text style={styles.stepDesc}>Send your referral code to your friends, family, and society group.</Text>
-            </View>
-          </View>
-
-          <View style={styles.stepItem}>
-            <View style={styles.stepNumBox}>
-              <Text style={styles.stepNumText}>2</Text>
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.stepHeading}>Friend Gets 50% OFF</Text>
-              <Text style={styles.stepDesc}>They apply your coupon at checkout for flat 50% instant savings.</Text>
-            </View>
-          </View>
-
-          <View style={styles.stepItem}>
-            <View style={styles.stepNumBox}>
-              <Text style={styles.stepNumText}>3</Text>
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.stepHeading}>You Get ₹150 In Wallet</Text>
-              <Text style={styles.stepDesc}>₹150 cash is automatically credited when their laundry is delivered.</Text>
-            </View>
-          </View>
-        </View>
-      </View>
-    </ScrollView>
-  );
+  const share = async () => {
+    if (!data?.code || !data.settings?.enabled) return;
+    const terms = data.settings;
+    const message = `Join me on LaundryFresh. Enter invite code ${data.code} in Profile > Refer & Earn before your first order. ` +
+      (terms.friendReward > 0 ? `Earn an INR ${terms.friendReward} reward coupon after your first order of at least INR ${terms.minimumFirstOrder} is paid and delivered. ` : '') +
+      `Rewards are laundry discounts, not cash. ${terms.shareUrl || ''}`;
+    try { await Share.share({ message, title: 'LaundryFresh invitation' }); }
+    catch { Alert.alert('Unable to share', 'Please try sharing again.'); }
+  };
+  const amount = (value: number) => `INR ${value.toFixed(2)}`;
+  return <ScrollView style={styles.root} contentContainerStyle={styles.content}
+    refreshControl={<RefreshControl refreshing={loading && !!customerId} onRefresh={() => void load()} />}>
+    <View style={styles.heroCard}>
+      <MaterialCommunityIcons name="gift-outline" size={40} color="#D6B36A" />
+      <Text style={styles.heroTitle}>Refer & Earn</Text>
+      <Text style={styles.heroSubtitle}>Invite friends. Track real rewards. Save on your next laundry order.</Text>
+    </View>
+    {!customerId ? <Pressable onPress={onSignIn} style={styles.copyBtn}><Text style={styles.copyBtnText}>Sign in to view referrals</Text></Pressable> : <>
+      {loading && !data && <ActivityIndicator color="#F97316" />}
+      {!!error && <Card style={styles.statsCard}><Text accessibilityRole="alert">{error}</Text><Pressable onPress={() => void load()}><Text style={styles.stepHeading}>Retry</Text></Pressable></Card>}
+      {data && <>
+        {!data.settings?.enabled && <Card style={styles.statsCard}><Text>The referral program is currently unavailable for new invites. Existing rewards and referral history are shown below.</Text></Card>}
+        {data.settings?.enabled && data.code && <Card style={styles.codeCard}>
+          <Text style={styles.codeLabel}>YOUR PERSONAL INVITE CODE</Text>
+          <Text selectable style={[styles.codeText, { fontSize: 18 }]}>{data.code}</Text>
+          <Text style={styles.stepDesc}>Long-press the code to copy, or share your invitation.</Text>
+          <Pressable onPress={() => void share()} style={styles.copyBtn}><Text style={styles.copyBtnText}>Share invitation</Text></Pressable>
+          <Text style={styles.stepDesc}>You earn {amount(data.settings.referrerReward)}; your friend earns {amount(data.settings.friendReward)} after their first order of at least {amount(data.settings.minimumFirstOrder)} is paid and delivered.</Text>
+          <Text style={styles.stepDesc}>Single-use reward coupons. Minimum item subtotal {amount(data.settings.minimumRedemptionOrder)}. Valid for {data.settings.rewardValidityDays} days after issue. No cash withdrawal or combining coupons.</Text>
+        </Card>}
+        {data.canApply && <Card style={styles.statsCard}>
+          <Text style={styles.statsSectionTitle}>Have a friend's invite code?</Text>
+          <Text style={styles.stepDesc}>Apply it before placing your first order. One code per account.</Text>
+          <TextInput value={inviteCode} onChangeText={setInviteCode} autoCapitalize="characters" autoCorrect={false} maxLength={24}
+            placeholder="Enter invite code" accessibilityLabel="Friend's invite code" style={{ padding: 14, borderWidth: 1, borderColor: '#E8DED6', borderRadius: 12, marginVertical: 12 }} />
+          <Pressable disabled={saving || !inviteCode.trim()} onPress={() => void apply()} style={styles.copyBtn}><Text style={styles.copyBtnText}>{saving ? 'Saving...' : 'Apply invite code'}</Text></Pressable>
+        </Card>}
+        {data.applied && <Card style={styles.statsCard}>
+          <Text style={styles.statsSectionTitle}>Your applied invitation</Text>
+          <Text selectable>{data.applied.code} | {data.applied.status}</Text>
+          <Text style={styles.stepDesc}>{data.applied.reason || `First paid and delivered order must be at least ${amount(data.applied.terms.minimumFirstOrder)}. Your reward: ${amount(data.applied.terms.friendReward)}.`}</Text>
+        </Card>}
+        <Card style={styles.statsCard}>
+          <Text style={styles.statsSectionTitle}>Your referral activity</Text>
+          <Text>Invites accepted: {data.stats.invited}</Text>
+          <Text>Qualified referrals: {data.stats.qualified}</Text>
+          <Text>Available reward coupons: {amount(data.stats.available)}</Text>
+        </Card>
+        <Text style={styles.stepsTitle}>Your reward coupons</Text>
+        {data.rewards.length === 0 && <Text style={styles.stepDesc}>No rewards earned yet. Qualifying rewards will appear here automatically.</Text>}
+        {data.rewards.map(reward => <Card key={reward.id} style={styles.statsCard}>
+          <Text style={styles.statsSectionTitle}>{amount(reward.amount)} off laundry</Text>
+          <Text>{reward.status}</Text>
+          <Text selectable style={styles.stepHeading}>{reward.code}</Text>
+          <Text style={styles.stepDesc}>Minimum item subtotal: {amount(reward.minimumOrder)}. Expires {new Date(reward.expiresAt).toLocaleDateString()}.</Text>
+          {!!reward.usedOrderId && <Text style={styles.stepDesc}>Order: {reward.usedOrderId}</Text>}
+          {reward.status === 'AVAILABLE' && <Pressable style={[styles.copyBtn, { marginTop: 12 }]} onPress={() => onUseReward(reward.code)}><Text style={styles.copyBtnText}>Use reward at checkout</Text></Pressable>}
+        </Card>)}
+        <Text style={styles.stepsTitle}>Invite history</Text>
+        {data.history.length === 0 && <Text style={styles.stepDesc}>No friends have applied your code yet.</Text>}
+        {data.history.map((item, index) => <Card key={item.id} style={styles.statsCard}>
+          <Text style={styles.stepHeading}>Invitation {data.history.length - index} | {item.status}</Text>
+          <Text style={styles.stepDesc}>{new Date(item.createdAt).toLocaleDateString()}{item.reason ? ` - ${item.reason}` : ''}</Text>
+        </Card>)}
+      </>}
+    </>}
+  </ScrollView>;
 }
 
 const styles = StyleSheet.create({

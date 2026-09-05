@@ -298,7 +298,7 @@ export function ProfileScreen({
             <MaterialCommunityIcons name="gift-outline" size={20} color="#F59E0B" />
           </View>
           <View style={styles.menuText}>
-            <Text style={styles.menuTitle}>Refer & Earn (Get ₹150)</Text>
+            <Text style={styles.menuTitle}>Refer & Earn</Text>
             <Text style={styles.menuSubtitle}>Give 50% OFF to friends, get ₹150 off next order</Text>
           </View>
           <MaterialCommunityIcons name="chevron-right" size={20} color="#8A7A84" />
@@ -410,7 +410,7 @@ export function ProfileScreen({
 
       {/* APP VERSION */}
       <Text style={styles.versionText}>
-        LaundryFresh v{Constants.expoConfig?.version ?? '2.4.0'} • Anusha Technologies
+        LaundryFresh v{Constants.expoConfig?.version ?? '2.4.0'} • Anusha Bazaar Technologies
       </Text>
 
       {/* --- MODAL 1: EDIT PROFILE (Name & Email) --- */}
@@ -460,26 +460,26 @@ export function ProfileScreen({
                 />
               </ScrollView>
 
-            <View style={styles.modalFooter}>
-              <Pressable
-                style={styles.cancelBtn}
-                onPress={() => setIsEditModalOpen(false)}
-                disabled={savingProfile}
-              >
-                <Text style={styles.cancelBtnText}>Cancel</Text>
-              </Pressable>
-              <Pressable
-                style={styles.saveBtn}
-                onPress={handleSaveProfile}
-                disabled={savingProfile}
-              >
-                <Text style={styles.saveBtnText}>
-                  {savingProfile ? 'Saving...' : 'Save Profile'}
-                </Text>
-              </Pressable>
+              <View style={styles.modalFooter}>
+                <Pressable
+                  style={styles.cancelBtn}
+                  onPress={() => setIsEditModalOpen(false)}
+                  disabled={savingProfile}
+                >
+                  <Text style={styles.cancelBtnText}>Cancel</Text>
+                </Pressable>
+                <Pressable
+                  style={styles.saveBtn}
+                  onPress={handleSaveProfile}
+                  disabled={savingProfile}
+                >
+                  <Text style={styles.saveBtnText}>
+                    {savingProfile ? 'Saving...' : 'Save Profile'}
+                  </Text>
+                </Pressable>
+              </View>
             </View>
           </View>
-        </View>
         </KeyboardAvoidingView>
       </Modal>
 

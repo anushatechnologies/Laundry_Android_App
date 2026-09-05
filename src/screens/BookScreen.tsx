@@ -88,7 +88,7 @@ export function BookScreen({
   const [expressTier, setExpressTier] = useState<ExpressTier>('REGULAR');
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('ONLINE_RAZORPAY');
   const [couponCode, setCouponCode] = useState(initialCouponCode || '');
-  const [couponApplied, setCouponApplied] = useState(Boolean(initialCouponCode));
+  const [couponApplied, setCouponApplied] = useState(false);
   const [couponDiscount, setCouponDiscount] = useState(0);
   const [notes, setNotes] = useState('');
   const [message, setMessage] = useState<string | null>(null);
@@ -236,12 +236,14 @@ export function BookScreen({
       const isFirstOrder = !orders.some((o) => o.currentStatus !== 'CANCELLED');
       const res = await api.applyCoupon(cleanCode, cartSummary.itemTotal, isFirstOrder);
       if (!res.isValid) {
+        setCouponApplied(false);
+        setCouponDiscount(0);
         Alert.alert('Coupon Notice', res.message || 'That coupon is not valid for this order.');
         return;
       }
       setCouponCode(cleanCode);
       setCouponApplied(true);
-      setCouponDiscount(Math.round(res.discount));
+      setCouponDiscount(Number(res.discount));
       Alert.alert('Coupon Applied! 🎉', `${res.message}\nYou saved ₹${Math.round(res.discount)}!`);
     } catch (err: any) {
       Alert.alert('Coupon Error', err?.message || 'Could not validate coupon.');
