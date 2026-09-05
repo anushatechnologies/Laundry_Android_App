@@ -2,7 +2,7 @@ export type PricingModel = 'PER_KG' | 'PER_ITEM';
 
 export type ExpressTier = 'REGULAR' | 'EXPRESS_24H' | 'SAME_DAY';
 
-export type PaymentMethod = 'ONLINE_RAZORPAY' | 'COD';
+export type PaymentMethod = 'ONLINE_RAZORPAY' | 'COD' | 'WALLET';
 
 export type PaymentStatus = 'PENDING' | 'PAID' | 'FAILED' | 'REFUNDED';
 
@@ -334,6 +334,7 @@ export interface CheckoutInput {
   paymentMethod: PaymentMethod;
   couponCode?: string;
   notes?: string;
+  useWallet?: boolean;
   onLaunchOnlinePayment?: (paymentOrder: RazorpayPaymentOrder) => Promise<{
     razorpay_order_id: string;
     razorpay_payment_id: string;
@@ -450,6 +451,33 @@ export interface CustomerSubscription {
   features: string[];
 }
 
+export interface WalletTransaction {
+  id: string;
+  type: 'CREDIT' | 'DEBIT';
+  category: 'WELCOME_BONUS' | 'REFERRAL_REWARD' | 'TOPUP_RAZORPAY' | 'ORDER_PAYMENT' | 'DISPUTE_REFUND' | 'CASH_RECHARGE';
+  amount: number;
+  balanceAfter: number;
+  referenceId?: string | null;
+  description: string;
+  createdAt: string;
+}
+
+export interface WalletData {
+  customerId: string;
+  balance: number;
+  rewardPoints: number;
+  transactions: WalletTransaction[];
+}
+
+export interface ReferralFriend {
+  id: string;
+  name: string;
+  phoneMasked: string;
+  createdAt: string;
+  bonusAwarded: number;
+  status: string;
+}
+
 export interface ReferralSettings {
   enabled: boolean;
   referrerReward: number;
@@ -459,14 +487,24 @@ export interface ReferralSettings {
   rewardValidityDays: number;
   shareUrl: string;
 }
+
 export interface ReferralSummary {
-  settings: ReferralSettings | null;
   code: string | null;
-  canApply: boolean;
-  applied: { code: string; status: string; reason?: string; terms: ReferralSettings } | null;
-  stats: { invited: number; qualified: number; available: number };
-  history: { id: string; status: string; reason?: string; createdAt: string }[];
-  rewards: { id: string; code: string; amount: number; minimumOrder: number; status: string; expiresAt: string; usedOrderId?: string }[];
+  rewardAmount?: number;
+  friendBonus?: number;
+  stats: {
+    invited: number;
+    qualified?: number;
+    totalEarned?: number;
+    available?: number;
+  };
+  friends?: ReferralFriend[];
+  history?: any[];
+  rewards?: any[];
+  shareMessage?: string;
+  settings?: ReferralSettings | null;
+  canApply?: boolean;
+  applied?: any;
 }
 
 export interface InAppNotification {

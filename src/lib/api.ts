@@ -22,6 +22,7 @@ import type {
   ServicePriceItem,
   SubscriptionPlan,
   TrackingOrder,
+  WalletData,
 } from '@/types/domain';
 
 type SessionListener = (session: AuthSession | null) => void | Promise<void>;
@@ -139,29 +140,42 @@ async function request<T>(path: string, options: RequestInit = {}, authenticated
 export const api = {
   getReferrals: () => request<ReferralSummary>('/referrals/me', {}, true),
   applyReferral: (code: string) => request<ReferralSummary>('/referrals/apply', { method: 'POST', body: JSON.stringify({ code }) }, true),
+  getWallet: () => request<WalletData>('/wallet', {}, true),
+  createWalletTopupOrder: (amount: number) =>
+    request<{ orderId: string; amount: number; currency: string; key: string }>(
+      '/wallet/topup/create-order',
+      { method: 'POST', body: JSON.stringify({ amount }) },
+      true,
+    ),
+  verifyWalletTopup: (payload: { razorpayOrderId: string; razorpayPaymentId: string; razorpaySignature: string }) =>
+    request<{ success: boolean; message: string; data: WalletData }>(
+      '/wallet/topup/verify',
+      { method: 'POST', body: JSON.stringify(payload) },
+      true,
+    ),
   checkPhone: (phone: string) => request<{ exists: boolean; message?: string }>(`/customers/check-phone?phone=${encodeURIComponent(phone)}`),
 
-  async loginWithFirebase(idToken: string, name?: string, email?: string): Promise<AuthSession> {
+  async loginWithFirebase(idToken: string, name?: string, email?: string, referralCode?: string): Promise<AuthSession> {
     const payload = await request<AuthSession & { data?: AuthSession }>('/customers/firebase-login', {
       method: 'POST',
       headers: { Authorization: `Bearer ${idToken}` },
-      body: JSON.stringify({ name, email }),
+      body: JSON.stringify({ name, email, referralCode }),
     });
     return payload.data ?? payload;
   },
 
-  async sendOtp(phone: string, name?: string, email?: string): Promise<{ success: boolean; message: string; gateway?: string; exists?: boolean }> {
+  async sendOtp(phone: string, name?: string, email?: string, referralCode?: string): Promise<{ success: boolean; message: string; gateway?: string; exists?: boolean }> {
     const payload = await request<{ success: boolean; message: string; gateway?: string; exists?: boolean }>('/customers/send-otp', {
       method: 'POST',
-      body: JSON.stringify({ phone, name, email }),
+      body: JSON.stringify({ phone, name, email, referralCode }),
     });
     return payload;
   },
 
-  async verifyOtp(phone: string, otp: string, name?: string, email?: string): Promise<AuthSession> {
+  async verifyOtp(phone: string, otp: string, name?: string, email?: string, referralCode?: string): Promise<AuthSession> {
     const payload = await request<AuthSession & { data?: AuthSession }>('/customers/verify-otp', {
       method: 'POST',
-      body: JSON.stringify({ phone, otp, name, email }),
+      body: JSON.stringify({ phone, otp, name, email, referralCode }),
     });
     return payload.data ?? payload;
   },
