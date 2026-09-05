@@ -229,6 +229,20 @@ export function LiveChatSupportScreen() {
 
   return (
     <View style={styles.root}>
+      {/* ADMIN PANEL ACCESS BUTTON */}
+      {__DEV__ && (
+        <Pressable
+          style={styles.adminAccessButton}
+          onPress={() => {
+            Linking.openURL('https://laundry-adminpanel.vercel.app/chat')
+              .catch(() => Alert.alert('Error', 'Could not open admin panel'));
+          }}
+        >
+          <MaterialCommunityIcons name="cog" size={16} color="#FFFFFF" />
+          <Text style={styles.adminAccessText}>Open Admin Chat</Text>
+        </Pressable>
+      )}
+
       {/* 1. AGENT STATUS HEADER */}
       <View style={styles.agentHeader}>
         <View style={styles.agentAvatarBox}>
@@ -341,6 +355,23 @@ const styles = StyleSheet.create({
   root: {
     flex: 1,
     backgroundColor: '#FCF9F7',
+  },
+  adminAccessButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: '#7C3AED',
+    padding: 12,
+    marginHorizontal: 16,
+    marginTop: 8,
+    marginBottom: 4,
+    borderRadius: 8,
+  },
+  adminAccessText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '700',
   },
   centerContent: {
     justifyContent: 'center',
