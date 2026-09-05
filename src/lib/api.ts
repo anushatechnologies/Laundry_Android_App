@@ -336,15 +336,21 @@ export function createOrderPayload(session: AuthSession, cart: CartItem[], input
       ...item,
       id: cleanId,
       serviceId,
+      categoryName: item.categoryName?.trim() || 'Laundry',
+      specialInstructions: item.specialInstructions || undefined,
     };
   });
 
   return {
     customerId: session.user.id,
-    customerName: session.user.name,
-    customerPhone: session.user.phone,
+    customerName: session.user.name?.trim() || input.address.contactName?.trim(),
+    customerPhone: session.user.phone?.trim() || input.address.contactPhone?.trim(),
     customerEmail: session.user.email || undefined,
-    address: input.address,
+    address: {
+      ...input.address,
+      id: input.address.id || undefined,
+      landmark: input.address.landmark || undefined,
+    },
     items: cleanItems,
     expressTier: input.expressTier,
     pickupSlot: { date: input.slot.date, slot: `${input.slot.startTime} - ${input.slot.endTime}` },

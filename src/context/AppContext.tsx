@@ -473,10 +473,12 @@ export function AppProvider({ children }: PropsWithChildren) {
         const paymentResult = input.onLaunchOnlinePayment
           ? await input.onLaunchOnlinePayment(paymentOrder)
           : await payWithRazorpay(paymentOrder, session.user);
-        const paidOrder = await api.verifyRazorpayPayment({
+        const paymentStatus = await api.verifyRazorpayPayment({
           internalOrderId: order.id,
           ...paymentResult,
         });
+
+        const paidOrder = { ...order, ...paymentStatus };
 
         // Payment successful & verified: Confirm order and empty bag
         setOrders((current) => [paidOrder, ...current.filter((candidate) => candidate.id !== paidOrder.id)]);

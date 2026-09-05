@@ -49,6 +49,9 @@ export function LiveChatSupportScreen() {
 
   const customerId = session?.user?.id;
 
+  // HTTP polling mode - no WebSocket needed
+  const connectionStatus = { connected: true, reconnecting: false };
+
   // Initialize chat room
   useEffect(() => {
     if (!customerId) return;
@@ -99,35 +102,45 @@ export function LiveChatSupportScreen() {
     initializeChat();
   }, [customerId]);
 
-  // Initialize WebSocket connection
-  const {
-    connectionStatus,
-    isTyping: agentTyping,
-    sendMessage: sendSocketMessage,
-    startTyping,
-    stopTyping,
-  } = useChatSocket({
-    userId: customerId || '',
-    userType: 'CUSTOMER',
-    roomId: roomId || undefined,
-    onMessage: (message) => {
-      const formattedMsg = {
-        ...message,
-        time: new Date(message.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      };
-      setMessages((prev) => [...prev, formattedMsg]);
-      
-      // Scroll to bottom
-      setTimeout(() => {
-        flatListRef.current?.scrollToEnd({ animated: true });
-      }, 100);
-    },
-    onAgentStatus: (status) => {
-      setAgentOnline(status.status === 'ONLINE');
-    },
-  });
+  // Poll for new messages every 3 seconds (HTTP polling instead of WebSocket)
+  useEffect(() => {
+    if (!roomId) return;
 
-  const sendMessage = (text: string) => {
+    const pollMessages = async () => {
+      try {
+        const messagesResponse = await api.getChatMessages(roomId, 50, 0);
+        if (messagesResponse.success && messagesResponse.data) {
+          const formattedMessages = messagesResponse.data.map((msg: any) => ({
+            ...msg,
+            time: new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          }));
+          
+          // Only update if messages changed to avoid unnecessary re-renders
+          if (JSON.stringify(formattedMessages) !== JSON.stringify(messages)) {
+            setMessages(formattedMessages);
+            // Scroll to bottom when new messages arrive
+            setTimeout(() => {
+              flatListRef.current?.scrollToEnd({ animated: true });
+            }, 100);
+          }
+        }
+      } catch (error) {
+        console.error('Error polling messages:', error);
+      }
+    };
+
+    // Initial poll
+    pollMessages();
+
+    // Poll every 3 seconds
+    const interval = setInterval(pollMessages, 3000);
+
+    return () => clearInterval(interval);
+  }, [roomId, messages]);
+
+  const handleInputChange = (text: string) => {
+    setInputText(text);
+  };
     // Validation checks with user feedback
     if (!text.trim()) {
       Alert.alert('Empty Message', 'Please enter a message');
@@ -135,32 +148,17 @@ export function LiveChatSupportScreen() {
     }
     
     if (!roomId) {
-      // Room is still initializing — re-trigger initialization and let the user know gently
-      console.warn('[Chat] roomId not ready yet — re-initializing chat room...');
-      if (customerId) {
-        api.createChatRoom(customerId, 'Customer Support').then((roomResponse) => {
-          if (roomResponse.success && roomResponse.data) {
-            setRoomId(roomResponse.data.id);
-          }
-        }).catch(() => {});
-      }
       Alert.alert('Connecting...', 'Still connecting to chat. Please wait a moment and try again.');
       return;
     }
     
     if (!customerId) {
       Alert.alert('Authentication Error', 'User not authenticated. Please sign in again.');
-      console.error('[Chat] Cannot send message: No customerId');
-      return;
-    }
-    
-    if (!connectionStatus.connected) {
-      Alert.alert('Connection Error', 'Not connected to chat server. Please check your internet connection and try again.');
-      console.error('[Chat] Cannot send message: Socket not connected');
       return;
     }
 
     const messageText = text.trim();
+    setInputText('');
 
     // Create optimistic message
     const userMsg: ChatMessage = {
@@ -173,28 +171,43 @@ export function LiveChatSupportScreen() {
     };
 
     setMessages((prev) => [...prev, userMsg]);
-    setInputText('');
 
-    // Send via WebSocket with logging
-    console.log('[Chat] Sending message:', { 
-      roomId, 
-      customerId, 
-      message: messageText.substring(0, 50),
-      connected: connectionStatus.connected 
-    });
-    
-    const sent = sendSocketMessage(messageText, 'TEXT');
-    
-    if (!sent) {
-      console.error('[Chat] ❌ Message failed to send');
-      Alert.alert('Send Failed', 'Message could not be sent. Please check your connection and try again.');
+    // Send via HTTP API
+    try {
+      console.log('[Chat] Sending message via HTTP:', { roomId, message: messageText.substring(0, 50) });
+      
+      const response = await api.saveChatMessage({
+        roomId,
+        senderId: customerId,
+        senderType: 'CUSTOMER',
+        message: messageText,
+        messageType: 'TEXT',
+      });
+      
+      if (!response.success) {
+        throw new Error(response.message || 'Failed to send message');
+      }
+      
+      console.log('[Chat] ✅ Message sent successfully');
+      
+      // Refresh messages to get the saved message with proper ID
+      const messagesResponse = await api.getChatMessages(roomId, 50, 0);
+      if (messagesResponse.success && messagesResponse.data) {
+        const formattedMessages = messagesResponse.data.map((msg: any) => ({
+          ...msg,
+          time: new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        }));
+        setMessages(formattedMessages);
+      }
+      
+    } catch (error: any) {
+      console.error('[Chat] ❌ Message failed to send:', error);
+      Alert.alert('Send Failed', error.message || 'Message could not be sent. Please check your connection and try again.');
       // Remove the optimistic message if send failed
       setMessages((prev) => prev.filter(msg => msg.id !== userMsg.id));
       setInputText(messageText); // Restore the text
       return;
     }
-    
-    console.log('[Chat] ✅ Message sent successfully');
 
     // Scroll to bottom
     setTimeout(() => {
@@ -253,18 +266,10 @@ export function LiveChatSupportScreen() {
         <View style={{ flex: 1 }}>
           <Text style={styles.agentName}>Priya M. • Fabric Specialist</Text>
           <View style={styles.statusRow}>
-            {connectionStatus.connected ? (
-              <>
-                <View style={styles.connectedDot} />
-                <Text style={styles.agentStatus}>
-                  {agentOnline ? 'Active Now • Avg response < 1 min' : 'Away • We\'ll respond soon'}
-                </Text>
-              </>
-            ) : connectionStatus.reconnecting ? (
-              <Text style={styles.reconnectingStatus}>Reconnecting...</Text>
-            ) : (
-              <Text style={styles.disconnectedStatus}>Disconnected</Text>
-            )}
+            <View style={styles.connectedDot} />
+            <Text style={styles.agentStatus}>
+              {agentOnline ? 'Active Now • Messages syncing every 3s' : 'Away • We\'ll respond soon'}
+            </Text>
           </View>
         </View>
 

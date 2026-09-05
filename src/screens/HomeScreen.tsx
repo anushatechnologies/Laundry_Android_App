@@ -596,7 +596,7 @@ export function HomeScreen({
         description: `${orderResponse.planName} - ${orderResponse.includedKg} KG, ${orderResponse.validityDays} Days`,
         image: 'https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/brand/logo.png',
         currency: orderResponse.currency,
-        key: (orderResponse as any).key || (orderResponse as any).keyId || process.env.EXPO_PUBLIC_RAZORPAY_KEY_ID || 'rzp_live_TO6q7NUVnPM6bA',
+        key: orderResponse.key || orderResponse.keyId,
         amount: Math.round(orderResponse.amount * 100),
         order_id: orderResponse.orderId,
         name: 'LaundryFresh Subscription',
@@ -624,7 +624,7 @@ export function HomeScreen({
 
             setPurchaseLoading(false);
 
-            if (verifyResponse && verifyResponse.success) {
+            if (verifyResponse?.payment_status === 'PAID') {
               Alert.alert(
                 'ðŸŽ‰ Subscription Activated!',
                 `Your ${plan.name} has been successfully activated. Enjoy ${plan.kg} of laundry allowance!`,

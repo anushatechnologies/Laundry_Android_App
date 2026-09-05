@@ -3,7 +3,7 @@ import { Alert, Image, Linking, Pressable, ScrollView, StyleSheet, Text, TextInp
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useApp } from '@/context/AppContext';
 import { api } from '@/lib/api';
-import { RazorpayModal } from '@/components/RazorpayModal';
+import { payWithRazorpay } from '@/lib/payments';
 import { getCurrentCustomerLocation } from '@/services/location/locationService';
 import { AppButton, AppInput, Card, Chip, EmptyState, SectionTitle } from '@/ui/components';
 import { COLORS, localDateString, money, shortDate } from '@/ui/theme';
@@ -97,12 +97,7 @@ export function BookScreen({
   const [presetImgErrors, setPresetImgErrors] = useState<Record<string, boolean>>({});
   const [pricingSettings, setPricingSettings] = useState<PricingSettings | null>(catalog?.settings || null);
   const [availableCoupons, setAvailableCoupons] = useState<Coupon[]>([]);
-  const [razorpayModalVisible, setRazorpayModalVisible] = useState(false);
-  const [pendingPaymentOrder, setPendingPaymentOrder] = useState<RazorpayPaymentOrder | null>(null);
-  const [paymentResolver, setPaymentResolver] = useState<{
-    resolve: (res: RazorpayResult) => void;
-    reject: (err: any) => void;
-  } | null>(null);
+
 
   const pickupDates = useMemo(() => Array.from({ length: 7 }, (_, index) => localDateString(index)), []);
   const selectedAddress = addresses.find((a) => a.id === selectedAddressId) || addresses.find((a) => a.isDefault) || addresses[0];
@@ -303,44 +298,8 @@ export function BookScreen({
   const totalSavings = couponDiscount + (isFreeDelivery ? standardDeliveryFee : 0);
 
   const handleLaunchOnlinePayment = (paymentOrder: RazorpayPaymentOrder): Promise<RazorpayResult> => {
-    return new Promise((resolve, reject) => {
-      if (paymentOrder.isMock || paymentOrder.key?.includes('mock') || paymentOrder.orderId?.startsWith('order_sand_')) {
-        resolve({
-          razorpay_order_id: paymentOrder.orderId,
-          razorpay_payment_id: `pay_sand_${Date.now()}`,
-          razorpay_signature: '0'.repeat(64),
-        });
-        return;
-      }
-
-      setPendingPaymentOrder(paymentOrder);
-      setPaymentResolver({ resolve, reject });
-      setRazorpayModalVisible(true);
-    });
-  };
-
-  const handlePaymentSuccess = (result: RazorpayResult) => {
-    setRazorpayModalVisible(false);
-    if (paymentResolver) {
-      paymentResolver.resolve(result);
-      setPaymentResolver(null);
-    }
-  };
-
-  const handlePaymentCancel = () => {
-    setRazorpayModalVisible(false);
-    if (paymentResolver) {
-      paymentResolver.reject(new Error('Payment was cancelled by user.'));
-      setPaymentResolver(null);
-    }
-  };
-
-  const handlePaymentError = (errMsg: string) => {
-    setRazorpayModalVisible(false);
-    if (paymentResolver) {
-      paymentResolver.reject(new Error(errMsg || 'Payment failed.'));
-      setPaymentResolver(null);
-    }
+    if (!session) return Promise.reject(new Error('Please sign in to pay.'));
+    return payWithRazorpay(paymentOrder, session.user);
   };
 
   const continueToDetails = () => {
@@ -1281,16 +1240,7 @@ export function BookScreen({
         )}
       </View>
 
-      {/* RAZORPAY WEBVIEW MODAL */}
-      {pendingPaymentOrder && (
-        <RazorpayModal
-          visible={razorpayModalVisible}
-          paymentOrder={pendingPaymentOrder}
-          onSuccess={handlePaymentSuccess}
-          onCancel={handlePaymentCancel}
-          onError={handlePaymentError}
-        />
-      )}
+
     </View>
   );
 }
