@@ -1111,7 +1111,16 @@ export function HomeScreen({
           </View>
         </View>
 
-        {/* 3. WHY CHOOSE LAUNDRYFRESH VALUE PROPOSITIONS */}
+        {/* 3. ACTIVE OFFERS & PROMOTIONS - Right after Categories */}
+        <PromotionsSection
+          onPressPromotion={(couponCode) => {
+            if (couponCode) {
+              onViewOffers();
+            }
+          }}
+        />
+
+        {/* 4. WHY CHOOSE LAUNDRYFRESH VALUE PROPOSITIONS */}
         <View style={styles.whyUsSection}>
           <Text style={styles.whyUsTitle}>Why Choose LaundryFresh?</Text>
           <View style={styles.whyUsGrid}>
@@ -1161,15 +1170,6 @@ export function HomeScreen({
             </Text>
           </View>
         </View>
-
-        {/* ACTIVE OFFERS & PROMOTIONS - Moved to Bottom */}
-        <PromotionsSection
-          onPressPromotion={(couponCode) => {
-            if (couponCode) {
-              onViewOffers();
-            }
-          }}
-        />
 
       </ScrollView>
 
