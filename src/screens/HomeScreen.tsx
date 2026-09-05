@@ -952,7 +952,7 @@ export function HomeScreen({
           <View style={styles.sectionHeaderRow}>
             <View>
               <Text style={styles.sectionHeading}>Our Services</Text>
-              <Text style={styles.sectionSubheading}>Select a service to view garment rates & care options</Text>
+              <Text style={styles.sectionSubheading}>Professional care. Premium results.</Text>
             </View>
             <Pressable onPress={() => setShowAllServicesModal(true)} style={styles.viewAllBtn}>
               <Text style={styles.viewAllText}>All Services</Text>
@@ -994,13 +994,29 @@ export function HomeScreen({
                   accessibilityRole="button"
                   accessibilityLabel={`View ${svc.title} service`}
                 >
-                  {/* Top TAT Badge */}
-                  <View style={styles.service4TatPill}>
-                    <Text style={styles.service4TatText}>{svc.tat}</Text>
+                  {/* Top TAT Badge with colored background */}
+                  <View style={[styles.service4TatPill, {
+                    backgroundColor: svc.tat.includes('Express') || svc.tat.includes('12h')
+                      ? '#FEF3C7'
+                      : svc.tat.includes('24h')
+                      ? '#DBEAFE'
+                      : svc.tat.includes('48h')
+                      ? '#E0E7FF'
+                      : '#F3F4F6'
+                  }]}>
+                    <Text style={[styles.service4TatText, {
+                      color: svc.tat.includes('Express') || svc.tat.includes('12h')
+                        ? '#D97706'
+                        : svc.tat.includes('24h')
+                        ? '#2563EB'
+                        : svc.tat.includes('48h')
+                        ? '#4F46E5'
+                        : '#6B7280'
+                    }]}>{svc.tat}</Text>
                   </View>
 
-                  {/* Circular Image with Accent Ring */}
-                  <View style={[styles.service4ImgWrap, { borderColor: svc.accent || '#FED7AA' }]}>
+                  {/* Circular Image with White Background */}
+                  <View style={styles.service4ImgWrap}>
                     <Image
                       source={{ uri: hasImgErr ? svc.fallbackUrl : svc.imageUrl }}
                       style={styles.service4Img}
@@ -1010,11 +1026,11 @@ export function HomeScreen({
                   </View>
 
                   {/* Service Title */}
-                  <Text style={styles.service4Title} numberOfLines={1}>
+                  <Text style={styles.service4Title} numberOfLines={2}>
                     {svc.title}
                   </Text>
 
-                  {/* Starting Price */}
+                  {/* Starting Price in Orange */}
                   <Text style={styles.service4PriceText} numberOfLines={1}>
                     {svc.priceText}
                   </Text>
@@ -1029,7 +1045,7 @@ export function HomeScreen({
           <View style={styles.sectionHeaderRow}>
             <View>
               <Text style={styles.sectionHeading}>Browse Categories</Text>
-              <Text style={styles.sectionSubheading}>Expert fabric care organized by garment type</Text>
+              <Text style={styles.sectionSubheading}>All your fabric care needs in one place</Text>
             </View>
           </View>
 
@@ -1062,11 +1078,12 @@ export function HomeScreen({
                       resizeMode="cover"
                       onError={() => setCatImgErrors((prev) => ({ ...prev, [cat.slug]: true }))}
                     />
-                    <View style={styles.homeCatCountBadge}>
+                    {/* Item Count Badge at Bottom */}
+                    <View style={[styles.homeCatCountBadge, { backgroundColor: cat.accent }]}>
                       <Text style={styles.homeCatCountText}>{cat.count}</Text>
                     </View>
                   </View>
-                  <Text style={styles.homeCatTitle} numberOfLines={1}>{cat.label}</Text>
+                  <Text style={styles.homeCatTitle} numberOfLines={2}>{cat.label}</Text>
                 </Pressable>
               );
             })}
@@ -1260,46 +1277,45 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     paddingHorizontal: 12,
-    marginTop: 4,
-    gap: 6,
+    marginTop: 8,
+    gap: 8,
   },
   service4Tile: {
     flex: 1,
     backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    paddingVertical: 8,
-    paddingHorizontal: 2,
+    borderRadius: 16,
+    paddingVertical: 12,
+    paddingHorizontal: 8,
     alignItems: 'center',
     borderWidth: 1,
     borderColor: '#F1F5F9',
     shadowColor: '#0F172A',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 4,
-    elevation: 2,
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
+    elevation: 3,
   },
   service4TatPill: {
-    backgroundColor: '#F8FAFC',
-    borderRadius: 4,
-    paddingHorizontal: 4,
-    paddingVertical: 1.5,
-    marginBottom: 4,
+    borderRadius: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    marginBottom: 8,
   },
   service4TatText: {
-    fontSize: 7.5,
-    fontWeight: '700',
-    color: '#64748B',
+    fontSize: 9,
+    fontWeight: '800',
+    letterSpacing: 0.3,
+    textTransform: 'uppercase',
   },
   service4ImgWrap: {
-    width: 46,
-    height: 46,
-    borderRadius: 23,
+    width: 60,
+    height: 60,
+    borderRadius: 30,
     overflow: 'hidden',
-    backgroundColor: '#FFF7ED',
-    borderWidth: 1.5,
+    backgroundColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 4,
+    marginBottom: 8,
   },
   service4Img: {
     width: '100%',
@@ -1307,16 +1323,17 @@ const styles = StyleSheet.create({
   },
   service4Title: {
     width: '100%',
-    fontSize: 10,
-    fontWeight: '800',
+    fontSize: 11,
+    fontWeight: '700',
     color: '#0F172A',
     textAlign: 'center',
-    marginBottom: 2,
+    marginBottom: 4,
+    lineHeight: 14,
   },
   service4PriceText: {
-    fontSize: 9.5,
-    fontWeight: '900',
-    color: '#FF7A00',
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#FF6418',
     textAlign: 'center',
   },
 
@@ -1331,14 +1348,14 @@ const styles = StyleSheet.create({
   homeCategory4Col: {
     width: '25%',
     alignItems: 'center',
-    marginBottom: 14,
-    paddingHorizontal: 2,
+    marginBottom: 16,
+    paddingHorizontal: 4,
   },
   homeCatCircleWrap: {
-    width: 62,
-    height: 62,
-    borderRadius: 31,
-    borderWidth: 2,
+    width: 68,
+    height: 68,
+    borderRadius: 34,
+    borderWidth: 2.5,
     padding: 2,
     backgroundColor: '#FFFFFF',
     position: 'relative',
@@ -1346,38 +1363,43 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     shadowColor: '#000000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 4,
-    elevation: 3,
+    shadowOpacity: 0.1,
+    shadowRadius: 6,
+    elevation: 4,
+    marginBottom: 6,
   },
   homeCatCircleImg: {
     width: '100%',
     height: '100%',
-    borderRadius: 27,
+    borderRadius: 30,
   },
   homeCatCountBadge: {
     position: 'absolute',
-    bottom: -3,
-    backgroundColor: '#0F172A',
-    borderRadius: 6,
-    paddingHorizontal: 4,
-    paddingVertical: 1,
-    borderWidth: 1,
+    bottom: -4,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 8,
+    borderWidth: 1.5,
     borderColor: '#FFFFFF',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.15,
+    shadowRadius: 2,
+    elevation: 2,
   },
   homeCatCountText: {
-    fontSize: 7.5,
-    fontWeight: '700',
+    fontSize: 8,
+    fontWeight: '800',
     color: '#FFFFFF',
+    letterSpacing: 0.2,
   },
   homeCatTitle: {
-    width: '100%',
-    fontSize: 10,
-    fontWeight: '700',
-    color: '#1E293B',
+    fontSize: 10.5,
+    fontWeight: '600',
+    color: '#0F172A',
     textAlign: 'center',
-    marginTop: 4,
-    lineHeight: 12,
+    marginTop: 2,
+    lineHeight: 13,
   },
 
   greetingHeader: {
