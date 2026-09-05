@@ -627,6 +627,20 @@ const handleInteractiveLocate = useCallback(async () => {
             </View>
           ) : null}
 
+          <Pressable
+            style={({ pressed }) => [styles.searchLink, pressed && styles.buttonPressed]}
+            onPress={() => {
+              setIsSearchOpen((open) => !open);
+              setSearchError(null);
+              setSearchResults([]);
+            }}
+            accessibilityRole="button"
+            accessibilityLabel={isSearchOpen ? 'Close address search' : 'Search address manually'}
+          >
+            <MaterialCommunityIcons name={isSearchOpen ? 'chevron-up' : 'magnify'} size={16} color="#2563EB" />
+            <Text style={styles.searchLinkText}>{isSearchOpen ? 'Close address search' : 'Search address or PIN manually'}</Text>
+          </Pressable>
+
           {isSearchOpen ? (
             <View style={styles.searchPanel}>
               <View style={styles.searchInputRow}>
@@ -689,20 +703,6 @@ const handleInteractiveLocate = useCallback(async () => {
                 {canUseLocation ? <MaterialCommunityIcons name="arrow-right" size={20} color="#FFFFFF" /> : null}
               </View>
             )}
-          </Pressable>
-
-          <Pressable
-            style={({ pressed }) => [styles.searchLink, pressed && styles.buttonPressed]}
-            onPress={() => {
-              setIsSearchOpen((open) => !open);
-              setSearchError(null);
-              setSearchResults([]);
-            }}
-            accessibilityRole="button"
-            accessibilityLabel={isSearchOpen ? 'Close address search' : 'Search address manually'}
-          >
-            <MaterialCommunityIcons name={isSearchOpen ? 'chevron-up' : 'magnify'} size={16} color="#2563EB" />
-            <Text style={styles.searchLinkText}>{isSearchOpen ? 'Close address search' : 'Search address or PIN manually'}</Text>
           </Pressable>
         </View>
       </SafeAreaView>
@@ -803,6 +803,7 @@ const styles = StyleSheet.create({
   serviceabilityWarningText: { color: '#B45309' },
   serviceabilityCheckingText: { color: '#1D4ED8' },
   useLocationBtn: {
+    marginTop: 16,
     minHeight: 52,
     backgroundColor: '#FF6418',
     borderRadius: 16,
