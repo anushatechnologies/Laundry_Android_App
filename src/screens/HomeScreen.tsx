@@ -945,6 +945,27 @@ export function HomeScreen({
               style={styles.trackerButton}
             />
           </Card>
+        ) : orders.length > 0 ? (
+          // Show most recent order if no active order
+          <Card style={styles.tracker}>
+            <View style={styles.trackerTop}>
+              <View>
+                <Text style={styles.trackerLabel}>RECENT ORDER</Text>
+                <Text style={styles.trackerId}>#{orders[0].id}</Text>
+              </View>
+              <StatusPill status={orders[0].currentStatus} />
+            </View>
+            <Text style={styles.trackerDetail}>
+              {shortDate(orders[0].pickupSlot.date)} • {money(orders[0].totalAmount)}
+            </Text>
+            <AppButton
+              title="View Order Details"
+              onPress={() => onOpenOrderDetail ? onOpenOrderDetail(orders[0].id) : onViewOrders()}
+              variant="secondary"
+              compact
+              style={styles.trackerButton}
+            />
+          </Card>
         ) : null}
 
         {/* 1. OUR SERVICES SECTION (ONE ROW OF 4 CARDS) */}
