@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   Alert,
   Image,
   Pressable,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
@@ -28,9 +29,23 @@ export function WishlistScreen({ onBook, onExploreServices }: WishlistScreenProp
     removeFromCart,
     catalog,
     cartSummary,
+    refreshCatalog,
   } = useApp();
 
   const [notification, setNotification] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
+
+  // Pull-to-refresh handler
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await refreshCatalog(); // Refresh catalog to get updated prices
+    } catch (error) {
+      console.error('[WishlistScreen] Refresh error:', error);
+    } finally {
+      setRefreshing(false);
+    }
+  }, [refreshCatalog]);
 
   const showToast = (msg: string) => {
     setNotification(msg);
@@ -176,7 +191,18 @@ export function WishlistScreen({ onBook, onExploreServices }: WishlistScreenProp
         </View>
       )}
 
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
+            colors={['#2563EB', '#F97316']}
+            tintColor="#2563EB"
+          />
+        }
+      >
         {/* Header Bar */}
         <View style={styles.headerRow}>
           <View>

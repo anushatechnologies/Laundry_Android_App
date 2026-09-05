@@ -116,7 +116,9 @@ export function HomeScreen({
           }
         }),
         // Refresh services
-        api.getServices().then(setServiceMasters),
+        api.getServiceMasters().then((masters) => {
+          if (Array.isArray(masters) && masters.length > 0) setServiceMasters(masters);
+        }),
         // Refresh subscription plans
         api.getSubscriptionPlans().then(setLiveSubPlans),
         // Refresh catalog from context

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { ActivityIndicator, Badge, Divider } from 'react-native-paper';
 import { useApp } from '@/context/AppContext';
 import { api } from '@/lib/api';
@@ -11,6 +11,7 @@ export function OffersScreen({ onUseCoupon }: { onUseCoupon: (code: string) => v
   const { cartSummary, orders } = useApp();
   const [coupons, setCoupons] = useState<Coupon[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [processingCode, setProcessingCode] = useState<string | null>(null);
   const [manualCode, setManualCode] = useState('');
   const [message, setMessage] = useState<string | null>(null);
@@ -25,6 +26,20 @@ export function OffersScreen({ onUseCoupon }: { onUseCoupon: (code: string) => v
       setMessage(error instanceof Error ? error.message : 'Offers could not be loaded right now.');
     } finally {
       setLoading(false);
+    }
+  }, []);
+
+  // Pull-to-refresh handler
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      const next = await api.getCoupons();
+      setCoupons(next.filter((coupon) => coupon.isActive));
+      setMessage(null);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Offers could not be loaded right now.');
+    } finally {
+      setRefreshing(false);
     }
   }, []);
 
@@ -58,7 +73,20 @@ export function OffersScreen({ onUseCoupon }: { onUseCoupon: (code: string) => v
   };
 
   return (
-    <ScrollView style={styles.root} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+    <ScrollView
+      style={styles.root}
+      contentContainerStyle={styles.content}
+      showsVerticalScrollIndicator={false}
+      keyboardShouldPersistTaps="handled"
+      refreshControl={
+        <RefreshControl
+          refreshing={refreshing}
+          onRefresh={handleRefresh}
+          colors={['#2563EB', '#F97316']}
+          tintColor="#2563EB"
+        />
+      }
+    >
       <View style={styles.header}>
         <View style={styles.headerCopy}>
           <Text style={styles.title}>Offers for you</Text>

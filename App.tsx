@@ -626,7 +626,7 @@ function AuthenticatedApp() {
   } else if (route === 'SETTINGS') {
     screen = (
       <DetailShell title={detailTitles.SETTINGS} onBack={() => goBack(detailBackRoute.SETTINGS)}>
-        <SettingsScreen />
+        <SettingsScreen onSignIn={() => openLogin('ACCOUNT')} />
       </DetailShell>
     );
   } else if (route === 'RATING') {

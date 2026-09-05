@@ -1,7 +1,8 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import {
   Alert,
   Pressable,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
@@ -101,6 +102,23 @@ export function NotificationsScreen({ onOpenOrder, onOpenOffers }: Notifications
   const insets = useSafeAreaInsets();
   const [filter, setFilter] = useState<NotificationFilter>('ALL');
   const [notifications, setNotifications] = useState<NotificationItem[]>(INITIAL_NOTIFICATIONS);
+  const [refreshing, setRefreshing] = useState(false);
+
+  // Pull-to-refresh handler
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      // Simulate fetching notifications from API
+      // In real app: const data = await api.getNotifications(userId);
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      // For now, just reset to initial notifications
+      setNotifications(INITIAL_NOTIFICATIONS);
+    } catch (error) {
+      console.error('[NotificationsScreen] Refresh error:', error);
+    } finally {
+      setRefreshing(false);
+    }
+  }, []);
 
   const filtered = useMemo(() => {
     return notifications.filter((item) => {
@@ -243,6 +261,14 @@ export function NotificationsScreen({ onOpenOrder, onOpenOffers }: Notifications
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 20 }]}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
+            colors={['#2563EB', '#F97316']}
+            tintColor="#2563EB"
+          />
+        }
       >
         {filtered.length === 0 ? (
           <View style={styles.emptyState}>
