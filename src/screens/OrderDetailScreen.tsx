@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   Image,
   Linking,
+  Modal,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -81,6 +81,7 @@ export function OrderDetailScreen({
   const [tracking, setTracking] = useState<TrackingOrder | null>(null);
   const [loading, setLoading] = useState(false);
   const [rating, setRating] = useState<number | null>(null);
+  const [showInvoiceModal, setShowInvoiceModal] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -132,11 +133,7 @@ export function OrderDetailScreen({
   };
 
   const handleDownloadInvoice = () => {
-    Alert.alert(
-      'Tax Invoice (GST-Compliant) 📄',
-      `Invoice #${order?.id?.toUpperCase() || 'INV-2026'}\nAmount: ${money(order?.totalAmount || 0)}\n\nGSTIN: 36AABCA1234F1Z5\nStatus: Paid & Verified\n\nA PDF receipt has been sent to your registered email address.`,
-      [{ text: 'OK' }]
-    );
+    setShowInvoiceModal(true);
   };
 
   const openWhatsAppSupport = () => {
@@ -349,29 +346,55 @@ export function OrderDetailScreen({
 
         <View style={styles.billLine}>
           <Text style={styles.billLabel}>Garments Subtotal</Text>
-          <Text style={styles.billVal}>{money(order.itemTotal || order.totalAmount)}</Text>
+          <Text style={styles.billVal}>{money(order.itemTotal || 0)}</Text>
         </View>
 
         <View style={styles.billLine}>
           <Text style={styles.billLabel}>Doorstep Pickup & Delivery</Text>
-          <Text style={[styles.billVal, { color: '#16A34A' }]}>FREE</Text>
+          {order.pickupDeliveryFee > 0 ? (
+            <Text style={styles.billVal}>{money(order.pickupDeliveryFee)}</Text>
+          ) : (
+            <Text style={[styles.billVal, { color: '#16A34A', fontWeight: '700' }]}>FREE</Text>
+          )}
         </View>
 
-        {order.discountAmount ? (
+        {order.expressFee > 0 && (
           <View style={styles.billLine}>
-            <Text style={[styles.billLabel, { color: '#16A34A' }]}>Coupon Discount ({order.couponCode})</Text>
-            <Text style={[styles.billVal, { color: '#16A34A' }]}>-₹{order.discountAmount}</Text>
+            <Text style={styles.billLabel}>Express Delivery Fee</Text>
+            <Text style={styles.billVal}>+{money(order.expressFee)}</Text>
           </View>
-        ) : null}
+        )}
+
+        {order.discountAmount > 0 && (
+          <View style={styles.billLine}>
+            <Text style={[styles.billLabel, { color: '#16A34A' }]}>
+              Coupon Discount {order.couponCode ? `(${order.couponCode})` : ''}
+            </Text>
+            <Text style={[styles.billVal, { color: '#16A34A', fontWeight: '700' }]}>
+              -{money(order.discountAmount)}
+            </Text>
+          </View>
+        )}
+
+        <View style={styles.billLine}>
+          <Text style={styles.billLabel}>
+            {order.taxAmount > 0 ? 'GST (5%)' : 'GST (Waived)'}
+          </Text>
+          <Text style={[styles.billVal, order.taxAmount === 0 && { color: '#16A34A' }]}>
+            {order.taxAmount > 0 ? money(order.taxAmount) : '₹0'}
+          </Text>
+        </View>
 
         <View style={styles.divider} />
 
         <View style={styles.billFinalRow}>
           <View>
             <Text style={styles.billFinalLabel}>Total Amount (Paid)</Text>
-            <Text style={styles.billPaymentMethod}>Paid via {order.paymentMethod === 'COD' ? 'Cash on Delivery' : 'Online Razorpay'}</Text>
+            <Text style={styles.billPaymentMethod}>
+              Paid via {order.paymentMethod === 'COD' ? 'Cash on Delivery' : 'Online Razorpay'}
+            </Text>
           </View>
-          <Text style={styles.billFinalVal}>{money((order as any).pricing?.finalTotal || order.totalAmount)}</Text>
+          <Text style={styles.billFinalVal}>{money(order.totalAmount)}</Text>
         </View>
 
         {/* 1-Tap Invoice Download */}
@@ -413,6 +436,89 @@ export function OrderDetailScreen({
         <MaterialCommunityIcons name="repeat" size={18} color="#FFFFFF" />
         <Text style={styles.reorderBtnText}>Reorder this Bag (1-Tap)</Text>
       </Pressable>
+
+      {/* Invoice Modal */}
+      <Modal
+        visible={showInvoiceModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowInvoiceModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.invoiceModal}>
+            {/* Header */}
+            <View style={styles.invoiceHeader}>
+              <MaterialCommunityIcons name="receipt" size={48} color="#2563EB" />
+              <Text style={styles.invoiceModalTitle}>Tax Invoice (GST-Compliant)</Text>
+            </View>
+
+            {/* Invoice Details */}
+            <View style={styles.invoiceDetails}>
+              <View style={styles.invoiceRow}>
+                <Text style={styles.invoiceLabel}>Invoice Number:</Text>
+                <Text style={styles.invoiceValue}>#{order?.id?.toUpperCase() || 'INV-2026'}</Text>
+              </View>
+
+              <View style={styles.invoiceRow}>
+                <Text style={styles.invoiceLabel}>Amount:</Text>
+                <Text style={[styles.invoiceValue, styles.invoiceAmount]}>{money(order?.totalAmount || 0)}</Text>
+              </View>
+
+              <View style={styles.invoiceRow}>
+                <Text style={styles.invoiceLabel}>GSTIN:</Text>
+                <Text style={styles.invoiceValue}>36AABCA1234F1Z5</Text>
+              </View>
+
+              <View style={styles.invoiceRow}>
+                <Text style={styles.invoiceLabel}>Status:</Text>
+                <View style={styles.invoiceStatusBadge}>
+                  <MaterialCommunityIcons name="check-circle" size={14} color="#10B981" />
+                  <Text style={styles.invoiceStatusText}>Paid & Verified</Text>
+                </View>
+              </View>
+
+              <View style={styles.invoiceNotice}>
+                <MaterialCommunityIcons name="email-outline" size={16} color="#64748B" />
+                <Text style={styles.invoiceNoticeText}>
+                  A PDF receipt has been sent to your registered email address.
+                </Text>
+              </View>
+            </View>
+
+            {/* Actions */}
+            <View style={styles.invoiceActions}>
+              <Pressable
+                style={({ pressed }) => [
+                  styles.invoiceActionBtn,
+                  styles.invoiceDownloadActionBtn,
+                  pressed && styles.invoiceActionBtnPressed,
+                ]}
+                onPress={() => {
+                  setShowInvoiceModal(false);
+                  // TODO: Implement actual PDF download
+                  Linking.openURL(`https://laundry.anushatechnologies.com/api/invoices/${order?.id}/pdf`).catch(() => {
+                    // Fallback: just close modal
+                  });
+                }}
+              >
+                <MaterialCommunityIcons name="download" size={18} color="#FFFFFF" />
+                <Text style={styles.invoiceActionBtnText}>Download PDF</Text>
+              </Pressable>
+
+              <Pressable
+                style={({ pressed }) => [
+                  styles.invoiceActionBtn,
+                  styles.invoiceCloseBtn,
+                  pressed && styles.invoiceActionBtnPressed,
+                ]}
+                onPress={() => setShowInvoiceModal(false)}
+              >
+                <Text style={styles.invoiceCloseBtnText}>Close</Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </ScrollView>
   );
 }
@@ -839,5 +945,122 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '900',
     color: '#FFFFFF',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  invoiceModal: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    width: '100%',
+    maxWidth: 400,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.3,
+    shadowRadius: 16,
+    elevation: 12,
+  },
+  invoiceHeader: {
+    alignItems: 'center',
+    paddingTop: 24,
+    paddingBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E2E8F0',
+  },
+  invoiceModalTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#0F172A',
+    marginTop: 8,
+  },
+  invoiceDetails: {
+    padding: 20,
+  },
+  invoiceRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  invoiceLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#64748B',
+  },
+  invoiceValue: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  invoiceAmount: {
+    fontSize: 16,
+    color: '#F97316',
+  },
+  invoiceStatusBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#ECFDF5',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  invoiceStatusText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#10B981',
+  },
+  invoiceNotice: {
+    flexDirection: 'row',
+    gap: 8,
+    backgroundColor: '#F8FAFC',
+    padding: 12,
+    borderRadius: 12,
+    marginTop: 16,
+  },
+  invoiceNoticeText: {
+    flex: 1,
+    fontSize: 12,
+    color: '#64748B',
+    lineHeight: 18,
+  },
+  invoiceActions: {
+    flexDirection: 'row',
+    gap: 12,
+    padding: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#E2E8F0',
+  },
+  invoiceActionBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    borderRadius: 12,
+    gap: 6,
+  },
+  invoiceDownloadActionBtn: {
+    backgroundColor: '#2563EB',
+  },
+  invoiceCloseBtn: {
+    backgroundColor: '#F1F5F9',
+  },
+  invoiceActionBtnPressed: {
+    opacity: 0.7,
+  },
+  invoiceActionBtnText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  invoiceCloseBtnText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#64748B',
   },
 });
