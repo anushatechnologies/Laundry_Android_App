@@ -842,10 +842,10 @@ function AuthenticatedApp() {
               badge={cartSummary.itemCount}
               actions={[
                 {
-                  icon: 'heart-outline',
-                  label: 'Wishlist',
-                  onPress: () => navigateTo('WISHLIST'),
-                  color: '#EC4899',
+                  icon: 'shopping',
+                  label: 'View Cart',
+                  onPress: () => navigateTo('CART'),
+                  color: '#FF7A00',
                 },
                 {
                   icon: 'tag-multiple',
@@ -854,10 +854,10 @@ function AuthenticatedApp() {
                   color: '#8B5CF6',
                 },
                 {
-                  icon: 'shopping',
-                  label: 'View Cart',
-                  onPress: () => navigateTo('CART'),
-                  color: '#FF7A00',
+                  icon: 'heart-outline',
+                  label: 'Wishlist',
+                  onPress: () => navigateTo('WISHLIST'),
+                  color: '#EC4899',
                 },
               ]}
             />

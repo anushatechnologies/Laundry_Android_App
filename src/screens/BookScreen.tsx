@@ -3376,6 +3376,10 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   stickyFooter: {
+    position: 'absolute',
+    bottom: 80,  // Above the tab bar (tab bar is ~70-80px high)
+    left: 0,
+    right: 0,
     backgroundColor: '#FFFFFF',
     borderTopWidth: 1,
     borderColor: '#F3E8DF',

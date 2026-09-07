@@ -890,7 +890,7 @@ export function HomeScreen({
   };
 
   const handleServicePress = (svc: typeof allServicesList[0]) => {
-    if (svc.slug === 'bulk-laundry' || (svc.pricingType === 'PER_KG' && (svc.serviceCode === 'WASH_FOLD' || svc.serviceCode === 'EXPRESS'))) {
+    if (svc.slug === 'bulk-laundry' || svc.serviceCode === 'BULK_LAUNDRY') {
       if (onOpenBulkLaundry) {
         onOpenBulkLaundry();
         return;

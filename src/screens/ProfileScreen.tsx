@@ -58,13 +58,25 @@ export function ProfileScreen({
   const [editEmail, setEditEmail] = useState(session?.user.email || '');
   const [savingProfile, setSavingProfile] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [walletBalance, setWalletBalance] = useState<number>(0);
+
+  useEffect(() => {
+    if (session?.user?.id) {
+      api.getWallet()
+        .then((w) => setWalletBalance(w.wallet?.balance ?? 0))
+        .catch(() => undefined);
+    }
+  }, [session?.user?.id]);
 
   // Pull-to-refresh handler
   const handleRefresh = useCallback(async () => {
     if (!session?.user.id) return;
     setRefreshing(true);
     try {
-      await refreshAccountData();
+      await Promise.all([
+        refreshAccountData(),
+        api.getWallet().then((w) => setWalletBalance(w.wallet?.balance ?? 0)).catch(() => undefined),
+      ]);
     } catch (error) {
       console.error('[ProfileScreen] Refresh error:', error);
     } finally {
@@ -234,14 +246,25 @@ export function ProfileScreen({
           onPress={session ? onViewOrders : onSignIn}
         >
           <Text style={styles.statNumber}>{session ? orders.length : 0}</Text>
-          <Text style={styles.statLabel}>Orders Placed</Text>
+          <Text style={styles.statLabel} numberOfLines={1}>Orders Placed</Text>
         </Pressable>
+
+        <Pressable
+          style={[styles.statCard, styles.statCardWallet]}
+          onPress={session ? (onViewWallet || onViewOrders) : onSignIn}
+        >
+          <Text style={[styles.statNumber, { color: '#16A34A' }]}>
+            ₹{session ? walletBalance.toFixed(0) : 0}
+          </Text>
+          <Text style={[styles.statLabel, { color: '#15803D' }]} numberOfLines={1}>Customer Wallet</Text>
+        </Pressable>
+
         <Pressable
           style={styles.statCard}
           onPress={session ? onViewAddresses : onSignIn}
         >
           <Text style={styles.statNumber}>{session ? addresses.length : 0}</Text>
-          <Text style={styles.statLabel}>Saved Addresses</Text>
+          <Text style={styles.statLabel} numberOfLines={1}>Saved Addresses</Text>
         </Pressable>
       </View>
 
@@ -1319,7 +1342,7 @@ const styles = StyleSheet.create({
   },
   content: {
     paddingHorizontal: 16,
-    paddingTop: 0,  // No top padding - header provides spacing
+    paddingTop: 12,  // Small top spacing so content doesn't start at edge
     paddingBottom: 40,
   },
   profileHeaderCard: {
@@ -1457,14 +1480,15 @@ const styles = StyleSheet.create({
   },
   statRow: {
     flexDirection: 'row',
-    gap: 12,
+    gap: 10,
     marginBottom: 16,
   },
   statCard: {
     flex: 1,
     backgroundColor: '#FFFFFF',
-    borderRadius: 20, // Increased for more rounded corners
-    padding: 14,
+    borderRadius: 18,
+    paddingVertical: 12,
+    paddingHorizontal: 6,
     borderWidth: 1,
     borderColor: '#F3E8DF',
     alignItems: 'center',
@@ -1474,16 +1498,21 @@ const styles = StyleSheet.create({
     shadowRadius: 5,
     elevation: 2,
   },
+  statCardWallet: {
+    backgroundColor: '#F0FDF4',
+    borderColor: '#BBF7D0',
+  },
   statNumber: {
-    fontSize: 22,
+    fontSize: 20,
     fontWeight: '900',
     color: '#1C0B18',
   },
   statLabel: {
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '700',
     color: '#8A7A84',
     marginTop: 2,
+    textAlign: 'center',
   },
   menuCard: {
     backgroundColor: '#FFFFFF',
