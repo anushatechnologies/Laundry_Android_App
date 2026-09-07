@@ -541,8 +541,12 @@ export function HomeScreen({
     return [
       {
         id: sWashFold?.id || 'srv-m-wash-fold',
+        serviceId: sWashFold?.id || 'srv-m-wash-fold',
         title: 'Wash & Fold',
+        shortTitle: 'Wash & Fold',
         tat: '24h TAT',
+        tatBg: '#EFF6FF',
+        tatColor: '#0891B2',
         badge: 'Daily Fresh',
         accent: '#0891B2',
         imageUrl: sWashFold?.imageUrl || 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/services/service_wash_fold.jpg',
@@ -556,8 +560,12 @@ export function HomeScreen({
       },
       {
         id: sWashIron?.id || 'srv-m-wash-iron',
+        serviceId: sWashIron?.id || 'srv-m-wash-iron',
         title: 'Wash & Steam Iron',
+        shortTitle: 'Wash & Iron',
         tat: '24h TAT',
+        tatBg: '#F5F3FF',
+        tatColor: '#7C3AED',
         badge: 'Crease-Free',
         accent: '#7C3AED',
         imageUrl: sWashIron?.imageUrl || 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/services/service_wash_iron.jpg',
@@ -571,8 +579,12 @@ export function HomeScreen({
       },
       {
         id: sPress?.id || 'srv-m-steam-iron',
+        serviceId: sPress?.id || 'srv-m-steam-iron',
         title: 'Steam Press',
+        shortTitle: 'Steam Press',
         tat: '12h Express',
+        tatBg: '#FEF3C7',
+        tatColor: '#D97706',
         badge: 'Zero Wrinkles',
         accent: '#D97706',
         imageUrl: sPress?.imageUrl || 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/services/service_steam_press.jpg',
@@ -586,8 +598,12 @@ export function HomeScreen({
       },
       {
         id: sDryClean?.id || 'srv-m-dry-clean',
+        serviceId: sDryClean?.id || 'srv-m-dry-clean',
         title: 'Dry Cleaning',
+        shortTitle: 'Dry Clean',
         tat: '48h TAT',
+        tatBg: '#EFF6FF',
+        tatColor: '#2563EB',
         badge: 'Ozone Sanitized',
         accent: '#2563EB',
         imageUrl: sDryClean?.imageUrl || 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/services/service_dry_cleaning.jpg',
@@ -601,8 +617,12 @@ export function HomeScreen({
       },
       {
         id: sSpa?.id || 'srv-m-spa',
+        serviceId: sSpa?.id || 'srv-m-spa',
         title: 'Shoe & Sneaker Spa',
+        shortTitle: 'Shoe Spa',
         tat: '48h TAT',
+        tatBg: '#F0FDF4',
+        tatColor: '#059669',
         badge: 'Deep Restored',
         accent: '#059669',
         imageUrl: sSpa?.imageUrl || 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/services/service_shoe_clean.jpg',
@@ -616,12 +636,16 @@ export function HomeScreen({
       },
       {
         id: sCharak?.id || 'srv-m-charak',
+        serviceId: sCharak?.id || 'srv-m-charak',
         title: 'Saree Rolling & Charak Polish',
+        shortTitle: 'Saree Charak',
         tat: '48h TAT',
+        tatBg: '#FAF5FF',
+        tatColor: '#9333EA',
         badge: 'Zero Bleed Safe',
         accent: '#9333EA',
-        imageUrl: sCharak?.imageUrl || 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/categories/wedding-wear.jpg',
-        fallbackUrl: 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/categories/wedding-wear.jpg',
+        imageUrl: sCharak?.imageUrl || 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/categories/cat-wedding-silk.jpg',
+        fallbackUrl: 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/categories/cat-wedding-silk.jpg',
         priceText: sCharak ? formatPricing(sCharak) : 'From ₹149',
         pricingType: 'PER_ITEM',
         serviceCode: 'SAREE_POLISH',
@@ -631,8 +655,12 @@ export function HomeScreen({
       },
       {
         id: sStarch?.id || 'srv-m-starch',
+        serviceId: sStarch?.id || 'srv-m-starch',
         title: 'Starch & Crisp Finish',
+        shortTitle: 'Starch & Crisp',
         tat: '24h TAT',
+        tatBg: '#ECFEFF',
+        tatColor: '#06B6D4',
         badge: 'Crisp Finish',
         accent: '#06B6D4',
         imageUrl: sStarch?.imageUrl || 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/garments/cloth-shirt.jpg',
@@ -646,8 +674,12 @@ export function HomeScreen({
       },
       {
         id: sExpress?.id || 'srv-m-express',
+        serviceId: sExpress?.id || 'srv-m-express',
         title: 'Express 24h Emergency',
+        shortTitle: 'Express 24h',
         tat: '12-24h Rapid',
+        tatBg: '#FFF7ED',
+        tatColor: '#EA580C',
         badge: 'Emergency Care',
         accent: '#EA580C',
         imageUrl: sExpress?.imageUrl || 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/services/delivery_van_driver.jpg',
@@ -857,6 +889,25 @@ export function HomeScreen({
     }
   };
 
+  const handleServicePress = (svc: typeof allServicesList[0]) => {
+    if (svc.slug === 'bulk-laundry' || (svc.pricingType === 'PER_KG' && (svc.serviceCode === 'WASH_FOLD' || svc.serviceCode === 'EXPRESS'))) {
+      if (onOpenBulkLaundry) {
+        onOpenBulkLaundry();
+        return;
+      }
+    }
+    if (onSelectService) {
+      const category = svc.serviceCode === 'SHOE_SPA'
+        ? { tag: 'FOOTWEAR', title: 'Footwear & Shoes' }
+        : svc.serviceCode === 'SAREE_POLISH'
+        ? { tag: 'WOMENS', title: "Women's Wear" }
+        : { tag: 'ALL', title: 'All Garments' };
+      onSelectService(svc.serviceCode, svc.title, category.tag, category.title);
+    } else {
+      onViewServices();
+    }
+  };
+
   return (
     <View style={styles.outerWrap}>
       {/* TOP NAVIGATION BAR */}
@@ -1062,7 +1113,99 @@ export function HomeScreen({
           </View>
         </View>
 
-        {/* 2.5 ALL SERVICES SECTION - REMOVED per user request */}
+        {/* 2.5 ALL SERVICES & CARE (TWO ROWS, 4 SERVICES PER ROW = 8 SERVICES) */}
+        <View style={styles.servicesSection}>
+          <View style={styles.sectionHeaderRow}>
+            <View>
+              <Text style={styles.sectionHeading}>All Services & Care</Text>
+              <Text style={styles.sectionSubheading}>8 specialized treatments for every fabric</Text>
+            </View>
+            <Pressable
+              onPress={() => setShowAllServicesModal(true)}
+              style={styles.viewAllBtn}
+              hitSlop={8}
+              accessibilityRole="button"
+              accessibilityLabel="View all service details"
+            >
+              <Text style={styles.viewAllText}>View Details</Text>
+              <MaterialCommunityIcons name="chevron-right" size={16} color="#2563EB" />
+            </Pressable>
+          </View>
+
+          {/* Row 1: First 4 Services */}
+          <View style={styles.services4Row}>
+            {allServicesList.slice(0, 4).map((svc) => (
+              <Pressable
+                key={svc.id}
+                style={({ pressed }) => [
+                  styles.service4Tile,
+                  pressed && { opacity: 0.85, transform: [{ scale: 0.96 }] },
+                ]}
+                onPress={() => handleServicePress(svc)}
+                accessibilityRole="button"
+                accessibilityLabel={svc.title}
+              >
+                <View style={[styles.service4TatPill, { backgroundColor: svc.tatBg || '#EFF6FF' }]}>
+                  <Text style={[styles.service4TatText, { color: svc.tatColor || svc.accent || '#2563EB' }]}>
+                    {svc.tat}
+                  </Text>
+                </View>
+                <View style={[styles.service4ImgWrap, { borderColor: `${svc.accent}35`, borderWidth: 1.5 }]}>
+                  <Image
+                    source={{ uri: serviceImgErrors[svc.id] ? svc.fallbackUrl : svc.imageUrl }}
+                    style={styles.service4Img}
+                    resizeMode="cover"
+                    onError={() => setServiceImgErrors((prev) => ({ ...prev, [svc.id]: true }))}
+                  />
+                </View>
+                <Text style={styles.service4Title} numberOfLines={1}>
+                  {svc.shortTitle || svc.title}
+                </Text>
+                <Text style={[styles.service4PriceText, { color: svc.accent || '#EA580C' }]}>
+                  {svc.priceText}
+                </Text>
+                <View style={[styles.service4BottomLine, { backgroundColor: svc.accent || '#2563EB' }]} />
+              </Pressable>
+            ))}
+          </View>
+
+          {/* Row 2: Next 4 Services */}
+          <View style={[styles.services4Row, { marginTop: 10 }]}>
+            {allServicesList.slice(4, 8).map((svc) => (
+              <Pressable
+                key={svc.id}
+                style={({ pressed }) => [
+                  styles.service4Tile,
+                  pressed && { opacity: 0.85, transform: [{ scale: 0.96 }] },
+                ]}
+                onPress={() => handleServicePress(svc)}
+                accessibilityRole="button"
+                accessibilityLabel={svc.title}
+              >
+                <View style={[styles.service4TatPill, { backgroundColor: svc.tatBg || '#EFF6FF' }]}>
+                  <Text style={[styles.service4TatText, { color: svc.tatColor || svc.accent || '#2563EB' }]}>
+                    {svc.tat}
+                  </Text>
+                </View>
+                <View style={[styles.service4ImgWrap, { borderColor: `${svc.accent}35`, borderWidth: 1.5 }]}>
+                  <Image
+                    source={{ uri: serviceImgErrors[svc.id] ? svc.fallbackUrl : svc.imageUrl }}
+                    style={styles.service4Img}
+                    resizeMode="cover"
+                    onError={() => setServiceImgErrors((prev) => ({ ...prev, [svc.id]: true }))}
+                  />
+                </View>
+                <Text style={styles.service4Title} numberOfLines={1}>
+                  {svc.shortTitle || svc.title}
+                </Text>
+                <Text style={[styles.service4PriceText, { color: svc.accent || '#EA580C' }]}>
+                  {svc.priceText}
+                </Text>
+                <View style={[styles.service4BottomLine, { backgroundColor: svc.accent || '#2563EB' }]} />
+              </Pressable>
+            ))}
+          </View>
+        </View>
 
         {/* 3. ACTIVE OFFERS & PROMOTIONS - Right after Services */}
         <PromotionsSection
