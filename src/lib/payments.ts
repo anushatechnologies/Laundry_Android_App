@@ -27,3 +27,27 @@ export async function payWithRazorpay(payment: RazorpayPaymentOrder, customer: C
     theme: { color: '#5B214F' },
   });
 }
+
+export async function payRazorpayCustom(options: {
+  key: string;
+  orderId: string;
+  amount: number;
+  currency?: string;
+  description: string;
+  prefill?: {
+    name?: string;
+    contact?: string;
+    email?: string;
+  };
+}): Promise<RazorpayResult> {
+  return RazorpayCheckout.open({
+    key: options.key,
+    amount: options.amount,
+    currency: options.currency || 'INR',
+    name: 'LaundryFresh',
+    description: options.description,
+    order_id: options.orderId,
+    prefill: options.prefill || {},
+    theme: { color: '#F97316' },
+  });
+}

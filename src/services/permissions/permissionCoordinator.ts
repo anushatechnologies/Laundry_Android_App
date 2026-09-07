@@ -238,19 +238,13 @@ export async function getQuickGpsCoordinates(): Promise<{ latitude: number; long
  * 4. Fetch GPS coordinates if granted
  */
 export async function runFirstLaunchPermissions(): Promise<StartupPermissionResult> {
-  // 1. Notification Permission check & request
+  // 1. Notification Permission check & request (Android 13+ / iOS)
   const notificationsGranted = await requestStartupNotificationPermission();
-
-  // 150ms buffer so OS dialog window animation completes
-  await new Promise((resolve) => setTimeout(resolve, 150));
-
-  // 2. Location Permission check & request
-  const locationResult = await requestStartupLocationPermission();
 
   return {
     notificationsGranted,
-    locationGranted: locationResult.granted,
-    locationBlocked: locationResult.blocked,
-    gpsCoords: locationResult.coords,
+    locationGranted: false,
+    locationBlocked: false,
+    gpsCoords: null,
   };
 }

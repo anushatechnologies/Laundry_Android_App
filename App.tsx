@@ -1,3 +1,4 @@
+import { ExpandableFAB } from '@/components/ExpandableFAB';
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Animated, BackHandler, Easing, Image, PanResponder, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
@@ -19,6 +20,7 @@ import { SearchScreen } from '@/screens/SearchScreen';
 import { NotificationsScreen } from '@/screens/NotificationsScreen';
 import { HelpScreen } from '@/screens/HelpScreen';
 import { ReferralScreen } from '@/screens/ReferralScreen';
+import { WalletScreen } from '@/screens/WalletScreen';
 import { SettingsScreen } from '@/screens/SettingsScreen';
 import { RatingScreen } from '@/screens/RatingScreen';
 import { LiveChatSupportScreen } from '@/screens/LiveChatSupportScreen';
@@ -30,7 +32,9 @@ import { SubscriptionsScreen } from '@/screens/SubscriptionsScreen';
 import { WelcomeScreen } from '@/screens/WelcomeScreen';
 import { runFirstLaunchPermissions } from '@/services/permissions/permissionCoordinator';
 import { WishlistScreen } from '@/screens/WishlistScreen';
+import { AppErrorBoundary } from '@/components/AppErrorBoundary';
 import { useCustomerLocation } from '@/services/location/useCustomerLocation';
+import { LocationSelectorModal } from '@/components/location/LocationSelectorModal';
 import type { CustomerLocation } from '@/services/location/types';
 import { APP_THEME, COLORS } from '@/ui/theme';
 import './global.css';
@@ -82,7 +86,7 @@ const detailBackRoute: Record<DetailRoute, MainTab> = {
   CATEGORY_CATALOG: 'HOME',
   BULK_LAUNDRY: 'HOME',
   BOOK: 'CART',
-  WISHLIST: 'HOME',
+  WISHLIST: 'PROFILE',
   OFFERS: 'HOME',
   PRICING: 'HOME',
   ADDRESSES: 'PROFILE',
@@ -299,36 +303,17 @@ function AuthenticatedApp() {
   const { route, history } = navigation;
   // First launch opens the real map flow directly; Back still reveals the brand landing page.
   const [onboardingStage, setOnboardingStage] = useState<OnboardingStage>('LOCATION');
+  const [showLocationModal, setShowLocationModal] = useState(false);
   const {
     state: locationState,
     hydrated: hasLoadedUserLocation,
     saveDeliveryLocation,
     refreshCurrentLocation,
+    switchToGpsLocation,
   } = useCustomerLocation({
     ownerId: session?.user.id ?? null,
-    refreshOnForeground: hasCompletedOnboarding,
+    refreshOnForeground: true,
   });
-  
-  // Auto-detect location AFTER onboarding completes, only once
-  const hasTriedAutoLocation = useRef(false);
-  useEffect(() => {
-    if (
-      hasCompletedOnboarding && 
-      hasLoadedUserLocation && 
-      !locationState.deliveryLocation && 
-      !hasTriedAutoLocation.current &&
-      ready
-    ) {
-      hasTriedAutoLocation.current = true;
-      // Delay slightly to avoid blocking UI
-      const timer = setTimeout(() => {
-        refreshCurrentLocation('if-undetermined').catch(() => {
-          // Silent fail - user can set manually
-        });
-      }, 500);
-      return () => clearTimeout(timer);
-    }
-  }, [hasCompletedOnboarding, hasLoadedUserLocation, locationState.deliveryLocation, ready]);
   const [couponCode, setCouponCode] = useState('');
   const [selectedCategoryInfo, setSelectedCategoryInfo] = useState<{
     tag: string;
@@ -523,29 +508,26 @@ function AuthenticatedApp() {
 
   if (!ready || !hasLoadedUserLocation || !permissionsState.completed) return <LoadingScreen />;
 
+  // Skip location picker - auto-location will be implemented on app loading later
   if (!hasCompletedOnboarding) {
-    if (onboardingStage === 'LANDING') return <WelcomeScreen onContinue={openOnboardingLocationPicker} />;
+    if (onboardingStage === 'LANDING') {
+      return (
+        <WelcomeScreen
+          onContinue={async () => {
+            // Complete onboarding directly without location picker
+            await completeOnboarding();
+            resetRoute('HOME');
+          }}
+        />
+      );
+    }
 
-    return (
-      <MapLocationPickerScreen
-        initialLocation={locationState.deliveryLocation}
-        initialGpsCoords={permissionsState.gpsCoords}
-        initialPermissionStatus={
-          permissionsState.locationGranted
-            ? 'granted'
-            : permissionsState.locationBlocked
-              ? 'blocked'
-              : 'denied'
-        }
-        autoPermissionPrompt="if-undetermined"
-        onLocationConfirmed={async (loc) => {
-          await applyUserLocation(loc);
-          await completeOnboarding();
-          resetRoute('HOME');
-        }}
-        onBack={() => setOnboardingStage('LANDING')}
-      />
-    );
+    // Fallback: if somehow still in location stage, complete onboarding
+    (async () => {
+      await completeOnboarding();
+      resetRoute('HOME');
+    })();
+    return <LoadingScreen />;
   }
 
   // After onboarding: if user chose Sign In from WelcomeScreen route them to auth
@@ -566,7 +548,7 @@ function AuthenticatedApp() {
         onSignIn={() => openLogin('ACCOUNT')}
         userLocation={locationState.deliveryLocation}
         locationStatus={locationState.loading && !locationState.deliveryLocation ? 'detecting' : locationState.error && !locationState.deliveryLocation ? 'unavailable' : 'ready'}
-        onChangeLocation={() => navigateTo('LOCATION')}
+        onChangeLocation={() => setShowLocationModal(true)}
         onOpenWishlist={() => navigateTo('WISHLIST')}
         onOpenSearch={() => navigateTo('SEARCH')}
         onOpenNotifications={() => navigateTo('NOTIFICATIONS')}
@@ -624,7 +606,7 @@ function AuthenticatedApp() {
     screen = (
       <MapLocationPickerScreen
         initialLocation={locationState.deliveryLocation}
-        autoPermissionPrompt="if-undetermined"
+        customerId={session?.user.id ?? null}
         onLocationConfirmed={async (loc) => {
           await applyUserLocation(loc);
           goBack('HOME');
@@ -638,6 +620,7 @@ function AuthenticatedApp() {
     screen = (
       <BookScreen
         initialCouponCode={couponCode}
+        onClearInitialCoupon={() => setCouponCode('')}
         deliveryLocation={locationState.deliveryLocation}
         onViewOrders={() => navigateTo('ORDERS')}
         onRequireSignIn={startCheckout}
@@ -679,6 +662,7 @@ function AuthenticatedApp() {
       <DetailShell title={detailTitles.BOOK} onBack={() => goBack(detailBackRoute.BOOK)}>
         <BookScreen
           initialCouponCode={couponCode}
+          onClearInitialCoupon={() => setCouponCode('')}
           onViewOrders={() => navigateTo('ORDERS')}
           onRequireSignIn={startCheckout}
           onBrowseServices={() => navigateTo('SERVICES')}
@@ -734,7 +718,22 @@ function AuthenticatedApp() {
   } else if (route === 'REFERRAL') {
     screen = (
       <DetailShell title={detailTitles.REFERRAL} onBack={() => goBack(detailBackRoute.REFERRAL)}>
-        <ReferralScreen onUseReward={startBooking} onSignIn={() => openLogin('ACCOUNT')} />
+        <ReferralScreen
+          onUseReward={startBooking}
+          onSignIn={() => openLogin('ACCOUNT')}
+          onNavigateWallet={() => navigateTo('WALLET')}
+          onBack={() => goBack(detailBackRoute.REFERRAL)}
+        />
+      </DetailShell>
+    );
+  } else if (route === 'WALLET') {
+    screen = (
+      <DetailShell title={detailTitles.WALLET} onBack={() => goBack(detailBackRoute.WALLET)}>
+        <WalletScreen
+          onBack={() => goBack(detailBackRoute.WALLET)}
+          onNavigateReferral={() => navigateTo('REFERRAL')}
+          onSignIn={() => openLogin('ACCOUNT')}
+        />
       </DetailShell>
     );
   } else if (route === 'SETTINGS') {
@@ -770,12 +769,74 @@ function AuthenticatedApp() {
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
       <View style={styles.screen} {...iosBackSwipe.panHandlers}>
-        {screen}
+        <AppErrorBoundary fallbackRoute={() => resetRoute('HOME')}>
+          {screen}
+        </AppErrorBoundary>
       </View>
       {!showingDetail ? (
         <View style={styles.customTabBarContainer}>
           <View style={styles.customTabBar}>
-            {tabs.map((tab) => {
+            {tabs.slice(0, 2).map((tab) => {
+              const isActive = route === tab.key;
+              const hasCartBadge = tab.key === 'CART' && cartSummary.itemCount > 0;
+              const hasOrdersBadge = tab.key === 'ORDERS' && orders.some((o) => !['COMPLETED', 'DELIVERED', 'CANCELLED'].includes(o.currentStatus));
+
+              return (
+                <Pressable
+                  key={tab.key}
+                  style={[styles.tabItem, isActive && styles.tabItemActive]}
+                  onPress={() => {
+                    navigateTo(tab.key);
+                  }}
+                >
+                  <View style={styles.tabIconWrap}>
+                    <MaterialCommunityIcons
+                      name={(isActive ? tab.focusedIcon : tab.unfocusedIcon) as any}
+                      size={22}
+                      color={isActive ? '#FF7A00' : '#94A3B8'}
+                    />
+                    {hasCartBadge && (
+                      <View style={styles.tabBadge}>
+                        <Text style={styles.tabBadgeText}>{cartSummary.itemCount}</Text>
+                      </View>
+                    )}
+                    {hasOrdersBadge && <View style={styles.tabDotBadge} />}
+                  </View>
+                  <Text style={[styles.tabLabel, isActive && styles.tabLabelActive]}>
+                    {tab.title}
+                  </Text>
+                </Pressable>
+              );
+            })}
+            
+            {/* CENTER EXPANDABLE FAB */}
+            <ExpandableFAB
+              mainIcon="shopping"
+              mainAction={() => navigateTo('CART')}
+              badge={cartSummary.itemCount}
+              actions={[
+                {
+                  icon: 'heart-outline',
+                  label: 'Wishlist',
+                  onPress: () => navigateTo('WISHLIST'),
+                  color: '#EC4899',
+                },
+                {
+                  icon: 'tag-multiple',
+                  label: 'Offers',
+                  onPress: () => navigateTo('OFFERS'),
+                  color: '#8B5CF6',
+                },
+                {
+                  icon: 'shopping',
+                  label: 'View Cart',
+                  onPress: () => navigateTo('CART'),
+                  color: '#FF7A00',
+                },
+              ]}
+            />
+            
+            {tabs.slice(3, 5).map((tab) => {
               const isActive = route === tab.key;
               const hasCartBadge = tab.key === 'CART' && cartSummary.itemCount > 0;
               const hasOrdersBadge = tab.key === 'ORDERS' && orders.some((o) => !['COMPLETED', 'DELIVERED', 'CANCELLED'].includes(o.currentStatus));
@@ -810,6 +871,21 @@ function AuthenticatedApp() {
           </View>
         </View>
       ) : null}
+
+      {/* SWIGGY-STYLE LOCATION SELECTOR BOTTOM SHEET / DRAWER */}
+      <LocationSelectorModal
+        visible={showLocationModal}
+        onClose={() => setShowLocationModal(false)}
+        currentLocation={locationState.currentLocation}
+        deliveryLocation={locationState.deliveryLocation}
+        customerId={session?.user.id ?? null}
+        onSelectLocation={applyUserLocation}
+        onUseCurrentGps={switchToGpsLocation}
+        onOpenMapPicker={() => {
+          setShowLocationModal(false);
+          navigateTo('LOCATION');
+        }}
+      />
     </SafeAreaView>
   );
 }
@@ -851,6 +927,48 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.08,
     shadowRadius: 30,
     elevation: 8,
+    position: 'relative',
+  },
+  fabContainer: {
+    position: 'absolute',
+    top: -28,
+    left: '50%',
+    marginLeft: -30,
+    zIndex: 10,
+  },
+  fab: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: '#FF7A00',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#FF7A00',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.4,
+    shadowRadius: 16,
+    elevation: 12,
+    borderWidth: 4,
+    borderColor: '#FFFFFF',
+  },
+  fabBadge: {
+    position: 'absolute',
+    top: -4,
+    right: -4,
+    backgroundColor: '#EF4444',
+    borderRadius: 12,
+    minWidth: 22,
+    height: 22,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 6,
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
+  },
+  fabBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 11,
+    fontWeight: '900',
   },
   tabItem: {
     flex: 1,

@@ -139,6 +139,38 @@ export interface PricingSettings {
   expressDeliveryFee: number;
   extraKgPrice: number;
   isGstEnabled?: boolean;
+  deliveryCalculationMode?: 'DISTANCE_BASED' | 'ZONE_BASED' | 'HYBRID';
+  baseDistanceKm?: number;
+  baseDeliveryFee?: number;
+  perKmRateAfterBase?: number;
+  maxServiceRadiusKm?: number;
+  storeLatitude?: number;
+  storeLongitude?: number;
+  storeName?: string;
+  storeAddress?: string;
+}
+
+export interface DeliveryFeeCalculation {
+  deliveryFee: number;
+  distanceKm: number;
+  hasGps?: boolean;
+  isFreeDelivery: boolean;
+  freeDeliveryThreshold: number;
+  standardDeliveryFee: number;
+  baseDistanceKm: number;
+  baseDeliveryFee: number;
+  perKmRateAfterBase: number;
+  expressFee?: number;
+  taxPercentage?: number;
+  isGstEnabled?: boolean;
+  taxAmount?: number;
+  subtotal?: number;
+  finalTotal?: number;
+  storeName?: string;
+  storeAddress?: string;
+  storeLatitude?: number;
+  storeLongitude?: number;
+  breakdown?: string;
 }
 
 export interface Catalog {
@@ -182,6 +214,8 @@ export interface CustomerAddress {
   pincode: string;
   instructions?: string;
   isDefault?: boolean;
+  latitude?: number;
+  longitude?: number;
 }
 
 export interface PickupSlot {
@@ -303,6 +337,22 @@ export interface Order {
   totalAmount: number;
   paymentMethod: PaymentMethod;
   paymentStatus: PaymentStatus;
+  assignedPickupAgent?: {
+    id: string;
+    name: string;
+    phone: string;
+    rating: number;
+    vehicle?: string;
+  };
+  assignedDeliveryAgent?: {
+    id: string;
+    name: string;
+    phone: string;
+    rating: number;
+    vehicle?: string;
+  };
+  driverName?: string;
+  driverPhone?: string;
   createdAt: string;
   updatedAt?: string;
 }
@@ -314,6 +364,22 @@ export interface TrackingOrder {
   pickupSlot?: { date: string; slot: string };
   deliverySlot?: { date: string; slot: string };
   paymentStatus: PaymentStatus;
+  assignedPickupAgent?: {
+    id: string;
+    name: string;
+    phone: string;
+    rating: number;
+    vehicle?: string;
+  };
+  assignedDeliveryAgent?: {
+    id: string;
+    name: string;
+    phone: string;
+    rating: number;
+    vehicle?: string;
+  };
+  driverName?: string;
+  driverPhone?: string;
   createdAt: string;
   updatedAt?: string;
 }
@@ -451,22 +517,35 @@ export interface CustomerSubscription {
   features: string[];
 }
 
+export interface WalletItem {
+  id: string;
+  customerId: string;
+  balance: number;
+  currency?: string;
+  isActive?: boolean;
+}
+
 export interface WalletTransaction {
   id: string;
+  walletId?: string;
   type: 'CREDIT' | 'DEBIT';
-  category: 'WELCOME_BONUS' | 'REFERRAL_REWARD' | 'TOPUP_RAZORPAY' | 'ORDER_PAYMENT' | 'DISPUTE_REFUND' | 'CASH_RECHARGE';
+  source?: 'WELCOME_BONUS' | 'REFERRAL_BONUS' | 'TOPUP' | 'ORDER_PAYMENT' | 'REFUND' | string;
+  category?: string;
   amount: number;
-  balanceAfter: number;
+  balanceAfter?: number;
+  status?: 'PENDING' | 'COMPLETED' | 'FAILED' | string;
   referenceId?: string | null;
   description: string;
+  metadata?: any;
   createdAt: string;
 }
 
 export interface WalletData {
-  customerId: string;
-  balance: number;
-  rewardPoints: number;
+  wallet: WalletItem;
   transactions: WalletTransaction[];
+  customerId?: string;
+  balance?: number;
+  rewardPoints?: number;
 }
 
 export interface ReferralFriend {
@@ -500,8 +579,8 @@ export interface ReferralSummary {
   };
   friends?: ReferralFriend[];
   history?: any[];
-  rewards?: any[];
   shareMessage?: string;
+  shareUrl?: string;
   settings?: ReferralSettings | null;
   canApply?: boolean;
   applied?: any;

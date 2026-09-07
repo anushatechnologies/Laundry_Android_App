@@ -41,6 +41,7 @@ export function AuthScreen({ reason = 'ACCOUNT', onBack }: AuthScreenProps) {
   const [phone, setPhone] = useState('');
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
+  const [referralCode, setReferralCode] = useState('');
   const [otp, setOtp] = useState('');
 
   const [loading, setLoading] = useState(false);
@@ -167,8 +168,24 @@ export function AuthScreen({ reason = 'ACCOUNT', onBack }: AuthScreenProps) {
     setErrorMessage(null);
 
     try {
-      // Firebase sends the verification code.
-      await requestOtp(cleanPhone);
+      // 1. First check if phone number already exists
+      const check = await api.checkPhone(cleanPhone);
+
+      if (check.exists) {
+        // Phone already registered - show error and suggest sign in
+        setErrorMessage('This phone number is already registered. Please use Sign In instead.');
+        setLoading(false);
+        return;
+      }
+
+      // 2. Phone available - proceed with OTP
+      // Firebase / Fast2SMS sends the verification code.
+      await requestOtp(
+        cleanPhone,
+        name.trim(),
+        email.trim() || undefined,
+        referralCode.trim().toUpperCase() || undefined,
+      );
       
       setPhone(cleanPhone);
       setMode('OTP');
@@ -193,7 +210,12 @@ export function AuthScreen({ reason = 'ACCOUNT', onBack }: AuthScreenProps) {
     setErrorMessage(null);
 
     try {
-      await signIn(cleanOtp, name.trim() || undefined, email.trim() || undefined);
+      await signIn(
+        cleanOtp,
+        name.trim() || undefined,
+        email.trim() || undefined,
+        referralCode.trim().toUpperCase() || undefined,
+      );
       // Successful sign in automatically triggers navigation back in App.tsx!
     } catch (err) {
       setErrorMessage(err instanceof Error ? err.message : 'Invalid or expired verification code.');
@@ -421,10 +443,33 @@ export function AuthScreen({ reason = 'ACCOUNT', onBack }: AuthScreenProps) {
                 </Text>
 
                 {errorMessage && (
-                  <View style={styles.errorBox}>
-                    <MaterialCommunityIcons name="alert-circle" size={18} color="#EF4444" />
-                    <Text style={styles.errorText}>{errorMessage}</Text>
+                  <View style={[
+                    styles.errorBox,
+                    errorMessage.includes('already registered') && { backgroundColor: '#FEF3C7', borderColor: '#F59E0B' }
+                  ]}>
+                    <MaterialCommunityIcons 
+                      name={errorMessage.includes('already registered') ? 'information' : 'alert-circle'} 
+                      size={18} 
+                      color={errorMessage.includes('already registered') ? '#F59E0B' : '#EF4444'} 
+                    />
+                    <Text style={[
+                      styles.errorText,
+                      errorMessage.includes('already registered') && { color: '#92400E' }
+                    ]}>{errorMessage}</Text>
                   </View>
+                )}
+                
+                {errorMessage?.includes('already registered') && (
+                  <Pressable
+                    onPress={() => {
+                      setMode('LOGIN');
+                      setErrorMessage(null);
+                    }}
+                    style={styles.switchToSignInBtn}
+                  >
+                    <MaterialCommunityIcons name="login" size={18} color="#10B981" />
+                    <Text style={styles.switchToSignInText}>Switch to Sign In</Text>
+                  </Pressable>
                 )}
 
                 {/* Full Name */}
@@ -485,6 +530,35 @@ export function AuthScreen({ reason = 'ACCOUNT', onBack }: AuthScreenProps) {
                       onChangeText={(val) => { setPhone(val); setErrorMessage(null); }}
                       accessibilityLabel="Mobile number input"
                     />
+                  </View>
+                </View>
+
+                {/* Referral Code (Optional) */}
+                <View style={styles.inputGroup}>
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                    <Text style={styles.inputLabel}>🎁 Referral Code <Text style={{ color: '#A3A3A3', fontSize: 11 }}>(Optional)</Text></Text>
+                    <Text style={{ color: '#10B981', fontSize: 11, fontWeight: '700' }}>Get ₹50 Free</Text>
+                  </View>
+                  <View style={styles.textInputContainer}>
+                    <MaterialCommunityIcons name="ticket-percent-outline" size={20} color="#F97316" />
+                    <TextInput
+                      style={[styles.textInput, { textTransform: 'uppercase', letterSpacing: 1.5, fontWeight: '700' }]}
+                      placeholder="e.g. LAUND-AB12"
+                      placeholderTextColor="#737373"
+                      autoCapitalize="characters"
+                      maxLength={12}
+                      value={referralCode}
+                      onChangeText={(val) => {
+                        setReferralCode(val.toUpperCase());
+                        setErrorMessage(null);
+                      }}
+                      accessibilityLabel="Referral code input"
+                    />
+                    {referralCode.length > 0 && (
+                      <Pressable onPress={() => setReferralCode('')} hitSlop={8}>
+                        <MaterialCommunityIcons name="close-circle" size={18} color="#A3A3A3" />
+                      </Pressable>
+                    )}
                   </View>
                 </View>
 
@@ -1157,5 +1231,24 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
     color: '#6B7280',
+  },
+  
+  // ==================== SWITCH TO SIGN IN BUTTON ====================
+  switchToSignInBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#ECFDF5',
+    borderRadius: 14,
+    paddingVertical: 14,
+    gap: 8,
+    marginTop: 12,
+    borderWidth: 1.5,
+    borderColor: '#10B981',
+  },
+  switchToSignInText: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#10B981',
   },
 });

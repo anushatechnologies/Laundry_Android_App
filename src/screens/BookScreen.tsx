@@ -1,5 +1,19 @@
-import { useEffect, useMemo, useState } from 'react';
-import { Alert, Image, KeyboardAvoidingView, Linking, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import {
+  ActivityIndicator,
+  Alert,
+  Image,
+  KeyboardAvoidingView,
+  Linking,
+  Modal,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useApp } from '@/context/AppContext';
 import { api } from '@/lib/api';
@@ -8,7 +22,7 @@ import { getCurrentCustomerLocation } from '@/services/location/locationService'
 import { AppButton, AppInput, Card, Chip, EmptyState, SectionTitle } from '@/ui/components';
 import { COLORS, localDateString, money, shortDate } from '@/ui/theme';
 import { getGarmentImageUrl } from '@/lib/garment-photos';
-import type { Coupon, CustomerAddress, ExpressTier, PaymentMethod, PickupSlot, PricingSettings, RazorpayPaymentOrder } from '@/types/domain';
+import type { Coupon, CustomerAddress, DeliveryFeeCalculation, ExpressTier, PaymentMethod, PickupSlot, PincodeCheck, PricingSettings, RazorpayPaymentOrder } from '@/types/domain';
 import type { RazorpayResult } from '@/lib/payments';
 import type { CustomerLocation } from '@/services/location/types';
 
@@ -32,6 +46,7 @@ function newAddressDraft(name: string, phone: string): AddressDraft {
 interface BookScreenProps {
   onViewOrders: () => void;
   initialCouponCode?: string;
+  onClearInitialCoupon?: () => void;
   deliveryLocation?: CustomerLocation | null;
   onRequireSignIn: () => void;
   onBrowseServices: () => void;
@@ -39,15 +54,75 @@ interface BookScreenProps {
   onCheckoutResumed?: () => void;
 }
 
-const QUICK_COUPONS = [
-  { code: 'FIRST50', label: '50% OFF (First Order)', discount: '50%' },
-  { code: 'SILKSPA', label: '₹150 OFF on Silk & Bridal', discount: '₹150' },
-  { code: 'BULKSAVE', label: '₹100 OFF on 5KG+ Laundry', discount: '₹100' },
+const DEFAULT_COUPONS: Coupon[] = [
+  {
+    id: 'cp-first50',
+    code: 'FIRST50',
+    title: '50% OFF (First Order)',
+    description: '50% discount up to ₹250 on your first laundry order',
+    discountType: 'PERCENTAGE',
+    discountValue: 50,
+    minOrderValue: 199,
+    maxDiscountCap: 250,
+    firstOrderOnly: true,
+    expiryDate: '2027-12-31',
+    isActive: true,
+  },
+  {
+    id: 'cp-silkspa',
+    code: 'SILKSPA',
+    title: '₹150 OFF Silk & Luxury Care',
+    description: 'Flat ₹150 off on orders above ₹499',
+    discountType: 'FLAT',
+    discountValue: 150,
+    minOrderValue: 499,
+    firstOrderOnly: false,
+    expiryDate: '2027-12-31',
+    isActive: true,
+  },
+  {
+    id: 'cp-bulksave',
+    code: 'BULKSAVE',
+    title: '₹100 OFF Bulk Laundry',
+    description: 'Flat ₹100 off on 5KG+ laundry orders above ₹399',
+    discountType: 'FLAT',
+    discountValue: 100,
+    minOrderValue: 399,
+    firstOrderOnly: false,
+    expiryDate: '2027-12-31',
+    isActive: true,
+  },
+  {
+    id: 'cp-weekend20',
+    code: 'WEEKEND20',
+    title: '20% Weekend Savings',
+    description: 'Save 20% up to ₹150 on dry cleaning and premium spa orders',
+    discountType: 'PERCENTAGE',
+    discountValue: 20,
+    minOrderValue: 350,
+    maxDiscountCap: 150,
+    firstOrderOnly: false,
+    expiryDate: '2027-12-31',
+    isActive: true,
+  },
+  {
+    id: 'cp-welcome100',
+    code: 'WELCOME100',
+    title: 'Flat ₹100 Off First Order',
+    description: 'Flat ₹100 discount on orders above ₹299',
+    discountType: 'FLAT',
+    discountValue: 100,
+    minOrderValue: 299,
+    firstOrderOnly: true,
+    expiryDate: '2027-12-31',
+    isActive: true,
+  },
 ];
 
 export function BookScreen({
   onViewOrders,
   initialCouponCode,
+  onClearInitialCoupon,
   deliveryLocation = null,
   onRequireSignIn,
   onBrowseServices,
@@ -78,6 +153,7 @@ export function BookScreen({
   const [addingAddress, setAddingAddress] = useState(false);
   const [draft, setDraft] = useState<AddressDraft>(() => newAddressDraft(session?.user.name || '', session?.user.phone || ''));
   const [pincodeCheck, setPincodeCheck] = useState<{ isServiceable: boolean; message?: string } | null>(null);
+  const [selectedAddressZone, setSelectedAddressZone] = useState<PincodeCheck['zone'] | null>(null);
   const [selectedAddressServiceable, setSelectedAddressServiceable] = useState<boolean | null>(null);
   const [selectedAddressMessage, setSelectedAddressMessage] = useState<string | null>(null);
   const [checkingAddressServiceable, setCheckingAddressServiceable] = useState(false);
@@ -87,6 +163,8 @@ export function BookScreen({
   const [loadingSlots, setLoadingSlots] = useState(false);
   const [expressTier, setExpressTier] = useState<ExpressTier>('REGULAR');
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('ONLINE_RAZORPAY');
+  const [useWallet, setUseWallet] = useState(true);
+  const [walletBalance, setWalletBalance] = useState(0);
   const [couponCode, setCouponCode] = useState(initialCouponCode || '');
   const [couponApplied, setCouponApplied] = useState(false);
   const [couponDiscount, setCouponDiscount] = useState(0);
@@ -96,7 +174,30 @@ export function BookScreen({
   const [fetchingLocation, setFetchingLocation] = useState(false);
   const [presetImgErrors, setPresetImgErrors] = useState<Record<string, boolean>>({});
   const [pricingSettings, setPricingSettings] = useState<PricingSettings | null>(catalog?.settings || null);
+  const [liveDeliveryCalc, setLiveDeliveryCalc] = useState<DeliveryFeeCalculation | null>(null);
+  const [calculatingDeliveryFee, setCalculatingDeliveryFee] = useState<boolean>(false);
   const [availableCoupons, setAvailableCoupons] = useState<Coupon[]>([]);
+  const [showCouponsModal, setShowCouponsModal] = useState(false);
+  const [manualCouponInput, setManualCouponInput] = useState('');
+  const [couponInputError, setCouponInputError] = useState('');
+  const [couponErrorInline, setCouponErrorInline] = useState('');
+  const [applyingCode, setApplyingCode] = useState<string | null>(null);
+  const attemptedCouponRef = useRef<Set<string>>(new Set());
+
+  const activeCouponsList = useMemo(() => {
+    if (availableCoupons && availableCoupons.length > 0) {
+      return availableCoupons.filter((c) => c.isActive);
+    }
+    return DEFAULT_COUPONS;
+  }, [availableCoupons]);
+
+  useEffect(() => {
+    if (session?.user?.id) {
+      api.getWallet()
+        .then((w) => setWalletBalance(w.wallet?.balance ?? 0))
+        .catch(() => undefined);
+    }
+  }, [session?.user?.id]);
 
 
   const pickupDates = useMemo(() => Array.from({ length: 7 }, (_, index) => localDateString(index)), []);
@@ -109,6 +210,7 @@ export function BookScreen({
     if (!pin || pin.length < 6) {
       setSelectedAddressServiceable(null);
       setSelectedAddressMessage(null);
+      setSelectedAddressZone(null);
       return;
     }
     let active = true;
@@ -119,10 +221,15 @@ export function BookScreen({
           const ok = Boolean(res.isServiceable || res.serviceable);
           setSelectedAddressServiceable(ok);
           setSelectedAddressMessage(res.message || (ok ? 'Serviceable for doorstep pickup' : 'Not currently serviceable for pickup'));
+          const zone = (res as any).zone || (res as any).data?.zone || null;
+          setSelectedAddressZone(zone);
         }
       })
       .catch(() => {
-        if (active) setSelectedAddressServiceable(null);
+        if (active) {
+          setSelectedAddressServiceable(null);
+          setSelectedAddressZone(null);
+        }
       })
       .finally(() => {
         if (active) setCheckingAddressServiceable(false);
@@ -225,57 +332,160 @@ export function BookScreen({
       .catch(() => undefined);
   }, []);
 
-  const handleApplyCoupon = async (code: string) => {
+  // Fetch live delivery fee from backend calculation engine based on customer coordinates/pincode
+  useEffect(() => {
+    const lat = selectedAddress?.latitude ?? deliveryLocation?.latitude;
+    const lng = selectedAddress?.longitude ?? deliveryLocation?.longitude;
+    const pin = selectedAddress?.pincode ?? deliveryLocation?.pincode ?? draft.pincode;
+
+    let active = true;
+    setCalculatingDeliveryFee(true);
+
+    api.calculateDeliveryFee({
+      customerLat: typeof lat === 'number' && !isNaN(lat) ? lat : undefined,
+      customerLng: typeof lng === 'number' && !isNaN(lng) ? lng : undefined,
+      customerPincode: pin?.trim() || undefined,
+      subtotal: cartSummary.itemTotal,
+      isExpress: expressTier !== 'REGULAR',
+    })
+      .then((res) => {
+        if (active && res?.success && res.data) {
+          setLiveDeliveryCalc(res.data);
+        }
+      })
+      .catch(() => {
+        // Fallback silently to client rules
+      })
+      .finally(() => {
+        if (active) setCalculatingDeliveryFee(false);
+      });
+
+    return () => { active = false; };
+  }, [
+    selectedAddress?.id,
+    selectedAddress?.latitude,
+    selectedAddress?.longitude,
+    selectedAddress?.pincode,
+    deliveryLocation?.latitude,
+    deliveryLocation?.longitude,
+    deliveryLocation?.pincode,
+    draft.pincode,
+    cartSummary.itemTotal,
+    expressTier,
+  ]);
+
+  const freeDeliveryThreshold = liveDeliveryCalc?.freeDeliveryThreshold ?? selectedAddressZone?.minFreeOrderValue ?? pricingSettings?.freeDeliveryThreshold ?? 499;
+  const standardDeliveryFee = liveDeliveryCalc?.standardDeliveryFee ?? selectedAddressZone?.standardFee ?? pricingSettings?.standardDeliveryFee ?? 30;
+  const isFreeDelivery = cartSummary.itemTotal >= freeDeliveryThreshold;
+  const deliveryFee = isFreeDelivery
+    ? 0
+    : (liveDeliveryCalc?.deliveryFee ?? (cartSummary.itemTotal < 499 ? standardDeliveryFee : 0));
+
+  const expressCharge = expressTier === 'EXPRESS_24H'
+    ? (pricingSettings?.expressDeliveryFee ?? 80)
+    : expressTier === 'SAME_DAY'
+    ? (pricingSettings?.expressDeliveryFee ? pricingSettings.expressDeliveryFee * 2 : 160)
+    : 0;
+
+  const isGstEnabled = (liveDeliveryCalc?.isGstEnabled !== undefined) ? liveDeliveryCalc.isGstEnabled : (pricingSettings?.isGstEnabled !== false);
+  const taxPercentage = isGstEnabled ? (liveDeliveryCalc?.taxPercentage ?? pricingSettings?.taxPercentage ?? 5) : 0;
+  const preCouponTaxable = cartSummary.itemTotal + deliveryFee + expressCharge;
+  const preCouponGst = Number((preCouponTaxable * (taxPercentage / 100)).toFixed(2));
+  const preCouponTotal = Number((preCouponTaxable + preCouponGst).toFixed(2));
+
+  const taxableAmount = Math.max(0, cartSummary.itemTotal - couponDiscount + deliveryFee + expressCharge);
+  const gstCharge = Number((taxableAmount * (taxPercentage / 100)).toFixed(2));
+  const preWalletTotal = Math.max(0, Number((taxableAmount + gstCharge).toFixed(2)));
+  const walletDeduction = (useWallet && walletBalance > 0) ? Math.min(walletBalance, preWalletTotal) : 0;
+  const finalPayable = Math.max(0, Number((preWalletTotal - walletDeduction).toFixed(2)));
+  const totalSavings = couponDiscount + (isFreeDelivery ? standardDeliveryFee : 0) + walletDeduction;
+
+  const deliveryDistanceNote = useMemo(() => {
+    if (isFreeDelivery) {
+      return `🎉 Free delivery unlocked (Order ≥ ${money(freeDeliveryThreshold)})`;
+    }
+    if (liveDeliveryCalc?.breakdown) {
+      return liveDeliveryCalc.breakdown;
+    }
+    if (cartSummary.itemTotal < freeDeliveryThreshold) {
+      return `Standard zone fee ${money(standardDeliveryFee)} across Hyderabad (Orders < ${money(freeDeliveryThreshold)})`;
+    }
+    return `Standard delivery fee ${money(standardDeliveryFee)}`;
+  }, [isFreeDelivery, liveDeliveryCalc?.breakdown, freeDeliveryThreshold, standardDeliveryFee, cartSummary.itemTotal]);
+
+  const handleApplyCoupon = async (code: string, isManual: boolean = true) => {
     const cleanCode = code.trim().toUpperCase();
-    if (!cleanCode) return;
-    if (!cartSummary.itemTotal) {
-      Alert.alert('Empty Bag', 'Please add garments to your bag first before applying a coupon.');
+    if (!cleanCode) {
+      if (isManual) setCouponInputError('Please enter a valid coupon code.');
       return;
     }
-    
-    // Calculate pre-coupon order total (items + delivery + express + tax)
-    const standardDeliveryFee = pricingSettings?.standardDeliveryFee ?? 30;
-    const freeDeliveryThreshold = pricingSettings?.freeDeliveryThreshold ?? 499;
-    const isFreeDelivery = cartSummary.itemTotal >= freeDeliveryThreshold;
-    const deliveryFee = isFreeDelivery ? 0 : standardDeliveryFee;
-    const expressCharge = expressTier === 'EXPRESS_24H'
-      ? (pricingSettings?.expressDeliveryFee ?? 80)
-      : expressTier === 'SAME_DAY'
-      ? (pricingSettings?.expressDeliveryFee ? pricingSettings.expressDeliveryFee * 2 : 160)
-      : 0;
-    const taxableAmount = cartSummary.itemTotal + deliveryFee + expressCharge;
-    const isGstEnabled = pricingSettings?.isGstEnabled !== false;
-    const taxPercentage = isGstEnabled ? (pricingSettings?.taxPercentage ?? 5) : 0;
-    const gstCharge = Math.round(taxableAmount * (taxPercentage / 100));
-    const preCouponTotal = taxableAmount + gstCharge;
-    
+    if (!cartSummary.itemTotal) {
+      if (isManual) setCouponInputError('Please add garments to your bag first.');
+      return;
+    }
+
+    setApplyingCode(cleanCode);
+    setCouponInputError('');
+    setCouponErrorInline('');
+
     try {
       const isFirstOrder = !orders.some((o) => o.currentStatus !== 'CANCELLED');
-      // Pass the pre-coupon final total instead of just item subtotal
       const res = await api.applyCoupon(cleanCode, preCouponTotal, isFirstOrder);
       if (!res.isValid) {
         setCouponApplied(false);
         setCouponDiscount(0);
-        Alert.alert('Coupon Notice', res.message || 'That coupon is not valid for this order.');
+        if (isManual) {
+          setCouponInputError(res.message || 'That coupon is not valid for this order.');
+        } else {
+          setCouponErrorInline(res.message || '');
+        }
         return;
       }
       setCouponCode(cleanCode);
       setCouponApplied(true);
       setCouponDiscount(Number(res.discount));
-      Alert.alert('Coupon Applied! 🎉', `${res.message}\nYou saved ₹${Math.round(res.discount)}!`);
+      setCouponInputError('');
+      setCouponErrorInline('');
+      setShowCouponsModal(false);
+      setManualCouponInput('');
     } catch (err: any) {
-      Alert.alert('Coupon Error', err?.message || 'Could not validate coupon.');
+      if (isManual) {
+        setCouponInputError(err?.message || 'Could not validate coupon.');
+      }
+    } finally {
+      setApplyingCode(null);
     }
   };
 
+  // Safe auto-apply: only runs once per unique coupon code without popup alerts
   useEffect(() => {
-    if (initialCouponCode && cartSummary.itemTotal > 0 && !couponApplied) {
-      // Only auto-apply after pricing settings are loaded
-      if (pricingSettings) {
-        handleApplyCoupon(initialCouponCode);
+    if (initialCouponCode && cartSummary.itemTotal > 0 && !couponApplied && pricingSettings) {
+      const clean = initialCouponCode.trim().toUpperCase();
+      if (!attemptedCouponRef.current.has(clean)) {
+        attemptedCouponRef.current.add(clean);
+        onClearInitialCoupon?.();
+        handleApplyCoupon(clean, false);
       }
     }
-  }, [initialCouponCode, cartSummary.itemTotal, pricingSettings]);
+  }, [initialCouponCode, cartSummary.itemTotal, pricingSettings, couponApplied]);
+
+  // Dynamically recalculate percentage coupon or re-verify when cart items change
+  useEffect(() => {
+    if (!couponApplied || !couponCode || !pricingSettings) return;
+
+    const isFirstOrder = !orders.some((o) => o.currentStatus !== 'CANCELLED');
+    api.applyCoupon(couponCode, preCouponTotal, isFirstOrder)
+      .then((res) => {
+        if (res.isValid) {
+          setCouponDiscount(Number(res.discount));
+        } else {
+          setCouponApplied(false);
+          setCouponDiscount(0);
+          setCouponErrorInline(res.message || 'Coupon removed: minimum order value not met');
+        }
+      })
+      .catch(() => undefined);
+  }, [cartSummary.itemTotal, expressTier, pricingSettings]);
 
   useEffect(() => {
     let active = true;
@@ -300,25 +510,9 @@ export function BookScreen({
     setCouponCode('');
     setCouponApplied(false);
     setCouponDiscount(0);
+    setCouponInputError('');
+    setCouponErrorInline('');
   };
-
-  const standardDeliveryFee = pricingSettings?.standardDeliveryFee ?? 30;
-  const freeDeliveryThreshold = pricingSettings?.freeDeliveryThreshold ?? 499;
-  const isFreeDelivery = cartSummary.itemTotal >= freeDeliveryThreshold;
-  const deliveryFee = isFreeDelivery ? 0 : standardDeliveryFee;
-
-  const expressCharge = expressTier === 'EXPRESS_24H'
-    ? (pricingSettings?.expressDeliveryFee ?? 80)
-    : expressTier === 'SAME_DAY'
-      ? (pricingSettings?.expressDeliveryFee ? pricingSettings.expressDeliveryFee * 2 : 160)
-      : 0;
-
-  const taxableAmount = Math.max(0, cartSummary.itemTotal - couponDiscount + deliveryFee + expressCharge);
-  const isGstEnabled = pricingSettings?.isGstEnabled !== false;
-  const taxPercentage = isGstEnabled ? (pricingSettings?.taxPercentage ?? 5) : 0;
-  const gstCharge = Math.round(taxableAmount * (taxPercentage / 100));
-  const finalPayable = Math.max(0, taxableAmount + gstCharge);
-  const totalSavings = couponDiscount + (isFreeDelivery ? standardDeliveryFee : 0);
 
   const handleLaunchOnlinePayment = (paymentOrder: RazorpayPaymentOrder): Promise<RazorpayResult> => {
     if (!session) return Promise.reject(new Error('Please sign in to pay.'));
@@ -386,14 +580,16 @@ export function BookScreen({
       }
     }
     try {
+      const isFullWalletPayment = useWallet && walletBalance >= preWalletTotal;
       const result = await checkout({
         address: selectedAddress,
         slot: selectedSlot,
         expressTier,
-        paymentMethod,
+        paymentMethod: isFullWalletPayment ? 'WALLET' : paymentMethod,
+        useWallet: useWallet && walletBalance > 0,
         couponCode: couponApplied ? couponCode : undefined,
         notes: notes.trim() || undefined,
-        onLaunchOnlinePayment: paymentMethod === 'ONLINE_RAZORPAY' ? handleLaunchOnlinePayment : undefined,
+        onLaunchOnlinePayment: !isFullWalletPayment && paymentMethod === 'ONLINE_RAZORPAY' ? handleLaunchOnlinePayment : undefined,
       });
       if (result.paymentOutcome === 'PAID' || result.paymentOutcome === 'COD') {
         setCompletedOrderId(result.order.id);
@@ -552,117 +748,48 @@ export function BookScreen({
               <View style={styles.luxuryEmptyCartWrap}>
                 {/* Visual Icon Badge */}
                 <View style={styles.emptyIconCircle}>
-                  <MaterialCommunityIcons name="shopping" size={48} color="#FF7A00" />
+                  <MaterialCommunityIcons name="shopping-outline" size={44} color="#FF7A00" />
                 </View>
                 <Text style={styles.luxuryEmptyTitle}>Your Laundry Bag is Empty</Text>
                 <Text style={styles.luxuryEmptySubtitle}>
-                  Choose from expert dry cleaning, everyday wash & fold, or popular laundry bundles below.
+                  Choose from expert dry cleaning, everyday wash & fold, steam pressing, and premium fabric spa.
                 </Text>
 
-                {/* Primary CTA Button */}
+                {/* Primary CTA Button: Book a Service */}
                 <Pressable
-                  style={({ pressed }) => [styles.emptyExploreHeroBtn, pressed && { opacity: 0.9 }]}
+                  style={({ pressed }) => [styles.emptyPrimaryBtn, pressed && { opacity: 0.9, transform: [{ scale: 0.99 }] }]}
                   onPress={onBrowseServices}
+                  accessibilityLabel="Book a Service and Explore Garments"
                 >
-                  <MaterialCommunityIcons name="hanger" size={18} color="#FFFFFF" />
-                  <Text style={styles.emptyExploreHeroText}>Explore All Garments & Services</Text>
-                  <MaterialCommunityIcons name="arrow-right" size={16} color="#FFFFFF" />
+                  <MaterialCommunityIcons name="hanger" size={20} color="#FFFFFF" />
+                  <Text style={styles.emptyPrimaryBtnText}>Book a Service / Explore Garments</Text>
+                  <MaterialCommunityIcons name="arrow-right" size={18} color="#FFFFFF" />
                 </Pressable>
 
-                {/* Quick-Add Popular Presets */}
-                <View style={styles.emptyQuickAddSection}>
-                  <Text style={styles.emptyQuickAddHeading}>⚡ Popular 1-Tap Laundry Bundles</Text>
-                  <View style={styles.emptyQuickAddList}>
-                    {[
-                      {
-                        id: 'bulk-srv-m-wash-fold-5kg',
-                        serviceId: 'srv-m-wash-fold',
-                        clothId: 'bulk',
-                        clothName: 'Bulk Laundry (5 KG)',
-                        serviceName: 'Everyday Wash & Fold (5 KG)',
-                        categoryTag: 'BULK' as const,
-                        unitPrice: 60,
-                        quantity: 5,
-                        subtotal: 300,
-                        unit: 'KG',
-                        pricingModel: 'PER_KG' as const,
-                        turnaroundHours: 24,
-                        imageUrl: 'https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/banners/banner-bulk.jpg',
-                        fallbackUrl: 'https://images.unsplash.com/photo-1582735689369-4fe89db7114c?auto=format&fit=crop&w=300&q=80',
-                        desc: 'Everyday casuals, t-shirts & bedsheets',
-                      },
-                      {
-                        id: 'cloth-shirt-srv-wash-iron',
-                        serviceId: 'srv-m-wash-iron',
-                        clothId: 'cloth-shirt',
-                        clothName: "Men's Shirt",
-                        serviceName: 'Office Shirts Steam Press (5 Pcs)',
-                        categoryTag: 'MENS' as const,
-                        unitPrice: 25,
-                        quantity: 5,
-                        subtotal: 125,
-                        unit: 'Pcs',
-                        pricingModel: 'PER_ITEM' as const,
-                        turnaroundHours: 24,
-                        imageUrl: 'https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/garments/cloth-shirt.jpg',
-                        fallbackUrl: 'https://images.unsplash.com/photo-1596755094514-f87e34085b2c?auto=format&fit=crop&w=300&q=80',
-                        desc: 'Crisp hanger-finished executive shirts',
-                      },
-                      {
-                        id: 'cloth-saree-silk-srv-dry-clean',
-                        serviceId: 'srv-m-dry-clean',
-                        clothId: 'cloth-saree-silk',
-                        clothName: 'Pure Silk Saree',
-                        serviceName: 'Silk Saree Roll Polish & Care',
-                        categoryTag: 'WOMENS' as const,
-                        unitPrice: 180,
-                        quantity: 1,
-                        subtotal: 180,
-                        unit: 'Pc',
-                        pricingModel: 'PER_ITEM' as const,
-                        turnaroundHours: 48,
-                        imageUrl: 'https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/garments/cloth-saree-silk.jpg',
-                        fallbackUrl: 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?auto=format&fit=crop&w=300&q=80',
-                        desc: 'Gentle organic dry cleaning & roll polish',
-                      },
-                    ].map((preset) => (
-                      <View key={preset.id} style={styles.quickAddRowCard}>
-                        <Image
-                          source={{ uri: presetImgErrors[preset.id] ? (preset as any).fallbackUrl : preset.imageUrl }}
-                          style={styles.quickAddThumb}
-                          resizeMode="cover"
-                          onError={() => setPresetImgErrors((prev) => ({ ...prev, [preset.id]: true }))}
-                        />
-                        <View style={styles.quickAddInfo}>
-                          <Text style={styles.quickAddName} numberOfLines={1}>{preset.serviceName}</Text>
-                          <Text style={styles.quickAddDesc} numberOfLines={1}>{preset.desc}</Text>
-                          <Text style={styles.quickAddRate}>₹{preset.subtotal} ({preset.quantity} {preset.unit})</Text>
-                        </View>
-                        <Pressable
-                          style={({ pressed }) => [styles.quickAddActionBtn, pressed && { opacity: 0.85 }]}
-                          onPress={() => {
-                            addCartItem({
-                              id: preset.id,
-                              clothId: preset.clothId,
-                              serviceId: preset.serviceId,
-                              clothName: preset.clothName,
-                              serviceName: preset.serviceName,
-                              categoryName: preset.categoryTag,
-                              unitPrice: preset.unitPrice,
-                              quantity: preset.quantity,
-                              subtotal: preset.subtotal,
-                              unit: preset.unit,
-                              pricingModel: preset.pricingModel,
-                              turnaroundHours: preset.turnaroundHours,
-                              imageUrl: preset.imageUrl,
-                            });
-                          }}
-                        >
-                          <MaterialCommunityIcons name="plus" size={16} color="#FFFFFF" />
-                          <Text style={styles.quickAddBtnText}>ADD</Text>
-                        </Pressable>
-                      </View>
-                    ))}
+                {/* Secondary Horizontal Button: Browse Categories */}
+                <Pressable
+                  style={({ pressed }) => [styles.emptySecondaryBtn, pressed && { opacity: 0.85 }]}
+                  onPress={onBrowseServices}
+                  accessibilityLabel="Browse all categories"
+                >
+                  <MaterialCommunityIcons name="view-grid-outline" size={18} color="#1C0B18" />
+                  <Text style={styles.emptySecondaryBtnText}>Browse by Categories</Text>
+                  <MaterialCommunityIcons name="chevron-right" size={18} color="#8A7A84" />
+                </Pressable>
+
+                {/* Trust Highlights */}
+                <View style={styles.emptyTrustBox}>
+                  <View style={styles.emptyTrustItem}>
+                    <MaterialCommunityIcons name="moped" size={18} color="#FF7A00" />
+                    <Text style={styles.emptyTrustText}>Free Doorstep Pickup & Delivery</Text>
+                  </View>
+                  <View style={styles.emptyTrustItem}>
+                    <MaterialCommunityIcons name="shield-check" size={18} color="#16A34A" />
+                    <Text style={styles.emptyTrustText}>German Eco Care & 100% Color Protection</Text>
+                  </View>
+                  <View style={styles.emptyTrustItem}>
+                    <MaterialCommunityIcons name="clock-fast" size={18} color="#2563EB" />
+                    <Text style={styles.emptyTrustText}>Fast 24-48 Hour Turnaround Available</Text>
                   </View>
                 </View>
               </View>
@@ -743,6 +870,204 @@ export function BookScreen({
                   );
                 })}
               </View>
+            )}
+
+            {/* Dynamic Delivery Autocalculation Progress Bar */}
+            {cart.length > 0 && (
+              <View style={[styles.deliveryProgressCard, isFreeDelivery && styles.deliveryProgressCardFree]}>
+                <View style={styles.deliveryProgressTop}>
+                  <View style={[styles.deliveryProgressIconCircle, isFreeDelivery && styles.deliveryProgressIconCircleFree]}>
+                    <MaterialCommunityIcons
+                      name={isFreeDelivery ? 'truck-check' : 'truck-delivery'}
+                      size={20}
+                      color={isFreeDelivery ? '#16A34A' : '#FF7A00'}
+                    />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.deliveryProgressTitle, isFreeDelivery && { color: '#16A34A' }]}>
+                      {isFreeDelivery
+                        ? '🎉 Free Doorstep Delivery Unlocked!'
+                        : `Add ${money(Math.max(0, Math.ceil(freeDeliveryThreshold - cartSummary.itemTotal)))} more for FREE Delivery`}
+                    </Text>
+                    <Text style={styles.deliveryProgressSub}>
+                      {isFreeDelivery
+                        ? `You saved ${money(standardDeliveryFee)} on pickup & delivery charges!`
+                        : `Free doorstep delivery on orders above ${money(freeDeliveryThreshold)} across Hyderabad`}
+                    </Text>
+                  </View>
+                </View>
+
+                {!isFreeDelivery && (
+                  <View style={styles.progressBarTrack}>
+                    <View
+                      style={[
+                        styles.progressBarFill,
+                        { width: `${Math.min(100, Math.max(8, (cartSummary.itemTotal / freeDeliveryThreshold) * 100))}%` },
+                      ]}
+                    />
+                  </View>
+                )}
+              </View>
+            )}
+
+            {/* ================= BIGBASKET-STYLE COUPONS & OFFERS SECTION ================= */}
+            {cart.length > 0 && (
+              <View style={styles.bbCouponCardContainer}>
+                {!couponApplied ? (
+                  <Pressable
+                    style={({ pressed }) => [styles.bbCouponCard, pressed && { opacity: 0.92 }]}
+                    onPress={() => {
+                      setCouponInputError('');
+                      setShowCouponsModal(true);
+                    }}
+                    accessibilityRole="button"
+                    accessibilityLabel="Avail offers and coupons"
+                  >
+                    <View style={styles.bbCouponLeft}>
+                      <View style={styles.bbCouponIconCircle}>
+                        <MaterialCommunityIcons name="ticket-percent" size={22} color="#FF7A00" />
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                          <Text style={styles.bbCouponTitle}>Avail Offers / Coupons</Text>
+                          {activeCouponsList.length > 0 && (
+                            <View style={styles.bbCouponCountBadge}>
+                              <Text style={styles.bbCouponCountText}>{activeCouponsList.length} OFFERS</Text>
+                            </View>
+                          )}
+                        </View>
+                        <Text style={styles.bbCouponSubtitle} numberOfLines={1}>
+                          {couponErrorInline ? couponErrorInline : 'Tap to view exclusive promo codes and savings'}
+                        </Text>
+                      </View>
+                    </View>
+                    <View style={styles.bbCouponApplyAction}>
+                      <Text style={styles.bbCouponApplyActionText}>View All</Text>
+                      <MaterialCommunityIcons name="chevron-right" size={18} color="#FF7A00" />
+                    </View>
+                  </Pressable>
+                ) : (
+                  <View style={styles.bbCouponAppliedCard}>
+                    <View style={styles.bbCouponAppliedLeft}>
+                      <View style={styles.bbCouponAppliedIconCircle}>
+                        <MaterialCommunityIcons name="check-decagram" size={22} color="#16A34A" />
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                          <Text style={styles.bbCouponAppliedCode}>{couponCode}</Text>
+                          <View style={styles.bbCouponAppliedBadge}>
+                            <Text style={styles.bbCouponAppliedBadgeText}>APPLIED</Text>
+                          </View>
+                        </View>
+                        <Text style={styles.bbCouponAppliedSaving}>
+                          You saved ₹{couponDiscount} with this coupon! 🎉
+                        </Text>
+                      </View>
+                    </View>
+                    <View style={styles.bbCouponAppliedActions}>
+                      <Pressable
+                        onPress={() => {
+                          setCouponInputError('');
+                          setShowCouponsModal(true);
+                        }}
+                        hitSlop={8}
+                        style={{ marginRight: 12 }}
+                      >
+                        <Text style={styles.bbCouponChangeText}>Change</Text>
+                      </Pressable>
+                      <Pressable onPress={handleRemoveCoupon} hitSlop={8}>
+                        <Text style={styles.bbCouponRemoveText}>Remove</Text>
+                      </Pressable>
+                    </View>
+                  </View>
+                )}
+              </View>
+            )}
+
+            {/* UPFRONT BILL BREAKDOWN IN STAGE 1 (BAG) */}
+            {cart.length > 0 && (
+              <Card style={styles.billCard}>
+                <View style={styles.billCardHeaderRow}>
+                  <Text style={styles.billCardTitle}>Bill Summary</Text>
+                  <View style={styles.billSecureBadge}>
+                    <MaterialCommunityIcons name="calculator-variant-outline" size={13} color="#166534" />
+                    <Text style={styles.billSecureText}>Live Backend Rate</Text>
+                  </View>
+                </View>
+
+                {/* 1. Items subtotal */}
+                <View style={styles.billLine}>
+                  <View>
+                    <Text style={styles.billLineLabel}>Items Subtotal ({cartSummary.itemCount} items)</Text>
+                    <Text style={styles.billLineSubtext}>Care & dry clean base charges</Text>
+                  </View>
+                  <Text style={styles.billLineVal}>{money(cartSummary.itemTotal)}</Text>
+                </View>
+
+                {/* 2. Pickup & Delivery fee */}
+                <View style={styles.billLine}>
+                  <View style={{ flex: 1, paddingRight: 8 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                      <Text style={styles.billLineLabel}>Doorstep Pickup & Delivery</Text>
+                      {liveDeliveryCalc?.distanceKm && liveDeliveryCalc.distanceKm > 0 ? (
+                        <View style={{ backgroundColor: '#E0F2FE', paddingHorizontal: 6, paddingVertical: 1.5, borderRadius: 6 }}>
+                          <Text style={{ fontSize: 10, fontWeight: '700', color: '#0369A1' }}>
+                            📍 {liveDeliveryCalc.distanceKm} km
+                          </Text>
+                        </View>
+                      ) : null}
+                    </View>
+                    <Text style={styles.billLineSubtext}>
+                      {deliveryDistanceNote}
+                    </Text>
+                  </View>
+                  {isFreeDelivery ? (
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                      <Text style={styles.billStrikethrough}>{money(standardDeliveryFee)}</Text>
+                      <Text style={[styles.billLineVal, { color: '#16A34A', fontWeight: '800' }]}>FREE</Text>
+                    </View>
+                  ) : (
+                    <Text style={styles.billLineVal}>{money(deliveryFee)}</Text>
+                  )}
+                </View>
+
+                {/* 3. Coupon Discount */}
+                {couponDiscount > 0 && (
+                  <View style={styles.billLine}>
+                    <View>
+                      <Text style={[styles.billLineLabel, { color: '#16A34A' }]}>Coupon Discount ({couponCode})</Text>
+                      <Text style={[styles.billLineSubtext, { color: '#15803D' }]}>Promo savings applied</Text>
+                    </View>
+                    <Text style={[styles.billLineVal, { color: '#16A34A', fontWeight: '800' }]}>-{money(couponDiscount)}</Text>
+                  </View>
+                )}
+
+                {/* 4. GST */}
+                <View style={styles.billLine}>
+                  <View>
+                    <Text style={styles.billLineLabel}>
+                      {!isGstEnabled || taxPercentage === 0 ? 'GST (Temporarily Waived)' : `GST & Taxes (${taxPercentage}%)`}
+                    </Text>
+                    <Text style={styles.billLineSubtext}>5% GST applicable on taxable subtotal</Text>
+                  </View>
+                  <Text style={[styles.billLineVal, (!isGstEnabled || taxPercentage === 0) && { color: '#16A34A' }]}>
+                    {!isGstEnabled || taxPercentage === 0 ? '₹0 (0%)' : money(gstCharge)}
+                  </Text>
+                </View>
+
+                <View style={styles.billDivider} />
+
+                {/* Grand Total Row */}
+                <View style={styles.billFinalRow}>
+                  <View>
+                    <Text style={styles.billGrandLabel}>Estimated Total</Text>
+                    {totalSavings > 0 && (
+                      <Text style={styles.billSavingsText}>🎉 You saved {money(totalSavings)} on this order</Text>
+                    )}
+                  </View>
+                  <Text style={styles.billGrandVal}>{money(finalPayable)}</Text>
+                </View>
+              </Card>
             )}
 
             {/* Turnaround Quality Assurance Box */}
@@ -1068,61 +1393,113 @@ export function BookScreen({
               )}
             </Card>
 
-            {/* COUPON SECTION */}
-            <View style={styles.couponSection}>
-              <Text style={styles.couponHeaderTitle}>Offers & Discount Coupons</Text>
-
-              {couponApplied ? (
-                <View style={styles.appliedCouponBox}>
-                  <View style={styles.appliedCouponLeft}>
-                    <MaterialCommunityIcons name="check-circle" size={18} color="#16A34A" />
-                    <View>
-                      <Text style={styles.appliedCouponCode}>{couponCode} Applied</Text>
-                      <Text style={styles.appliedCouponSaving}>Saved ₹{couponDiscount} on this order</Text>
+            {/* BIGBASKET-STYLE COUPONS & OFFERS SECTION */}
+            <View style={styles.bbCouponCardContainer}>
+              {!couponApplied ? (
+                <Pressable
+                  style={({ pressed }) => [styles.bbCouponCard, pressed && { opacity: 0.92 }]}
+                  onPress={() => {
+                    setCouponInputError('');
+                    setShowCouponsModal(true);
+                  }}
+                  accessibilityRole="button"
+                  accessibilityLabel="Avail offers and coupons"
+                >
+                  <View style={styles.bbCouponLeft}>
+                    <View style={styles.bbCouponIconCircle}>
+                      <MaterialCommunityIcons name="ticket-percent" size={22} color="#FF7A00" />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                        <Text style={styles.bbCouponTitle}>Avail Offers / Coupons</Text>
+                        {activeCouponsList.length > 0 && (
+                          <View style={styles.bbCouponCountBadge}>
+                            <Text style={styles.bbCouponCountText}>{activeCouponsList.length} OFFERS</Text>
+                          </View>
+                        )}
+                      </View>
+                      <Text style={styles.bbCouponSubtitle} numberOfLines={1}>
+                        {couponErrorInline ? couponErrorInline : 'Tap to view exclusive promo codes and savings'}
+                      </Text>
                     </View>
                   </View>
-                  <Pressable onPress={handleRemoveCoupon} hitSlop={10}>
-                    <Text style={styles.removeCouponText}>Remove</Text>
-                  </Pressable>
-                </View>
+                  <View style={styles.bbCouponApplyAction}>
+                    <Text style={styles.bbCouponApplyActionText}>View All</Text>
+                    <MaterialCommunityIcons name="chevron-right" size={18} color="#FF7A00" />
+                  </View>
+                </Pressable>
               ) : (
-                <View style={styles.couponInputRow}>
-                  <TextInput
-                    style={styles.couponInput}
-                    placeholder="Enter promo code (e.g. FIRST50)"
-                    placeholderTextColor="#A1A1AA"
-                    value={couponCode}
-                    onChangeText={setCouponCode}
-                    autoCapitalize="characters"
-                  />
-                  <Pressable style={styles.applyBtn} onPress={() => handleApplyCoupon(couponCode)}>
-                    <Text style={styles.applyBtnText}>Apply</Text>
-                  </Pressable>
-                </View>
-              )}
-
-              {/* Quick Coupon Pills */}
-              {!couponApplied && (
-                <View style={styles.quickCouponsRow}>
-                  {(availableCoupons.length > 0
-                    ? availableCoupons.slice(0, 5).map((c) => ({
-                        code: c.code,
-                        label: c.description || (c.discountType === 'PERCENTAGE' ? `${c.discountValue}% OFF` : `₹${c.discountValue} OFF`),
-                      }))
-                    : QUICK_COUPONS
-                  ).map((c) => (
+                <View style={styles.bbCouponAppliedCard}>
+                  <View style={styles.bbCouponAppliedLeft}>
+                    <View style={styles.bbCouponAppliedIconCircle}>
+                      <MaterialCommunityIcons name="check-decagram" size={22} color="#16A34A" />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                        <Text style={styles.bbCouponAppliedCode}>{couponCode}</Text>
+                        <View style={styles.bbCouponAppliedBadge}>
+                          <Text style={styles.bbCouponAppliedBadgeText}>APPLIED</Text>
+                        </View>
+                      </View>
+                      <Text style={styles.bbCouponAppliedSaving}>
+                        You saved ₹{couponDiscount} with this coupon! 🎉
+                      </Text>
+                    </View>
+                  </View>
+                  <View style={styles.bbCouponAppliedActions}>
                     <Pressable
-                      key={c.code}
-                      style={styles.quickCouponChip}
-                      onPress={() => handleApplyCoupon(c.code)}
+                      onPress={() => {
+                        setCouponInputError('');
+                        setShowCouponsModal(true);
+                      }}
+                      hitSlop={8}
+                      style={{ marginRight: 12 }}
                     >
-                      <MaterialCommunityIcons name="tag" size={12} color="#EA580C" />
-                      <Text style={styles.quickCouponChipText}>{c.code}</Text>
+                      <Text style={styles.bbCouponChangeText}>Change</Text>
                     </Pressable>
-                  ))}
+                    <Pressable onPress={handleRemoveCoupon} hitSlop={8}>
+                      <Text style={styles.bbCouponRemoveText}>Remove</Text>
+                    </Pressable>
+                  </View>
                 </View>
               )}
             </View>
+
+            {/* LAUNDRYFRESH WALLET DEDUCTION */}
+            {walletBalance > 0 && (
+              <View style={{ backgroundColor: '#F0FDF4', borderColor: '#86EFAC', borderWidth: 1.5, borderRadius: 16, padding: 14, marginBottom: 14 }}>
+                <Pressable
+                  style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}
+                  onPress={() => setUseWallet(!useWallet)}
+                >
+                  <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1, gap: 10 }}>
+                    <MaterialCommunityIcons
+                      name={useWallet ? 'checkbox-marked' : 'checkbox-blank-outline'}
+                      size={24}
+                      color="#16A34A"
+                    />
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ fontSize: 14, fontWeight: '800', color: '#166534' }}>
+                        Use LaundryFresh Wallet
+                      </Text>
+                      <Text style={{ fontSize: 12, color: '#15803D', marginTop: 2 }}>
+                        Balance: ₹{walletBalance.toFixed(2)} {useWallet && walletDeduction > 0 ? `• Deducting ₹${walletDeduction.toFixed(2)}` : ''}
+                      </Text>
+                    </View>
+                  </View>
+                  <MaterialCommunityIcons name="wallet-giftcard" size={26} color="#16A34A" />
+                </Pressable>
+
+                {useWallet && walletBalance >= preWalletTotal && (
+                  <View style={{ marginTop: 10, backgroundColor: '#DCFCE7', padding: 8, borderRadius: 8, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    <MaterialCommunityIcons name="check-circle" size={16} color="#16A34A" />
+                    <Text style={{ fontSize: 11, fontWeight: '700', color: '#166534' }}>
+                      100% of order covered by your wallet balance!
+                    </Text>
+                  </View>
+                )}
+              </View>
+            )}
 
             {/* PAYMENT METHOD SELECTION */}
             <View style={styles.paymentSection}>
@@ -1163,54 +1540,110 @@ export function BookScreen({
 
             {/* ITEMIZED BILL SUMMARY */}
             <Card style={styles.billCard}>
-              <Text style={styles.billCardTitle}>Bill Breakdown</Text>
+              <View style={styles.billCardHeaderRow}>
+                <Text style={styles.billCardTitle}>Bill Breakdown</Text>
+                <View style={styles.billSecureBadge}>
+                  <MaterialCommunityIcons name="shield-check" size={13} color="#166534" />
+                  <Text style={styles.billSecureText}>100% Transparent</Text>
+                </View>
+              </View>
 
+              {/* 1. Items subtotal */}
               <View style={styles.billLine}>
-                <Text style={styles.billLineLabel}>Items Subtotal ({cartSummary.itemCount} items)</Text>
+                <View>
+                  <Text style={styles.billLineLabel}>Items Subtotal ({cartSummary.itemCount} items)</Text>
+                  <Text style={styles.billLineSubtext}>Care & dry clean base charges</Text>
+                </View>
                 <Text style={styles.billLineVal}>{money(cartSummary.itemTotal)}</Text>
               </View>
 
+              {/* 2. Pickup & Delivery fee */}
               <View style={styles.billLine}>
-                <Text style={styles.billLineLabel}>Doorstep Pickup & Delivery</Text>
+                <View style={{ flex: 1, paddingRight: 8 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                    <Text style={styles.billLineLabel}>Doorstep Pickup & Delivery</Text>
+                    {liveDeliveryCalc?.distanceKm && liveDeliveryCalc.distanceKm > 0 ? (
+                      <View style={{ backgroundColor: '#E0F2FE', paddingHorizontal: 6, paddingVertical: 1.5, borderRadius: 6 }}>
+                        <Text style={{ fontSize: 10, fontWeight: '700', color: '#0369A1' }}>
+                          📍 {liveDeliveryCalc.distanceKm} km
+                        </Text>
+                      </View>
+                    ) : null}
+                  </View>
+                  <Text style={styles.billLineSubtext}>
+                    {deliveryDistanceNote}
+                  </Text>
+                </View>
                 {isFreeDelivery ? (
-                  <Text style={[styles.billLineVal, { color: '#16A34A', fontWeight: '700' }]}>FREE</Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    <Text style={styles.billStrikethrough}>{money(standardDeliveryFee)}</Text>
+                    <Text style={[styles.billLineVal, { color: '#16A34A', fontWeight: '800' }]}>FREE</Text>
+                  </View>
                 ) : (
                   <Text style={styles.billLineVal}>{money(deliveryFee)}</Text>
                 )}
               </View>
 
+              {/* 3. Express Delivery Surcharge */}
               {expressCharge > 0 && (
                 <View style={styles.billLine}>
-                  <Text style={styles.billLineLabel}>12H Priority Express Fee</Text>
-                  <Text style={styles.billLineVal}>+₹{expressCharge}</Text>
+                  <View>
+                    <Text style={styles.billLineLabel}>12H Priority Express Surcharge</Text>
+                    <Text style={styles.billLineSubtext}>Dedicated express pilot & next-morning delivery</Text>
+                  </View>
+                  <Text style={styles.billLineVal}>+{money(expressCharge)}</Text>
                 </View>
               )}
 
+              {/* 4. Coupon Discount */}
               {couponDiscount > 0 && (
                 <View style={styles.billLine}>
-                  <Text style={[styles.billLineLabel, { color: '#16A34A' }]}>Coupon Discount ({couponCode})</Text>
-                  <Text style={[styles.billLineVal, { color: '#16A34A', fontWeight: '700' }]}>-₹{couponDiscount}</Text>
+                  <View>
+                    <Text style={[styles.billLineLabel, { color: '#16A34A' }]}>Coupon Discount ({couponCode})</Text>
+                    <Text style={[styles.billLineSubtext, { color: '#15803D' }]}>Promo savings applied</Text>
+                  </View>
+                  <Text style={[styles.billLineVal, { color: '#16A34A', fontWeight: '800' }]}>-{money(couponDiscount)}</Text>
                 </View>
               )}
 
+              {/* 5. GST */}
               <View style={styles.billLine}>
-                <Text style={styles.billLineLabel}>
-                  {!isGstEnabled || taxPercentage === 0
-                    ? 'GST (Temporarily Waived)'
-                    : `GST (${taxPercentage}%)`}
-                </Text>
+                <View>
+                  <Text style={styles.billLineLabel}>
+                    {!isGstEnabled || taxPercentage === 0 ? 'GST (Temporarily Waived)' : `GST & Taxes (${taxPercentage}%)`}
+                  </Text>
+                  <Text style={styles.billLineSubtext}>5% GST applicable on taxable order amount</Text>
+                </View>
                 <Text style={[styles.billLineVal, (!isGstEnabled || taxPercentage === 0) && { color: '#16A34A' }]}>
-                  {!isGstEnabled || taxPercentage === 0 ? '₹0 (0%)' : `₹${gstCharge}`}
+                  {!isGstEnabled || taxPercentage === 0 ? '₹0 (0%)' : money(gstCharge)}
                 </Text>
               </View>
 
+              {/* 6. Wallet */}
+              {walletDeduction > 0 && (
+                <View style={styles.billLine}>
+                  <View>
+                    <Text style={[styles.billLineLabel, { color: '#16A34A', fontWeight: '700' }]}>
+                      LaundryFresh Wallet Used
+                    </Text>
+                    <Text style={[styles.billLineSubtext, { color: '#15803D' }]}>
+                      Deducted from ₹{walletBalance.toFixed(2)} balance
+                    </Text>
+                  </View>
+                  <Text style={[styles.billLineVal, { color: '#16A34A', fontWeight: '800' }]}>
+                    -₹{walletDeduction.toFixed(2)}
+                  </Text>
+                </View>
+              )}
+
               <View style={styles.billDivider} />
 
+              {/* Grand Total Row */}
               <View style={styles.billFinalRow}>
                 <View>
                   <Text style={styles.billGrandLabel}>Total Payable</Text>
                   {totalSavings > 0 && (
-                    <Text style={styles.billSavingsText}>You saved ₹{totalSavings} on this order</Text>
+                    <Text style={styles.billSavingsText}>🎉 You saved {money(totalSavings)} on this order</Text>
                   )}
                 </View>
                 <Text style={styles.billGrandVal}>{money(finalPayable)}</Text>
@@ -1220,7 +1653,10 @@ export function BookScreen({
         )}
       </ScrollView>
 
-      {/* 3. STICKY BOTTOM CHECKOUT ACTION BAR */}
+      {/* Keep the empty-bag view flush with the app tab bar. Its explore action
+          already appears in the empty state above, so a second footer only creates
+          an empty white strip. */}
+      {!(stage === 'BAG' && cart.length === 0) && (
       <View style={styles.stickyFooter}>
         {stage === 'BAG' && cart.length === 0 ? (
           <Pressable
@@ -1268,7 +1704,208 @@ export function BookScreen({
           </Pressable>
         )}
       </View>
+      )}
 
+      {/* ================= BIGBASKET-STYLE AVAILABLE COUPONS BOTTOM SHEET MODAL ================= */}
+      <Modal
+        visible={showCouponsModal}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => {
+          setShowCouponsModal(false);
+          setCouponInputError('');
+        }}
+      >
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          style={styles.bbModalOverlay}
+        >
+          <Pressable
+            style={styles.bbModalBackdrop}
+            onPress={() => {
+              setShowCouponsModal(false);
+              setCouponInputError('');
+            }}
+          />
+          <View style={styles.bbModalSheet}>
+            {/* Top Drag Handle */}
+            <View style={styles.bbSheetHandle} />
+
+            {/* Modal Header */}
+            <View style={styles.bbModalHeader}>
+              <View>
+                <Text style={styles.bbModalTitle}>Apply Coupon</Text>
+                <Text style={styles.bbModalSubtitle}>
+                  Order Total: {money(preCouponTotal)}
+                </Text>
+              </View>
+              <Pressable
+                style={styles.bbModalCloseBtn}
+                onPress={() => {
+                  setShowCouponsModal(false);
+                  setCouponInputError('');
+                }}
+                hitSlop={10}
+              >
+                <MaterialCommunityIcons name="close" size={20} color="#64748B" />
+              </Pressable>
+            </View>
+
+            {/* Manual Coupon Code Input Box */}
+            <View style={styles.bbInputSection}>
+              <View style={styles.bbInputRow}>
+                <MaterialCommunityIcons name="ticket-outline" size={20} color="#94A3B8" style={{ marginLeft: 12 }} />
+                <TextInput
+                  style={styles.bbTextInput}
+                  placeholder="Enter coupon code"
+                  placeholderTextColor="#94A3B8"
+                  value={manualCouponInput}
+                  onChangeText={(text) => {
+                    setManualCouponInput(text.toUpperCase());
+                    setCouponInputError('');
+                  }}
+                  autoCapitalize="characters"
+                  autoCorrect={false}
+                />
+                <Pressable
+                  style={[
+                    styles.bbInputApplyBtn,
+                    !manualCouponInput.trim() && styles.bbInputApplyBtnDisabled,
+                  ]}
+                  disabled={!manualCouponInput.trim() || applyingCode !== null}
+                  onPress={() => handleApplyCoupon(manualCouponInput, true)}
+                >
+                  {applyingCode === manualCouponInput.trim() ? (
+                    <ActivityIndicator size="small" color="#FFFFFF" />
+                  ) : (
+                    <Text style={styles.bbInputApplyText}>APPLY</Text>
+                  )}
+                </Pressable>
+              </View>
+              {couponInputError ? (
+                <View style={styles.bbInputErrorRow}>
+                  <MaterialCommunityIcons name="alert-circle-outline" size={14} color="#EF4444" />
+                  <Text style={styles.bbInputErrorText}>{couponInputError}</Text>
+                </View>
+              ) : null}
+            </View>
+
+            {/* Coupons List Header */}
+            <View style={styles.bbListHeader}>
+              <Text style={styles.bbListTitle}>AVAILABLE OFFERS & COUPONS</Text>
+            </View>
+
+            <ScrollView
+              style={styles.bbCouponsScroll}
+              contentContainerStyle={{ paddingBottom: 32 }}
+              showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
+            >
+              {activeCouponsList.map((coupon) => {
+                const isCurrent = couponApplied && couponCode === coupon.code;
+                const isFirstOrder = !orders.some((o) => o.currentStatus !== 'CANCELLED');
+                const isFirstOrderOk = !coupon.firstOrderOnly || isFirstOrder;
+                const isMinOrderOk = preCouponTotal >= coupon.minOrderValue;
+                const isEligible = isFirstOrderOk && isMinOrderOk;
+
+                return (
+                  <View
+                    key={coupon.code}
+                    style={[
+                      styles.bbTicketCard,
+                      isCurrent && styles.bbTicketCardCurrent,
+                      !isEligible && styles.bbTicketCardDisabled,
+                    ]}
+                  >
+                    {/* Ticket notches */}
+                    <View style={styles.bbTicketNotchTop} />
+                    <View style={styles.bbTicketNotchBottom} />
+
+                    <View style={styles.bbTicketMain}>
+                      {/* Code badge + Action button */}
+                      <View style={styles.bbTicketTopRow}>
+                        <View style={styles.bbCodeBadge}>
+                          <MaterialCommunityIcons name="ticket-percent-outline" size={14} color="#FF7A00" />
+                          <Text style={styles.bbCodeBadgeText}>{coupon.code}</Text>
+                        </View>
+
+                        {isCurrent ? (
+                          <Pressable
+                            style={styles.bbAppliedPill}
+                            onPress={handleRemoveCoupon}
+                          >
+                            <MaterialCommunityIcons name="check" size={14} color="#16A34A" />
+                            <Text style={styles.bbAppliedPillText}>APPLIED</Text>
+                            <Text style={styles.bbRemoveInlineText}>• Remove</Text>
+                          </Pressable>
+                        ) : isEligible ? (
+                          <Pressable
+                            style={({ pressed }) => [styles.bbTicketApplyBtn, pressed && { opacity: 0.85 }]}
+                            disabled={applyingCode !== null}
+                            onPress={() => handleApplyCoupon(coupon.code, true)}
+                          >
+                            {applyingCode === coupon.code ? (
+                              <ActivityIndicator size="small" color="#FFFFFF" />
+                            ) : (
+                              <Text style={styles.bbTicketApplyText}>APPLY</Text>
+                            )}
+                          </Pressable>
+                        ) : (
+                          <View style={styles.bbTicketIneligiblePill}>
+                            <Text style={styles.bbTicketIneligiblePillText}>NOT ELIGIBLE</Text>
+                          </View>
+                        )}
+                      </View>
+
+                      {/* Savings Headline */}
+                      <Text style={styles.bbSavingHeadline}>
+                        Save {coupon.discountType === 'PERCENTAGE' ? `${coupon.discountValue}%` : `₹${coupon.discountValue}`}
+                        {coupon.maxDiscountCap ? ` (up to ₹${coupon.maxDiscountCap})` : ''} on this order
+                      </Text>
+
+                      {/* Description */}
+                      <Text style={styles.bbTicketDesc}>{coupon.description}</Text>
+
+                      {/* Terms / Conditions footer */}
+                      <View style={styles.bbTicketFooter}>
+                        <Text style={styles.bbTicketMinOrder}>
+                          • Min. cart value: ₹{coupon.minOrderValue}
+                        </Text>
+                        {coupon.firstOrderOnly && (
+                          <Text style={styles.bbTicketFirstOrder}>
+                            • Valid on 1st order only
+                          </Text>
+                        )}
+                      </View>
+
+                      {/* Real-time Ineligibility Reason Banner */}
+                      {!isEligible && (
+                        <View style={styles.bbIneligibilityNotice}>
+                          {!isFirstOrderOk ? (
+                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                              <MaterialCommunityIcons name="account-cancel-outline" size={14} color="#DC2626" />
+                              <Text style={styles.bbIneligibilityNoticeText}>
+                                Valid on first order only (Already used)
+                              </Text>
+                            </View>
+                          ) : !isMinOrderOk ? (
+                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                              <MaterialCommunityIcons name="basket-plus-outline" size={14} color="#EA580C" />
+                              <Text style={styles.bbIneligibilityNoticeText}>
+                                Add items worth ₹{Math.max(0, coupon.minOrderValue - Math.round(preCouponTotal))} more to unlock
+                              </Text>
+                            </View>
+                          ) : null}
+                        </View>
+                      )}
+                    </View>
+                  </View>
+                );
+              })}
+            </ScrollView>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
 
     </View>
     </KeyboardAvoidingView>
@@ -1276,115 +1913,142 @@ export function BookScreen({
 }
 
 const styles = StyleSheet.create({
-  luxuryEmptyCartWrap: {
-    alignItems: 'center',
-    paddingVertical: 20,
-  },
-  emptyIconCircle: {
-    width: 88,
-    height: 88,
-    borderRadius: 44,
+  deliveryProgressCard: {
     backgroundColor: '#FFF7ED',
-    borderWidth: 2,
-    borderColor: '#FED7AA',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 14,
-    shadowColor: '#FF7A00',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 10,
-    elevation: 4,
-  },
-  luxuryEmptyTitle: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: '#0F172A',
-    marginBottom: 6,
-    textAlign: 'center',
-  },
-  luxuryEmptySubtitle: {
-    fontSize: 13,
-    color: '#64748B',
-    textAlign: 'center',
-    lineHeight: 19,
-    paddingHorizontal: 16,
-    marginBottom: 18,
-  },
-  emptyExploreHeroBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    backgroundColor: '#FF7A00',
-    borderRadius: 14,
-    paddingHorizontal: 22,
-    paddingVertical: 13,
-    shadowColor: '#FF7A00',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 4,
-    marginBottom: 24,
-  },
-  emptyExploreHeroText: {
-    color: '#FFFFFF',
-    fontSize: 14.5,
-    fontWeight: '800',
-  },
-  emptyQuickAddSection: {
-    width: '100%',
-    marginTop: 4,
-  },
-  emptyQuickAddHeading: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: '#0F172A',
-    marginBottom: 12,
-  },
-  emptyQuickAddList: {
-    gap: 10,
-  },
-  quickAddRowCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#FFFFFF',
+    borderColor: '#FFEDD5',
+    borderWidth: 1.5,
     borderRadius: 16,
-    padding: 10,
-    borderWidth: 1,
-    borderColor: '#F1F5F9',
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 6,
-    elevation: 2,
+    padding: 14,
+    marginBottom: 14,
+  },
+  deliveryProgressCardFree: {
+    backgroundColor: '#F0FDF4',
+    borderColor: '#BBF7D0',
+  },
+  deliveryProgressTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 10,
   },
-  quickAddThumb: {
-    width: 58,
-    height: 58,
-    borderRadius: 12,
-    backgroundColor: '#F8FAFC',
+  deliveryProgressIconCircle: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#FFEDD5',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  quickAddInfo: {
-    flex: 1,
+  deliveryProgressIconCircleFree: {
+    backgroundColor: '#DCFCE7',
   },
-  quickAddName: {
-    fontSize: 13.5,
+  deliveryProgressTitle: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#1C0B18',
+  },
+  deliveryProgressSub: {
+    fontSize: 11,
+    color: '#8A7A84',
+    marginTop: 2,
+  },
+  progressBarTrack: {
+    height: 6,
+    backgroundColor: '#FED7AA',
+    borderRadius: 3,
+    marginTop: 10,
+    overflow: 'hidden',
+  },
+  progressBarFill: {
+    height: '100%',
+    backgroundColor: '#FF7A00',
+    borderRadius: 3,
+  },
+  billCard: {
+    padding: 16,
+    borderRadius: 18,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#F3E8DF',
+    gap: 10,
+    marginTop: 14,
+  },
+  billLine: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  billLineLabel: {
+    fontSize: 12,
     fontWeight: '700',
-    color: '#0F172A',
+    color: '#1C0B18',
+  },
+  billLineSubtext: {
+    fontSize: 10,
+    color: '#8A7A84',
+    marginTop: 2,
+  },
+  billLineVal: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#1C0B18',
+  },
+  billStrikethrough: {
+    fontSize: 11,
+    color: '#8A7A84',
+    textDecorationLine: 'line-through',
+  },
+  billCardHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     marginBottom: 2,
   },
-  quickAddDesc: {
+  billCardTitle: {
+    fontSize: 15,
+    fontWeight: '900',
+    color: '#1C0B18',
+  },
+  billSecureBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#DCFCE7',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+  },
+  billSecureText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#166534',
+  },
+  billDivider: {
+    height: 1,
+    backgroundColor: '#F3E8DF',
+    marginVertical: 4,
+  },
+  billFinalRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingTop: 4,
+  },
+  billGrandLabel: {
+    fontSize: 15,
+    fontWeight: '900',
+    color: '#1C0B18',
+  },
+  billSavingsText: {
     fontSize: 11,
-    color: '#64748B',
-    marginBottom: 3,
+    color: '#16A34A',
+    fontWeight: '700',
+    marginTop: 2,
   },
-  quickAddRate: {
-    fontSize: 12.5,
-    fontWeight: '800',
-    color: '#FF7A00',
+  billGrandVal: {
+    fontSize: 18,
+    fontWeight: '900',
+    color: '#F97316',
   },
-
   root: {
     flex: 1,
     backgroundColor: '#FCF9F7',
@@ -1478,6 +2142,105 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#8A7A84',
     marginTop: 2,
+  },
+  luxuryEmptyCartWrap: {
+    alignItems: 'center',
+    paddingVertical: 36,
+    paddingHorizontal: 8,
+    gap: 14,
+  },
+  emptyIconCircle: {
+    width: 88,
+    height: 88,
+    borderRadius: 44,
+    backgroundColor: '#FFF4EB',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 4,
+    borderWidth: 2,
+    borderColor: '#FED7AA',
+  },
+  luxuryEmptyTitle: {
+    fontSize: 20,
+    fontWeight: '900',
+    color: '#1C0B18',
+    textAlign: 'center',
+    letterSpacing: -0.3,
+  },
+  luxuryEmptySubtitle: {
+    fontSize: 13,
+    color: '#64748B',
+    textAlign: 'center',
+    lineHeight: 20,
+    maxWidth: 320,
+    marginBottom: 6,
+  },
+  emptyPrimaryBtn: {
+    width: '100%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    backgroundColor: '#FF7A00',
+    borderRadius: 16,
+    paddingVertical: 15,
+    paddingHorizontal: 20,
+    shadowColor: '#FF7A00',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.35,
+    shadowRadius: 10,
+    elevation: 4,
+  },
+  emptyPrimaryBtnText: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '800',
+    letterSpacing: 0.2,
+  },
+  emptySecondaryBtn: {
+    width: '100%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    paddingVertical: 14,
+    paddingHorizontal: 18,
+    borderWidth: 1.5,
+    borderColor: '#E2E8F0',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
+    elevation: 1,
+  },
+  emptySecondaryBtnText: {
+    color: '#1C0B18',
+    fontSize: 14,
+    fontWeight: '800',
+    flex: 1,
+    marginLeft: 10,
+  },
+  emptyTrustBox: {
+    width: '100%',
+    backgroundColor: '#F8FAFC',
+    borderRadius: 16,
+    padding: 16,
+    gap: 12,
+    borderWidth: 1,
+    borderColor: '#EDF2F7',
+    marginTop: 8,
+  },
+  emptyTrustItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  emptyTrustText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#334155',
+    flex: 1,
   },
   emptyCartWrap: {
     alignItems: 'center',
@@ -2083,58 +2846,6 @@ const styles = StyleSheet.create({
     color: '#8A7A84',
     marginTop: 2,
   },
-  billCard: {
-    padding: 16,
-    borderRadius: 18,
-    backgroundColor: '#FFFFFF',
-    gap: 8,
-  },
-  billCardTitle: {
-    fontSize: 14,
-    fontWeight: '900',
-    color: '#1C0B18',
-    marginBottom: 4,
-  },
-  billLine: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  billLineLabel: {
-    fontSize: 12,
-    color: '#8A7A84',
-  },
-  billLineVal: {
-    fontSize: 12,
-    fontWeight: '800',
-    color: '#1C0B18',
-  },
-  billDivider: {
-    height: 1,
-    backgroundColor: '#F3E8DF',
-    marginVertical: 4,
-  },
-  billFinalRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingTop: 4,
-  },
-  billGrandLabel: {
-    fontSize: 15,
-    fontWeight: '900',
-    color: '#1C0B18',
-  },
-  billSavingsText: {
-    fontSize: 11,
-    color: '#16A34A',
-    fontWeight: '700',
-  },
-  billGrandVal: {
-    fontSize: 18,
-    fontWeight: '900',
-    color: '#F97316',
-  },
   stickyFooter: {
     backgroundColor: '#FFFFFF',
     borderTopWidth: 1,
@@ -2292,5 +3003,409 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 15,
     fontWeight: '800',
+  },
+
+  // BigBasket-Style Coupon Card (Bag & Review)
+  bbCouponCardContainer: {
+    marginVertical: 12,
+  },
+  bbCouponCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1.5,
+    borderColor: '#FED7AA',
+    borderStyle: 'dashed',
+    borderRadius: 16,
+    padding: 14,
+    shadowColor: '#EA580C',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+  bbCouponLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    flex: 1,
+  },
+  bbCouponIconCircle: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#FFF7ED',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  bbCouponTitle: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#1E293B',
+  },
+  bbCouponCountBadge: {
+    backgroundColor: '#FFEDD5',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  bbCouponCountText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#EA580C',
+    letterSpacing: 0.3,
+  },
+  bbCouponSubtitle: {
+    fontSize: 12,
+    color: '#64748B',
+    marginTop: 2,
+  },
+  bbCouponApplyAction: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+    paddingLeft: 6,
+  },
+  bbCouponApplyActionText: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#FF7A00',
+  },
+  bbCouponAppliedCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#F0FDF4',
+    borderWidth: 1.5,
+    borderColor: '#86EFAC',
+    borderRadius: 16,
+    padding: 14,
+  },
+  bbCouponAppliedLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    flex: 1,
+  },
+  bbCouponAppliedIconCircle: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#DCFCE7',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  bbCouponAppliedCode: {
+    fontSize: 14,
+    fontWeight: '900',
+    color: '#166534',
+    letterSpacing: 0.5,
+  },
+  bbCouponAppliedBadge: {
+    backgroundColor: '#BBF7D0',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  bbCouponAppliedBadgeText: {
+    fontSize: 9,
+    fontWeight: '900',
+    color: '#166534',
+  },
+  bbCouponAppliedSaving: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#15803D',
+    marginTop: 2,
+  },
+  bbCouponAppliedActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  bbCouponChangeText: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#0284C7',
+  },
+  bbCouponRemoveText: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#DC2626',
+  },
+
+  // BigBasket Available Coupons Bottom Sheet Modal
+  bbModalOverlay: {
+    flex: 1,
+    justifyContent: 'flex-end',
+  },
+  bbModalBackdrop: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(15, 23, 42, 0.55)',
+  },
+  bbModalSheet: {
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    maxHeight: '84%',
+    paddingTop: 10,
+    paddingHorizontal: 18,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 10,
+  },
+  bbSheetHandle: {
+    width: 40,
+    height: 4,
+    backgroundColor: '#CBD5E1',
+    borderRadius: 2,
+    alignSelf: 'center',
+    marginBottom: 12,
+  },
+  bbModalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingBottom: 14,
+    borderBottomWidth: 1,
+    borderColor: '#F1F5F9',
+  },
+  bbModalTitle: {
+    fontSize: 18,
+    fontWeight: '900',
+    color: '#0F172A',
+  },
+  bbModalSubtitle: {
+    fontSize: 12,
+    color: '#64748B',
+    marginTop: 2,
+    fontWeight: '600',
+  },
+  bbModalCloseBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#F1F5F9',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  bbInputSection: {
+    paddingVertical: 14,
+  },
+  bbInputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1.5,
+    borderColor: '#E2E8F0',
+    borderRadius: 14,
+    height: 48,
+    overflow: 'hidden',
+  },
+  bbTextInput: {
+    flex: 1,
+    paddingHorizontal: 10,
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  bbInputApplyBtn: {
+    backgroundColor: '#FF7A00',
+    height: '100%',
+    paddingHorizontal: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  bbInputApplyBtnDisabled: {
+    backgroundColor: '#CBD5E1',
+  },
+  bbInputApplyText: {
+    fontSize: 13,
+    fontWeight: '900',
+    color: '#FFFFFF',
+    letterSpacing: 0.5,
+  },
+  bbInputErrorRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 8,
+    paddingHorizontal: 4,
+  },
+  bbInputErrorText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#EF4444',
+  },
+  bbListHeader: {
+    paddingVertical: 6,
+    marginBottom: 8,
+  },
+  bbListTitle: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#64748B',
+    letterSpacing: 0.5,
+  },
+  bbCouponsScroll: {
+    flexGrow: 0,
+  },
+  bbTicketCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    borderWidth: 1.5,
+    borderColor: '#E2E8F0',
+    borderStyle: 'dashed',
+    marginBottom: 14,
+    padding: 14,
+    position: 'relative',
+    overflow: 'hidden',
+  },
+  bbTicketCardCurrent: {
+    borderColor: '#86EFAC',
+    backgroundColor: '#F0FDF4',
+    borderStyle: 'solid',
+  },
+  bbTicketCardDisabled: {
+    opacity: 0.7,
+    backgroundColor: '#FAFAFA',
+  },
+  bbTicketNotchTop: {
+    position: 'absolute',
+    top: -8,
+    left: 20,
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: '#FFFFFF',
+    borderBottomWidth: 1.5,
+    borderColor: '#E2E8F0',
+  },
+  bbTicketNotchBottom: {
+    position: 'absolute',
+    bottom: -8,
+    left: 20,
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: '#FFFFFF',
+    borderTopWidth: 1.5,
+    borderColor: '#E2E8F0',
+  },
+  bbTicketMain: {
+    gap: 6,
+  },
+  bbTicketTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  bbCodeBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: '#FFF7ED',
+    borderWidth: 1,
+    borderColor: '#FED7AA',
+    borderStyle: 'dashed',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  bbCodeBadgeText: {
+    fontSize: 13,
+    fontWeight: '900',
+    color: '#FF7A00',
+    letterSpacing: 0.6,
+  },
+  bbTicketApplyBtn: {
+    backgroundColor: '#FF7A00',
+    paddingHorizontal: 18,
+    paddingVertical: 7,
+    borderRadius: 10,
+  },
+  bbTicketApplyText: {
+    fontSize: 12,
+    fontWeight: '900',
+    color: '#FFFFFF',
+    letterSpacing: 0.4,
+  },
+  bbAppliedPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#DCFCE7',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 8,
+  },
+  bbAppliedPillText: {
+    fontSize: 11,
+    fontWeight: '900',
+    color: '#16A34A',
+  },
+  bbRemoveInlineText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#DC2626',
+    marginLeft: 2,
+  },
+  bbTicketIneligiblePill: {
+    backgroundColor: '#F1F5F9',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 8,
+  },
+  bbTicketIneligiblePillText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#94A3B8',
+    letterSpacing: 0.3,
+  },
+  bbSavingHeadline: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#0F172A',
+    marginTop: 2,
+  },
+  bbTicketDesc: {
+    fontSize: 12,
+    color: '#64748B',
+    lineHeight: 17,
+  },
+  bbTicketFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginTop: 2,
+    flexWrap: 'wrap',
+  },
+  bbTicketMinOrder: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#64748B',
+  },
+  bbTicketFirstOrder: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#EA580C',
+  },
+  bbIneligibilityNotice: {
+    backgroundColor: '#FEF2F2',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    marginTop: 4,
+  },
+  bbIneligibilityNoticeText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#DC2626',
   },
 });

@@ -325,13 +325,36 @@ export function ProfileScreen({
 
         <View style={styles.menuDivider} />
 
+        <Pressable style={styles.menuRow} onPress={session ? onViewWallet : onSignIn}>
+          <View style={[styles.menuIconBox, { backgroundColor: '#ECFDF5' }]}>
+            <MaterialCommunityIcons name="wallet-outline" size={20} color="#10B981" />
+          </View>
+          <View style={styles.menuText}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              <Text style={styles.menuTitle}>LaundryFresh Wallet</Text>
+              <View style={{ backgroundColor: '#DCFCE7', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}>
+                <Text style={{ color: '#16A34A', fontSize: 10, fontWeight: '800' }}>₹100 REWARDS</Text>
+              </View>
+            </View>
+            <Text style={styles.menuSubtitle}>Instant refunds, top-ups & referral cash</Text>
+          </View>
+          <MaterialCommunityIcons name="chevron-right" size={20} color="#8A7A84" />
+        </Pressable>
+
+        <View style={styles.menuDivider} />
+
         <Pressable style={styles.menuRow} onPress={session ? onViewReferral : onSignIn}>
           <View style={[styles.menuIconBox, { backgroundColor: '#FFFBEB' }]}>
             <MaterialCommunityIcons name="gift-outline" size={20} color="#F59E0B" />
           </View>
           <View style={styles.menuText}>
-            <Text style={styles.menuTitle}>Refer & Earn</Text>
-            <Text style={styles.menuSubtitle}>Invite friends and track your reward coupons</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              <Text style={styles.menuTitle}>Refer & Earn</Text>
+              <View style={{ backgroundColor: '#FEF3C7', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}>
+                <Text style={{ color: '#D97706', fontSize: 10, fontWeight: '800' }}>GET ₹100</Text>
+              </View>
+            </View>
+            <Text style={styles.menuSubtitle}>Invite friends and earn ₹100 directly to wallet</Text>
           </View>
           <MaterialCommunityIcons name="chevron-right" size={20} color="#8A7A84" />
         </Pressable>

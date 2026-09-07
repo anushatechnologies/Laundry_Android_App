@@ -114,6 +114,18 @@ const FALLBACK_PLANS: SubscriptionPlan[] = [
   },
 ];
 
+function paymentFailureCopy(error: unknown): { title: string; message: string } {
+  const detail = error && typeof error === 'object' ? error as { code?: string; reason?: string; description?: string; message?: string } : {};
+  const text = `${detail.code || ''} ${detail.reason || ''} ${detail.description || ''} ${detail.message || ''}`.toLowerCase();
+  if (text.includes('cancel') || text.includes('dismiss')) {
+    return { title: 'Payment Cancelled', message: 'Your payment was cancelled. No subscription has been activated.' };
+  }
+  if (text.includes('network') || text.includes('timeout')) {
+    return { title: 'Payment Not Completed', message: 'We could not complete your payment because of a connection issue. Please retry.' };
+  }
+  return { title: 'Payment Not Completed', message: 'Your payment was not completed. No amount has been charged and no subscription has been activated.' };
+}
+
 export function SubscriptionsScreen({ onBook, onSignIn }: SubscriptionsScreenProps) {
   const insets = useSafeAreaInsets();
   const { session } = useApp();
@@ -208,10 +220,20 @@ export function SubscriptionsScreen({ onBook, onSignIn }: SubscriptionsScreenPro
       Alert.alert('Subscription Activated', 'Your paid membership is now active.', [
         { text: 'OK' }, { text: 'Book Pickup', onPress: onBook },
       ]);
-    } catch (error: any) {
-      Alert.alert(paymentCompleted ? 'Activation Pending' : 'Payment Not Completed',
-        paymentCompleted ? 'Your payment needs confirmation. Please contact support before paying again.'
-          : error?.description || error?.message || 'Please try again.');
+    } catch (error: unknown) {
+      if (paymentCompleted) {
+        Alert.alert(
+          'Activation Pending',
+          'Your payment needs confirmation. Please contact support before trying again.',
+          [{ text: 'OK' }],
+        );
+      } else {
+        const failure = paymentFailureCopy(error);
+        Alert.alert(failure.title, failure.message, [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Retry Payment', onPress: () => { void handleSubscribe(plan); } },
+        ]);
+      }
     } finally { setPurchasing(false); }
   };
 

@@ -14,6 +14,7 @@ import { payWithRazorpay } from '@/lib/payments';
 import {
   clearSession,
   clearCart,
+  clearCustomerLocalData,
   clearWishlist,
   readCart,
   readOnboardingComplete,
@@ -75,8 +76,8 @@ interface AppContextValue {
   clearPendingNavAction: () => void;
   toggleWishlist: (itemId: string) => void;
   isInWishlist: (itemId: string) => boolean;
-  requestOtp: (phone: string) => Promise<void>;
-  signIn: (otp: string, name?: string, email?: string) => Promise<void>;
+  requestOtp: (phone: string, name?: string, email?: string, referralCode?: string) => Promise<void>;
+  signIn: (otp: string, name?: string, email?: string, referralCode?: string) => Promise<void>;
   signOut: () => Promise<void>;
   completeOnboarding: () => Promise<void>;
   refreshCatalog: () => Promise<void>;
@@ -235,12 +236,12 @@ export function AppProvider({ children }: PropsWithChildren) {
   // High-Reliability OTP Strategy:
   // 1. Primary: Fast2SMS Indian SMS Gateway (Direct delivery to Indian mobile numbers via recharged Fast2SMS account)
   // 2. Fallback: Google Firebase Phone Auth (if backend SMS gateway is unreachable)
-  const requestOtp = useCallback(async (phone: string) => {
+  const requestOtp = useCallback(async (phone: string, name?: string, email?: string, referralCode?: string) => {
     pendingPhoneRef.current = phone;
 
     // 1. Dispatch via Fast2SMS Indian Gateway
     try {
-      const res = await api.sendOtp(phone);
+      const res = await api.sendOtp(phone, name, email, referralCode);
       if (res.success) {
         useBackendOtpRef.current = true;
         console.log('[Phone Auth] Real OTP SMS sent via Fast2SMS gateway:', res.gateway);
@@ -261,17 +262,17 @@ export function AppProvider({ children }: PropsWithChildren) {
   }, []);
 
   // Confirms OTP via either Backend Fast2SMS verification or Firebase Phone Auth
-  const signIn = useCallback(async (otp: string, name?: string, email?: string) => {
+  const signIn = useCallback(async (otp: string, name?: string, email?: string, referralCode?: string) => {
     let nextSession: AuthSession;
 
     if (useBackendOtpRef.current && pendingPhoneRef.current) {
       try {
-        nextSession = await api.verifyOtp(pendingPhoneRef.current, otp, name, email);
+        nextSession = await api.verifyOtp(pendingPhoneRef.current, otp, name, email, referralCode);
       } catch (backendVerifyErr) {
         // If backend verify failed, try firebase confirm as secondary fallback
         try {
           const result = await confirmFirebasePhoneOtp(otp);
-          nextSession = await api.loginWithFirebase(result.idToken, name, email);
+          nextSession = await api.loginWithFirebase(result.idToken, name, email, referralCode);
         } catch {
           throw backendVerifyErr;
         }
@@ -279,11 +280,11 @@ export function AppProvider({ children }: PropsWithChildren) {
     } else {
       try {
         const result = await confirmFirebasePhoneOtp(otp);
-        nextSession = await api.loginWithFirebase(result.idToken, name, email);
+        nextSession = await api.loginWithFirebase(result.idToken, name, email, referralCode);
       } catch (firebaseConfirmErr) {
         if (pendingPhoneRef.current) {
           console.log('[Phone Auth] Firebase confirmation failed, trying backend verify-otp fallback...');
-          nextSession = await api.verifyOtp(pendingPhoneRef.current, otp, name, email);
+          nextSession = await api.verifyOtp(pendingPhoneRef.current, otp, name, email, referralCode);
         } else {
           throw firebaseConfirmErr;
         }
@@ -521,6 +522,13 @@ export function AppProvider({ children }: PropsWithChildren) {
         return { order, paymentOutcome: 'COD' };
       }
 
+      // WALLET or Fully Paid with Wallet Balance: Confirm order and empty cart immediately
+      if (input.paymentMethod === 'WALLET' || (order as any).paymentStatus === 'PAID') {
+        setOrders((current) => [order, ...current.filter((candidate) => candidate.id !== order.id)]);
+        setCart([]);
+        return { order, paymentOutcome: 'PAID' };
+      }
+
       let paymentCompleted = false;
       // Online Razorpay Payment Flow:
       // DO NOT add order to orders list and DO NOT clear cart until payment succeeds!
@@ -734,13 +742,10 @@ export function AppProvider({ children }: PropsWithChildren) {
   }, [session?.user?.id]);
 
   const deleteAccount = useCallback(async () => {
-    if (session?.user?.id) {
-      try {
-        await api.deleteAccount(session.user.id);
-      } catch (err) {
-        console.warn('Backend deleteAccount failed:', err);
-      }
-    }
+    const customerId = session?.user?.id;
+    if (!customerId) throw new Error('Please sign in before deleting your account.');
+    await api.deleteAccount(customerId);
+    await clearCustomerLocalData(customerId);
     await signOut();
   }, [session?.user?.id, signOut]);
 

@@ -25,7 +25,7 @@ interface SettingsScreenProps {
 }
 
 export function SettingsScreen({ onSignIn }: SettingsScreenProps) {
-  const { session, preferences, updatePreferences, updateUserProfile, deleteAccount } = useApp();
+  const { session, preferences, updatePreferences, updateUserProfile, deleteAccount, signOut } = useApp();
 
   // Edit Name & Email Modal
   const [editingProfile, setEditingProfile] = useState(false);
@@ -53,6 +53,28 @@ export function SettingsScreen({ onSignIn }: SettingsScreenProps) {
       Alert.alert('Profile Saved', 'Details updated successfully.');
       setEditingProfile(false);
     }
+  };
+
+  const handleLogOut = () => {
+    Alert.alert(
+      'Log Out',
+      'Are you sure you want to log out? Your account data will be saved and you can sign in again anytime.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Log Out',
+          style: 'default',
+          onPress: async () => {
+            try {
+              await signOut();
+              Alert.alert('Logged Out', 'You have been signed out successfully. See you soon!');
+            } catch (err: any) {
+              Alert.alert('Error', err?.message || 'Could not log out. Please try again.');
+            }
+          },
+        },
+      ]
+    );
   };
 
   const handleDeleteAccount = () => {
@@ -333,6 +355,13 @@ export function SettingsScreen({ onSignIn }: SettingsScreenProps) {
 
           {session && (
             <>
+              <View style={styles.divider} />
+              <Pressable style={styles.menuRow} onPress={handleLogOut}>
+                <MaterialCommunityIcons name="logout" size={20} color="#F97316" />
+                <Text style={[styles.menuLabel, { color: '#F97316' }]}>Log Out from Device</Text>
+                <MaterialCommunityIcons name="chevron-right" size={20} color="#F97316" />
+              </Pressable>
+              
               <View style={styles.divider} />
               <Pressable style={styles.menuRow} onPress={handleDeleteAccount}>
                 <MaterialCommunityIcons name="account-remove-outline" size={20} color="#EF4444" />

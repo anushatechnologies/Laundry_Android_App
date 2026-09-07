@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import {
   Alert,
   Image,
@@ -28,18 +28,20 @@ export function WishlistScreen({ onBook, onExploreServices }: WishlistScreenProp
     setCartQuantity,
     removeFromCart,
     catalog,
-    cartSummary,
     refreshCatalog,
   } = useApp();
 
   const [notification, setNotification] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [failedImages, setFailedImages] = useState<Record<string, boolean>>({});
 
   // Pull-to-refresh handler
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
     try {
-      await refreshCatalog(); // Refresh catalog to get updated prices
+      if (typeof refreshCatalog === 'function') {
+        await refreshCatalog();
+      }
     } catch (error) {
       console.error('[WishlistScreen] Refresh error:', error);
     } finally {
@@ -52,50 +54,85 @@ export function WishlistScreen({ onBook, onExploreServices }: WishlistScreenProp
     setTimeout(() => setNotification(null), 2500);
   };
 
-  const wishlistItems = wishlist
-    .map((id) => {
-      if (catalog?.clothTypes?.length) {
-        const cloth = catalog.clothTypes.find((c) => c.id === id);
-        if (cloth) {
-          const prices = (catalog.priceMatrix || []).filter(
-            (p) => p.clothTypeId === cloth.id && p.isActive
-          );
-          const primaryPrice =
-            prices.find((p) => p.serviceName.toLowerCase().includes('dry clean')) ||
-            prices[0];
-          return {
-            id: cloth.id,
-            name: cloth.name,
-            category: cloth.categoryLabel || cloth.categoryTag || 'Fabric Care',
-            serviceType: primaryPrice?.serviceName || 'Standard Service',
-            serviceId: primaryPrice?.serviceId || '',
-            tat: `${primaryPrice?.turnaroundHours || 24}H`,
-            price: primaryPrice?.price || 0,
-            unit: 'pc',
-            imageUrl:
-              cloth.imageUrl ||
-              getGarmentImageUrl(cloth.id, undefined, cloth.categoryTag),
-          };
+  // 1. Safely normalize wishlist into clean string IDs
+  const safeWishlist: string[] = useMemo(() => {
+    if (!Array.isArray(wishlist)) return [];
+    return wishlist
+      .map((item: any) => {
+        if (typeof item === 'string') return item.trim();
+        if (item && typeof item === 'object') {
+          return String(item.id || item.clothId || '').trim();
         }
-      }
-      
-      // No static fallback - only use API data
-      return {
-        id,
-        name: id.replace('cloth-', '').replace(/-/g, ' ').toUpperCase(),
-        category: 'Fabric Care',
-        serviceType: 'Standard Service',
-        serviceId: '',
-        tat: '24H',
-        price: 0,
-        unit: 'pc',
-        imageUrl: getGarmentImageUrl(id),
-      };
-    })
-    .filter(Boolean);
+        return '';
+      })
+      .filter((id): id is string => Boolean(id && id.length > 0));
+  }, [wishlist]);
+
+  // 2. Safe mapping of wishlist items against catalog
+  const wishlistItems = useMemo(() => {
+    try {
+      return safeWishlist
+        .map((id) => {
+          if (!id || typeof id !== 'string') return null;
+
+          const cloth = catalog?.clothTypes?.find((c) => c && String(c.id) === String(id));
+          if (cloth) {
+            const prices = Array.isArray(catalog?.priceMatrix)
+              ? catalog.priceMatrix.filter(
+                  (p) => p && String(p.clothTypeId) === String(cloth.id) && p.isActive
+                )
+              : [];
+
+            const primaryPrice =
+              prices.find(
+                (p) =>
+                  p?.serviceName &&
+                  typeof p.serviceName === 'string' &&
+                  p.serviceName.toLowerCase().includes('dry clean')
+              ) || prices[0];
+
+            const clothImg =
+              cloth.imageUrl ||
+              getGarmentImageUrl(cloth.id, undefined, cloth.categoryTag);
+
+            return {
+              id: String(cloth.id),
+              name: String(cloth.name || 'Garment Item'),
+              category: String(cloth.categoryLabel || cloth.categoryTag || 'Fabric Care'),
+              serviceType: String(primaryPrice?.serviceName || 'Standard Care'),
+              serviceId: String(primaryPrice?.serviceId || ''),
+              tat: `${primaryPrice?.turnaroundHours || 24}H`,
+              price: Number(primaryPrice?.price || 0),
+              unit: 'pc',
+              imageUrl: clothImg,
+            };
+          }
+
+          // Fallback if cloth not in current catalog
+          const cleanName = id.replace('cloth-', '').replace(/-/g, ' ').toUpperCase();
+          return {
+            id: String(id),
+            name: cleanName || 'Garment Item',
+            category: 'Fabric Care',
+            serviceType: 'Standard Care',
+            serviceId: '',
+            tat: '24H',
+            price: 0,
+            unit: 'pc',
+            imageUrl: getGarmentImageUrl(id),
+          };
+        })
+        .filter((item): item is NonNullable<typeof item> => Boolean(item));
+    } catch (err) {
+      console.error('[WishlistScreen] Error mapping wishlist items:', err);
+      return [];
+    }
+  }, [safeWishlist, catalog?.clothTypes, catalog?.priceMatrix]);
 
   const handleRemoveFromWishlist = (id: string, name: string) => {
-    toggleWishlist(id);
+    if (typeof toggleWishlist === 'function') {
+      toggleWishlist(id);
+    }
     showToast(`Removed "${name}" from Wishlist`);
   };
 
@@ -109,7 +146,9 @@ export function WishlistScreen({ onBook, onExploreServices }: WishlistScreenProp
           text: 'Clear All',
           style: 'destructive',
           onPress: () => {
-            wishlist.forEach((id) => toggleWishlist(id));
+            if (typeof toggleWishlist === 'function') {
+              [...safeWishlist].forEach((id) => toggleWishlist(id));
+            }
             showToast('Wishlist cleared');
           },
         },
@@ -118,30 +157,11 @@ export function WishlistScreen({ onBook, onExploreServices }: WishlistScreenProp
   };
 
   const handleAddToCart = (item: any) => {
-    const cartItemId = `${item.id}-${item.serviceId}`;
-    addCartItem({
-      id: cartItemId,
-      serviceId: item.serviceId,
-      serviceName: `${item.name} (${item.serviceType})`,
-      categoryName: item.category,
-      pricingModel: item.unit === 'kg' ? 'PER_KG' : 'PER_ITEM',
-      unitPrice: item.price,
-      quantity: 1,
-      unit: item.unit === 'kg' ? 'KG' : 'Piece',
-      subtotal: item.price,
-      clothId: item.id,
-      imageUrl: item.imageUrl,
-    });
-    showToast(`Added ${item.name} to Bag! 🛍️`);
-  };
-
-  const handleAddAllToCart = () => {
-    if (wishlistItems.length === 0) return;
-    wishlistItems.forEach((item) => {
-      const cartItemId = `${item.id}-${item.serviceId}`;
+    const cartItemId = `${item.id}-${item.serviceId || 'default'}`;
+    if (typeof addCartItem === 'function') {
       addCartItem({
         id: cartItemId,
-        serviceId: item.serviceId,
+        serviceId: item.serviceId || '',
         serviceName: `${item.name} (${item.serviceType})`,
         categoryName: item.category,
         pricingModel: item.unit === 'kg' ? 'PER_KG' : 'PER_ITEM',
@@ -152,8 +172,33 @@ export function WishlistScreen({ onBook, onExploreServices }: WishlistScreenProp
         clothId: item.id,
         imageUrl: item.imageUrl,
       });
-    });
-    onBook();
+      showToast(`Added ${item.name} to Bag! 🛍️`);
+    }
+  };
+
+  const handleAddAllToCart = () => {
+    if (wishlistItems.length === 0) return;
+    if (typeof addCartItem === 'function') {
+      wishlistItems.forEach((item) => {
+        const cartItemId = `${item.id}-${item.serviceId || 'default'}`;
+        addCartItem({
+          id: cartItemId,
+          serviceId: item.serviceId || '',
+          serviceName: `${item.name} (${item.serviceType})`,
+          categoryName: item.category,
+          pricingModel: item.unit === 'kg' ? 'PER_KG' : 'PER_ITEM',
+          unitPrice: item.price,
+          quantity: 1,
+          unit: item.unit === 'kg' ? 'KG' : 'Piece',
+          subtotal: item.price,
+          clothId: item.id,
+          imageUrl: item.imageUrl,
+        });
+      });
+    }
+    if (typeof onBook === 'function') {
+      onBook();
+    }
   };
 
   if (wishlistItems.length === 0) {
@@ -166,7 +211,14 @@ export function WishlistScreen({ onBook, onExploreServices }: WishlistScreenProp
         <Text style={styles.emptySubtitle}>
           Save garments, ethnic wear, and household linen you plan to wash or dry clean. Tap the heart icon on any item to save it here!
         </Text>
-        <Pressable style={styles.exploreBtn} onPress={onExploreServices}>
+        <Pressable
+          style={styles.exploreBtn}
+          onPress={() => {
+            if (typeof onExploreServices === 'function') {
+              onExploreServices();
+            }
+          }}
+        >
           <LinearGradient
             colors={['#FF7A00', '#FF5A00']}
             start={{ x: 0, y: 0 }}
@@ -220,20 +272,38 @@ export function WishlistScreen({ onBook, onExploreServices }: WishlistScreenProp
         {/* Wishlist Cards Stack */}
         <View style={styles.list}>
           {wishlistItems.map((item) => {
-            const directId = `${item.id}-${item.serviceId}`;
-            const foundInCart = cart.find(
-              (c) =>
-                c.id === directId ||
-                c.clothId === item.id ||
-                c.id.includes(item.id)
-            );
+            const directId = `${item.id}-${item.serviceId || 'default'}`;
+            const foundInCart = Array.isArray(cart)
+              ? cart.find(
+                  (c) =>
+                    c &&
+                    (c.id === directId ||
+                      c.clothId === item.id ||
+                      (typeof c.id === 'string' &&
+                        typeof item.id === 'string' &&
+                        item.id.length > 0 &&
+                        c.id.includes(item.id)))
+                )
+              : undefined;
             const cartQty = foundInCart ? foundInCart.quantity : 0;
+            const isImageFailed = failedImages[item.id];
 
             return (
               <View key={item.id} style={styles.card}>
                 {/* Left Photo */}
                 <View style={styles.imageContainer}>
-                  <Image source={{ uri: item.imageUrl }} style={styles.image} resizeMode="cover" />
+                  {item.imageUrl && !isImageFailed ? (
+                    <Image
+                      source={{ uri: item.imageUrl }}
+                      style={styles.image}
+                      resizeMode="cover"
+                      onError={() => setFailedImages((prev) => ({ ...prev, [item.id]: true }))}
+                    />
+                  ) : (
+                    <View style={styles.imageFallback}>
+                      <MaterialCommunityIcons name="hanger" size={32} color="#CBD5E1" />
+                    </View>
+                  )}
                   <View style={styles.tatBadge}>
                     <MaterialCommunityIcons name="clock-fast" size={10} color="#FFFFFF" />
                     <Text style={styles.tatBadgeText}>{item.tat}</Text>
@@ -282,10 +352,14 @@ export function WishlistScreen({ onBook, onExploreServices }: WishlistScreenProp
                             style={styles.stepperBtn}
                             onPress={() => {
                               if (foundInCart.quantity <= 1) {
-                                removeFromCart(foundInCart.id);
+                                if (typeof removeFromCart === 'function') {
+                                  removeFromCart(foundInCart.id);
+                                }
                                 showToast(`Removed "${item.name}" from Bag`);
                               } else {
-                                setCartQuantity(foundInCart.id, foundInCart.quantity - 1);
+                                if (typeof setCartQuantity === 'function') {
+                                  setCartQuantity(foundInCart.id, foundInCart.quantity - 1);
+                                }
                               }
                             }}
                             hitSlop={8}
@@ -295,7 +369,11 @@ export function WishlistScreen({ onBook, onExploreServices }: WishlistScreenProp
                           <Text style={styles.stepperCountText}>{cartQty}</Text>
                           <Pressable
                             style={styles.stepperBtn}
-                            onPress={() => setCartQuantity(foundInCart.id, foundInCart.quantity + 1)}
+                            onPress={() => {
+                              if (typeof setCartQuantity === 'function') {
+                                setCartQuantity(foundInCart.id, foundInCart.quantity + 1);
+                              }
+                            }}
                             hitSlop={8}
                           >
                             <MaterialCommunityIcons name="plus" size={13} color="#FFFFFF" />
@@ -494,6 +572,13 @@ const styles = StyleSheet.create({
   image: {
     width: '100%',
     height: '100%',
+  },
+  imageFallback: {
+    width: '100%',
+    height: '100%',
+    backgroundColor: '#F1F5F9',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   tatBadge: {
     position: 'absolute',

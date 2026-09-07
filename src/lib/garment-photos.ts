@@ -48,21 +48,27 @@ const GARMENT_PHOTO_MAP: Record<string, string> = {
   'sweater': 'https://images.unsplash.com/photo-1578587018452-892bacefd3f2?auto=format&fit=crop&w=400&q=80',
   'jacket': 'https://images.unsplash.com/photo-1578587018452-892bacefd3f2?auto=format&fit=crop&w=400&q=80',
   
-  // Ethnic
+  // Ethnic & Royal Occasion Wear
   'cloth-kurta-m': 'https://images.unsplash.com/photo-1583391733956-3750e0ff4e8b?auto=format&fit=crop&w=400&q=80',
   'kurta': 'https://images.unsplash.com/photo-1583391733956-3750e0ff4e8b?auto=format&fit=crop&w=400&q=80',
+  'cloth-sherwani': 'https://images.unsplash.com/photo-1583391733956-3750e0ff4e8b?auto=format&fit=crop&w=400&q=80',
+  'sherwani': 'https://images.unsplash.com/photo-1583391733956-3750e0ff4e8b?auto=format&fit=crop&w=400&q=80',
+  'indo-western': 'https://images.unsplash.com/photo-1507679799987-c73779587ccf?auto=format&fit=crop&w=400&q=80',
+  'cloth-indo-western': 'https://images.unsplash.com/photo-1507679799987-c73779587ccf?auto=format&fit=crop&w=400&q=80',
   
   // Sarees
   'cloth-saree-cotton': 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?auto=format&fit=crop&w=400&q=80',
   'cloth-saree-silk': 'https://images.unsplash.com/photo-1617627143750-d86bc21e42bb?auto=format&fit=crop&w=400&q=80',
   'cloth-saree': 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?auto=format&fit=crop&w=400&q=80',
   'saree': 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?auto=format&fit=crop&w=400&q=80',
+  'designer-saree': 'https://images.unsplash.com/photo-1617627143750-d86bc21e42bb?auto=format&fit=crop&w=400&q=80',
   
   // Women's Western / Dresses / Gowns
   'cloth-w-top': 'https://images.unsplash.com/photo-1564257631407-4deb1f99d992?auto=format&fit=crop&w=400&q=80',
   'cloth-gown': 'https://images.unsplash.com/photo-1572804013309-59a88b7e92f1?auto=format&fit=crop&w=400&q=80',
   'cloth-dress': 'https://images.unsplash.com/photo-1572804013309-59a88b7e92f1?auto=format&fit=crop&w=400&q=80',
   'cloth-lehenga': 'https://images.unsplash.com/photo-1617627143750-d86bc21e42bb?auto=format&fit=crop&w=400&q=80',
+  'lehenga': 'https://images.unsplash.com/photo-1617627143750-d86bc21e42bb?auto=format&fit=crop&w=400&q=80',
   'kurti': 'https://images.unsplash.com/photo-1583391733956-3750e0ff4e8b?auto=format&fit=crop&w=400&q=80',
   'gown': 'https://images.unsplash.com/photo-1572804013309-59a88b7e92f1?auto=format&fit=crop&w=400&q=80',
   'dress': 'https://images.unsplash.com/photo-1572804013309-59a88b7e92f1?auto=format&fit=crop&w=400&q=80',
@@ -128,15 +134,24 @@ export function getGarmentImageUrl(clothId: string, customUrl?: string, category
   if (searchStr.includes('sweater') || searchStr.includes('pullover') || searchStr.includes('jacket') || searchStr.includes('coat')) {
     return GARMENT_PHOTO_MAP['sweater'] || FALLBACK_PHOTO;
   }
+  if (searchStr.includes('sherwani')) {
+    return GARMENT_PHOTO_MAP['sherwani'] || FALLBACK_PHOTO;
+  }
+  if (searchStr.includes('indo-western') || searchStr.includes('indowestern')) {
+    return GARMENT_PHOTO_MAP['indo-western'] || FALLBACK_PHOTO;
+  }
+  if (searchStr.includes('lehenga')) {
+    return GARMENT_PHOTO_MAP['lehenga'] || FALLBACK_PHOTO;
+  }
   if (searchStr.includes('saree')) {
-    return searchStr.includes('silk') 
+    return (searchStr.includes('silk') || searchStr.includes('designer') || searchStr.includes('heavy'))
       ? (GARMENT_PHOTO_MAP['cloth-saree-silk'] || FALLBACK_PHOTO) 
       : (GARMENT_PHOTO_MAP['cloth-saree-cotton'] || FALLBACK_PHOTO);
   }
   if (searchStr.includes('kurti') || searchStr.includes('kurta')) {
     return GARMENT_PHOTO_MAP['kurti'] || FALLBACK_PHOTO;
   }
-  if (searchStr.includes('dress') || searchStr.includes('gown') || searchStr.includes('lehenga')) {
+  if (searchStr.includes('dress') || searchStr.includes('gown')) {
     return GARMENT_PHOTO_MAP['dress'] || FALLBACK_PHOTO;
   }
   if (searchStr.includes('bedsheet') || searchStr.includes('linen')) {

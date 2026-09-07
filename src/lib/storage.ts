@@ -92,6 +92,16 @@ export async function clearWishlist(userId?: string | null): Promise<void> {
   await AsyncStorage.removeItem(key);
 }
 
+/** Remove every customer-scoped cache after an account is permanently deleted. */
+export async function clearCustomerLocalData(userId: string): Promise<void> {
+  await Promise.all([
+    AsyncStorage.removeItem(getCartKey(userId)),
+    AsyncStorage.removeItem(getWishlistKey(userId)),
+    AsyncStorage.removeItem(getPreferencesKey(userId)),
+    AsyncStorage.removeItem(getUserLocationKey(userId)),
+  ]);
+}
+
 /** Whether the customer has already moved past the first-launch brand experience. */
 export async function readOnboardingComplete(): Promise<boolean> {
   try {

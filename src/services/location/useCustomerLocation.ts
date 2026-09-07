@@ -123,10 +123,11 @@ export function useCustomerLocation({ ownerId = null, refreshOnForeground }: Use
 
         lastGpsRefreshAtRef.current = Date.now();
         const activeDelivery = deliveryLocationRef.current;
-        // A confirmed pickup address is deliberate, even when it was originally
-        // chosen from GPS. Keep physical GPS fresh separately, but never move a
-        // delivery address without an explicit customer action.
-        const shouldUpdateDeliveryAddress = !activeDelivery;
+        // Swiggy behavior: If active location was GPS-derived or no explicit address tag is chosen,
+        // automatically update to the latest detected GPS area (e.g., moved from Jal Vayu Vihar to Kukatpally).
+        // If the user explicitly picked a saved tag (like "Home" or "Work"), preserve that chosen delivery address.
+        const isExplicitSavedTag = Boolean(activeDelivery?.tag && activeDelivery.source === 'manual');
+        const shouldUpdateDeliveryAddress = !activeDelivery || !isExplicitSavedTag || activeDelivery.source === 'gps';
         const deliveryLocation = shouldUpdateDeliveryAddress ? result.location : activeDelivery;
         if (shouldUpdateDeliveryAddress) {
           deliveryLocationRef.current = result.location;
@@ -154,11 +155,17 @@ export function useCustomerLocation({ ownerId = null, refreshOnForeground }: Use
     return request;
   }, [ownerId]);
 
+  const switchToGpsLocation = useCallback(async (): Promise<CustomerLocation | null> => {
+    const result = await refreshCurrentLocation('if-undetermined');
+    if (result && result.ok) {
+      await saveDeliveryLocation({ ...result.location, source: 'gps' });
+      return result.location;
+    }
+    return null;
+  }, [refreshCurrentLocation, saveDeliveryLocation]);
+
   useEffect(() => {
     if (!hydrated || !refreshOnForeground) return;
-    // When map confirmation already obtained a GPS point, do not immediately
-    // ask the device twice. Foreground refreshes are also throttled for battery
-    // and network usage.
     if (Date.now() - lastGpsRefreshAtRef.current < LOCATION_STALE_TIME) return;
     void refreshCurrentLocation('never');
   }, [hydrated, refreshCurrentLocation, refreshOnForeground]);
@@ -182,5 +189,6 @@ export function useCustomerLocation({ ownerId = null, refreshOnForeground }: Use
     hydrated,
     saveDeliveryLocation,
     refreshCurrentLocation,
+    switchToGpsLocation,
   };
 }

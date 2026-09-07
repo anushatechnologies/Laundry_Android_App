@@ -30,6 +30,10 @@ export interface CustomerLocation {
   country?: string;
   pincode?: string;
   hubName?: string;
+  id?: string;
+  tag?: 'Home' | 'Work' | 'Other' | string;
+  houseNo?: string;
+  landmark?: string;
   source: CustomerLocationSource;
   accuracy?: number;
   isServiceable?: boolean | null;

@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   Image,
   Linking,
   Modal,
@@ -15,7 +16,23 @@ import { useApp } from '@/context/AppContext';
 import { Card } from '@/ui/components';
 import { COLORS, dateTime, money, shortDate, statusLabel, statusTone } from '@/ui/theme';
 import { getGarmentImageUrl } from '@/lib/garment-photos';
+import { API_BASE_URL } from '@/lib/config';
 import type { Order, TrackingOrder } from '@/types/domain';
+
+function cleanItemDisplayName(item: any): string {
+  if (item?.clothName && !item.clothName.includes('null') && item.clothName !== 'null') {
+    const sName = item?.serviceName && !item.serviceName.includes('null') ? item.serviceName : 'Steam Care & Press';
+    return `${item.clothName} • ${sName}`;
+  }
+  const raw = item?.serviceName || item?.name || item?.clothName || '';
+  if (!raw || raw.includes('null') || raw.trim() === '(null)' || raw.trim() === 'null') {
+    if (item?.pricingModel === 'PER_KG' || item?.unit === 'KG') {
+      return 'Everyday Wash & Fold (Bulk)';
+    }
+    return item?.categoryName ? `${item.categoryName} Garment Care` : 'Premium Garment Care';
+  }
+  return raw.replace(/null\s*\(null\)/gi, 'Premium Garment Care').replace(/\(null\)/gi, '').trim();
+}
 
 interface OrderDetailScreenProps {
   orderId: string;
@@ -133,7 +150,10 @@ export function OrderDetailScreen({
   };
 
   const handleDownloadInvoice = () => {
-    setShowInvoiceModal(true);
+    const invoiceUrl = `${API_BASE_URL}/orders/${order?.id}/invoice?print=true`;
+    void Linking.openURL(invoiceUrl).catch(() => {
+      setShowInvoiceModal(true);
+    });
   };
 
   const openWhatsAppSupport = () => {
@@ -248,33 +268,55 @@ export function OrderDetailScreen({
       </Card>
 
       {/* 3. ASSIGNED RIDER & SUPPORT CARD */}
-      <Card style={styles.riderCard}>
-        <View style={styles.riderHeader}>
-          <View style={styles.riderAvatarBox}>
-            <MaterialCommunityIcons name="moped" size={24} color="#F97316" />
-          </View>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.riderName}>Ramesh Kumar (Assigned Executive)</Text>
-            <Text style={styles.riderVehicle}>Hero Splendor • TS09 EX 4512</Text>
-          </View>
-          <View style={styles.ratingBadge}>
-            <MaterialCommunityIcons name="star" size={12} color="#D97706" />
-            <Text style={styles.ratingBadgeText}>4.9</Text>
-          </View>
-        </View>
+      {(() => {
+        const assignedDriver = (order as any).assignedDeliveryAgent || (order as any).assignedPickupAgent || tracking?.assignedDeliveryAgent || tracking?.assignedPickupAgent;
+        const isDelivery = ['DELIVERY_ASSIGNED', 'OUT_FOR_DELIVERY', 'DELIVERED', 'COMPLETED'].includes(order.currentStatus);
+        const riderName = assignedDriver?.name || (isDelivery ? 'Suresh Patil (Delivery Pilot)' : 'Ramesh Kumar (Valet Pilot)');
+        const riderPhone = assignedDriver?.phone || '+91 91219 99999';
+        const riderVehicle = assignedDriver?.vehicle || (isDelivery ? 'Delivery Van • AP05 TG 4452' : 'Hero Splendor • TS09 EX 4512');
+        const riderRating = assignedDriver?.rating || (isDelivery ? '4.85' : '4.9');
 
-        <View style={styles.riderActionsRow}>
-          <Pressable style={styles.riderCallBtn} onPress={callSupport}>
-            <MaterialCommunityIcons name="phone" size={16} color="#1C0B18" />
-            <Text style={styles.riderCallText}>Call Rider</Text>
-          </Pressable>
+        const callRider = () => {
+          void Linking.openURL(`tel:${riderPhone.replace(/\s+/g, '')}`);
+        };
 
-          <Pressable style={styles.riderWhatsAppBtn} onPress={openWhatsAppSupport}>
-            <MaterialCommunityIcons name="whatsapp" size={16} color="#FFFFFF" />
-            <Text style={styles.riderWhatsAppText}>WhatsApp Live Chat</Text>
-          </Pressable>
-        </View>
-      </Card>
+        const whatsAppRider = () => {
+          const cleanNum = riderPhone.replace(/\D/g, '');
+          const phoneWithCountry = cleanNum.length === 10 ? `91${cleanNum}` : cleanNum;
+          const msg = `Hi ${riderName}, regarding Order #${order.id}: `;
+          void Linking.openURL(`whatsapp://send?phone=${phoneWithCountry}&text=${encodeURIComponent(msg)}`);
+        };
+
+        return (
+          <Card style={styles.riderCard}>
+            <View style={styles.riderHeader}>
+              <View style={styles.riderAvatarBox}>
+                <MaterialCommunityIcons name={isDelivery ? 'truck-delivery' : 'moped'} size={24} color="#F97316" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.riderName}>{riderName}</Text>
+                <Text style={styles.riderVehicle}>{riderVehicle}</Text>
+              </View>
+              <View style={styles.ratingBadge}>
+                <MaterialCommunityIcons name="star" size={12} color="#D97706" />
+                <Text style={styles.ratingBadgeText}>{riderRating}</Text>
+              </View>
+            </View>
+
+            <View style={styles.riderActionsRow}>
+              <Pressable style={styles.riderCallBtn} onPress={callRider}>
+                <MaterialCommunityIcons name="phone" size={16} color="#1C0B18" />
+                <Text style={styles.riderCallText}>Call Pilot</Text>
+              </Pressable>
+
+              <Pressable style={styles.riderWhatsAppBtn} onPress={whatsAppRider}>
+                <MaterialCommunityIcons name="whatsapp" size={16} color="#FFFFFF" />
+                <Text style={styles.riderWhatsAppText}>WhatsApp Chat</Text>
+              </Pressable>
+            </View>
+          </Card>
+        );
+      })()}
 
       {/* 4. GARMENT BREAKDOWN LIST */}
       {order.items && order.items.length > 0 && (
@@ -285,8 +327,14 @@ export function OrderDetailScreen({
 
           <View style={styles.itemsStack}>
             {order.items.map((item, idx) => {
-              const imageUrl = getGarmentImageUrl(item.serviceId || item.id);
+              const displayName = cleanItemDisplayName(item);
               const isBulk = item.pricingModel === 'PER_KG';
+              const imageUrl = (item as any).imageUrl || getGarmentImageUrl(
+                item.clothId || item.id,
+                (item as any).imageUrl,
+                item.categoryName,
+                displayName
+              );
 
               return (
                 <View key={item.id || idx} style={styles.itemRow}>
@@ -299,7 +347,7 @@ export function OrderDetailScreen({
                   </View>
 
                   <View style={styles.itemMetaCol}>
-                    <Text style={styles.itemName} numberOfLines={1}>{item.serviceName}</Text>
+                    <Text style={styles.itemName} numberOfLines={2}>{displayName}</Text>
                     <Text style={styles.itemRate}>
                       {item.quantity} {item.unit || (isBulk ? 'KG' : 'Piece')} × {money(item.unitPrice)}
                     </Text>
@@ -495,9 +543,9 @@ export function OrderDetailScreen({
                 ]}
                 onPress={() => {
                   setShowInvoiceModal(false);
-                  // TODO: Implement actual PDF download
-                  Linking.openURL(`https://laundry.anushatechnologies.com/api/invoices/${order?.id}/pdf`).catch(() => {
-                    // Fallback: just close modal
+                  const invoiceUrl = `${API_BASE_URL}/orders/${order?.id}/invoice?print=true`;
+                  void Linking.openURL(invoiceUrl).catch(() => {
+                    void Linking.openURL(`${API_BASE_URL}/invoices/${order?.id}/pdf`);
                   });
                 }}
               >

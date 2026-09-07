@@ -191,7 +191,10 @@ export const APP_THEME: MD3Theme = {
 
 export function money(value: number | undefined) {
   const amount = Number(value || 0);
-  return `₹${amount.toLocaleString('en-IN', { maximumFractionDigits: 0 })}`;
+  if (amount % 1 === 0) {
+    return `₹${amount.toLocaleString('en-IN', { maximumFractionDigits: 0 })}`;
+  }
+  return `₹${amount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
 export function statusLabel(status: string | undefined) {

@@ -52,6 +52,25 @@ export function LiveChatSupportScreen() {
   // HTTP polling mode - no WebSocket needed
   const connectionStatus = { connected: true, reconnecting: false };
 
+  const normalizeMessage = (msg: any): ChatMessage => {
+    const createdAt = msg.createdAt || msg.created_at || new Date().toISOString();
+    const rawType = String(msg.senderType || msg.sender_type || 'CUSTOMER').toUpperCase();
+    const senderType = (rawType.includes('AGENT') || rawType.includes('ADMIN')) ? 'AGENT' : 'CUSTOMER';
+    return {
+      ...msg,
+      id: String(msg.id || `msg-${Date.now()}-${Math.random()}`),
+      roomId: msg.roomId || msg.room_id,
+      senderId: String(msg.senderId || msg.sender_id || ''),
+      senderType,
+      message: msg.message || '',
+      messageType: msg.messageType || msg.message_type || 'TEXT',
+      attachmentUrl: msg.attachmentUrl || msg.attachment_url,
+      isRead: Boolean(msg.isRead ?? msg.is_read),
+      createdAt,
+      time: msg.time || (createdAt ? new Date(createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''),
+    };
+  };
+
   // Initialize chat room automatically in background
   useEffect(() => {
     if (!customerId) return;
@@ -62,20 +81,19 @@ export function LiveChatSupportScreen() {
         
         // Silently create or get existing chat room in background
         const roomResponse = await api.createChatRoom(customerId, 'Customer Support');
+        const room = (roomResponse as any)?.data || roomResponse;
         
-        if (roomResponse.success && roomResponse.data) {
-          const room = roomResponse.data;
+        if (room && room.id) {
           setRoomId(room.id);
 
           // Load message history if room exists
           const messagesResponse = await api.getChatMessages(room.id, 50, 0);
+          const rawList = Array.isArray(messagesResponse)
+            ? messagesResponse
+            : (messagesResponse as any)?.data || [];
           
-          if (messagesResponse.success && messagesResponse.data) {
-            const formattedMessages = messagesResponse.data.map((msg: any) => ({
-              ...msg,
-              time: new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-            }));
-            setMessages(formattedMessages);
+          if (Array.isArray(rawList)) {
+            setMessages(rawList.map(normalizeMessage));
           }
         }
       } catch (error) {
@@ -96,11 +114,12 @@ export function LiveChatSupportScreen() {
     const pollMessages = async () => {
       try {
         const messagesResponse = await api.getChatMessages(roomId, 50, 0);
-        if (messagesResponse.success && messagesResponse.data) {
-          const formattedMessages = messagesResponse.data.map((msg: any) => ({
-            ...msg,
-            time: new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-          }));
+        const rawList = Array.isArray(messagesResponse)
+          ? messagesResponse
+          : (messagesResponse as any)?.data || [];
+
+        if (Array.isArray(rawList)) {
+          const formattedMessages = rawList.map(normalizeMessage);
           
           // Only update if messages changed to avoid unnecessary re-renders
           if (JSON.stringify(formattedMessages) !== JSON.stringify(messages)) {
@@ -147,17 +166,25 @@ export function LiveChatSupportScreen() {
     let currentRoomId = roomId;
     if (!currentRoomId) {
       try {
+        console.log('[Chat] Creating room for customer:', customerId);
         const roomResponse = await api.createChatRoom(customerId, 'Customer Support');
-        if (roomResponse.success && roomResponse.data) {
-          currentRoomId = roomResponse.data.id;
+        console.log('[Chat] Room creation response:', roomResponse);
+        const room = (roomResponse as any)?.data || roomResponse;
+        
+        if (room && room.id) {
+          currentRoomId = room.id;
           setRoomId(currentRoomId);
+          console.log('[Chat] Room created/retrieved:', currentRoomId);
         } else {
-          Alert.alert('Error', 'Could not create chat session. Please try again.');
+          console.error('[Chat] Room creation failed - no data in response:', roomResponse);
+          Alert.alert('Error', `Could not create chat session. Please try again.`);
           setInputText(messageText);
           return;
         }
-      } catch (error) {
-        Alert.alert('Error', 'Could not create chat session. Please try again.');
+      } catch (error: any) {
+        console.error('[Chat] Room creation exception:', error);
+        const errorMsg = error?.message || 'Network error';
+        Alert.alert('Error', `Could not create chat session: ${errorMsg}. Please check your connection.`);
         setInputText(messageText);
         return;
       }
@@ -186,12 +213,12 @@ export function LiveChatSupportScreen() {
       
       // Refresh to get real message from server
       const messagesResponse = await api.getChatMessages(currentRoomId!, 50, 0);
-      if (messagesResponse.success && messagesResponse.data) {
-        const formattedMessages = messagesResponse.data.map((msg: any) => ({
-          ...msg,
-          time: new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        }));
-        setMessages(formattedMessages);
+      const rawList = Array.isArray(messagesResponse)
+        ? messagesResponse
+        : (messagesResponse as any)?.data || [];
+
+      if (Array.isArray(rawList)) {
+        setMessages(rawList.map(normalizeMessage));
       }
       
     } catch (error: any) {

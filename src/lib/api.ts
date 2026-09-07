@@ -12,6 +12,7 @@ import type {
   CouponApplication,
   CustomerAddress,
   CustomerSubscription,
+  DeliveryFeeCalculation,
   Order,
   PincodeCheck,
   PickupSlot,
@@ -153,7 +154,11 @@ export const api = {
       { method: 'POST', body: JSON.stringify(payload) },
       true,
     ),
-  checkPhone: (phone: string) => request<{ exists: boolean; message?: string }>(`/customers/check-phone?phone=${encodeURIComponent(phone)}`),
+  checkPhone: (phone: string) => 
+    request<{ exists: boolean; message?: string; customer?: { name: string; phone: string } }>(
+      '/customers/check-phone',
+      { method: 'POST', body: JSON.stringify({ phone }) }
+    ),
 
   async loginWithFirebase(idToken: string, name?: string, email?: string, referralCode?: string): Promise<AuthSession> {
     const payload = await request<AuthSession & { data?: AuthSession }>('/customers/firebase-login', {
@@ -201,6 +206,17 @@ export const api = {
   getServices: (categoryId?: string) =>
     request<{ services: any[]; categories: any[] }>(categoryId ? `/services?categoryId=${encodeURIComponent(categoryId)}` : '/services'),
   getPricingSettings: () => request<PricingSettings>('/services/settings'),
+  calculateDeliveryFee: (payload: {
+    customerLat?: number;
+    customerLng?: number;
+    customerPincode?: string;
+    subtotal?: number;
+    isExpress?: boolean;
+  }) =>
+    request<{ success: boolean; data: DeliveryFeeCalculation }>('/services/calculate-delivery-fee', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
   getCoupons: () => request<Coupon[]>('/coupons'),
   applyCoupon: (code: string, orderTotal: number, isFirstOrder: boolean) =>
     request<CouponApplication>('/coupons/apply', {
@@ -415,6 +431,7 @@ export function createOrderPayload(session: AuthSession, cart: CartItem[], input
     pickupSlot: { date: input.slot.date, slot: `${input.slot.startTime} - ${input.slot.endTime}` },
     couponCode: input.couponCode || undefined,
     paymentMethod: input.paymentMethod,
+    useWallet: input.useWallet ?? false,
     notes: input.notes || undefined,
   };
 }
