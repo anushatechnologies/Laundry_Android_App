@@ -216,7 +216,7 @@ export const api = {
     isExpress?: boolean;
     expressTier?: ExpressTier;
   }) =>
-    request<{ success: boolean; data: DeliveryFeeCalculation }>('/services/calculate-delivery-fee', {
+    request<DeliveryFeeCalculation>('/services/calculate-delivery-fee', {
       method: 'POST',
       body: JSON.stringify(payload),
     }),

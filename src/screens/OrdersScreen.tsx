@@ -261,6 +261,28 @@ function cleanItemDisplayName(item: any): string {
               </Text>
             </View>
           ) : null}
+
+          {/* Quick Header Tax Invoice Action */}
+          <Pressable
+            style={({ pressed }) => [styles.headerInvoiceBar, pressed && { opacity: 0.9, transform: [{ scale: 0.99 }] }]}
+            onPress={handleDownloadInvoice}
+            accessibilityRole="button"
+            accessibilityLabel="Download Tax Invoice via PDF"
+          >
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 }}>
+              <View style={styles.headerInvoiceIconCircle}>
+                <MaterialCommunityIcons name="file-pdf-box" size={20} color="#FFFFFF" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.headerInvoiceTitle}>Download Tax Invoice (GST PDF)</Text>
+                <Text style={styles.headerInvoiceSub}>Itemized official invoice & payment receipt</Text>
+              </View>
+            </View>
+            <View style={styles.headerInvoiceBadge}>
+              <MaterialCommunityIcons name="download" size={15} color="#FFFFFF" />
+              <Text style={styles.headerInvoiceBadgeText}>PDF</Text>
+            </View>
+          </Pressable>
         </Card>
 
         {/* LIVE 5-STAGE MILESTONE TIMELINE */}
@@ -426,72 +448,82 @@ function cleanItemDisplayName(item: any): string {
                 </View>
               );
             })}
-
-            <View style={styles.billDivider} />
-
-            {/* Itemized Bill Breakdown */}
-            <View style={styles.billBreakdownSection}>
-              <Text style={styles.billSectionHeader}>Bill Breakdown</Text>
-
-              <View style={styles.billLineItem}>
-                <Text style={styles.billLineLabel}>Garments Subtotal</Text>
-                <Text style={styles.billLineValue}>{money(garmentsSubtotal)}</Text>
-              </View>
-
-              <View style={styles.billLineItem}>
-                <Text style={styles.billLineLabel}>Doorstep Pickup & Delivery</Text>
-                {deliveryFee > 0 ? (
-                  <Text style={styles.billLineValue}>{money(deliveryFee)}</Text>
-                ) : (
-                  <Text style={[styles.billLineValue, { color: '#16A34A', fontWeight: '800' }]}>FREE</Text>
-                )}
-              </View>
-
-              {expressFee > 0 ? (
-                <View style={styles.billLineItem}>
-                  <Text style={styles.billLineLabel}>Express Care Surcharge</Text>
-                  <Text style={styles.billLineValue}>+{money(expressFee)}</Text>
-                </View>
-              ) : null}
-
-              {discountAmount > 0 ? (
-                <View style={styles.billLineItem}>
-                  <Text style={[styles.billLineLabel, { color: '#16A34A' }]}>
-                    Discount {selectedOrder.couponCode ? `(${selectedOrder.couponCode})` : ''}
-                  </Text>
-                  <Text style={[styles.billLineValue, { color: '#16A34A', fontWeight: '800' }]}>
-                    -{money(discountAmount)}
-                  </Text>
-                </View>
-              ) : null}
-
-              <View style={styles.billLineItem}>
-                <Text style={styles.billLineLabel}>GST / Taxes (5%)</Text>
-                <Text style={styles.billLineValue}>{taxAmount > 0 ? money(taxAmount) : '₹0'}</Text>
-              </View>
-
-              <View style={styles.billGrandRow}>
-                <View>
-                  <Text style={styles.billGrandLabel}>Total Amount (Inc. GST)</Text>
-                  <Text style={styles.billPaymentStatusSub}>
-                    {selectedOrder.paymentStatus === 'PAID' ? '✓ Paid Online via Razorpay' : 'Pay on Delivery / Pending'}
-                  </Text>
-                </View>
-                <Text style={styles.billGrandValue}>{money(grandTotal)}</Text>
-              </View>
-
-              {/* 1-Tap Tax Invoice Download Button */}
-              <Pressable
-                style={({ pressed }) => [styles.downloadInvoiceHeroBtn, pressed && { opacity: 0.9, transform: [{ scale: 0.99 }] }]}
-                onPress={handleDownloadInvoice}
-                accessibilityLabel="Download Tax Invoice via PDF"
-              >
-                <MaterialCommunityIcons name="file-download-outline" size={20} color="#FFFFFF" />
-                <Text style={styles.downloadInvoiceHeroText}>Download Tax Invoice (GST PDF)</Text>
-              </Pressable>
-            </View>
           </Card>
         ) : null}
+
+        {/* Itemized Bill Breakdown & Tax Invoice - ALWAYS SHOWN */}
+        <Card style={styles.billCard}>
+          <View style={styles.billBreakdownSection}>
+            <Text style={styles.billSectionHeader}>Bill Breakdown</Text>
+
+            <View style={styles.billLineItem}>
+              <Text style={styles.billLineLabel}>Garments Subtotal</Text>
+              <Text style={styles.billLineValue}>{money(garmentsSubtotal)}</Text>
+            </View>
+
+            <View style={styles.billLineItem}>
+              <Text style={styles.billLineLabel}>Doorstep Pickup & Delivery</Text>
+              {deliveryFee > 0 ? (
+                <Text style={styles.billLineValue}>{money(deliveryFee)}</Text>
+              ) : (
+                <Text style={[styles.billLineValue, { color: '#16A34A', fontWeight: '800' }]}>FREE</Text>
+              )}
+            </View>
+
+            {expressFee > 0 ? (
+              <View style={styles.billLineItem}>
+                <Text style={styles.billLineLabel}>Express Care Surcharge</Text>
+                <Text style={styles.billLineValue}>+{money(expressFee)}</Text>
+              </View>
+            ) : null}
+
+            {discountAmount > 0 ? (
+              <View style={styles.billLineItem}>
+                <Text style={[styles.billLineLabel, { color: '#16A34A' }]}>
+                  Discount {selectedOrder.couponCode ? `(${selectedOrder.couponCode})` : ''}
+                </Text>
+                <Text style={[styles.billLineValue, { color: '#16A34A', fontWeight: '800' }]}>
+                  -{money(discountAmount)}
+                </Text>
+              </View>
+            ) : null}
+
+            <View style={styles.billLineItem}>
+              <Text style={styles.billLineLabel}>GST / Taxes (5%)</Text>
+              <Text style={styles.billLineValue}>{taxAmount > 0 ? money(taxAmount) : '₹0'}</Text>
+            </View>
+
+            <View style={styles.billGrandRow}>
+              <View>
+                <Text style={styles.billGrandLabel}>Total Amount (Inc. GST)</Text>
+                <Text style={styles.billPaymentStatusSub}>
+                  {selectedOrder.paymentStatus === 'PAID' ? '✓ Paid Online via Razorpay' : 'Pay on Delivery / Pending'}
+                </Text>
+              </View>
+              <Text style={styles.billGrandValue}>{money(grandTotal)}</Text>
+            </View>
+
+            {/* 1-Tap Tax Invoice Download Button */}
+            <Pressable
+              style={({ pressed }) => [styles.downloadInvoiceHeroBtn, pressed && { opacity: 0.9, transform: [{ scale: 0.99 }] }]}
+              onPress={handleDownloadInvoice}
+              accessibilityRole="button"
+              accessibilityLabel="Download Tax Invoice via PDF"
+            >
+              <View style={styles.invoiceBtnIconWrap}>
+                <MaterialCommunityIcons name="file-pdf-box" size={22} color="#FFFFFF" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.downloadInvoiceHeroText}>Download Tax Invoice (GST PDF)</Text>
+                <Text style={styles.downloadInvoiceHeroSub}>Itemized official invoice & payment receipt</Text>
+              </View>
+              <View style={styles.invoiceDownloadPill}>
+                <MaterialCommunityIcons name="download" size={15} color="#FFFFFF" />
+                <Text style={styles.invoiceDownloadPillText}>PDF</Text>
+              </View>
+            </Pressable>
+          </View>
+        </Card>
       </ScrollView>
     );
   }
@@ -655,9 +687,27 @@ function cleanItemDisplayName(item: any): string {
                     Total: <Text style={styles.cardTotalBold}>{money((order as any).pricing?.finalTotal || order.totalAmount)}</Text>
                   </Text>
 
-                  <View style={styles.viewDetailLink}>
-                    <Text style={styles.viewDetailText}>Track Live Status</Text>
-                    <MaterialCommunityIcons name="chevron-right" size={16} color="#F97316" />
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                    <Pressable
+                      style={({ pressed }) => [styles.cardInvoiceBtn, pressed && { opacity: 0.8 }]}
+                      onPress={(e) => {
+                        e.stopPropagation?.();
+                        const invoiceUrl = `${API_BASE_URL}/orders/${order.id}/invoice?print=true`;
+                        void Linking.openURL(invoiceUrl).catch(() => {
+                          void Linking.openURL(`${API_BASE_URL}/invoices/${order.id}/pdf`);
+                        });
+                      }}
+                      hitSlop={8}
+                      accessibilityLabel={`Download invoice for Order #${order.id}`}
+                    >
+                      <MaterialCommunityIcons name="file-pdf-box" size={15} color="#059669" />
+                      <Text style={styles.cardInvoiceBtnText}>Invoice</Text>
+                    </Pressable>
+
+                    <View style={styles.viewDetailLink}>
+                      <Text style={styles.viewDetailText}>Track Live Status</Text>
+                      <MaterialCommunityIcons name="chevron-right" size={16} color="#F97316" />
+                    </View>
                   </View>
                 </View>
               </Pressable>
@@ -676,7 +726,7 @@ const styles = StyleSheet.create({
   },
   content: {
     paddingHorizontal: 16,
-    paddingTop: 0,
+    paddingTop: 16,  // Small top spacing for visual breathing room
     paddingBottom: 40,
     gap: 14,
   },
@@ -1316,27 +1366,131 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     color: '#FF7A00',
   },
+  billCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 18,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#F3E8DF',
+    marginTop: 12,
+  },
+  headerInvoiceBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#0F172A',
+    borderRadius: 14,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    marginTop: 12,
+    borderWidth: 1.5,
+    borderColor: '#334155',
+    elevation: 3,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 5,
+  },
+  headerInvoiceIconCircle: {
+    width: 34,
+    height: 34,
+    borderRadius: 10,
+    backgroundColor: '#16A34A',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerInvoiceTitle: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    letterSpacing: 0.1,
+  },
+  headerInvoiceSub: {
+    fontSize: 11,
+    fontWeight: '500',
+    color: '#94A3B8',
+    marginTop: 1,
+  },
+  headerInvoiceBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#16A34A',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+  },
+  headerInvoiceBadgeText: {
+    fontSize: 11.5,
+    fontWeight: '900',
+    color: '#FFFFFF',
+  },
   downloadInvoiceHeroBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#1C0B18',
+    backgroundColor: '#0F172A',
     borderRadius: 14,
     paddingVertical: 13,
-    paddingHorizontal: 16,
-    gap: 8,
-    marginTop: 10,
+    paddingHorizontal: 14,
+    gap: 12,
+    marginTop: 14,
+    borderWidth: 1.5,
+    borderColor: '#334155',
     shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.2,
     shadowRadius: 6,
-    elevation: 3,
+    elevation: 4,
+  },
+  invoiceBtnIconWrap: {
+    width: 38,
+    height: 38,
+    borderRadius: 10,
+    backgroundColor: '#16A34A',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   downloadInvoiceHeroText: {
-    color: '#FFFFFF',
-    fontSize: 13,
+    fontSize: 13.5,
     fontWeight: '800',
-    letterSpacing: 0.2,
+    color: '#FFFFFF',
+    letterSpacing: 0.1,
+  },
+  downloadInvoiceHeroSub: {
+    fontSize: 11,
+    fontWeight: '500',
+    color: '#94A3B8',
+    marginTop: 1,
+  },
+  invoiceDownloadPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#16A34A',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+  },
+  invoiceDownloadPillText: {
+    color: '#FFFFFF',
+    fontSize: 11.5,
+    fontWeight: '900',
+  },
+  cardInvoiceBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#ECFDF5',
+    borderWidth: 1,
+    borderColor: '#A7F3D0',
+    paddingHorizontal: 9,
+    paddingVertical: 5,
+    borderRadius: 8,
+  },
+  cardInvoiceBtnText: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#047857',
   },
   emptyWrap: {
     alignItems: 'center',

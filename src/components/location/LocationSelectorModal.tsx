@@ -10,6 +10,7 @@ import {
   StyleSheet,
   Text,
   TextInput,
+  TouchableOpacity,
   View,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -197,28 +198,31 @@ export function LocationSelectorModal({
       onRequestClose={onClose}
     >
       <View style={[styles.container, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
-        {/* Top Header */}
+        {/* Top Modern Header */}
         <View style={styles.header}>
-          <Pressable
+          <TouchableOpacity
             style={styles.closeBtn}
             onPress={onClose}
-            hitSlop={10}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
             accessibilityRole="button"
             accessibilityLabel="Close location selector"
           >
-            <MaterialCommunityIcons name="arrow-left" size={24} color="#0F172A" />
-          </Pressable>
-          <Text style={styles.headerTitle}>Select Delivery Location</Text>
-          <View style={{ width: 24 }} />
+            <MaterialCommunityIcons name="arrow-left" size={22} color="#0F172A" />
+          </TouchableOpacity>
+          <View style={styles.headerTitleWrap}>
+            <Text style={styles.headerTitle}>Select Delivery Location</Text>
+            <Text style={styles.headerSubtitle}>Choose doorstep address or pinpoint on map</Text>
+          </View>
+          <View style={{ width: 38 }} />
         </View>
 
-        {/* Search Bar */}
+        {/* Modern Search Bar */}
         <View style={styles.searchContainer}>
           <View style={styles.searchBox}>
-            <MaterialCommunityIcons name="magnify" size={22} color="#64748B" style={styles.searchIcon} />
+            <MaterialCommunityIcons name="magnify" size={22} color="#EA580C" style={styles.searchIcon} />
             <TextInput
               style={styles.searchInput}
-              placeholder="Search for area, street name, pincode..."
+              placeholder="Search area, apartment, street name or PIN..."
               placeholderTextColor="#94A3B8"
               value={searchQuery}
               onChangeText={handleSearchChange}
@@ -226,9 +230,9 @@ export function LocationSelectorModal({
               clearButtonMode="while-editing"
             />
             {searchQuery.length > 0 && (
-              <Pressable onPress={() => handleSearchChange('')} hitSlop={8}>
+              <TouchableOpacity onPress={() => handleSearchChange('')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
                 <MaterialCommunityIcons name="close-circle" size={18} color="#94A3B8" />
-              </Pressable>
+              </TouchableOpacity>
             )}
           </View>
         </View>
@@ -242,7 +246,7 @@ export function LocationSelectorModal({
           {/* SEARCH RESULTS (IF ACTIVE QUERY) */}
           {searching && (
             <View style={styles.searchLoadingBox}>
-              <ActivityIndicator size="small" color="#2563EB" />
+              <ActivityIndicator size="small" color="#EA580C" />
               <Text style={styles.searchLoadingText}>Searching areas & landmarks...</Text>
             </View>
           )}
@@ -251,13 +255,14 @@ export function LocationSelectorModal({
             <View style={styles.resultsSection}>
               <Text style={styles.sectionLabel}>SEARCH RESULTS</Text>
               {searchResults.map((item, idx) => (
-                <Pressable
+                <TouchableOpacity
                   key={`res-${idx}`}
-                  style={({ pressed }) => [styles.searchResultItem, pressed && styles.itemPressed]}
+                  style={styles.searchResultItem}
                   onPress={() => handleSelectSearchResult(item)}
+                  activeOpacity={0.7}
                 >
                   <View style={styles.searchResultIconBox}>
-                    <MaterialCommunityIcons name="map-marker-outline" size={20} color="#2563EB" />
+                    <MaterialCommunityIcons name="map-marker-outline" size={20} color="#EA580C" />
                   </View>
                   <View style={styles.searchResultInfo}>
                     <Text style={styles.searchResultTitle} numberOfLines={1}>
@@ -271,7 +276,7 @@ export function LocationSelectorModal({
                     )}
                   </View>
                   <MaterialCommunityIcons name="chevron-right" size={20} color="#CBD5E1" />
-                </Pressable>
+                </TouchableOpacity>
               ))}
             </View>
           ) : null}
@@ -279,10 +284,11 @@ export function LocationSelectorModal({
           {/* PRIMARY QUICK ACTIONS: USE CURRENT GPS & MAP PICKER */}
           <View style={styles.quickActionsCard}>
             {/* 1. Use Current Location (GPS) */}
-            <Pressable
-              style={({ pressed }) => [styles.quickActionRow, pressed && styles.itemPressed]}
+            <TouchableOpacity
+              style={styles.quickActionRow}
               onPress={handleUseGps}
               disabled={locatingGps}
+              activeOpacity={0.7}
             >
               <View style={[styles.actionIconBox, { backgroundColor: '#EFF6FF' }]}>
                 {locatingGps ? (
@@ -308,17 +314,18 @@ export function LocationSelectorModal({
                 </Text>
               </View>
               <MaterialCommunityIcons name="chevron-right" size={20} color="#93C5FD" />
-            </Pressable>
+            </TouchableOpacity>
 
             <View style={styles.actionDivider} />
 
             {/* 2. Select Location on Map */}
-            <Pressable
-              style={({ pressed }) => [styles.quickActionRow, pressed && styles.itemPressed]}
+            <TouchableOpacity
+              style={styles.quickActionRow}
               onPress={() => {
                 onClose();
                 onOpenMapPicker();
               }}
+              activeOpacity={0.7}
             >
               <View style={[styles.actionIconBox, { backgroundColor: '#FFF7ED' }]}>
                 <MaterialCommunityIcons name="map-marker-radius-outline" size={22} color="#EA580C" />
@@ -328,101 +335,152 @@ export function LocationSelectorModal({
                 <Text style={styles.actionSubtitle}>Drag and adjust pin on interactive map</Text>
               </View>
               <MaterialCommunityIcons name="chevron-right" size={20} color="#FED7AA" />
-            </Pressable>
+            </TouchableOpacity>
           </View>
 
           {/* SAVED ADDRESSES SECTION */}
           <View style={styles.savedSection}>
             <View style={styles.sectionHeaderRow}>
-              <Text style={styles.sectionLabel}>SAVED ADDRESSES</Text>
-              <Pressable
+              <View style={styles.sectionHeaderLeft}>
+                <Text style={styles.sectionLabel}>SAVED ADDRESSES</Text>
+                {savedAddresses.length > 0 && (
+                  <View style={styles.countBadge}>
+                    <Text style={styles.countBadgeText}>{savedAddresses.length}</Text>
+                  </View>
+                )}
+              </View>
+              <TouchableOpacity
                 style={styles.addNewAddressBtn}
                 onPress={() => {
                   onClose();
                   onOpenMapPicker();
                 }}
+                activeOpacity={0.7}
               >
-                <MaterialCommunityIcons name="plus" size={16} color="#2563EB" />
+                <MaterialCommunityIcons name="plus-circle" size={16} color="#EA580C" />
                 <Text style={styles.addNewAddressText}>Add New</Text>
-              </Pressable>
+              </TouchableOpacity>
             </View>
 
             {loadingAddresses ? (
               <View style={styles.loadingBox}>
-                <ActivityIndicator size="small" color="#2563EB" />
+                <ActivityIndicator size="small" color="#EA580C" />
                 <Text style={styles.loadingText}>Loading saved addresses...</Text>
               </View>
             ) : savedAddresses.length > 0 ? (
               <View style={styles.savedList}>
                 {savedAddresses.map((addr) => {
                   const isSelected = deliveryLocation?.id === addr.id || (deliveryLocation?.pincode === addr.pincode && deliveryLocation?.street === addr.street);
+                  const isHome = (addr.type || '').toLowerCase().includes('home');
+                  const isWork = (addr.type || '').toLowerCase().includes('work') || (addr.type || '').toLowerCase().includes('office');
+                  const tagBg = isHome ? '#FFF7ED' : isWork ? '#EFF6FF' : '#F1F5F9';
+                  const tagColor = isHome ? '#EA580C' : isWork ? '#2563EB' : '#475569';
+                  const tagIcon = isHome ? 'home' : isWork ? 'briefcase' : 'map-marker';
+
+                  const primaryLine = [addr.houseNo, addr.street].filter(Boolean).join(', ') || addr.street;
+                  const secondaryLine = [addr.area, addr.landmark].filter(Boolean).join(', ');
+                  const cityPinLine = [addr.city, addr.pincode].filter(Boolean).join(' - ');
+
                   return (
-                    <Pressable
+                    <TouchableOpacity
                       key={addr.id}
-                      style={({ pressed }) => [
+                      activeOpacity={0.88}
+                      style={[
                         styles.savedAddressCard,
                         isSelected && styles.savedAddressSelected,
-                        pressed && styles.itemPressed,
                       ]}
                       onPress={() => handleSelectSavedAddress(addr)}
                     >
                       <View style={styles.savedAddressTop}>
                         <View style={styles.savedTagCluster}>
-                          <MaterialCommunityIcons
-                            name={getTagIcon(addr.type) as any}
-                            size={18}
-                            color={isSelected ? '#2563EB' : '#475569'}
-                          />
-                          <Text style={[styles.savedTagText, isSelected && { color: '#2563EB' }]}>
-                            {addr.type || 'Address'}
-                          </Text>
+                          <View style={[styles.tagBadge, { backgroundColor: tagBg }]}>
+                            <MaterialCommunityIcons
+                              name={tagIcon as any}
+                              size={15}
+                              color={tagColor}
+                            />
+                            <Text style={[styles.savedTagText, { color: tagColor }]}>
+                              {(addr.type || 'HOME').toUpperCase()}
+                            </Text>
+                          </View>
                           {isSelected && (
                             <View style={styles.selectedPill}>
-                              <Text style={styles.selectedPillText}>ACTIVE</Text>
+                              <MaterialCommunityIcons name="check-circle" size={12} color="#16A34A" />
+                              <Text style={styles.selectedPillText}>CURRENTLY SELECTED</Text>
                             </View>
                           )}
                         </View>
-                        <Pressable
+                        <TouchableOpacity
+                          style={styles.deleteBtn}
                           onPress={() => handleDeleteSavedAddress(addr.id)}
-                          hitSlop={8}
+                          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                           accessibilityLabel="Delete address"
                         >
-                          <MaterialCommunityIcons name="trash-can-outline" size={18} color="#94A3B8" />
-                        </Pressable>
+                          <MaterialCommunityIcons name="trash-can-outline" size={17} color="#94A3B8" />
+                        </TouchableOpacity>
                       </View>
 
-                      <Text style={styles.savedAddressLine} numberOfLines={2}>
-                        {[addr.houseNo, addr.street, addr.area, addr.landmark].filter(Boolean).join(', ')}
-                      </Text>
-                      <Text style={styles.savedAddressCity}>
-                        {[addr.city, addr.pincode].filter(Boolean).join(' - ')}
+                      {/* Primary Street / Building Line */}
+                      <Text style={styles.savedAddressPrimary} numberOfLines={1}>
+                        {primaryLine}
                       </Text>
 
-                      <View style={styles.deliverHereRow}>
-                        <Text style={[styles.deliverHereText, isSelected && { color: '#2563EB', fontWeight: '800' }]}>
-                          {isSelected ? '✓ Delivering here' : 'Deliver to this address →'}
+                      {/* Secondary Landmark / Area */}
+                      {secondaryLine ? (
+                        <Text style={styles.savedAddressSecondary} numberOfLines={2}>
+                          {secondaryLine}
                         </Text>
+                      ) : null}
+
+                      {/* City & PIN */}
+                      <Text style={styles.savedAddressCity}>
+                        {cityPinLine}
+                      </Text>
+
+                      {/* Bottom Action Button */}
+                      <View style={styles.deliverHereRow}>
+                        <View style={[
+                          styles.deliverActionBtn,
+                          isSelected ? styles.deliverActionBtnActive : styles.deliverActionBtnDefault
+                        ]}>
+                          <MaterialCommunityIcons
+                            name={isSelected ? "check-circle" : "truck-delivery-outline"}
+                            size={16}
+                            color={isSelected ? "#16A34A" : "#EA580C"}
+                          />
+                          <Text style={[
+                            styles.deliverHereText,
+                            isSelected ? styles.deliverHereTextActive : styles.deliverHereTextDefault
+                          ]}>
+                            {isSelected ? 'Delivering to this address' : 'Deliver to this address'}
+                          </Text>
+                          {!isSelected && (
+                            <MaterialCommunityIcons name="arrow-right" size={14} color="#EA580C" />
+                          )}
+                        </View>
                       </View>
-                    </Pressable>
+                    </TouchableOpacity>
                   );
                 })}
               </View>
             ) : (
               <View style={styles.emptySavedBox}>
-                <MaterialCommunityIcons name="map-marker-plus-outline" size={36} color="#CBD5E1" />
+                <MaterialCommunityIcons name="map-marker-plus-outline" size={40} color="#CBD5E1" />
                 <Text style={styles.emptySavedTitle}>No saved addresses yet</Text>
                 <Text style={styles.emptySavedDesc}>
-                  Save your home, office, or frequently used addresses for 1-tap checkout.
+                  Save your home, apartment, or office addresses for fast 1-tap checkout.
                 </Text>
-                <Pressable
+                <TouchableOpacity
                   style={styles.addFirstAddressBtn}
                   onPress={() => {
                     onClose();
                     onOpenMapPicker();
                   }}
+                  activeOpacity={0.8}
                 >
-                  <Text style={styles.addFirstAddressText}>+ Add an Address</Text>
-                </Pressable>
+                  <MaterialCommunityIcons name="plus" size={16} color="#FFFFFF" />
+                  <Text style={styles.addFirstAddressText}>Add New Address</Text>
+                </TouchableOpacity>
               </View>
             )}
           </View>
@@ -442,22 +500,33 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingVertical: 14,
+    paddingVertical: 12,
     backgroundColor: '#FFFFFF',
     borderBottomWidth: 1,
     borderBottomColor: '#F1F5F9',
   },
   closeBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: '#F1F5F9',
     alignItems: 'center',
     justifyContent: 'center',
   },
+  headerTitleWrap: {
+    flex: 1,
+    marginLeft: 12,
+  },
   headerTitle: {
     fontSize: 17,
-    fontWeight: '800',
+    fontWeight: '900',
     color: '#0F172A',
+    letterSpacing: -0.2,
+  },
+  headerSubtitle: {
+    fontSize: 11.5,
+    color: '#64748B',
+    marginTop: 1,
   },
   searchContainer: {
     paddingHorizontal: 16,
@@ -469,11 +538,11 @@ const styles = StyleSheet.create({
   searchBox: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F1F5F9',
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    paddingVertical: Platform.OS === 'ios' ? 10 : 6,
-    borderWidth: 1,
+    backgroundColor: '#F8FAFC',
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    height: 48,
+    borderWidth: 1.5,
     borderColor: '#E2E8F0',
   },
   searchIcon: {
@@ -482,6 +551,7 @@ const styles = StyleSheet.create({
   searchInput: {
     flex: 1,
     fontSize: 14,
+    fontWeight: '600',
     color: '#0F172A',
     padding: 0,
   },
@@ -512,24 +582,39 @@ const styles = StyleSheet.create({
     borderColor: '#E2E8F0',
   },
   sectionLabel: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#475569',
+    letterSpacing: 0.6,
+  },
+  sectionHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  countBadge: {
+    backgroundColor: '#F1F5F9',
+    paddingHorizontal: 7,
+    paddingVertical: 1.5,
+    borderRadius: 8,
+  },
+  countBadgeText: {
     fontSize: 11,
     fontWeight: '800',
     color: '#64748B',
-    letterSpacing: 0.6,
-    marginBottom: 10,
   },
   searchResultItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 10,
+    paddingVertical: 12,
     borderBottomWidth: 1,
     borderBottomColor: '#F1F5F9',
   },
   searchResultIconBox: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: '#EFF6FF',
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: '#FFF7ED',
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 10,
@@ -540,7 +625,7 @@ const styles = StyleSheet.create({
   },
   searchResultTitle: {
     fontSize: 14,
-    fontWeight: '700',
+    fontWeight: '800',
     color: '#0F172A',
     marginBottom: 2,
   },
@@ -552,40 +637,37 @@ const styles = StyleSheet.create({
   pincodeBadge: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#2563EB',
+    color: '#EA580C',
     marginTop: 2,
-  },
-  itemPressed: {
-    opacity: 0.7,
   },
   quickActionsCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    paddingVertical: 4,
-    borderWidth: 1,
+    borderRadius: 18,
+    paddingVertical: 6,
+    borderWidth: 1.5,
     borderColor: '#E2E8F0',
     marginBottom: 20,
-    shadowColor: '#000',
+    shadowColor: '#0F172A',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 6,
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
     elevation: 2,
   },
   quickActionRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 14,
+    paddingHorizontal: 16,
     paddingVertical: 12,
   },
   actionDivider: {
     height: 1,
     backgroundColor: '#F1F5F9',
-    marginHorizontal: 14,
+    marginHorizontal: 16,
   },
   actionIconBox: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
@@ -600,7 +682,7 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   actionTitle: {
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: '800',
     color: '#0F172A',
   },
@@ -622,7 +704,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#16A34A',
   },
   gpsBadgeText: {
-    fontSize: 9.5,
+    fontSize: 10,
     fontWeight: '800',
     color: '#15803D',
     letterSpacing: 0.2,
@@ -630,6 +712,7 @@ const styles = StyleSheet.create({
   actionSubtitle: {
     fontSize: 12,
     color: '#64748B',
+    marginTop: 1,
   },
   savedSection: {
     marginTop: 4,
@@ -638,19 +721,23 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 10,
+    marginBottom: 12,
   },
   addNewAddressBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 3,
-    paddingVertical: 2,
-    paddingHorizontal: 6,
+    gap: 4,
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    backgroundColor: '#FFF7ED',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#FED7AA',
   },
   addNewAddressText: {
     fontSize: 12,
-    fontWeight: '700',
-    color: '#2563EB',
+    fontWeight: '800',
+    color: '#EA580C',
   },
   savedList: {
     gap: 12,
@@ -658,105 +745,167 @@ const styles = StyleSheet.create({
   savedAddressCard: {
     backgroundColor: '#FFFFFF',
     borderRadius: 16,
-    padding: 14,
-    borderWidth: 1,
+    padding: 16,
+    borderWidth: 1.5,
     borderColor: '#E2E8F0',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.03,
-    shadowRadius: 4,
-    elevation: 1,
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
+    elevation: 2,
   },
   savedAddressSelected: {
-    borderColor: '#2563EB',
-    backgroundColor: '#F8FAFF',
-    borderWidth: 1.5,
+    borderColor: '#16A34A',
+    borderLeftWidth: 5,
+    borderLeftColor: '#16A34A',
+    backgroundColor: '#F0FDF4',
   },
   savedAddressTop: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 6,
+    marginBottom: 10,
   },
   savedTagCluster: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 8,
+  },
+  tagBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 9,
+    paddingVertical: 3.5,
+    borderRadius: 8,
   },
   savedTagText: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: '#0F172A',
+    fontSize: 12,
+    fontWeight: '900',
+    letterSpacing: 0.4,
   },
   selectedPill: {
     backgroundColor: '#DCFCE7',
-    paddingHorizontal: 6,
-    paddingVertical: 1.5,
-    borderRadius: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    borderWidth: 1,
+    borderColor: '#86EFAC',
   },
   selectedPillText: {
-    fontSize: 9,
-    fontWeight: '800',
-    color: '#16A34A',
+    fontSize: 9.5,
+    fontWeight: '900',
+    color: '#15803D',
+    letterSpacing: 0.3,
   },
-  savedAddressLine: {
+  deleteBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#F8FAFC',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  savedAddressPrimary: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#0F172A',
+    marginBottom: 3,
+  },
+  savedAddressSecondary: {
     fontSize: 13,
-    color: '#334155',
+    color: '#475569',
     lineHeight: 18,
-    marginBottom: 2,
+    marginBottom: 3,
   },
   savedAddressCity: {
-    fontSize: 12,
-    fontWeight: '600',
+    fontSize: 12.5,
+    fontWeight: '700',
     color: '#64748B',
-    marginBottom: 8,
+    marginBottom: 12,
   },
   deliverHereRow: {
     borderTopWidth: 1,
     borderTopColor: '#F1F5F9',
-    paddingTop: 8,
+    paddingTop: 10,
+  },
+  deliverActionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 10,
+    borderRadius: 10,
+  },
+  deliverActionBtnActive: {
+    backgroundColor: '#DCFCE7',
+    borderWidth: 1,
+    borderColor: '#86EFAC',
+  },
+  deliverActionBtnDefault: {
+    backgroundColor: '#FFF7ED',
+    borderWidth: 1,
+    borderColor: '#FED7AA',
   },
   deliverHereText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#2563EB',
+    fontSize: 13,
+  },
+  deliverHereTextActive: {
+    fontWeight: '900',
+    color: '#15803D',
+  },
+  deliverHereTextDefault: {
+    fontWeight: '800',
+    color: '#EA580C',
   },
   emptySavedBox: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 24,
+    borderRadius: 18,
+    padding: 28,
     alignItems: 'center',
-    borderWidth: 1,
+    borderWidth: 1.5,
     borderColor: '#E2E8F0',
     borderStyle: 'dashed',
   },
   emptySavedTitle: {
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: '800',
     color: '#0F172A',
-    marginTop: 8,
+    marginTop: 10,
     marginBottom: 4,
   },
   emptySavedDesc: {
-    fontSize: 12,
+    fontSize: 13,
     color: '#64748B',
     textAlign: 'center',
-    lineHeight: 17,
-    marginBottom: 14,
+    lineHeight: 18,
+    marginBottom: 16,
+    paddingHorizontal: 12,
   },
   addFirstAddressBtn: {
-    backgroundColor: '#2563EB',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 10,
+    backgroundColor: '#EA580C',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 18,
+    paddingVertical: 10,
+    borderRadius: 12,
+    shadowColor: '#EA580C',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 2,
   },
   addFirstAddressText: {
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: '800',
     color: '#FFFFFF',
   },
   loadingBox: {
-    paddingVertical: 20,
+    paddingVertical: 24,
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,

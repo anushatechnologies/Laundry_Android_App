@@ -20,6 +20,7 @@ import { useApp } from '@/context/AppContext';
 import { api } from '@/lib/api';
 import { payWithRazorpay, parsePaymentError, type ParsedPaymentError } from '@/lib/payments';
 import { getCurrentCustomerLocation } from '@/services/location/locationService';
+import { calculateLocalDeliveryFee } from '@/services/location/deliveryCalculator';
 import { AppButton, AppInput, Card, Chip, EmptyState, SectionTitle } from '@/ui/components';
 import { COLORS, localDateString, money, shortDate } from '@/ui/theme';
 import { getGarmentImageUrl } from '@/lib/garment-photos';
@@ -175,7 +176,16 @@ export function BookScreen({
   const [fetchingLocation, setFetchingLocation] = useState(false);
   const [presetImgErrors, setPresetImgErrors] = useState<Record<string, boolean>>({});
   const [pricingSettings, setPricingSettings] = useState<PricingSettings | null>(catalog?.settings || null);
-  const [liveDeliveryCalc, setLiveDeliveryCalc] = useState<DeliveryFeeCalculation | null>(null);
+  const [liveDeliveryCalc, setLiveDeliveryCalc] = useState<DeliveryFeeCalculation | null>(() => {
+    return calculateLocalDeliveryFee({
+      customerLat: deliveryLocation?.latitude,
+      customerLng: deliveryLocation?.longitude,
+      customerPincode: deliveryLocation?.pincode,
+      subtotal: cartSummary.itemTotal,
+      expressTier: 'REGULAR',
+      pricingSettings: catalog?.settings || null,
+    });
+  });
   const [calculatingDeliveryFee, setCalculatingDeliveryFee] = useState<boolean>(false);
   const [availableCoupons, setAvailableCoupons] = useState<Coupon[]>([]);
   const [showCouponsModal, setShowCouponsModal] = useState(false);
@@ -348,28 +358,42 @@ export function BookScreen({
 
   // Fetch live delivery fee from backend calculation engine based on customer coordinates/pincode
   useEffect(() => {
-    const lat = selectedAddress?.latitude ?? deliveryLocation?.latitude ?? draft.latitude;
-    const lng = selectedAddress?.longitude ?? deliveryLocation?.longitude ?? draft.longitude;
-    const pin = selectedAddress?.pincode ?? deliveryLocation?.pincode ?? draft.pincode;
+    const rawLat = selectedAddress?.latitude ?? deliveryLocation?.latitude ?? (draft.latitude || undefined);
+    const rawLng = selectedAddress?.longitude ?? deliveryLocation?.longitude ?? (draft.longitude || undefined);
+    const lat = typeof rawLat === 'number' && !isNaN(rawLat) && rawLat !== 0 ? rawLat : undefined;
+    const lng = typeof rawLng === 'number' && !isNaN(rawLng) && rawLng !== 0 ? rawLng : undefined;
+    const pin = (selectedAddress?.pincode || deliveryLocation?.pincode || draft.pincode || '').trim();
+
+    // Instant local calculation: displays exact distance & slab immediately without waiting
+    const localCalc = calculateLocalDeliveryFee({
+      customerLat: lat,
+      customerLng: lng,
+      customerPincode: pin || undefined,
+      subtotal: cartSummary.itemTotal,
+      expressTier,
+      pricingSettings,
+    });
+    setLiveDeliveryCalc(localCalc);
 
     let active = true;
     setCalculatingDeliveryFee(true);
 
     api.calculateDeliveryFee({
-      customerLat: typeof lat === 'number' && !isNaN(lat) ? lat : undefined,
-      customerLng: typeof lng === 'number' && !isNaN(lng) ? lng : undefined,
-      customerPincode: pin?.trim() || undefined,
+      customerLat: lat,
+      customerLng: lng,
+      customerPincode: pin || undefined,
       subtotal: cartSummary.itemTotal,
       isExpress: expressTier !== 'REGULAR',
       expressTier,
     })
       .then((res) => {
-        if (active && res?.success && res.data) {
-          setLiveDeliveryCalc(res.data);
+        const calc = (res as any)?.data ?? res;
+        if (active && calc && typeof calc.deliveryFee === 'number') {
+          setLiveDeliveryCalc(calc);
         }
       })
       .catch(() => {
-        // Fallback silently to client rules
+        // Fallback to local calculation (already active)
       })
       .finally(() => {
         if (active) setCalculatingDeliveryFee(false);
@@ -389,6 +413,7 @@ export function BookScreen({
     draft.pincode,
     cartSummary.itemTotal,
     expressTier,
+    pricingSettings,
   ]);
 
   const freeDeliveryThreshold = liveDeliveryCalc?.freeDeliveryThreshold ?? selectedAddressZone?.minFreeOrderValue ?? pricingSettings?.freeDeliveryThreshold ?? 499;
@@ -427,11 +452,11 @@ export function BookScreen({
     if (liveDeliveryCalc?.breakdown) {
       return liveDeliveryCalc.breakdown;
     }
-    if (cartSummary.itemTotal < freeDeliveryThreshold) {
-      return `Standard zone fee ${money(standardDeliveryFee)} across Hyderabad (Orders < ${money(freeDeliveryThreshold)})`;
+    if (liveDeliveryCalc?.distanceKm && liveDeliveryCalc.distanceKm > 0) {
+      return `📍 Distance: ${liveDeliveryCalc.distanceKm} km from Central Hub`;
     }
     return `Standard delivery fee ${money(standardDeliveryFee)}`;
-  }, [isFreeDelivery, liveDeliveryCalc?.breakdown, freeDeliveryThreshold, standardDeliveryFee, cartSummary.itemTotal]);
+  }, [isFreeDelivery, liveDeliveryCalc?.breakdown, liveDeliveryCalc?.distanceKm, freeDeliveryThreshold, standardDeliveryFee]);
 
   const handleApplyCoupon = async (code: string, isManual: boolean = true) => {
     const cleanCode = code.trim().toUpperCase();
@@ -2374,7 +2399,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingHorizontal: 16,
-    paddingTop: 0,
+    paddingTop: 16,  // Small top spacing for visual breathing room
     paddingBottom: 40,
   },
   stageWrap: {

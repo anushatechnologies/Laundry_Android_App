@@ -200,6 +200,28 @@ export function OrderDetailScreen({
             </Text>
           </View>
         ) : null}
+
+        {/* Prominent Header Tax Invoice Action */}
+        <Pressable
+          style={({ pressed }) => [styles.headerInvoiceBar, pressed && { opacity: 0.9, transform: [{ scale: 0.99 }] }]}
+          onPress={handleDownloadInvoice}
+          accessibilityRole="button"
+          accessibilityLabel="Download Tax Invoice"
+        >
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 }}>
+            <View style={styles.headerInvoiceIconCircle}>
+              <MaterialCommunityIcons name="file-pdf-box" size={20} color="#FFFFFF" />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.headerInvoiceTitle}>Download Tax Invoice (GST PDF)</Text>
+              <Text style={styles.headerInvoiceSub}>Itemized official invoice & payment receipt</Text>
+            </View>
+          </View>
+          <View style={styles.headerInvoiceBadge}>
+            <MaterialCommunityIcons name="download" size={15} color="#FFFFFF" />
+            <Text style={styles.headerInvoiceBadgeText}>PDF</Text>
+          </View>
+        </Pressable>
       </Card>
 
       {/* 2. 5-STAGE MILESTONE TRACKER */}
@@ -473,10 +495,24 @@ export function OrderDetailScreen({
           <Text style={styles.billFinalVal}>{money(order.totalAmount)}</Text>
         </View>
 
-        {/* 1-Tap Invoice Download */}
-        <Pressable style={styles.invoiceDownloadBtn} onPress={handleDownloadInvoice}>
-          <MaterialCommunityIcons name="file-download-outline" size={18} color="#1C0B18" />
-          <Text style={styles.invoiceDownloadText}>Download Tax Invoice (GST Receipt)</Text>
+        {/* 1-Tap Tax Invoice Download Button */}
+        <Pressable
+          style={({ pressed }) => [styles.invoiceDownloadBtn, pressed && { opacity: 0.9, transform: [{ scale: 0.99 }] }]}
+          onPress={handleDownloadInvoice}
+          accessibilityRole="button"
+          accessibilityLabel="Download Tax Invoice"
+        >
+          <View style={styles.invoiceBtnIconWrap}>
+            <MaterialCommunityIcons name="file-pdf-box" size={22} color="#FFFFFF" />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.invoiceDownloadText}>Download Tax Invoice (GST PDF)</Text>
+            <Text style={styles.invoiceDownloadSub}>Official receipt & itemized tax breakdown</Text>
+          </View>
+          <View style={styles.invoiceDownloadPill}>
+            <MaterialCommunityIcons name="download" size={15} color="#FFFFFF" />
+            <Text style={styles.invoiceDownloadPillText}>PDF</Text>
+          </View>
         </Pressable>
       </Card>
 
@@ -606,7 +642,7 @@ const styles = StyleSheet.create({
   },
   content: {
     paddingHorizontal: 16,
-    paddingTop: 0,
+    paddingTop: 16,  // Small top spacing for visual breathing room
     paddingBottom: 40,
     gap: 14,
   },
@@ -962,22 +998,107 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     color: '#F97316',
   },
+  headerInvoiceBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#0F172A',
+    borderRadius: 14,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    marginTop: 12,
+    borderWidth: 1.5,
+    borderColor: '#334155',
+    elevation: 3,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 5,
+  },
+  headerInvoiceIconCircle: {
+    width: 34,
+    height: 34,
+    borderRadius: 10,
+    backgroundColor: '#16A34A',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerInvoiceTitle: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    letterSpacing: 0.1,
+  },
+  headerInvoiceSub: {
+    fontSize: 11,
+    fontWeight: '500',
+    color: '#94A3B8',
+    marginTop: 1,
+  },
+  headerInvoiceBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#16A34A',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+  },
+  headerInvoiceBadgeText: {
+    fontSize: 11.5,
+    fontWeight: '900',
+    color: '#FFFFFF',
+  },
   invoiceDownloadBtn: {
     flexDirection: 'row',
     alignItems: 'center',
+    backgroundColor: '#0F172A',
+    borderRadius: 14,
+    paddingVertical: 13,
+    paddingHorizontal: 14,
+    gap: 12,
+    marginTop: 14,
+    borderWidth: 1.5,
+    borderColor: '#334155',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.2,
+    shadowRadius: 6,
+    elevation: 4,
+  },
+  invoiceBtnIconWrap: {
+    width: 38,
+    height: 38,
+    borderRadius: 10,
+    backgroundColor: '#16A34A',
+    alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#FAF5EF',
-    borderRadius: 12,
-    paddingVertical: 10,
-    gap: 6,
-    borderWidth: 1,
-    borderColor: '#E8DED6',
-    marginTop: 8,
   },
   invoiceDownloadText: {
-    fontSize: 12,
+    fontSize: 13.5,
     fontWeight: '800',
-    color: '#1C0B18',
+    color: '#FFFFFF',
+    letterSpacing: 0.1,
+  },
+  invoiceDownloadSub: {
+    fontSize: 11,
+    fontWeight: '500',
+    color: '#94A3B8',
+    marginTop: 1,
+  },
+  invoiceDownloadPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#16A34A',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+  },
+  invoiceDownloadPillText: {
+    color: '#FFFFFF',
+    fontSize: 11.5,
+    fontWeight: '900',
   },
   feedbackCard: {
     backgroundColor: '#FFFFFF',

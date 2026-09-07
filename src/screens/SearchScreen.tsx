@@ -587,6 +587,7 @@ const styles = StyleSheet.create({
     paddingBottom: 40,
   },
   discoveryWrap: {
+    paddingTop: 16,  // Add small top padding inside content
     gap: 20,
   },
   section: {

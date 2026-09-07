@@ -109,7 +109,7 @@ const detailBackRoute: Record<DetailRoute, MainTab> = {
 function LoadingScreen() {
   const [displayText, setDisplayText] = useState('');
   const appName = 'LaundryFresh';
-  
+
   // Animation values
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const scaleAnim = useRef(new Animated.Value(0.3)).current;
@@ -181,7 +181,7 @@ function LoadingScreen() {
   return (
     <View style={styles.loadingRoot}>
       <StatusBar style="light" />
-      
+
       {/* Animated Logo */}
       <Animated.View
         style={[
@@ -330,8 +330,7 @@ function AuthenticatedApp() {
   }, [saveDeliveryLocation]);
 
   const { route, history } = navigation;
-  // First launch opens the real map flow directly; Back still reveals the brand landing page.
-  const [onboardingStage, setOnboardingStage] = useState<OnboardingStage>('LOCATION');
+  const [onboardingStage, setOnboardingStage] = useState<OnboardingStage>('LANDING');
   const [showLocationModal, setShowLocationModal] = useState(false);
   const [couponCode, setCouponCode] = useState('');
   const [selectedCategoryInfo, setSelectedCategoryInfo] = useState<{
@@ -525,28 +524,29 @@ function AuthenticatedApp() {
     return () => subscription.remove();
   }, [requestBack]);
 
-  if (!ready || !hasLoadedUserLocation || !permissionsState.completed) return <LoadingScreen />;
+  const [splashTimeoutPassed, setSplashTimeoutPassed] = useState(false);
 
-  // Skip location picker - auto-location will be implemented on app loading later
+  useEffect(() => {
+    // Failsafe: Never keep the user on the loading screen longer than 600ms
+    const timer = setTimeout(() => {
+      setSplashTimeoutPassed(true);
+    }, 600);
+    return () => clearTimeout(timer);
+  }, []);
+
+  // Instant launch: Dismiss splash screen as soon as storage is read (<50ms).
+  // Location & permissions run smoothly in background without blocking launch.
+  if (!ready && !splashTimeoutPassed) return <LoadingScreen />;
+
   if (!hasCompletedOnboarding) {
-    if (onboardingStage === 'LANDING') {
-      return (
-        <WelcomeScreen
-          onContinue={async () => {
-            // Complete onboarding directly without location picker
-            await completeOnboarding();
-            resetRoute('HOME');
-          }}
-        />
-      );
-    }
-
-    // Fallback: if somehow still in location stage, complete onboarding
-    (async () => {
-      await completeOnboarding();
-      resetRoute('HOME');
-    })();
-    return <LoadingScreen />;
+    return (
+      <WelcomeScreen
+        onContinue={async () => {
+          await completeOnboarding();
+          resetRoute('HOME');
+        }}
+      />
+    );
   }
 
   // After onboarding: if user chose Sign In from WelcomeScreen route them to auth
@@ -572,7 +572,7 @@ function AuthenticatedApp() {
         onOpenSearch={() => navigateTo('SEARCH')}
         onOpenNotifications={() => navigateTo('NOTIFICATIONS')}
         onOpenOrderDetail={openOrderDetail}
-                onSelectCategory={(tag, title) => {
+        onSelectCategory={(tag, title) => {
           if (tag === 'BULK') {
             navigateTo('BULK_LAUNDRY');
             return;
@@ -611,7 +611,7 @@ function AuthenticatedApp() {
     );
   } else if (route === 'CATEGORY_CATALOG') {
     screen = (
-            <CategoryCatalogScreen
+      <CategoryCatalogScreen
         categoryTag={selectedCategoryInfo.tag}
         categoryTitle={selectedCategoryInfo.title}
         initialServiceFilter={selectedCategoryInfo.serviceCode}
@@ -825,7 +825,7 @@ function AuthenticatedApp() {
                 </Pressable>
               );
             })}
-            
+
             {/* CENTER EXPANDABLE FAB */}
             <ExpandableFAB
               mainIcon="shopping"
@@ -852,7 +852,7 @@ function AuthenticatedApp() {
                 },
               ]}
             />
-            
+
             {tabs.slice(3, 5).map((tab) => {
               const isActive = route === tab.key;
               const hasCartBadge = tab.key === 'CART' && cartSummary.itemCount > 0;

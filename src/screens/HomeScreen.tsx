@@ -1010,101 +1010,7 @@ export function HomeScreen({
           </Card>
         ) : null}
 
-        {/* 1. OUR SERVICES SECTION (ONE ROW OF 4 CARDS) */}
-        <View style={styles.servicesSection}>
-          <View style={styles.sectionHeaderRow}>
-            <View>
-              <Text style={styles.sectionHeading}>Our Services</Text>
-              <Text style={styles.sectionSubheading}>Professional care. Premium results.</Text>
-            </View>
-            <Pressable onPress={() => setShowAllServicesModal(true)} style={styles.viewAllBtn}>
-              <Text style={styles.viewAllText}>All Services</Text>
-              <MaterialCommunityIcons name="chevron-right" size={16} color="#2563EB" />
-            </Pressable>
-          </View>
-
-          <View style={styles.services4Row}>
-            {coreServices.map((svc) => {
-              const hasImgErr = serviceImgErrors[svc.id];
-              return (
-                <Pressable
-                  key={svc.id}
-                  style={({ pressed }) => [
-                    styles.service4Tile,
-                    pressed && styles.tileCardPressed,
-                  ]}
-                  onPress={() => {
-                    // Only open Bulk Laundry for the actual bulk-laundry KG service, not for Wash & Fold / Wash & Iron
-                    const isBulkService = svc.slug === 'bulk-laundry' || (svc.pricingType === 'PER_KG' && svc.slug === 'bulk-laundry');
-                    if (isBulkService) {
-                      if (onOpenBulkLaundry) {
-                        onOpenBulkLaundry();
-                        return;
-                      }
-                    }
-                    if (onSelectService) {
-                      const serviceCode = svc.serviceCode || 'ALL';
-                      const category = svc.serviceCode === 'SHOE_SPA'
-                        ? { tag: 'FOOTWEAR', title: 'Footwear & Shoes' }
-                        : svc.serviceCode === 'SAREE_POLISH'
-                        ? { tag: 'WOMENS', title: "Women's Wear" }
-                        : { tag: 'ALL', title: 'All Garments' };
-                      onSelectService(serviceCode, svc.title, category.tag, category.title);
-                    } else {
-                      onViewServices();
-                    }
-                  }}
-                  accessibilityRole="button"
-                  accessibilityLabel={`View ${svc.title} service`}
-                >
-                  {/* Top TAT Badge with colored background */}
-                  <View style={[styles.service4TatPill, {
-                    backgroundColor: svc.tat.includes('Express') || svc.tat.includes('12h')
-                      ? '#FEF3C7'
-                      : svc.tat.includes('24h')
-                      ? '#DBEAFE'
-                      : svc.tat.includes('48h')
-                      ? '#E0E7FF'
-                      : '#F3F4F6'
-                  }]}>
-                    <Text style={[styles.service4TatText, {
-                      color: svc.tat.includes('Express') || svc.tat.includes('12h')
-                        ? '#D97706'
-                        : svc.tat.includes('24h')
-                        ? '#2563EB'
-                        : svc.tat.includes('48h')
-                        ? '#4F46E5'
-                        : '#6B7280'
-                    }]}>{svc.tat}</Text>
-                  </View>
-
-                  {/* Circular Image with White Background */}
-                  <View style={styles.service4ImgWrap}>
-                    <Image
-                      source={{ uri: hasImgErr ? svc.fallbackUrl : svc.imageUrl }}
-                      style={styles.service4Img}
-                      resizeMode="cover"
-                      onError={() => setServiceImgErrors((prev) => ({ ...prev, [svc.id]: true }))}
-                    />
-                  </View>
-
-                  {/* Service Title */}
-                  <Text style={styles.service4Title} numberOfLines={1}>
-                    {svc.title}
-                  </Text>
-
-                  {/* Starting Price in Orange */}
-                  <Text style={styles.service4PriceText} numberOfLines={1}>
-                    {svc.priceText}
-                  </Text>
-
-                  {/* Bottom Accent Line */}
-                  <View style={[styles.service4BottomLine, { backgroundColor: svc.accent }]} />
-                </Pressable>
-              );
-            })}
-          </View>
-        </View>
+        {/* OUR SERVICES SECTION REMOVED - Using All Services grid instead */}
 
         {/* 2. BROWSE BY CATEGORY (4 PER ROW) */}
         <View style={styles.categoriesSection}>
@@ -1156,65 +1062,7 @@ export function HomeScreen({
           </View>
         </View>
 
-        {/* 2.5 ALL SERVICES GRID (SAME STYLE AS CATEGORIES - 4 PER ROW) */}
-        <View style={styles.categoriesSection}>
-          <View style={styles.sectionHeaderRow}>
-            <View>
-              <Text style={styles.sectionHeading}>All Services</Text>
-              <Text style={styles.sectionSubheading}>Complete laundry solutions for every need</Text>
-            </View>
-          </View>
-
-          <View style={styles.homeCategory4Grid}>
-            {allServicesList.slice(0, 8).map((svc) => {
-              const hasImgErr = serviceImgErrors[svc.id];
-              return (
-                <Pressable
-                  key={svc.id}
-                  style={({ pressed }) => [
-                    styles.homeCategory4Col,
-                    pressed && styles.categoryItemPressed,
-                  ]}
-                  onPress={() => {
-                    const isBulkService = svc.slug === 'bulk-laundry' || (svc.pricingType === 'PER_KG' && svc.slug === 'bulk-laundry');
-                    if (isBulkService) {
-                      if (onOpenBulkLaundry) {
-                        onOpenBulkLaundry();
-                        return;
-                      }
-                    }
-                    if (onSelectService) {
-                      const serviceCode = svc.serviceCode || 'ALL';
-                      const category = svc.serviceCode === 'SHOE_SPA'
-                        ? { tag: 'FOOTWEAR', title: 'Footwear & Shoes' }
-                        : svc.serviceCode === 'SAREE_POLISH'
-                        ? { tag: 'WOMENS', title: "Women's Wear" }
-                        : { tag: 'ALL', title: 'All Garments' };
-                      onSelectService(serviceCode, svc.title, category.tag, category.title);
-                    }
-                  }}
-                >
-                  <View style={[styles.homeCatCircleWrap, { borderColor: svc.accent }]}>
-                    <Image
-                      source={{ uri: hasImgErr ? svc.fallbackUrl : svc.imageUrl }}
-                      style={styles.homeCatCircleImg}
-                      resizeMode="cover"
-                      onError={() => setServiceImgErrors((prev) => ({ ...prev, [svc.id]: true }))}
-                    />
-                    {/* TAT Badge instead of count */}
-                    <View style={[styles.homeCatCountBadge, { backgroundColor: svc.accent }]}>
-                      <Text style={styles.homeCatCountText}>{svc.tat}</Text>
-                    </View>
-                  </View>
-                  <Text style={styles.homeCatTitle} numberOfLines={2}>{svc.title}</Text>
-                  <Text style={[styles.servicePriceSmall, { color: svc.accent }]} numberOfLines={1}>
-                    {svc.priceText}
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </View>
-        </View>
+        {/* 2.5 ALL SERVICES SECTION - REMOVED per user request */}
 
         {/* 3. ACTIVE OFFERS & PROMOTIONS - Right after Services */}
         <PromotionsSection
@@ -1473,69 +1321,72 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'flex-start',
-    marginTop: 8,
-    paddingHorizontal: 8,
+    marginTop: 12,
+    paddingHorizontal: 6,
+    gap: 4,  // Add gap for better spacing
   },
   homeCategory4Col: {
     width: '25%',
     alignItems: 'center',
-    marginBottom: 20,
+    marginBottom: 24,
     paddingHorizontal: 4,
   },
   homeCatCircleWrap: {
-    width: 70,
-    height: 70,
-    borderRadius: 20,  // Increased from 33 (more rounded square)
-    borderWidth: 2.5,
-    padding: 3,
+    width: 90,  // Increased from 70 for better icon visibility
+    height: 90,  // Increased from 70
+    borderRadius: 24,  // Larger rounded corners
+    borderWidth: 0,  // Remove border for cleaner look
+    padding: 0,
     backgroundColor: '#FFFFFF',
     position: 'relative',
     alignItems: 'center',
     justifyContent: 'center',
+    overflow: 'hidden',  // Ensure image fits properly
     shadowColor: '#0F172A',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.12,
-    shadowRadius: 6,
-    elevation: 4,
-    marginBottom: 8,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 6,
+    marginBottom: 10,
   },
   homeCatCircleImg: {
     width: '100%',
     height: '100%',
-    borderRadius: 16,  // Increased from 30 (match outer border)
+    borderRadius: 0,  // No inner radius since parent handles it
   },
   homeCatCountBadge: {
     position: 'absolute',
-    bottom: -6,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 8,  // Increased from 6
-    borderWidth: 2,
+    bottom: -8,
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    borderRadius: 10,
+    borderWidth: 2.5,
     borderColor: '#FFFFFF',
     shadowColor: '#000000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 3,
-    elevation: 3,
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 4,
   },
   homeCatCountText: {
-    fontSize: 9,
+    fontSize: 10,  // Increased from 9
     fontWeight: '800',
     color: '#FFFFFF',
-    letterSpacing: 0.2,
+    letterSpacing: 0.3,
   },
   homeCatTitle: {
-    fontSize: 11,
+    fontSize: 12,  // Increased from 11
     fontWeight: '700',
     color: '#0F172A',
     textAlign: 'center',
-    lineHeight: 14,
+    lineHeight: 16,
+    marginTop: 2,
   },
   servicePriceSmall: {
-    fontSize: 10,
+    fontSize: 11,  // Increased from 10
     fontWeight: '800',
     textAlign: 'center',
-    marginTop: 2,
+    marginTop: 3,
   },
 
   greetingHeader: {

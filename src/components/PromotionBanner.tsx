@@ -63,7 +63,7 @@ const styles = StyleSheet.create({
   container: {
     height: 124,
     width: '100%',
-    borderRadius: 24, // More rounded (was 18)
+    borderRadius: 28, // Increased for better rounded edges
     overflow: 'hidden',
     shadowColor: '#000000',
     shadowOffset: { width: 0, height: 6 },
@@ -131,7 +131,7 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
     paddingHorizontal: 10,
     paddingVertical: 4,
-    borderRadius: 10, // More rounded
+    borderRadius: 12, // More rounded edges
     borderWidth: 1.5,
     borderColor: 'rgba(255, 255, 255, 0.45)',
     shadowColor: '#000000',
