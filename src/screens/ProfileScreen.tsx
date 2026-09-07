@@ -1319,7 +1319,7 @@ const styles = StyleSheet.create({
   },
   content: {
     paddingHorizontal: 16,
-    paddingTop: 16,  // Small top spacing for visual breathing room
+    paddingTop: 0,  // No top padding - header provides spacing
     paddingBottom: 40,
   },
   profileHeaderCard: {
@@ -1463,7 +1463,7 @@ const styles = StyleSheet.create({
   statCard: {
     flex: 1,
     backgroundColor: '#FFFFFF',
-    borderRadius: 16,
+    borderRadius: 20, // Increased for more rounded corners
     padding: 14,
     borderWidth: 1,
     borderColor: '#F3E8DF',
@@ -1487,7 +1487,7 @@ const styles = StyleSheet.create({
   },
   menuCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 18,
+    borderRadius: 20, // Increased for more rounded corners
     paddingVertical: 4,
     borderWidth: 1,
     borderColor: '#F3E8DF',
@@ -1503,7 +1503,7 @@ const styles = StyleSheet.create({
   menuIconBox: {
     width: 38,
     height: 38,
-    borderRadius: 12,
+    borderRadius: 14, // Increased for more rounded icons
     justifyContent: 'center',
     alignItems: 'center',
   },

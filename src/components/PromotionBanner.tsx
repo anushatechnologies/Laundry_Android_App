@@ -63,7 +63,7 @@ const styles = StyleSheet.create({
   container: {
     height: 124,
     width: '100%',
-    borderRadius: 28, // Increased for better rounded edges
+    borderRadius: 24, // Rounded corners for modern look
     overflow: 'hidden',
     shadowColor: '#000000',
     shadowOffset: { width: 0, height: 6 },

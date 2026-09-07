@@ -461,7 +461,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingHorizontal: 16,
-    paddingTop: 16,  // Small top spacing for visual breathing room
+    paddingTop: 0,  // No top padding - header provides spacing
     paddingBottom: 48,
     gap: 16,
   },

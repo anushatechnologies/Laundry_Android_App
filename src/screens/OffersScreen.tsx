@@ -146,7 +146,7 @@ export function OffersScreen({ onUseCoupon }: { onUseCoupon: (code: string) => v
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: COLORS.cream },
-  content: { paddingHorizontal: 16, paddingTop: 16, paddingBottom: 32, gap: 16 },
+  content: { paddingHorizontal: 16, paddingTop: 0, paddingBottom: 32, gap: 16 },
   header: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 },
   headerCopy: { flex: 1 },
   title: { color: COLORS.plumDark, fontSize: 26, fontWeight: '900' },

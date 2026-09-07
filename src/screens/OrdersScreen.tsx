@@ -218,7 +218,7 @@ function cleanItemDisplayName(item: any): string {
     };
 
     const handleDownloadInvoice = () => {
-      const invoiceUrl = `${API_BASE_URL}/orders/${selectedOrder.id}/invoice?print=true`;
+      const invoiceUrl = `${API_BASE_URL}/orders/${selectedOrder.id}/invoice`;
       void Linking.openURL(invoiceUrl).catch(() => {
         void Linking.openURL(`${API_BASE_URL}/invoices/${selectedOrder.id}/pdf`);
       });
@@ -692,7 +692,7 @@ function cleanItemDisplayName(item: any): string {
                       style={({ pressed }) => [styles.cardInvoiceBtn, pressed && { opacity: 0.8 }]}
                       onPress={(e) => {
                         e.stopPropagation?.();
-                        const invoiceUrl = `${API_BASE_URL}/orders/${order.id}/invoice?print=true`;
+                        const invoiceUrl = `${API_BASE_URL}/orders/${order.id}/invoice`;
                         void Linking.openURL(invoiceUrl).catch(() => {
                           void Linking.openURL(`${API_BASE_URL}/invoices/${order.id}/pdf`);
                         });
@@ -726,7 +726,7 @@ const styles = StyleSheet.create({
   },
   content: {
     paddingHorizontal: 16,
-    paddingTop: 16,  // Small top spacing for visual breathing room
+    paddingTop: 0,  // No top padding - header provides spacing
     paddingBottom: 40,
     gap: 14,
   },

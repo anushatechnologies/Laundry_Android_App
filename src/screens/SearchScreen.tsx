@@ -583,7 +583,7 @@ const styles = StyleSheet.create({
   },
   content: {
     paddingHorizontal: 16,
-    paddingTop: 0,
+    paddingTop: 0,  // No top padding - header provides spacing
     paddingBottom: 40,
   },
   discoveryWrap: {

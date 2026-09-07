@@ -225,26 +225,35 @@ function LoadingScreen() {
         <Text style={styles.badgeText}>100% Pure Ozone Hygiene</Text>
       </Animated.View>
 
-      {/* Loading Spinner */}
-      <Animated.View
-        style={[
-          styles.spinnerContainer,
-          {
-            opacity: fadeAnim,
-            transform: [{ rotate: spin }],
-          },
-        ]}
-      >
-        <View style={styles.spinner}>
-          <View style={[styles.spinnerDot, styles.spinnerDot1]} />
-          <View style={[styles.spinnerDot, styles.spinnerDot2]} />
-          <View style={[styles.spinnerDot, styles.spinnerDot3]} />
-        </View>
-      </Animated.View>
+      {/* Modern Ring Spinner */}
+      <View style={styles.spinnerContainer}>
+        <Animated.View
+          style={[
+            styles.spinnerRing,
+            {
+              opacity: fadeAnim,
+              transform: [{ rotate: spin }],
+            },
+          ]}
+        >
+          <View style={styles.spinnerRingInner} />
+        </Animated.View>
+        
+        {/* Pulsing Center Dot */}
+        <Animated.View
+          style={[
+            styles.spinnerCenter,
+            {
+              opacity: fadeAnim,
+              transform: [{ scale: pulseAnim }],
+            },
+          ]}
+        />
+      </View>
 
       {/* Loading Text */}
       <Animated.Text style={[styles.loadingText, { opacity: fadeAnim }]}>
-        Loading your laundry experience...
+        Loading your premium laundry experience...
       </Animated.Text>
     </View>
   );
@@ -924,6 +933,10 @@ const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: COLORS.cream },
   screen: { flex: 1 },
   customTabBarContainer: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
     backgroundColor: 'transparent',
     paddingBottom: 12,
     paddingTop: 4,
@@ -1042,21 +1055,47 @@ const styles = StyleSheet.create({
     borderColor: '#FFFFFF',
   },
   loadingRoot: { flex: 1, backgroundColor: COLORS.plumDark, alignItems: 'center', justifyContent: 'center', padding: 24 },
-  loadingMark: { width: 82, height: 82, borderRadius: 27, overflow: 'hidden', backgroundColor: COLORS.white, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: COLORS.gold, marginBottom: 18 },
-  loadingLogo: { width: 76, height: 76, transform: [{ scale: 1.25 }] },
+  loadingMark: { width: 120, height: 120, borderRadius: 30, overflow: 'visible', backgroundColor: COLORS.white, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: COLORS.gold, marginBottom: 18 },
+  loadingLogo: { width: 110, height: 110 },
   titleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center' },
   loadingTitle: { color: COLORS.white, fontSize: 32, fontWeight: '900', letterSpacing: -0.5 },
   cursor: { color: COLORS.gold, fontSize: 32, fontWeight: '900', marginLeft: 3 },
   loadingTagline: { color: COLORS.gold, fontSize: 11, fontWeight: '800', letterSpacing: 2, marginTop: 8, textAlign: 'center' },
   loadingBadge: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 24, paddingVertical: 8, paddingHorizontal: 16, backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 20 },
   badgeText: { color: COLORS.white, fontSize: 12, fontWeight: '700' },
-  spinnerContainer: { marginTop: 32, width: 50, height: 50, alignItems: 'center', justifyContent: 'center' },
-  spinner: { width: 50, height: 50, position: 'relative' },
-  spinnerDot: { position: 'absolute', width: 12, height: 12, borderRadius: 6, backgroundColor: COLORS.gold },
-  spinnerDot1: { top: 0, left: 19 },
-  spinnerDot2: { top: 19, left: 38 },
-  spinnerDot3: { top: 38, left: 19 },
-  loadingText: { color: 'rgba(255,255,255,0.6)', fontSize: 13, fontWeight: '600', marginTop: 16, textAlign: 'center' },
+  spinnerContainer: { marginTop: 40, width: 80, height: 80, alignItems: 'center', justifyContent: 'center', position: 'relative' },
+  spinnerRing: { 
+    width: 80, 
+    height: 80, 
+    borderRadius: 40,
+    borderWidth: 4,
+    borderColor: 'transparent',
+    borderTopColor: COLORS.gold,
+    borderRightColor: COLORS.gold,
+  },
+  spinnerRingInner: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    borderWidth: 3,
+    borderColor: 'transparent',
+    borderBottomColor: 'rgba(255, 255, 255, 0.3)',
+    borderLeftColor: 'rgba(255, 255, 255, 0.3)',
+    margin: 4,
+  },
+  spinnerCenter: {
+    position: 'absolute',
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: COLORS.gold,
+    shadowColor: COLORS.gold,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.8,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  loadingText: { color: 'rgba(255,255,255,0.6)', fontSize: 13, fontWeight: '600', marginTop: 24, textAlign: 'center', paddingHorizontal: 40 },
   detailRoot: { flex: 1, backgroundColor: COLORS.cream },
   appbar: { backgroundColor: COLORS.white },
   appbarTitle: { color: COLORS.plumDark, fontWeight: '900' },

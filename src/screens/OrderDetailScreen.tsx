@@ -150,7 +150,7 @@ export function OrderDetailScreen({
   };
 
   const handleDownloadInvoice = () => {
-    const invoiceUrl = `${API_BASE_URL}/orders/${order?.id}/invoice?print=true`;
+    const invoiceUrl = `${API_BASE_URL}/orders/${order?.id}/invoice`;
     void Linking.openURL(invoiceUrl).catch(() => {
       setShowInvoiceModal(true);
     });
@@ -642,7 +642,7 @@ const styles = StyleSheet.create({
   },
   content: {
     paddingHorizontal: 16,
-    paddingTop: 16,  // Small top spacing for visual breathing room
+    paddingTop: 0,  // No top padding - header provides spacing
     paddingBottom: 40,
     gap: 14,
   },

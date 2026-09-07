@@ -20,7 +20,7 @@ import { useApp } from '@/context/AppContext';
 import { api } from '@/lib/api';
 import { payWithRazorpay, parsePaymentError, type ParsedPaymentError } from '@/lib/payments';
 import { getCurrentCustomerLocation } from '@/services/location/locationService';
-import { calculateLocalDeliveryFee } from '@/services/location/deliveryCalculator';
+import { calculateLocalDeliveryFee, PINCODE_COORDINATES } from '@/services/location/deliveryCalculator';
 import { AppButton, AppInput, Card, Chip, EmptyState, SectionTitle } from '@/ui/components';
 import { COLORS, localDateString, money, shortDate } from '@/ui/theme';
 import { getGarmentImageUrl } from '@/lib/garment-photos';
@@ -159,6 +159,9 @@ export function BookScreen({
   const [selectedAddressServiceable, setSelectedAddressServiceable] = useState<boolean | null>(null);
   const [selectedAddressMessage, setSelectedAddressMessage] = useState<string | null>(null);
   const [checkingAddressServiceable, setCheckingAddressServiceable] = useState(false);
+  const [draftServiceable, setDraftServiceable] = useState<boolean | null>(null);
+  const [draftServiceMessage, setDraftServiceMessage] = useState<string | null>(null);
+  const [checkingDraftService, setCheckingDraftService] = useState(false);
   const [slotDate, setSlotDate] = useState(localDateString());
   const [slots, setSlots] = useState<PickupSlot[]>([]);
   const [selectedSlotId, setSelectedSlotId] = useState('');
@@ -254,6 +257,51 @@ export function BookScreen({
       });
     return () => { active = false; };
   }, [selectedAddress?.id, selectedAddress?.pincode, validatePincode]);
+
+  // Validate serviceability for draft address when user is adding/typing a new address
+  useEffect(() => {
+    if (!addingAddress && addresses.length > 0) return;
+    const pin = draft.pincode?.trim();
+    if (!pin || pin.length < 6) {
+      setDraftServiceable(null);
+      setDraftServiceMessage(null);
+      return;
+    }
+    let active = true;
+    setCheckingDraftService(true);
+    validatePincode(pin)
+      .then((res) => {
+        if (active) {
+          const ok = Boolean(res.isServiceable || res.serviceable);
+          setDraftServiceable(ok);
+          setDraftServiceMessage(res.message || (ok ? 'Serviceable for doorstep pickup' : 'Not currently serviceable for pickup'));
+        }
+      })
+      .catch(() => {
+        if (active) {
+          setDraftServiceable(null);
+          setDraftServiceMessage(null);
+        }
+      })
+      .finally(() => {
+        if (active) setCheckingDraftService(false);
+      });
+    return () => { active = false; };
+  }, [addingAddress, addresses.length, draft.pincode, validatePincode]);
+
+  const draftDeliveryCalc = useMemo(() => {
+    const pin = draft.pincode?.trim();
+    const lat = typeof draft.latitude === 'number' && !isNaN(draft.latitude) && draft.latitude !== 0 ? draft.latitude : undefined;
+    const lng = typeof draft.longitude === 'number' && !isNaN(draft.longitude) && draft.longitude !== 0 ? draft.longitude : undefined;
+    return calculateLocalDeliveryFee({
+      customerLat: lat,
+      customerLng: lng,
+      customerPincode: pin || undefined,
+      subtotal: cartSummary.itemTotal,
+      expressTier,
+      pricingSettings,
+    });
+  }, [draft.latitude, draft.longitude, draft.pincode, cartSummary.itemTotal, expressTier, pricingSettings]);
 
   // The location picker confirms an area, while checkout still needs a flat or
   // house number. Prefill that checkout form instead of silently creating an
@@ -358,11 +406,18 @@ export function BookScreen({
 
   // Fetch live delivery fee from backend calculation engine based on customer coordinates/pincode
   useEffect(() => {
-    const rawLat = selectedAddress?.latitude ?? deliveryLocation?.latitude ?? (draft.latitude || undefined);
-    const rawLng = selectedAddress?.longitude ?? deliveryLocation?.longitude ?? (draft.longitude || undefined);
+    const isAddingNew = addingAddress || addresses.length === 0;
+    const rawLat = isAddingNew
+      ? (draft.latitude || undefined)
+      : (selectedAddress?.latitude ?? deliveryLocation?.latitude ?? (draft.latitude || undefined));
+    const rawLng = isAddingNew
+      ? (draft.longitude || undefined)
+      : (selectedAddress?.longitude ?? deliveryLocation?.longitude ?? (draft.longitude || undefined));
     const lat = typeof rawLat === 'number' && !isNaN(rawLat) && rawLat !== 0 ? rawLat : undefined;
     const lng = typeof rawLng === 'number' && !isNaN(rawLng) && rawLng !== 0 ? rawLng : undefined;
-    const pin = (selectedAddress?.pincode || deliveryLocation?.pincode || draft.pincode || '').trim();
+    const pin = (isAddingNew
+      ? draft.pincode
+      : (selectedAddress?.pincode || deliveryLocation?.pincode || draft.pincode) || '').trim();
 
     // Instant local calculation: displays exact distance & slab immediately without waiting
     const localCalc = calculateLocalDeliveryFee({
@@ -374,6 +429,8 @@ export function BookScreen({
       pricingSettings,
     });
     setLiveDeliveryCalc(localCalc);
+
+    if (!pin && !lat) return;
 
     let active = true;
     setCalculatingDeliveryFee(true);
@@ -401,6 +458,8 @@ export function BookScreen({
 
     return () => { active = false; };
   }, [
+    addingAddress,
+    addresses.length,
     selectedAddress?.id,
     selectedAddress?.latitude,
     selectedAddress?.longitude,
@@ -1200,10 +1259,64 @@ export function BookScreen({
                       placeholder="500081"
                       keyboardType="number-pad"
                       value={draft.pincode}
-                      onChangeText={(pincode) => setDraft((c) => ({ ...c, pincode }))}
+                      onChangeText={(pincode) => {
+                        const cleaned = pincode.replace(/[^0-9]/g, '').slice(0, 6);
+                        const pinCoords = PINCODE_COORDINATES[cleaned];
+                        setDraft((c) => ({
+                          ...c,
+                          pincode: cleaned,
+                          latitude: pinCoords?.lat ?? c.latitude,
+                          longitude: pinCoords?.lng ?? c.longitude,
+                        }));
+                      }}
                     />
                   </View>
                 </View>
+
+                {/* Live Delivery Calculation for New Address */}
+                {draft.pincode.trim().length === 6 && (
+                  <View style={styles.newAddressDeliveryPreview}>
+                    {checkingDraftService ? (
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                        <ActivityIndicator size="small" color="#F97316" />
+                        <Text style={{ fontSize: 12, color: '#EA580C', fontWeight: '600' }}>
+                          Checking serviceability & calculating delivery fee...
+                        </Text>
+                      </View>
+                    ) : draftServiceable === false ? (
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                        <MaterialCommunityIcons name="alert-circle" size={16} color="#DC2626" />
+                        <Text style={{ fontSize: 12, color: '#DC2626', fontWeight: '700', flex: 1 }}>
+                          {draftServiceMessage || `PIN ${draft.pincode} is not currently serviceable for pickup.`}
+                        </Text>
+                      </View>
+                    ) : (
+                      <View>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+                            <MaterialCommunityIcons name="check-circle" size={15} color="#16A34A" />
+                            <Text style={{ fontSize: 12, fontWeight: '800', color: '#166534' }}>
+                              Serviceable for Doorstep Pickup
+                            </Text>
+                          </View>
+                          <View style={[styles.addressPricePill, draftDeliveryCalc.isFreeDelivery && styles.addressPricePillFree]}>
+                            <Text style={[styles.addressPricePillText, draftDeliveryCalc.isFreeDelivery && styles.addressPricePillTextFree]}>
+                              {draftDeliveryCalc.isFreeDelivery ? 'FREE DELIVERY' : money(draftDeliveryCalc.deliveryFee)}
+                            </Text>
+                          </View>
+                        </View>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4 }}>
+                          <MaterialCommunityIcons name="truck-delivery" size={14} color="#15803D" />
+                          <Text style={{ fontSize: 11, color: '#15803D', fontWeight: '600', flex: 1 }}>
+                            {draftDeliveryCalc.isFreeDelivery
+                              ? `Free delivery unlocked (Order ≥ ${money(draftDeliveryCalc.freeDeliveryThreshold)}) • ${draftDeliveryCalc.distanceKm} km from Hub`
+                              : `Estimated distance: ${draftDeliveryCalc.distanceKm} km from Central Hub • Base ₹${draftDeliveryCalc.baseDeliveryFee}`}
+                          </Text>
+                        </View>
+                      </View>
+                    )}
+                  </View>
+                )}
 
                 <View style={styles.formBtnRow}>
                   {addresses.length > 0 && (
@@ -1217,7 +1330,22 @@ export function BookScreen({
                         Alert.alert('Required', 'Please enter street and pincode.');
                         return;
                       }
-                      const saved = await saveAddress({ ...draft, id: `addr_${Date.now()}` });
+                      if (draft.pincode.trim().length !== 6) {
+                        Alert.alert('Invalid Pincode', 'Please enter a valid 6-digit pincode.');
+                        return;
+                      }
+                      if (draftServiceable === false) {
+                        Alert.alert('Not Serviceable', draftServiceMessage || `PIN ${draft.pincode} is not currently serviceable.`);
+                        return;
+                      }
+                      const pinCoords = PINCODE_COORDINATES[draft.pincode.trim()];
+                      const toSave = {
+                        ...draft,
+                        latitude: draft.latitude ?? pinCoords?.lat,
+                        longitude: draft.longitude ?? pinCoords?.lng,
+                        id: `addr_${Date.now()}`,
+                      };
+                      const saved = await saveAddress(toSave);
                       setSelectedAddressId(saved.id);
                       setAddingAddress(false);
                     }}
@@ -1228,6 +1356,16 @@ export function BookScreen({
               <View style={styles.savedAddressesStack}>
                 {addresses.map((item) => {
                   const isSelected = (selectedAddressId || selectedAddress?.id) === item.id;
+                  const itemCalc = calculateLocalDeliveryFee({
+                    customerLat: item.latitude,
+                    customerLng: item.longitude,
+                    customerPincode: item.pincode,
+                    subtotal: cartSummary.itemTotal,
+                    expressTier,
+                    pricingSettings,
+                  });
+                  const activeCalc = isSelected ? (liveDeliveryCalc || itemCalc) : itemCalc;
+
                   return (
                     <Pressable
                       key={item.id}
@@ -1247,21 +1385,63 @@ export function BookScreen({
 
                       <Text style={styles.addressCardName}>{item.contactName} • +91 {item.contactPhone}</Text>
                       <Text style={styles.addressCardStreet}>{item.street}, {item.city} - {item.pincode}</Text>
-                      {isSelected && selectedAddressServiceable === false ? (
-                        <View style={styles.addressServiceNotice}>
-                          <MaterialCommunityIcons name="alert-circle" size={14} color="#DC2626" />
-                          <Text style={styles.addressServiceNoticeText}>
-                            {selectedAddressMessage || `PIN ${item.pincode} is not currently serviceable for pickup.`}
+
+                      {isSelected ? (
+                        <>
+                          {selectedAddressServiceable === false ? (
+                            <View style={styles.addressServiceNotice}>
+                              <MaterialCommunityIcons name="alert-circle" size={14} color="#DC2626" />
+                              <Text style={styles.addressServiceNoticeText}>
+                                {selectedAddressMessage || `PIN ${item.pincode} is not currently serviceable for pickup.`}
+                              </Text>
+                            </View>
+                          ) : (
+                            <View style={styles.addressServiceAvailableNotice}>
+                              <MaterialCommunityIcons name="check-circle" size={13} color="#16A34A" />
+                              <Text style={styles.addressServiceAvailableText}>
+                                Serviceable for doorstep pickup
+                              </Text>
+                            </View>
+                          )}
+
+                          {/* Selected Address Delivery Fee Card */}
+                          <View style={[styles.addressDeliveryBox, activeCalc.isFreeDelivery && styles.addressDeliveryBoxFree]}>
+                            <View style={styles.addressDelivMainRow}>
+                              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1 }}>
+                                <MaterialCommunityIcons
+                                  name={activeCalc.isFreeDelivery ? 'gift-outline' : 'truck-delivery'}
+                                  size={18}
+                                  color={activeCalc.isFreeDelivery ? '#16A34A' : '#EA580C'}
+                                />
+                                <Text style={[styles.addressDelivLabel, activeCalc.isFreeDelivery && { color: '#166534' }]}>
+                                  {activeCalc.isFreeDelivery ? 'Free Delivery Unlocked' : 'Delivery Fee'}
+                                </Text>
+                                {calculatingDeliveryFee && (
+                                  <ActivityIndicator size="small" color="#F97316" style={{ transform: [{ scale: 0.7 }] }} />
+                                )}
+                              </View>
+                              <View style={[styles.addressPricePill, activeCalc.isFreeDelivery && styles.addressPricePillFree]}>
+                                <Text style={[styles.addressPricePillText, activeCalc.isFreeDelivery && styles.addressPricePillTextFree]}>
+                                  {activeCalc.isFreeDelivery ? 'FREE' : money(activeCalc.deliveryFee)}
+                                </Text>
+                              </View>
+                            </View>
+                            <Text style={[styles.addressDelivSubtext, activeCalc.isFreeDelivery && { color: '#15803D' }]}>
+                              {activeCalc.isFreeDelivery
+                                ? `Order ₹${cartSummary.itemTotal} ≥ ₹${activeCalc.freeDeliveryThreshold} • ${activeCalc.distanceKm} km from Central Hub`
+                                : `📍 ${activeCalc.distanceKm} km from Central Hub • Base ${activeCalc.baseDistanceKm} km slab (₹${activeCalc.baseDeliveryFee})${activeCalc.distanceKm > activeCalc.baseDistanceKm ? ` + ${(activeCalc.distanceKm - activeCalc.baseDistanceKm).toFixed(1)} km × ₹${activeCalc.perKmRateAfterBase}/km` : ''}`}
+                            </Text>
+                          </View>
+                        </>
+                      ) : (
+                        /* Unselected Address Delivery Preview */
+                        <View style={styles.addressUnselectedDelivRow}>
+                          <MaterialCommunityIcons name="truck-delivery-outline" size={14} color="#78716C" />
+                          <Text style={styles.addressUnselectedDelivText}>
+                            Delivery: {itemCalc.isFreeDelivery ? 'FREE' : money(itemCalc.deliveryFee)} • {itemCalc.distanceKm} km from hub
                           </Text>
                         </View>
-                      ) : isSelected && selectedAddressServiceable === true ? (
-                        <View style={styles.addressServiceAvailableNotice}>
-                          <MaterialCommunityIcons name="check-circle" size={13} color="#16A34A" />
-                          <Text style={styles.addressServiceAvailableText}>
-                            Serviceable for doorstep pickup
-                          </Text>
-                        </View>
-                      ) : null}
+                      )}
                     </Pressable>
                   );
                 })}
@@ -1804,6 +1984,11 @@ export function BookScreen({
             <View style={styles.footerPriceCol}>
               <Text style={styles.footerPriceLabel}>Final Amount</Text>
               <Text style={styles.footerPriceVal}>{money(finalPayable)}</Text>
+              {stage !== 'BAG' && (
+                <Text style={[styles.footerPriceSub, isFreeDelivery && { color: '#16A34A' }]}>
+                  {isFreeDelivery ? '🎉 Free delivery' : `Incl. ${money(deliveryFee)} delivery`}
+                </Text>
+              )}
             </View>
 
             {stage === 'BAG' && (
@@ -2399,7 +2584,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingHorizontal: 16,
-    paddingTop: 16,  // Small top spacing for visual breathing room
+    paddingTop: 0,  // No top padding - stage header provides spacing
     paddingBottom: 40,
   },
   stageWrap: {
@@ -2798,6 +2983,74 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: '#F97316',
   },
+  newAddressDeliveryPreview: {
+    backgroundColor: '#F0FDF4',
+    borderColor: '#BBF7D0',
+    borderWidth: 1.5,
+    borderRadius: 12,
+    padding: 10,
+    marginTop: 2,
+    marginBottom: 4,
+  },
+  addressDeliveryBox: {
+    backgroundColor: '#FFF7ED',
+    borderColor: '#FED7AA',
+    borderWidth: 1.5,
+    borderRadius: 12,
+    padding: 10,
+    marginTop: 8,
+  },
+  addressDeliveryBoxFree: {
+    backgroundColor: '#F0FDF4',
+    borderColor: '#BBF7D0',
+  },
+  addressDelivMainRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  addressDelivLabel: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#9A3412',
+  },
+  addressDelivSubtext: {
+    fontSize: 11,
+    color: '#C2410C',
+    marginTop: 4,
+    lineHeight: 15,
+  },
+  addressPricePill: {
+    backgroundColor: '#EA580C',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+  },
+  addressPricePillFree: {
+    backgroundColor: '#16A34A',
+  },
+  addressPricePillText: {
+    fontSize: 11,
+    fontWeight: '900',
+    color: '#FFFFFF',
+  },
+  addressPricePillTextFree: {
+    color: '#FFFFFF',
+  },
+  addressUnselectedDelivRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    marginTop: 6,
+    paddingTop: 6,
+    borderTopWidth: 1,
+    borderTopColor: '#F3E8DF',
+  },
+  addressUnselectedDelivText: {
+    fontSize: 11,
+    color: '#78716C',
+    fontWeight: '600',
+  },
   dateTilesScroll: {
     gap: 10,
     paddingVertical: 4,
@@ -3148,6 +3401,12 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '900',
     color: '#1C0B18',
+  },
+  footerPriceSub: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#EA580C',
+    marginTop: 1,
   },
   footerPrimaryBtn: {
     flexDirection: 'row',
