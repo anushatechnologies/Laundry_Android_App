@@ -295,6 +295,7 @@ export function LocationSelectorModal({
                 <View style={styles.actionTitleRow}>
                   <Text style={[styles.actionTitle, { color: '#2563EB' }]}>Use current location</Text>
                   <View style={styles.gpsBadge}>
+                    <View style={styles.gpsPulseDot} />
                     <Text style={styles.gpsBadgeText}>Using GPS</Text>
                   </View>
                 </View>
@@ -604,17 +605,27 @@ const styles = StyleSheet.create({
     color: '#0F172A',
   },
   gpsBadge: {
-    backgroundColor: '#EFF6FF',
-    paddingHorizontal: 6,
-    paddingVertical: 1.5,
-    borderRadius: 6,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#F0FDF4',
+    paddingHorizontal: 8,
+    paddingVertical: 2.5,
+    borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#BFDBFE',
+    borderColor: '#BBF7D0',
+  },
+  gpsPulseDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#16A34A',
   },
   gpsBadgeText: {
-    fontSize: 9,
+    fontSize: 9.5,
     fontWeight: '800',
-    color: '#2563EB',
+    color: '#15803D',
+    letterSpacing: 0.2,
   },
   actionSubtitle: {
     fontSize: 12,

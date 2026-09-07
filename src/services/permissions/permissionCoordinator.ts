@@ -88,7 +88,13 @@ export async function requestStartupLocationPermission(): Promise<{
       );
 
       if (fineGranted || coarseGranted) {
-        // Location already granted! Fetch real GPS coordinates
+        // Location already granted! Check if device location service is enabled
+        try {
+          const hasServices = await Location.hasServicesEnabledAsync();
+          if (!hasServices) {
+            await Location.enableNetworkProviderAsync().catch(() => {});
+          }
+        } catch {}
         const coords = await getQuickGpsCoordinates();
         return { granted: true, blocked: false, coords };
       }
@@ -112,6 +118,12 @@ export async function requestStartupLocationPermission(): Promise<{
 
       let coords: { latitude: number; longitude: number } | null = null;
       if (isGranted) {
+        try {
+          const hasServices = await Location.hasServicesEnabledAsync();
+          if (!hasServices) {
+            await Location.enableNetworkProviderAsync().catch(() => {});
+          }
+        } catch {}
         coords = await getQuickGpsCoordinates();
       }
 
@@ -240,17 +252,30 @@ export async function getQuickGpsCoordinates(): Promise<{ latitude: number; long
 }
 
 /**
- * Coordinated First-Launch flow matching Swiggy and Zomato:
- * 1. App Launch
- * 2. Notification Permission (Android 13+ / iOS)
- * 3. Location Permission (Android 10-15+ / iOS)
- * 4. Fetch GPS coordinates if granted
+ * Coordinated First-Launch flow matching Zepto and Zomato:
+ * 1. Location Permission & GPS detection is Priority #1 on startup
+ * 2. Notifications are checked silently without throwing a blocking popup on launch
  */
 export async function runFirstLaunchPermissions(): Promise<StartupPermissionResult> {
-  // 1. Notification Permission check & request (Android 13+ / iOS)
-  const notificationsGranted = await requestStartupNotificationPermission();
+  let notificationsGranted = false;
+  try {
+    if (Platform.OS === 'android') {
+      if (Platform.Version >= 33) {
+        notificationsGranted = await PermissionsAndroid.check(
+          PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS
+        );
+      } else {
+        notificationsGranted = true;
+      }
+    } else {
+      const current = await Notifications.getPermissionsAsync();
+      notificationsGranted = current.status === 'granted';
+    }
+  } catch {
+    // Non-blocking silent check
+  }
 
-  // 2. Location Permission check & request (Android / iOS)
+  // Priority #1: Request Location Permission directly on app launch (Zepto & Zomato)
   const locationResult = await requestStartupLocationPermission();
 
   return {
