@@ -10,6 +10,8 @@ import {
   View,
   ActivityIndicator,
   Alert,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Card } from '@/ui/components';
@@ -38,7 +40,11 @@ const QUICK_PROMPTS = [
   'Talk to Care Manager on WhatsApp',
 ];
 
-export function LiveChatSupportScreen() {
+interface LiveChatSupportScreenProps {
+  onBack?: () => void;
+}
+
+export function LiveChatSupportScreen({ onBack }: LiveChatSupportScreenProps = {}) {
   const { session } = useApp();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputText, setInputText] = useState('');
@@ -250,25 +256,25 @@ export function LiveChatSupportScreen() {
   }
 
   return (
-    <View style={styles.root}>
-      {/* ADMIN PANEL ACCESS BUTTON */}
-      {__DEV__ && (
-        <Pressable
-          style={styles.adminAccessButton}
-          onPress={() => {
-            Linking.openURL('https://laundry-adminpanel.vercel.app/chat')
-              .catch(() => Alert.alert('Error', 'Could not open admin panel'));
-          }}
-        >
-          <MaterialCommunityIcons name="cog" size={16} color="#FFFFFF" />
-          <Text style={styles.adminAccessText}>Open Admin Chat</Text>
-        </Pressable>
-      )}
-
-      {/* 1. AGENT STATUS HEADER */}
+    <KeyboardAvoidingView
+      style={styles.root}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 25}
+    >
+      {/* 1. AGENT STATUS & NAVIGATION HEADER */}
       <View style={styles.agentHeader}>
+        {onBack && (
+          <Pressable
+            style={styles.backBtn}
+            onPress={onBack}
+            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+          >
+            <MaterialCommunityIcons name="arrow-left" size={24} color="#1C0B18" />
+          </Pressable>
+        )}
+
         <View style={styles.agentAvatarBox}>
-          <MaterialCommunityIcons name="face-agent" size={24} color="#16A34A" />
+          <MaterialCommunityIcons name="face-agent" size={22} color="#16A34A" />
           <View style={[styles.onlineBadge, !agentOnline && styles.offlineBadge]} />
         </View>
 
@@ -277,7 +283,7 @@ export function LiveChatSupportScreen() {
           <View style={styles.statusRow}>
             <View style={styles.connectedDot} />
             <Text style={styles.agentStatus}>
-              {agentOnline ? 'Active Now • Messages syncing every 3s' : 'Away • We\'ll respond soon'}
+              {agentOnline ? 'Active Now' : 'Away • We\'ll respond soon'}
             </Text>
           </View>
         </View>
@@ -296,6 +302,7 @@ export function LiveChatSupportScreen() {
         data={messages}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.messageList}
+        keyboardShouldPersistTaps="handled"
         onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: true })}
         renderItem={({ item }) => {
           const isUser = item.senderType === 'CUSTOMER';
@@ -343,6 +350,11 @@ export function LiveChatSupportScreen() {
           placeholderTextColor="#A1A1AA"
           value={inputText}
           onChangeText={handleInputChange}
+          onFocus={() => {
+            setTimeout(() => {
+              flatListRef.current?.scrollToEnd({ animated: true });
+            }, 250);
+          }}
           onSubmitEditing={() => sendMessage(inputText)}
           editable={!loading}
         />
@@ -354,7 +366,7 @@ export function LiveChatSupportScreen() {
           <MaterialCommunityIcons name="send" size={18} color="#FFFFFF" />
         </Pressable>
       </View>
-    </View>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -390,20 +402,26 @@ const styles = StyleSheet.create({
     color: '#8A7A84',
     fontWeight: '600',
   },
+  backBtn: {
+    paddingRight: 6,
+    paddingVertical: 4,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   agentHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#FFFFFF',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
     borderBottomWidth: 1,
     borderColor: '#F3E8DF',
-    gap: 12,
+    gap: 10,
   },
   agentAvatarBox: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 42,
+    height: 42,
+    borderRadius: 21,
     backgroundColor: '#DCFCE7',
     alignItems: 'center',
     justifyContent: 'center',
@@ -441,17 +459,17 @@ const styles = StyleSheet.create({
     marginRight: 6,
   },
   agentStatus: {
-    fontSize: 13,
+    fontSize: 12,
     color: '#16A34A',
     fontWeight: '700',
   },
   reconnectingStatus: {
-    fontSize: 13,
+    fontSize: 12,
     color: '#F97316',
     fontWeight: '700',
   },
   disconnectedStatus: {
-    fontSize: 13,
+    fontSize: 12,
     color: '#EF4444',
     fontWeight: '700',
   },
@@ -464,8 +482,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   messageList: {
-    padding: 16,
-    gap: 12,
+    paddingHorizontal: 16,
+    paddingTop: 8,
+    paddingBottom: 12,
+    gap: 10,
   },
   bubbleWrap: {
     flexDirection: 'row',

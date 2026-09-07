@@ -62,7 +62,7 @@ export function ExpandableFAB({ mainIcon, mainAction, badge, actions }: Expandab
         />
       )}
 
-      <View style={styles.container}>
+      <View style={styles.container} pointerEvents="box-none">
         {/* Expanded Action Buttons */}
         {actions.map((action, index) => {
           const translateY = animation.interpolate({
@@ -90,19 +90,23 @@ export function ExpandableFAB({ mainIcon, mainAction, badge, actions }: Expandab
                   opacity,
                 },
               ]}
+              pointerEvents={expanded ? 'auto' : 'none'}
             >
+              {/* Make entire row (icon + label) clickable */}
               <Pressable
-                style={[styles.actionButtonInner, { backgroundColor: action.color || '#6366F1' }]}
+                style={styles.actionRow}
                 onPress={() => {
                   action.onPress();
                   setExpanded(false);
                 }}
               >
-                <MaterialCommunityIcons name={action.icon as any} size={24} color="#FFFFFF" />
+                <View style={[styles.actionButtonInner, { backgroundColor: action.color || '#6366F1' }]}>
+                  <MaterialCommunityIcons name={action.icon as any} size={24} color="#FFFFFF" />
+                </View>
+                <View style={styles.labelContainer}>
+                  <Text style={styles.label}>{action.label}</Text>
+                </View>
               </Pressable>
-              <View style={styles.labelContainer}>
-                <Text style={styles.label}>{action.label}</Text>
-              </View>
             </Animated.View>
           );
         })}
@@ -132,9 +136,9 @@ export function ExpandableFAB({ mainIcon, mainAction, badge, actions }: Expandab
 const styles = StyleSheet.create({
   backdrop: {
     position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
+    top: -1000,
+    left: -1000,
+    right: -1000,
     bottom: 0,
     backgroundColor: 'rgba(0, 0, 0, 0.3)',
     zIndex: 9,
@@ -165,6 +169,9 @@ const styles = StyleSheet.create({
   actionButton: {
     position: 'absolute',
     top: 0,
+    alignItems: 'center',
+  },
+  actionRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
@@ -193,6 +200,7 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 12,
     fontWeight: '700',
+    whiteSpace: 'nowrap',
   },
   fabBadge: {
     position: 'absolute',

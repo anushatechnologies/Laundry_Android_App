@@ -750,9 +750,7 @@ function AuthenticatedApp() {
     );
   } else if (route === 'LIVE_CHAT') {
     screen = (
-      <DetailShell title={detailTitles.LIVE_CHAT} onBack={() => goBack(detailBackRoute.LIVE_CHAT)}>
-        <LiveChatSupportScreen />
-      </DetailShell>
+      <LiveChatSupportScreen onBack={() => goBack(detailBackRoute.LIVE_CHAT)} />
     );
   } else if (route === 'AUTH') {
     screen = <AuthScreen reason={loginReason} onBack={cancelLogin} />;
