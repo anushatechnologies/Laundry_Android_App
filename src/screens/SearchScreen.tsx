@@ -1,5 +1,5 @@
 import { LinearGradient } from 'expo-linear-gradient';
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   Image,
   Pressable,
@@ -8,6 +8,7 @@ import {
   Text,
   TextInput,
   View,
+  ActivityIndicator,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -15,6 +16,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useApp } from '@/context/AppContext';
 import { COLORS, money } from '@/ui/theme';
 import { getGarmentImageUrl } from '@/lib/garment-photos';
+import { api } from '@/lib/api';
 
 interface SearchScreenProps {
   onBook: () => void;
@@ -27,6 +29,11 @@ export function SearchScreen({ onBook }: SearchScreenProps) {
   const { cart, cartSummary, addCartItem, setCartQuantity, removeFromCart, catalog } = useApp();
   const [query, setQuery] = useState('');
   const [recentSearches, setRecentSearches] = useState<string[]>([]);
+  const [searching, setSearching] = useState(false);
+  const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [suggestions, setSuggestions] = useState<string[]>([]);
+  const [popularSearches, setPopularSearches] = useState<any[]>([]);
+  const [trendingSearches, setTrendingSearches] = useState<any[]>([]);
 
   useEffect(() => {
     AsyncStorage.getItem(RECENT_SEARCHES_KEY)
@@ -43,7 +50,93 @@ export function SearchScreen({ onBook }: SearchScreenProps) {
         }
       })
       .catch(() => undefined);
+    
+    // Load popular and trending searches
+    loadPopularSearches();
+    loadTrendingSearches();
   }, []);
+
+  const loadPopularSearches = async () => {
+    try {
+      const response = await fetch(`${api.baseURL}/search/popular?limit=5`);
+      const data = await response.json();
+      if (data.success) {
+        setPopularSearches(data.data.popularSearches || []);
+      }
+    } catch (error) {
+      console.error('[Search] Failed to load popular searches:', error);
+    }
+  };
+
+  const loadTrendingSearches = async () => {
+    try {
+      const response = await fetch(`${api.baseURL}/search/trending?limit=4`);
+      const data = await response.json();
+      if (data.success) {
+        setTrendingSearches(data.data.trendingSearches || []);
+      }
+    } catch (error) {
+      console.error('[Search] Failed to load trending searches:', error);
+    }
+  };
+
+  // Perform search with backend API
+  const performSearch = useCallback(async (searchQuery: string) => {
+    const trimmed = searchQuery.trim();
+    if (!trimmed || trimmed.length < 2) {
+      setSearchResults([]);
+      setSuggestions([]);
+      return;
+    }
+
+    setSearching(true);
+    try {
+      const response = await fetch(
+        `${api.baseURL}/search?q=${encodeURIComponent(trimmed)}&limit=50`
+      );
+      const data = await response.json();
+      
+      if (data.success) {
+        setSearchResults(data.data.results || []);
+        setSuggestions(data.data.suggestions || []);
+      } else {
+        setSearchResults([]);
+        setSuggestions([]);
+      }
+    } catch (error) {
+      console.error('[Search] Search failed:', error);
+      // Fallback to local search
+      performLocalSearch(trimmed);
+    } finally {
+      setSearching(false);
+    }
+  }, []);
+
+  // Fallback local search
+  const performLocalSearch = (searchQuery: string) => {
+    const q = searchQuery.toLowerCase().trim();
+    const results = allItems.filter((item) => {
+      const name = String(item.name || '').toLowerCase();
+      const srv = String(item.serviceName || '').toLowerCase();
+      const cat = String(item.category || '').toLowerCase();
+      return name.includes(q) || srv.includes(q) || cat.includes(q);
+    });
+    setSearchResults(results);
+  };
+
+  // Debounced search
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (query.trim()) {
+        performSearch(query);
+      } else {
+        setSearchResults([]);
+        setSuggestions([]);
+      }
+    }, 300); // 300ms debounce
+
+    return () => clearTimeout(timer);
+  }, [query, performSearch]);
 
   const saveSearchTerm = async (term: string) => {
     try {
@@ -95,26 +188,37 @@ export function SearchScreen({ onBook }: SearchScreenProps) {
       });
     }
 
-    // Return empty array instead of hardcoded items
     return [];
   }, [catalog]);
 
-  const searchResults = useMemo(() => {
-    const q = String(query || '').toLowerCase().trim();
-    if (!q) return [];
-    return allItems.filter((item) => {
-      const name = String(item.name || '').toLowerCase();
-      const srv = String(item.serviceName || '').toLowerCase();
-      const cat = String(item.category || '').toLowerCase();
-      return name.includes(q) || srv.includes(q) || cat.includes(q);
-    });
-  }, [allItems, query]);
+  // Use searchResults from API or fallback to local filtering
+  const displayResults = useMemo(() => {
+    if (query.trim().length < 2) return [];
+    
+    // If we have backend results, map them to display format
+    if (searchResults.length > 0) {
+      return searchResults.map((item) => ({
+        id: item.id,
+        name: item.name,
+        serviceName: item.serviceName,
+        tat: `${item.turnaroundHours || 24}H`,
+        price: item.price,
+        unit: item.unit || 'pc',
+        imageUrl: item.imageUrl || getGarmentImageUrl(item.id, '', item.categoryTag),
+        category: item.categoryTag,
+        relevance: item.relevance,
+      }));
+    }
+    
+    return [];
+  }, [searchResults, query]);
 
   const handleSelectKeyword = (term: string) => {
     const clean = String(term || '').trim();
     if (!clean) return;
     setQuery(clean);
     void saveSearchTerm(clean);
+    void performSearch(clean);
   };
 
   return (
@@ -129,7 +233,10 @@ export function SearchScreen({ onBook }: SearchScreenProps) {
             placeholderTextColor="#94A3B8"
             value={query}
             onChangeText={setQuery}
-            onSubmitEditing={() => saveSearchTerm(query)}
+            onSubmitEditing={() => {
+              saveSearchTerm(query);
+              performSearch(query);
+            }}
             autoFocus
             clearButtonMode="always"
           />
@@ -207,6 +314,47 @@ export function SearchScreen({ onBook }: SearchScreenProps) {
               </View>
             </View>
 
+            {/* Trending This Week */}
+            {trendingSearches.length > 0 && (
+              <View style={styles.section}>
+                <View style={styles.sectionHeaderRow}>
+                  <Text style={styles.sectionTitle}>🔥 Trending This Week</Text>
+                </View>
+                <View style={styles.chipsRow}>
+                  {trendingSearches.map((trend, idx) => (
+                    <Pressable
+                      key={idx}
+                      style={styles.trendingBadge}
+                      onPress={() => handleSelectKeyword(trend.text)}
+                    >
+                      <Text style={styles.trendingEmoji}>{trend.emoji}</Text>
+                      <Text style={styles.trendingBadgeText}>{trend.text}</Text>
+                      <Text style={styles.trendingGrowth}>{trend.growth}</Text>
+                    </Pressable>
+                  ))}
+                </View>
+              </View>
+            )}
+
+            {/* Popular Searches */}
+            {popularSearches.length > 0 && (
+              <View style={styles.section}>
+                <Text style={styles.sectionTitle}>Most Searched</Text>
+                <View style={styles.chipsRow}>
+                  {popularSearches.map((popular, idx) => (
+                    <Pressable
+                      key={idx}
+                      style={styles.popularChip}
+                      onPress={() => handleSelectKeyword(popular.text)}
+                    >
+                      <MaterialCommunityIcons name="trending-up" size={12} color="#16A34A" />
+                      <Text style={styles.popularChipText}>{popular.text}</Text>
+                    </Pressable>
+                  ))}
+                </View>
+              </View>
+            )}
+
             {/* Popular Fabrics */}
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>Popular Fabrics</Text>
@@ -238,21 +386,47 @@ export function SearchScreen({ onBook }: SearchScreenProps) {
         ) : (
           /* Search Results Grid */
           <View style={styles.resultsSection}>
-            <Text style={styles.resultsCount}>
-              Found {searchResults.length} service{searchResults.length === 1 ? '' : 's'} for "{query}"
-            </Text>
+            <View style={styles.resultsHeader}>
+              <Text style={styles.resultsCount}>
+                {searching ? 'Searching...' : `Found ${displayResults.length} service${displayResults.length === 1 ? '' : 's'}`}
+              </Text>
+              {query && !searching && displayResults.length > 0 && (
+                <Text style={styles.resultsQuery}>for "{query}"</Text>
+              )}
+            </View>
 
-            {searchResults.length === 0 ? (
+            {searching ? (
+              <View style={styles.loadingContainer}>
+                <ActivityIndicator size="large" color="#2563EB" />
+                <Text style={styles.loadingText}>Searching laundry services...</Text>
+              </View>
+            ) : displayResults.length === 0 ? (
               <View style={styles.emptyResults}>
                 <MaterialCommunityIcons name="magnify-close" size={54} color="#D6B36A" />
-                <Text style={styles.emptyTitle}>No Matching Fabrics Found</Text>
+                <Text style={styles.emptyTitle}>No Matching Services Found</Text>
                 <Text style={styles.emptySubtitle}>
                   Try searching for keywords like "Suit", "Saree", "Blanket", or "Kurti".
                 </Text>
+                {suggestions.length > 0 && (
+                  <View style={styles.suggestionsWrap}>
+                    <Text style={styles.suggestionsTitle}>Try these instead:</Text>
+                    <View style={styles.suggestionsChips}>
+                      {suggestions.map((suggestion, idx) => (
+                        <Pressable
+                          key={idx}
+                          style={styles.suggestionChip}
+                          onPress={() => handleSelectKeyword(suggestion)}
+                        >
+                          <Text style={styles.suggestionChipText}>{suggestion}</Text>
+                        </Pressable>
+                      ))}
+                    </View>
+                  </View>
+                )}
               </View>
             ) : (
               <View style={styles.resultsGrid}>
-                {searchResults.map((item) => {
+                {displayResults.map((item) => {
                   const foundInCart = cart.find(
                     (c) =>
                       c &&
@@ -509,10 +683,29 @@ const styles = StyleSheet.create({
   resultsSection: {
     gap: 12,
   },
+  resultsHeader: {
+    gap: 4,
+  },
   resultsCount: {
     fontSize: 13,
     fontWeight: '600',
     color: '#64748B',
+  },
+  resultsQuery: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  loadingContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 60,
+    gap: 16,
+  },
+  loadingText: {
+    fontSize: 13,
+    color: '#64748B',
+    fontWeight: '500',
   },
   emptyResults: {
     alignItems: 'center',
@@ -532,6 +725,77 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     paddingHorizontal: 20,
     lineHeight: 18,
+  },
+  suggestionsWrap: {
+    marginTop: 20,
+    width: '100%',
+    gap: 10,
+  },
+  suggestionsTitle: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#0F172A',
+    textAlign: 'center',
+  },
+  suggestionsChips: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    justifyContent: 'center',
+  },
+  suggestionChip: {
+    backgroundColor: '#EFF6FF',
+    borderWidth: 1,
+    borderColor: '#BFDBFE',
+    borderRadius: 16,
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+  },
+  suggestionChipText: {
+    fontSize: 12.5,
+    fontWeight: '600',
+    color: '#2563EB',
+  },
+  trendingBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#FEE2E2',
+    borderRadius: 20,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  trendingEmoji: {
+    fontSize: 14,
+  },
+  trendingBadgeText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#334155',
+    flex: 1,
+  },
+  trendingGrowth: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#16A34A',
+  },
+  popularChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: '#F0FDF4',
+    borderWidth: 1,
+    borderColor: '#BBF7D0',
+    borderRadius: 20,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+  },
+  popularChipText: {
+    fontSize: 12.5,
+    fontWeight: '600',
+    color: '#166534',
   },
   resultsGrid: {
     gap: 10,

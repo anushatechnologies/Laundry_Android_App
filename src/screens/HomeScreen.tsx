@@ -1409,7 +1409,7 @@ const styles = StyleSheet.create({
   service4Tile: {
     flex: 1,
     backgroundColor: '#FFFFFF',
-    borderRadius: 16,
+    borderRadius: 20,  // Increased from 16 for more curved look
     paddingTop: 10,
     paddingBottom: 10,
     paddingHorizontal: 4,
@@ -1705,9 +1705,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#2563EB',
     paddingHorizontal: 16,
     paddingTop: 8,
-    paddingBottom: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: '#1E40AF',
+    paddingBottom: 12,  // Increased for better spacing
+    borderBottomLeftRadius: 24,   // Rounded bottom-left corner
+    borderBottomRightRadius: 24,  // Rounded bottom-right corner
     shadowColor: '#000000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.08,
@@ -1729,7 +1729,7 @@ const styles = StyleSheet.create({
   logoContainer: {
     width: 36,
     height: 36,
-    borderRadius: 12,
+    borderRadius: 18,  // More rounded - half of width/height for circular
     backgroundColor: '#3B82F6',
     alignItems: 'center',
     justifyContent: 'center',
@@ -1823,7 +1823,7 @@ const styles = StyleSheet.create({
     marginHorizontal: 16,
     marginTop: 12,
     backgroundColor: '#FFFFFF',
-    borderRadius: 18,
+    borderRadius: 24,  // Increased from 18 for more curved look
     padding: 14,
     borderWidth: 1,
     borderColor: '#E2E8F0',
@@ -1972,7 +1972,7 @@ const styles = StyleSheet.create({
   primaryCategoryCard: {
     flex: 1,
     height: 148,
-    borderRadius: 18,
+    borderRadius: 24,  // Increased from 18 for more curved look
     overflow: 'hidden',
     position: 'relative',
     shadowColor: '#000000',
@@ -2057,7 +2057,7 @@ const styles = StyleSheet.create({
   secondaryCategoryCard: {
     flex: 1,
     minWidth: '46%',
-    borderRadius: 14,
+    borderRadius: 20,  // Increased from 14 for more curved look
     borderWidth: 1,
     borderColor: '#E2E8F0',
     backgroundColor: '#FFFFFF',
@@ -2400,7 +2400,7 @@ const styles = StyleSheet.create({
   largeCategoryCard: {
     width: '48%',
     backgroundColor: '#FFFFFF',
-    borderRadius: 20,
+    borderRadius: 24,  // Increased from 20 for more curved look
     overflow: 'hidden',
     borderWidth: 1,
     borderColor: '#E2E8F0',
@@ -2487,7 +2487,7 @@ const styles = StyleSheet.create({
   quickOrderCard: {
     width: 175,
     backgroundColor: '#FFFFFF',
-    borderRadius: 20,
+    borderRadius: 24,  // Increased from 20 for more curved look
     padding: 14,
     borderWidth: 1,
     borderColor: '#E2E8F0',

@@ -13,6 +13,7 @@ import type {
   CustomerAddress,
   CustomerSubscription,
   DeliveryFeeCalculation,
+  ExpressTier,
   Order,
   PincodeCheck,
   PickupSlot,
@@ -139,6 +140,7 @@ async function request<T>(path: string, options: RequestInit = {}, authenticated
 }
 
 export const api = {
+  baseURL: API_BASE_URL,
   getReferrals: () => request<ReferralSummary>('/referrals/me', {}, true),
   applyReferral: (code: string) => request<ReferralSummary>('/referrals/apply', { method: 'POST', body: JSON.stringify({ code }) }, true),
   getWallet: () => request<WalletData>('/wallet', {}, true),
@@ -212,6 +214,7 @@ export const api = {
     customerPincode?: string;
     subtotal?: number;
     isExpress?: boolean;
+    expressTier?: ExpressTier;
   }) =>
     request<{ success: boolean; data: DeliveryFeeCalculation }>('/services/calculate-delivery-fee', {
       method: 'POST',
@@ -423,6 +426,8 @@ export function createOrderPayload(session: AuthSession, cart: CartItem[], input
       street: requiredText(input.address.street, 'the pickup street address'),
       city: requiredText(input.address.city, 'the pickup city'),
       pincode: requiredText(input.address.pincode, 'the pickup PIN code'),
+      latitude: input.address.latitude != null && !isNaN(input.address.latitude) ? Number(input.address.latitude) : undefined,
+      longitude: input.address.longitude != null && !isNaN(input.address.longitude) ? Number(input.address.longitude) : undefined,
       id: input.address.id || undefined,
       landmark: input.address.landmark || undefined,
     },

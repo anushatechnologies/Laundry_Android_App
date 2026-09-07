@@ -140,6 +140,8 @@ export function AddressesScreen({ onBook, onSignIn }: AddressesScreenProps) {
         city: resolved.city || prev.city,
         state: resolved.state || prev.state,
         pincode: resolved.pincode || prev.pincode,
+        latitude: resolved.latitude,
+        longitude: resolved.longitude,
       }));
       setLocationSummary(resolved.formattedAddress || resolved.address || 'Location detected.');
       setLocationState('ready');

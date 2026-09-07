@@ -10,7 +10,7 @@ import {
   parseNotificationAction,
   type NotificationNavAction,
 } from '@/lib/notifications';
-import { payWithRazorpay } from '@/lib/payments';
+import { payWithRazorpay, parsePaymentError } from '@/lib/payments';
 import {
   clearSession,
   clearCart,
@@ -565,12 +565,12 @@ export function AppProvider({ children }: PropsWithChildren) {
         // Restore bag items so customer can retry or switch to COD
         setCart(cartSnapshot);
 
-        const errDetail = err && typeof err === 'object' && 'description' in err
-          ? (err as any).description
-          : err instanceof Error
-            ? err.message
-            : 'Payment was not completed.';
-        throw new Error(errDetail || 'Payment cancelled');
+        const parsed = parsePaymentError(err);
+        const forwardErr = new Error(parsed.message);
+        (forwardErr as any).isCancelled = parsed.isCancelled;
+        (forwardErr as any).paymentTitle = parsed.title;
+        (forwardErr as any).parsedPayment = parsed;
+        throw forwardErr;
       }
     } finally {
       setIsCheckingOut(false);

@@ -271,10 +271,38 @@ export function OrderDetailScreen({
       {(() => {
         const assignedDriver = (order as any).assignedDeliveryAgent || (order as any).assignedPickupAgent || tracking?.assignedDeliveryAgent || tracking?.assignedPickupAgent;
         const isDelivery = ['DELIVERY_ASSIGNED', 'OUT_FOR_DELIVERY', 'DELIVERED', 'COMPLETED'].includes(order.currentStatus);
-        const riderName = assignedDriver?.name || (isDelivery ? 'Suresh Patil (Delivery Pilot)' : 'Ramesh Kumar (Valet Pilot)');
-        const riderPhone = assignedDriver?.phone || '+91 91219 99999';
-        const riderVehicle = assignedDriver?.vehicle || (isDelivery ? 'Delivery Van • AP05 TG 4452' : 'Hero Splendor • TS09 EX 4512');
-        const riderRating = assignedDriver?.rating || (isDelivery ? '4.85' : '4.9');
+        const hasAssignedDriver = Boolean(assignedDriver && assignedDriver.name);
+
+        if (!hasAssignedDriver) {
+          return (
+            <Card style={styles.riderCard}>
+              <View style={styles.riderHeader}>
+                <View style={[styles.riderAvatarBox, { backgroundColor: '#FEF3C7' }]}>
+                  <MaterialCommunityIcons name={isDelivery ? 'truck-delivery-outline' : 'moped-outline'} size={24} color="#D97706" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.riderName}>{isDelivery ? 'Assigning Delivery Pilot...' : 'Assigning Pickup Pilot...'}</Text>
+                  <Text style={styles.riderVehicle}>
+                    {isDelivery ? 'Dispatched from central facility soon' : 'Operations hub will allocate your valet pilot'}
+                  </Text>
+                </View>
+                <View style={[styles.ratingBadge, { backgroundColor: '#FEF3C7' }]}>
+                  <Text style={[styles.ratingBadgeText, { color: '#B45309', fontWeight: '700', fontSize: 10 }]}>PENDING</Text>
+                </View>
+              </View>
+              <View style={{ marginTop: 8, paddingHorizontal: 4 }}>
+                <Text style={{ fontSize: 12, color: '#6B7280', lineHeight: 17 }}>
+                  Our operations team is allocating the nearest partner for your {isDelivery ? 'doorstep delivery' : 'pickup slot'}. Real pilot details and live contact buttons will appear here once assigned in Admin Panel.
+                </Text>
+              </View>
+            </Card>
+          );
+        }
+
+        const riderName = assignedDriver.name;
+        const riderPhone = assignedDriver.phone || '+91 91219 99999';
+        const riderVehicle = (assignedDriver as any).vehicle || (isDelivery ? 'Delivery Van' : 'Valet Pilot Bike');
+        const riderRating = (assignedDriver as any).rating || 4.9;
 
         const callRider = () => {
           void Linking.openURL(`tel:${riderPhone.replace(/\s+/g, '')}`);

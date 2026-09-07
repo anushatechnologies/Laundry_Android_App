@@ -199,12 +199,12 @@ function cleanItemDisplayName(item: any): string {
     const currentMilestoneIdx = milestoneIndexForStatus(selectedOrder.currentStatus);
     const assignedDriver = (selectedOrder as any)?.assignedDeliveryAgent || (selectedOrder as any)?.assignedPickupAgent || tracking?.assignedDeliveryAgent || tracking?.assignedPickupAgent || null;
     const isDeliveryStage = ['DELIVERY_ASSIGNED', 'OUT_FOR_DELIVERY', 'DELIVERED', 'COMPLETED'].includes(selectedOrder.currentStatus);
-    const isPickupStage = ['PICKUP_ASSIGNED', 'PICKED_UP', 'RECEIVED_AT_FACILITY', 'WEIGHED_VERIFIED', 'WASHING', 'DRYING', 'IRONING', 'QUALITY_CHECK', 'PACKED'].includes(selectedOrder.currentStatus);
-    const hasDriver = Boolean(assignedDriver?.name || (selectedOrder as any)?.driverName || tracking?.driverName || isPickupStage || isDeliveryStage);
-    const driverName = assignedDriver?.name || (selectedOrder as any)?.driverName || tracking?.driverName || (isDeliveryStage ? 'Suresh Patil' : 'Ramesh Kumar');
+    const resolvedDriverName = assignedDriver?.name || (selectedOrder as any)?.driverName || tracking?.driverName || null;
+    const hasDriver = Boolean(resolvedDriverName);
+    const driverName = resolvedDriverName || (isDeliveryStage ? 'Assigning Delivery Pilot...' : 'Assigning Pickup Pilot...');
     const driverPhone = assignedDriver?.phone || (selectedOrder as any)?.driverPhone || tracking?.driverPhone || '+91 91219 99999';
-    const driverVehicle = assignedDriver?.vehicle || (isDeliveryStage ? 'Delivery Van • AP05 TG 4452' : 'Hero Splendor • AP05 BK 8921');
-    const driverRating = assignedDriver?.rating || (isDeliveryStage ? '4.85' : '4.9');
+    const driverVehicle = assignedDriver?.vehicle || (isDeliveryStage ? 'Delivery Van' : 'Valet Pilot Bike');
+    const driverRating = assignedDriver?.rating || '4.9';
 
     const callDriver = () => {
       void Linking.openURL(`tel:${driverPhone.replace(/\s+/g, '')}`);

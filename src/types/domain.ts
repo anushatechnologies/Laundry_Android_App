@@ -137,6 +137,7 @@ export interface PricingSettings {
   freeDeliveryThreshold: number;
   standardDeliveryFee: number;
   expressDeliveryFee: number;
+  sameDayDeliveryFee?: number;
   extraKgPrice: number;
   isGstEnabled?: boolean;
   deliveryCalculationMode?: 'DISTANCE_BASED' | 'ZONE_BASED' | 'HYBRID';
@@ -161,6 +162,8 @@ export interface DeliveryFeeCalculation {
   baseDeliveryFee: number;
   perKmRateAfterBase: number;
   expressFee?: number;
+  expressDeliveryFee?: number;
+  sameDayDeliveryFee?: number;
   taxPercentage?: number;
   isGstEnabled?: boolean;
   taxAmount?: number;

@@ -12,12 +12,13 @@ import {
   StyleSheet,
   Text,
   TextInput,
+  TouchableOpacity,
   View,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useApp } from '@/context/AppContext';
 import { api } from '@/lib/api';
-import { payWithRazorpay } from '@/lib/payments';
+import { payWithRazorpay, parsePaymentError, type ParsedPaymentError } from '@/lib/payments';
 import { getCurrentCustomerLocation } from '@/services/location/locationService';
 import { AppButton, AppInput, Card, Chip, EmptyState, SectionTitle } from '@/ui/components';
 import { COLORS, localDateString, money, shortDate } from '@/ui/theme';
@@ -183,6 +184,13 @@ export function BookScreen({
   const [couponErrorInline, setCouponErrorInline] = useState('');
   const [applyingCode, setApplyingCode] = useState<string | null>(null);
   const attemptedCouponRef = useRef<Set<string>>(new Set());
+  const [paymentRetryModalVisible, setPaymentRetryModalVisible] = useState(false);
+  const [paymentErrorInfo, setPaymentErrorInfo] = useState<ParsedPaymentError>({
+    isCancelled: true,
+    title: 'Payment Not Completed',
+    message: 'You went back before completing the online payment.',
+  });
+  const [isRetryingOrder, setIsRetryingOrder] = useState(false);
 
   const activeCouponsList = useMemo(() => {
     if (availableCoupons && availableCoupons.length > 0) {
@@ -254,6 +262,8 @@ export function BookScreen({
       city: deliveryLocation.city || current.city || 'Hyderabad',
       state: deliveryLocation.state || current.state || 'Telangana',
       pincode: current.pincode || deliveryLocation.pincode || '',
+      latitude: current.latitude ?? deliveryLocation.latitude,
+      longitude: current.longitude ?? deliveryLocation.longitude,
     }));
 
     if (typeof deliveryLocation.isServiceable === 'boolean') {
@@ -269,7 +279,9 @@ export function BookScreen({
     deliveryLocation?.city,
     deliveryLocation?.formattedAddress,
     deliveryLocation?.isServiceable,
+    deliveryLocation?.latitude,
     deliveryLocation?.locality,
+    deliveryLocation?.longitude,
     deliveryLocation?.pincode,
     deliveryLocation?.serviceabilityMessage,
     deliveryLocation?.state,
@@ -301,6 +313,8 @@ export function BookScreen({
         city: city || prev.city,
         state: state || prev.state,
         landmark: landmark || prev.landmark,
+        latitude: location.latitude,
+        longitude: location.longitude,
       }));
 
       if (location.isServiceable !== null && location.isServiceable !== undefined) {
@@ -334,8 +348,8 @@ export function BookScreen({
 
   // Fetch live delivery fee from backend calculation engine based on customer coordinates/pincode
   useEffect(() => {
-    const lat = selectedAddress?.latitude ?? deliveryLocation?.latitude;
-    const lng = selectedAddress?.longitude ?? deliveryLocation?.longitude;
+    const lat = selectedAddress?.latitude ?? deliveryLocation?.latitude ?? draft.latitude;
+    const lng = selectedAddress?.longitude ?? deliveryLocation?.longitude ?? draft.longitude;
     const pin = selectedAddress?.pincode ?? deliveryLocation?.pincode ?? draft.pincode;
 
     let active = true;
@@ -347,6 +361,7 @@ export function BookScreen({
       customerPincode: pin?.trim() || undefined,
       subtotal: cartSummary.itemTotal,
       isExpress: expressTier !== 'REGULAR',
+      expressTier,
     })
       .then((res) => {
         if (active && res?.success && res.data) {
@@ -369,6 +384,8 @@ export function BookScreen({
     deliveryLocation?.latitude,
     deliveryLocation?.longitude,
     deliveryLocation?.pincode,
+    draft.latitude,
+    draft.longitude,
     draft.pincode,
     cartSummary.itemTotal,
     expressTier,
@@ -381,10 +398,13 @@ export function BookScreen({
     ? 0
     : (liveDeliveryCalc?.deliveryFee ?? (cartSummary.itemTotal < 499 ? standardDeliveryFee : 0));
 
+  const expressFeeFromSettings = liveDeliveryCalc?.expressDeliveryFee ?? pricingSettings?.expressDeliveryFee ?? 80;
+  const sameDayFeeFromSettings = liveDeliveryCalc?.sameDayDeliveryFee ?? pricingSettings?.sameDayDeliveryFee ?? (expressFeeFromSettings * 2);
+
   const expressCharge = expressTier === 'EXPRESS_24H'
-    ? (pricingSettings?.expressDeliveryFee ?? 80)
+    ? expressFeeFromSettings
     : expressTier === 'SAME_DAY'
-    ? (pricingSettings?.expressDeliveryFee ? pricingSettings.expressDeliveryFee * 2 : 160)
+    ? sameDayFeeFromSettings
     : 0;
 
   const isGstEnabled = (liveDeliveryCalc?.isGstEnabled !== undefined) ? liveDeliveryCalc.isGstEnabled : (pricingSettings?.isGstEnabled !== false);
@@ -560,7 +580,7 @@ export function BookScreen({
     setStage('REVIEW');
   };
 
-  const placeOrder = async () => {
+  const placeOrder = async (overrideMethod?: PaymentMethod) => {
     if (!selectedAddress || !selectedSlot) return;
     const pin = selectedAddress.pincode?.trim();
     if (pin) {
@@ -579,52 +599,39 @@ export function BookScreen({
         // network issue fallback
       }
     }
+
+    const effectiveMethod = overrideMethod || paymentMethod;
+    if (overrideMethod) {
+      setPaymentMethod(overrideMethod);
+    }
+
     try {
+      setIsRetryingOrder(true);
       const isFullWalletPayment = useWallet && walletBalance >= preWalletTotal;
       const result = await checkout({
         address: selectedAddress,
         slot: selectedSlot,
         expressTier,
-        paymentMethod: isFullWalletPayment ? 'WALLET' : paymentMethod,
+        paymentMethod: isFullWalletPayment ? 'WALLET' : effectiveMethod,
         useWallet: useWallet && walletBalance > 0,
         couponCode: couponApplied ? couponCode : undefined,
         notes: notes.trim() || undefined,
-        onLaunchOnlinePayment: !isFullWalletPayment && paymentMethod === 'ONLINE_RAZORPAY' ? handleLaunchOnlinePayment : undefined,
+        onLaunchOnlinePayment: !isFullWalletPayment && effectiveMethod === 'ONLINE_RAZORPAY' ? handleLaunchOnlinePayment : undefined,
       });
+
+      setPaymentRetryModalVisible(false);
+
       if (result.paymentOutcome === 'PAID' || result.paymentOutcome === 'COD') {
         setCompletedOrderId(result.order.id);
         setStage('SUCCESS');
       }
     } catch (error: any) {
-      const errMsg = error instanceof Error ? error.message : String(error || '');
-      const isPaymentCancel =
-        paymentMethod === 'ONLINE_RAZORPAY' &&
-        (errMsg.toLowerCase().includes('cancel') ||
-         errMsg.toLowerCase().includes('dismiss') ||
-         errMsg.toLowerCase().includes('incomplete'));
-
-      if (isPaymentCancel) {
-        Alert.alert(
-          'Payment Incomplete',
-          'Your online payment was cancelled or not completed.\n\nYour order has NOT been placed. Your bag items have been saved so you can try again or switch to Cash on Delivery (COD).',
-          [
-            {
-              text: 'Switch to COD',
-              onPress: () => setPaymentMethod('COD'),
-            },
-            {
-              text: 'Retry Online',
-              style: 'cancel',
-            },
-          ]
-        );
-      } else {
-        Alert.alert(
-          'Booking Failed',
-          errMsg || 'Please check your connection and try again.',
-          [{ text: 'OK' }]
-        );
-      }
+      console.warn('[Checkout] Order placement or payment error:', error);
+      const parsed = parsePaymentError(error);
+      setPaymentErrorInfo(parsed);
+      setPaymentRetryModalVisible(true);
+    } finally {
+      setIsRetryingOrder(false);
     }
   };
 
@@ -1314,25 +1321,108 @@ export function BookScreen({
               })}
             </View>
 
-            {/* 4. EXPRESS 12H TOGGLE */}
-            <View style={styles.expressBox}>
-              <View style={styles.expressLeft}>
-                <View style={styles.expressBadge}>
-                  <MaterialCommunityIcons name="lightning-bolt" size={14} color="#EA580C" />
-                  <Text style={styles.expressBadgeText}>EXPRESS 12H DELIVERY</Text>
-                </View>
-                <Text style={styles.expressTitle}>Need clothes back tomorrow morning?</Text>
-                <Text style={styles.expressSubtitle}>Priority processing + guaranteed 12-hour return (+₹99)</Text>
+            {/* 4. CHOOSE DELIVERY SPEED */}
+            <View style={styles.speedSection}>
+              <View style={styles.speedSectionHeader}>
+                <MaterialCommunityIcons name="lightning-bolt" size={16} color="#EA580C" />
+                <Text style={styles.speedSectionTitle}>CHOOSE DELIVERY SPEED</Text>
               </View>
 
-              <Pressable
-                style={[styles.expressToggleBtn, expressTier === 'EXPRESS_24H' && styles.expressToggleBtnActive]}
-                onPress={() => setExpressTier(expressTier === 'EXPRESS_24H' ? 'REGULAR' : 'EXPRESS_24H')}
-              >
-                <Text style={[styles.expressToggleText, expressTier === 'EXPRESS_24H' && styles.expressToggleTextActive]}>
-                  {expressTier === 'EXPRESS_24H' ? 'Added ✓' : '+ Add ₹99'}
-                </Text>
-              </Pressable>
+              <View style={styles.speedOptionsStack}>
+                {/* 1. REGULAR (48h) */}
+                <Pressable
+                  style={[styles.speedOptionCard, expressTier === 'REGULAR' && styles.speedOptionCardActive]}
+                  onPress={() => setExpressTier('REGULAR')}
+                >
+                  <View style={styles.speedOptionRadio}>
+                    <MaterialCommunityIcons
+                      name={expressTier === 'REGULAR' ? 'radiobox-marked' : 'radiobox-blank'}
+                      size={18}
+                      color={expressTier === 'REGULAR' ? '#16A34A' : '#94A3B8'}
+                    />
+                  </View>
+                  <View style={styles.speedOptionInfo}>
+                    <View style={styles.speedOptionTitleRow}>
+                      <Text style={[styles.speedOptionName, expressTier === 'REGULAR' && styles.speedOptionNameActive]}>
+                        Standard Care (48 Hours)
+                      </Text>
+                      <View style={[styles.speedFeeBadge, { backgroundColor: '#F0FDF4', borderColor: '#BBF7D0' }]}>
+                        <Text style={[styles.speedFeeText, { color: '#16A34A' }]}>
+                          {isFreeDelivery ? 'FREE' : money(standardDeliveryFee)}
+                        </Text>
+                      </View>
+                    </View>
+                    <Text style={styles.speedOptionSub}>
+                      Eco wash & industrial steam pressing • 2-day return
+                    </Text>
+                  </View>
+                </Pressable>
+
+                {/* 2. EXPRESS_24H (24h) */}
+                <Pressable
+                  style={[styles.speedOptionCard, expressTier === 'EXPRESS_24H' && styles.speedOptionCardActiveExpress]}
+                  onPress={() => setExpressTier('EXPRESS_24H')}
+                >
+                  <View style={styles.speedOptionRadio}>
+                    <MaterialCommunityIcons
+                      name={expressTier === 'EXPRESS_24H' ? 'radiobox-marked' : 'radiobox-blank'}
+                      size={18}
+                      color={expressTier === 'EXPRESS_24H' ? '#EA580C' : '#94A3B8'}
+                    />
+                  </View>
+                  <View style={styles.speedOptionInfo}>
+                    <View style={styles.speedOptionTitleRow}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+                        <Text style={[styles.speedOptionName, expressTier === 'EXPRESS_24H' && styles.speedOptionNameActiveExpress]}>
+                          ⚡ Express 24h Return
+                        </Text>
+                        <View style={styles.popularSpeedTag}>
+                          <Text style={styles.popularSpeedTagText}>POPULAR</Text>
+                        </View>
+                      </View>
+                      <View style={[styles.speedFeeBadge, { backgroundColor: '#FFF7ED', borderColor: '#FED7AA' }]}>
+                        <Text style={[styles.speedFeeText, { color: '#EA580C' }]}>
+                          +{money(expressFeeFromSettings)}
+                        </Text>
+                      </View>
+                    </View>
+                    <Text style={styles.speedOptionSub}>
+                      Priority workshop queue • Next-day morning return
+                    </Text>
+                  </View>
+                </Pressable>
+
+                {/* 3. SAME_DAY (12h) */}
+                <Pressable
+                  style={[styles.speedOptionCard, expressTier === 'SAME_DAY' && styles.speedOptionCardActiveSameDay]}
+                  onPress={() => setExpressTier('SAME_DAY')}
+                >
+                  <View style={styles.speedOptionRadio}>
+                    <MaterialCommunityIcons
+                      name={expressTier === 'SAME_DAY' ? 'radiobox-marked' : 'radiobox-blank'}
+                      size={18}
+                      color={expressTier === 'SAME_DAY' ? '#DC2626' : '#94A3B8'}
+                    />
+                  </View>
+                  <View style={styles.speedOptionInfo}>
+                    <View style={styles.speedOptionTitleRow}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+                        <Text style={[styles.speedOptionName, expressTier === 'SAME_DAY' && styles.speedOptionNameActiveSameDay]}>
+                          🚀 Same-Day Emergency (12h)
+                        </Text>
+                      </View>
+                      <View style={[styles.speedFeeBadge, { backgroundColor: '#FEF2F2', borderColor: '#FECACA' }]}>
+                        <Text style={[styles.speedFeeText, { color: '#DC2626' }]}>
+                          +{money(sameDayFeeFromSettings)}
+                        </Text>
+                      </View>
+                    </View>
+                    <Text style={styles.speedOptionSub}>
+                      Morning pickup • Emergency rush return by tonight
+                    </Text>
+                  </View>
+                </Pressable>
+              </View>
             </View>
 
             {/* 5. CARE NOTES */}
@@ -1386,7 +1476,20 @@ export function BookScreen({
                     <MaterialCommunityIcons name="lightning-bolt" size={18} color="#EA580C" />
                     <View style={{ flex: 1 }}>
                       <Text style={styles.overviewLabel}>Speed</Text>
-                      <Text style={styles.overviewVal}>⚡ 12-Hour Priority Express</Text>
+                      <Text style={styles.overviewVal}>⚡ 24-Hour Express Return</Text>
+                    </View>
+                  </View>
+                </>
+              )}
+
+              {expressTier === 'SAME_DAY' && (
+                <>
+                  <View style={styles.overviewDivider} />
+                  <View style={styles.overviewRow}>
+                    <MaterialCommunityIcons name="rocket-launch" size={18} color="#DC2626" />
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.overviewLabel}>Speed</Text>
+                      <Text style={styles.overviewVal}>🚀 12-Hour Same-Day Rush</Text>
                     </View>
                   </View>
                 </>
@@ -1588,8 +1691,12 @@ export function BookScreen({
               {expressCharge > 0 && (
                 <View style={styles.billLine}>
                   <View>
-                    <Text style={styles.billLineLabel}>12H Priority Express Surcharge</Text>
-                    <Text style={styles.billLineSubtext}>Dedicated express pilot & next-morning delivery</Text>
+                    <Text style={styles.billLineLabel}>
+                      {expressTier === 'SAME_DAY' ? '12H Same-Day Emergency Surcharge' : '24H Express Delivery Surcharge'}
+                    </Text>
+                    <Text style={styles.billLineSubtext}>
+                      {expressTier === 'SAME_DAY' ? 'Rush processing & emergency courier delivery' : 'Priority queue & 24h express turnaround'}
+                    </Text>
                   </View>
                   <Text style={styles.billLineVal}>+{money(expressCharge)}</Text>
                 </View>
@@ -1693,7 +1800,7 @@ export function BookScreen({
         {stage === 'REVIEW' && (
           <Pressable
             style={[styles.footerPrimaryBtn, isCheckingOut && { opacity: 0.7 }]}
-            onPress={placeOrder}
+            onPress={() => placeOrder()}
             disabled={isCheckingOut}
           >
             <MaterialCommunityIcons name="lock" size={16} color="#FFFFFF" />
@@ -1803,14 +1910,21 @@ export function BookScreen({
             >
               {activeCouponsList.map((coupon) => {
                 const isCurrent = couponApplied && couponCode === coupon.code;
+                const minVal = Number(coupon.minOrderValue || 0);
                 const isFirstOrder = !orders.some((o) => o.currentStatus !== 'CANCELLED');
                 const isFirstOrderOk = !coupon.firstOrderOnly || isFirstOrder;
-                const isMinOrderOk = preCouponTotal >= coupon.minOrderValue;
-                const isEligible = isFirstOrderOk && isMinOrderOk;
+                const isMinOrderOk = Number(preCouponTotal || 0) >= minVal;
+                const isEligible = Boolean(isFirstOrderOk && isMinOrderOk);
 
                 return (
-                  <View
+                  <TouchableOpacity
                     key={coupon.code}
+                    activeOpacity={isEligible && !isCurrent ? 0.88 : 1}
+                    onPress={() => {
+                      if (isEligible && !isCurrent && applyingCode === null) {
+                        handleApplyCoupon(coupon.code, true);
+                      }
+                    }}
                     style={[
                       styles.bbTicketCard,
                       isCurrent && styles.bbTicketCardCurrent,
@@ -1830,26 +1944,30 @@ export function BookScreen({
                         </View>
 
                         {isCurrent ? (
-                          <Pressable
+                          <TouchableOpacity
                             style={styles.bbAppliedPill}
                             onPress={handleRemoveCoupon}
+                            activeOpacity={0.7}
+                            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                           >
                             <MaterialCommunityIcons name="check" size={14} color="#16A34A" />
                             <Text style={styles.bbAppliedPillText}>APPLIED</Text>
                             <Text style={styles.bbRemoveInlineText}>• Remove</Text>
-                          </Pressable>
+                          </TouchableOpacity>
                         ) : isEligible ? (
-                          <Pressable
-                            style={({ pressed }) => [styles.bbTicketApplyBtn, pressed && { opacity: 0.85 }]}
+                          <TouchableOpacity
+                            style={styles.bbTicketApplyBtn}
                             disabled={applyingCode !== null}
                             onPress={() => handleApplyCoupon(coupon.code, true)}
+                            activeOpacity={0.8}
+                            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                           >
                             {applyingCode === coupon.code ? (
                               <ActivityIndicator size="small" color="#FFFFFF" />
                             ) : (
                               <Text style={styles.bbTicketApplyText}>APPLY</Text>
                             )}
-                          </Pressable>
+                          </TouchableOpacity>
                         ) : (
                           <View style={styles.bbTicketIneligiblePill}>
                             <Text style={styles.bbTicketIneligiblePillText}>NOT ELIGIBLE</Text>
@@ -1899,12 +2017,144 @@ export function BookScreen({
                         </View>
                       )}
                     </View>
-                  </View>
+                  </TouchableOpacity>
                 );
               })}
             </ScrollView>
           </View>
         </KeyboardAvoidingView>
+      </Modal>
+
+      {/* ================= SWIGGY/ZEPTO-STYLE PAYMENT RETRY / CANCELLATION MODAL ================= */}
+      <Modal
+        visible={paymentRetryModalVisible}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setPaymentRetryModalVisible(false)}
+      >
+        <View style={styles.payRetryOverlay}>
+          <Pressable
+            style={styles.payRetryBackdrop}
+            onPress={() => setPaymentRetryModalVisible(false)}
+          />
+          <View style={styles.payRetrySheet}>
+            {/* Sheet Handle */}
+            <View style={styles.payRetryHandle} />
+
+            {/* Icon & Title */}
+            <View style={styles.payRetryHeader}>
+              <View
+                style={[
+                  styles.payRetryIconCircle,
+                  paymentErrorInfo.isCancelled
+                    ? { backgroundColor: '#FFF7ED', borderColor: '#FED7AA' }
+                    : { backgroundColor: '#FEF2F2', borderColor: '#FECACA' },
+                ]}
+              >
+                <MaterialCommunityIcons
+                  name={paymentErrorInfo.isCancelled ? 'credit-card-refresh-outline' : 'alert-circle-outline'}
+                  size={36}
+                  color={paymentErrorInfo.isCancelled ? '#EA580C' : '#DC2626'}
+                />
+              </View>
+
+              <Text style={styles.payRetryTitle}>
+                {paymentErrorInfo.title || (paymentErrorInfo.isCancelled ? 'Payment Not Completed' : 'Payment Failed')}
+              </Text>
+
+              <Text style={styles.payRetrySubtitle}>
+                {paymentErrorInfo.message}
+              </Text>
+            </View>
+
+            {/* Order Snapshot Card */}
+            <View style={styles.payRetryOrderCard}>
+              <View style={styles.payRetryOrderRow}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                  <MaterialCommunityIcons name="shopping-outline" size={18} color="#64748B" />
+                  <Text style={styles.payRetryOrderLabel}>Total Order Amount</Text>
+                </View>
+                <Text style={styles.payRetryOrderAmount}>{money(finalPayable)}</Text>
+              </View>
+
+              <View style={styles.payRetryOrderDivider} />
+
+              <View style={styles.payRetryOrderRow}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                  <MaterialCommunityIcons name="clock-outline" size={18} color="#64748B" />
+                  <Text style={styles.payRetryOrderSublabel}>Pickup Slot</Text>
+                </View>
+                <Text style={styles.payRetryOrderSubval}>
+                  {shortDate(slotDate)} • {selectedSlot?.startTime} - {selectedSlot?.endTime}
+                </Text>
+              </View>
+
+              <View style={styles.payRetrySafePill}>
+                <MaterialCommunityIcons name="shield-check" size={15} color="#16A34A" />
+                <Text style={styles.payRetrySafeText}>
+                  Your laundry bag items are completely safe.
+                </Text>
+              </View>
+            </View>
+
+            {/* Action Buttons */}
+            <View style={styles.payRetryActions}>
+              {/* Option 1: Retry Online Payment */}
+              <Pressable
+                style={({ pressed }) => [
+                  styles.payRetryPrimaryBtn,
+                  pressed && { opacity: 0.9 },
+                  isRetryingOrder && { opacity: 0.6 },
+                ]}
+                disabled={isRetryingOrder}
+                onPress={() => {
+                  setPaymentRetryModalVisible(false);
+                  setTimeout(() => {
+                    placeOrder('ONLINE_RAZORPAY');
+                  }, 250);
+                }}
+              >
+                <MaterialCommunityIcons name="refresh" size={20} color="#FFFFFF" />
+                <Text style={styles.payRetryPrimaryBtnText}>
+                  {isRetryingOrder ? 'Processing...' : 'Retry Online Payment'}
+                </Text>
+              </Pressable>
+
+              {/* Option 2: Pay via Cash on Delivery (COD) */}
+              <Pressable
+                style={({ pressed }) => [
+                  styles.payRetryCodBtn,
+                  pressed && { opacity: 0.9 },
+                  isRetryingOrder && { opacity: 0.6 },
+                ]}
+                disabled={isRetryingOrder}
+                onPress={() => {
+                  setPaymentRetryModalVisible(false);
+                  setTimeout(() => {
+                    placeOrder('COD');
+                  }, 250);
+                }}
+              >
+                <MaterialCommunityIcons name="cash-multiple" size={22} color="#16A34A" />
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.payRetryCodBtnTitle}>Pay on Delivery (COD / UPI)</Text>
+                  <Text style={styles.payRetryCodBtnSub}>Confirm pickup now, pay pilot at doorstep</Text>
+                </View>
+                <MaterialCommunityIcons name="chevron-right" size={20} color="#16A34A" />
+              </Pressable>
+
+              {/* Option 3: Cancel / Change Payment Method */}
+              <Pressable
+                style={styles.payRetryCancelBtn}
+                onPress={() => setPaymentRetryModalVisible(false)}
+              >
+                <Text style={styles.payRetryCancelBtnText}>
+                  Change Payment Method / Review Bag
+                </Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
       </Modal>
 
     </View>
@@ -3306,6 +3556,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    minHeight: 36,
   },
   bbCodeBadge: {
     flexDirection: 'row',
@@ -3327,15 +3578,23 @@ const styles = StyleSheet.create({
   },
   bbTicketApplyBtn: {
     backgroundColor: '#FF7A00',
-    paddingHorizontal: 18,
+    paddingHorizontal: 16,
     paddingVertical: 7,
-    borderRadius: 10,
+    borderRadius: 8,
+    minWidth: 76,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#FF7A00',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3,
+    elevation: 3,
   },
   bbTicketApplyText: {
     fontSize: 12,
     fontWeight: '900',
     color: '#FFFFFF',
-    letterSpacing: 0.4,
+    letterSpacing: 0.5,
   },
   bbAppliedPill: {
     flexDirection: 'row',
@@ -3408,5 +3667,280 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '600',
     color: '#DC2626',
+  },
+  // Delivery Speed Options Styles
+  speedSection: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+  speedSectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 12,
+  },
+  speedSectionTitle: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#0F172A',
+    letterSpacing: -0.2,
+  },
+  speedOptionsStack: {
+    gap: 10,
+  },
+  speedOptionCard: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+    padding: 12,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: '#E2E8F0',
+    backgroundColor: '#F8FAFC',
+  },
+  speedOptionCardActive: {
+    borderColor: '#16A34A',
+    backgroundColor: '#F0FDF4',
+  },
+  speedOptionCardActiveExpress: {
+    borderColor: '#EA580C',
+    backgroundColor: '#FFF7ED',
+  },
+  speedOptionCardActiveSameDay: {
+    borderColor: '#DC2626',
+    backgroundColor: '#FEF2F2',
+  },
+  speedOptionRadio: {
+    marginTop: 2,
+  },
+  speedOptionInfo: {
+    flex: 1,
+  },
+  speedOptionTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+    marginBottom: 3,
+  },
+  speedOptionName: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#334155',
+  },
+  speedOptionNameActive: {
+    color: '#16A34A',
+    fontWeight: '800',
+  },
+  speedOptionNameActiveExpress: {
+    color: '#C2410C',
+    fontWeight: '800',
+  },
+  speedOptionNameActiveSameDay: {
+    color: '#B91C1C',
+    fontWeight: '800',
+  },
+  popularSpeedTag: {
+    backgroundColor: '#EA580C',
+    paddingHorizontal: 6,
+    paddingVertical: 1.5,
+    borderRadius: 6,
+  },
+  popularSpeedTagText: {
+    color: '#FFFFFF',
+    fontSize: 9,
+    fontWeight: '900',
+    letterSpacing: 0.5,
+  },
+  speedFeeBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  speedFeeText: {
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  speedOptionSub: {
+    fontSize: 11,
+    color: '#64748B',
+    lineHeight: 16,
+  },
+  // Swiggy/Zepto-style Payment Retry Modal Styles
+  payRetryOverlay: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(15, 23, 42, 0.65)',
+  },
+  payRetryBackdrop: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+  },
+  payRetrySheet: {
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    paddingBottom: Platform.OS === 'ios' ? 36 : 24,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.12,
+    shadowRadius: 16,
+    elevation: 20,
+  },
+  payRetryHandle: {
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: '#CBD5E1',
+    alignSelf: 'center',
+    marginBottom: 16,
+  },
+  payRetryHeader: {
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  payRetryIconCircle: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    borderWidth: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 12,
+  },
+  payRetryTitle: {
+    fontSize: 19,
+    fontWeight: '900',
+    color: '#0F172A',
+    textAlign: 'center',
+    letterSpacing: -0.3,
+  },
+  payRetrySubtitle: {
+    fontSize: 13,
+    color: '#64748B',
+    textAlign: 'center',
+    lineHeight: 19,
+    marginTop: 6,
+    paddingHorizontal: 10,
+  },
+  payRetryOrderCard: {
+    backgroundColor: '#F8FAFC',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    padding: 14,
+    marginBottom: 16,
+  },
+  payRetryOrderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  payRetryOrderLabel: {
+    fontSize: 13,
+    color: '#475569',
+    fontWeight: '600',
+  },
+  payRetryOrderAmount: {
+    fontSize: 18,
+    fontWeight: '900',
+    color: '#EA580C',
+  },
+  payRetryOrderDivider: {
+    height: 1,
+    backgroundColor: '#E2E8F0',
+    marginVertical: 10,
+  },
+  payRetryOrderSublabel: {
+    fontSize: 12,
+    color: '#64748B',
+    fontWeight: '500',
+  },
+  payRetryOrderSubval: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#1E293B',
+  },
+  payRetrySafePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#F0FDF4',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    marginTop: 10,
+  },
+  payRetrySafeText: {
+    fontSize: 11,
+    color: '#166534',
+    fontWeight: '700',
+  },
+  payRetryActions: {
+    gap: 10,
+  },
+  payRetryPrimaryBtn: {
+    backgroundColor: '#EA580C',
+    borderRadius: 14,
+    paddingVertical: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    shadowColor: '#EA580C',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.25,
+    shadowRadius: 6,
+    elevation: 3,
+  },
+  payRetryPrimaryBtnText: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '800',
+    letterSpacing: 0.2,
+  },
+  payRetryCodBtn: {
+    backgroundColor: '#F0FDF4',
+    borderRadius: 14,
+    borderWidth: 1.5,
+    borderColor: '#86EFAC',
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  payRetryCodBtnTitle: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#166534',
+  },
+  payRetryCodBtnSub: {
+    fontSize: 11,
+    color: '#15803D',
+    marginTop: 2,
+  },
+  payRetryCancelBtn: {
+    paddingVertical: 10,
+    alignItems: 'center',
+  },
+  payRetryCancelBtnText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#64748B',
   },
 });
