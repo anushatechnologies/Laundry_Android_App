@@ -72,7 +72,7 @@ export function PricingScreen({ onBook }: { onBook: () => void }) {
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: COLORS.cream },
   errorRoot: { flex: 1, backgroundColor: COLORS.cream, padding: 16, justifyContent: 'center' },
-  content: { padding: 16, paddingBottom: 32, gap: 16 },
+  content: { paddingHorizontal: 16, paddingTop: 0, paddingBottom: 32, gap: 16 },
   centered: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 11, backgroundColor: COLORS.cream },
   loadingText: { color: COLORS.muted, fontSize: 13 },
   title: { color: COLORS.plumDark, fontSize: 26, fontWeight: '900' },

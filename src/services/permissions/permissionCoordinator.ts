@@ -93,14 +93,6 @@ export async function requestStartupLocationPermission(): Promise<{
         return { granted: true, blocked: false, coords };
       }
 
-      const askedBefore = await AsyncStorage.getItem(LOCATION_PERMISSION_ASKED_KEY);
-      if (askedBefore) {
-        // Already prompted previously and denied; respect user's choice
-        return { granted: false, blocked: false, coords: null };
-      }
-
-      await AsyncStorage.setItem(LOCATION_PERMISSION_ASKED_KEY, 'true');
-
       // Request both FINE and COARSE together (Android 12+ approximate / precise options)
       const results = await PermissionsAndroid.requestMultiple([
         PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
@@ -206,16 +198,33 @@ export async function requestLocationPermissionInteractive(): Promise<{
 }
 
 /**
- * Fast GPS coordinate fetch with balanced accuracy (3-second timeout).
+ * Fast GPS coordinate fetch with last-known instant cache + balanced accuracy fallback.
  */
 export async function getQuickGpsCoordinates(): Promise<{ latitude: number; longitude: number } | null> {
   try {
     const hasServices = await Location.hasServicesEnabledAsync();
     if (!hasServices) return null;
 
+    // Fast path: Check last known position (sub-50ms instant return from OS cache)
+    try {
+      const lastKnown = await Location.getLastKnownPositionAsync();
+      if (
+        lastKnown?.coords &&
+        Number.isFinite(lastKnown.coords.latitude) &&
+        Number.isFinite(lastKnown.coords.longitude)
+      ) {
+        return {
+          latitude: lastKnown.coords.latitude,
+          longitude: lastKnown.coords.longitude,
+        };
+      }
+    } catch {
+      // Fall through to fresh position query
+    }
+
     const pos = await Promise.race([
       Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced }),
-      new Promise<null>((resolve) => setTimeout(() => resolve(null), 5000)),
+      new Promise<null>((resolve) => setTimeout(() => resolve(null), 4000)),
     ]);
 
     if (pos && typeof pos === 'object' && 'coords' in pos && pos.coords) {
@@ -231,7 +240,7 @@ export async function getQuickGpsCoordinates(): Promise<{ latitude: number; long
 }
 
 /**
- * Coordinated First-Launch flow in the strict order requested:
+ * Coordinated First-Launch flow matching Swiggy and Zomato:
  * 1. App Launch
  * 2. Notification Permission (Android 13+ / iOS)
  * 3. Location Permission (Android 10-15+ / iOS)
@@ -241,10 +250,13 @@ export async function runFirstLaunchPermissions(): Promise<StartupPermissionResu
   // 1. Notification Permission check & request (Android 13+ / iOS)
   const notificationsGranted = await requestStartupNotificationPermission();
 
+  // 2. Location Permission check & request (Android / iOS)
+  const locationResult = await requestStartupLocationPermission();
+
   return {
     notificationsGranted,
-    locationGranted: false,
-    locationBlocked: false,
-    gpsCoords: null,
+    locationGranted: locationResult.granted,
+    locationBlocked: locationResult.blocked,
+    gpsCoords: locationResult.coords,
   };
 }

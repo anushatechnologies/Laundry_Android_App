@@ -156,7 +156,7 @@ export function useCustomerLocation({ ownerId = null, refreshOnForeground }: Use
   }, [ownerId]);
 
   const switchToGpsLocation = useCallback(async (): Promise<CustomerLocation | null> => {
-    const result = await refreshCurrentLocation('if-undetermined');
+    const result = await refreshCurrentLocation('always');
     if (result && result.ok) {
       await saveDeliveryLocation({ ...result.location, source: 'gps' });
       return result.location;
@@ -166,6 +166,10 @@ export function useCustomerLocation({ ownerId = null, refreshOnForeground }: Use
 
   useEffect(() => {
     if (!hydrated || !refreshOnForeground) return;
+    if (!deliveryLocationRef.current) {
+      void refreshCurrentLocation('if-undetermined');
+      return;
+    }
     if (Date.now() - lastGpsRefreshAtRef.current < LOCATION_STALE_TIME) return;
     void refreshCurrentLocation('never');
   }, [hydrated, refreshCurrentLocation, refreshOnForeground]);

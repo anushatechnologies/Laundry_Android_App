@@ -95,6 +95,20 @@ function messageForLocationError(error: unknown): string {
 }
 
 async function getCurrentPositionWithTimeout(): Promise<Location.LocationObject> {
+  // Fast path: Check last known position (sub-50ms instant return from OS cache)
+  try {
+    const lastKnown = await Location.getLastKnownPositionAsync();
+    if (
+      lastKnown?.coords &&
+      Number.isFinite(lastKnown.coords.latitude) &&
+      Number.isFinite(lastKnown.coords.longitude)
+    ) {
+      return lastKnown;
+    }
+  } catch {
+    // Fall through to fresh GPS query
+  }
+
   return new Promise((resolve, reject) => {
     let settled = false;
     const timeout = setTimeout(() => {
@@ -354,7 +368,10 @@ export function getCurrentCustomerLocation(
       return failure('position-unavailable', 'granted', null, "We couldn't check your device location service. Please try again.");
     }
     if (!servicesEnabled) {
-      return failure('services-disabled', 'granted', false, 'Your device location service is turned off. Turn it on to detect your delivery area.');
+      const enabled = await enableLocationServices();
+      if (!enabled) {
+        return failure('services-disabled', 'granted', false, 'Your device location service is turned off. Turn it on to detect your delivery area.');
+      }
     }
 
     let position: Location.LocationObject;

@@ -505,7 +505,8 @@ const styles = StyleSheet.create({
     color: '#F97316',
   },
   content: {
-    padding: 16,
+    paddingHorizontal: 16,
+    paddingTop: 0,
     paddingBottom: 48,
     gap: 16,
   },

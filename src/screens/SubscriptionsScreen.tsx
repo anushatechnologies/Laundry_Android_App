@@ -428,7 +428,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#F8FAFC',
   },
   content: {
-    padding: 16,
+    paddingHorizontal: 16,
+    paddingTop: 0,
+    paddingBottom: 16,
   },
   heroHeader: {
     backgroundColor: '#FFFFFF',

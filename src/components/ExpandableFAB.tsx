@@ -200,7 +200,6 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 12,
     fontWeight: '700',
-    whiteSpace: 'nowrap',
   },
   fabBadge: {
     position: 'absolute',

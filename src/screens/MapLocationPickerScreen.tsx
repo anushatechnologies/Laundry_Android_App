@@ -529,7 +529,7 @@ export function MapLocationPickerScreen({
           <View style={styles.bottomSheetHandle} />
           <ScrollView
             style={styles.bottomScrollView}
-            contentContainerStyle={[styles.bottomCardContent, { paddingBottom: Math.max(insets.bottom, 16) + 12 }]}
+            contentContainerStyle={[styles.bottomCardContent, { paddingBottom: 16 }]}
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
             bounces={false}
@@ -684,7 +684,10 @@ export function MapLocationPickerScreen({
                 ))}
               </View>
             ) : null}
+          </ScrollView>
 
+          {/* STICKY BOTTOM ACTION CONTAINER (ALWAYS VISIBLE) */}
+          <View style={[styles.bottomStickyActionContainer, { paddingBottom: Math.max(insets.bottom, 12) }]}>
             <Pressable
               style={({ pressed }) => [
                 styles.useLocationBtn,
@@ -705,7 +708,7 @@ export function MapLocationPickerScreen({
                 </View>
               )}
             </Pressable>
-          </ScrollView>
+          </View>
         </SafeAreaView>
       </View>
     </KeyboardAvoidingView>
@@ -785,10 +788,17 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.13,
     shadowRadius: 16,
     elevation: 16,
-    maxHeight: '58%',
+    maxHeight: '64%',
   },
   bottomScrollView: {
-    flexGrow: 0,
+    flexShrink: 1,
+  },
+  bottomStickyActionContainer: {
+    paddingHorizontal: 20,
+    paddingTop: 10,
+    backgroundColor: '#FFFFFF',
+    borderTopWidth: 1,
+    borderTopColor: '#F1F5F9',
   },
   bottomSheetHandle: { width: 38, height: 4, borderRadius: 3, backgroundColor: '#E2E8F0', alignSelf: 'center', marginTop: 9, marginBottom: 4 },
   bottomCardContent: { paddingTop: 6, paddingHorizontal: 20 },
@@ -863,8 +873,8 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
   useLocationBtn: {
-    marginTop: 10,
-    marginBottom: 8,
+    marginTop: 0,
+    marginBottom: 4,
     minHeight: 52,
     backgroundColor: '#FF6418',
     borderRadius: 16,

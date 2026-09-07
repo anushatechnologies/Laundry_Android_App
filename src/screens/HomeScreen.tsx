@@ -1156,7 +1156,67 @@ export function HomeScreen({
           </View>
         </View>
 
-        {/* 3. ACTIVE OFFERS & PROMOTIONS - Right after Categories */}
+        {/* 2.5 ALL SERVICES GRID (SAME STYLE AS CATEGORIES - 4 PER ROW) */}
+        <View style={styles.categoriesSection}>
+          <View style={styles.sectionHeaderRow}>
+            <View>
+              <Text style={styles.sectionHeading}>All Services</Text>
+              <Text style={styles.sectionSubheading}>Complete laundry solutions for every need</Text>
+            </View>
+          </View>
+
+          <View style={styles.homeCategory4Grid}>
+            {allServicesList.slice(0, 8).map((svc) => {
+              const hasImgErr = serviceImgErrors[svc.id];
+              return (
+                <Pressable
+                  key={svc.id}
+                  style={({ pressed }) => [
+                    styles.homeCategory4Col,
+                    pressed && styles.categoryItemPressed,
+                  ]}
+                  onPress={() => {
+                    const isBulkService = svc.slug === 'bulk-laundry' || (svc.pricingType === 'PER_KG' && svc.slug === 'bulk-laundry');
+                    if (isBulkService) {
+                      if (onOpenBulkLaundry) {
+                        onOpenBulkLaundry();
+                        return;
+                      }
+                    }
+                    if (onSelectService) {
+                      const serviceCode = svc.serviceCode || 'ALL';
+                      const category = svc.serviceCode === 'SHOE_SPA'
+                        ? { tag: 'FOOTWEAR', title: 'Footwear & Shoes' }
+                        : svc.serviceCode === 'SAREE_POLISH'
+                        ? { tag: 'WOMENS', title: "Women's Wear" }
+                        : { tag: 'ALL', title: 'All Garments' };
+                      onSelectService(serviceCode, svc.title, category.tag, category.title);
+                    }
+                  }}
+                >
+                  <View style={[styles.homeCatCircleWrap, { borderColor: svc.accent }]}>
+                    <Image
+                      source={{ uri: hasImgErr ? svc.fallbackUrl : svc.imageUrl }}
+                      style={styles.homeCatCircleImg}
+                      resizeMode="cover"
+                      onError={() => setServiceImgErrors((prev) => ({ ...prev, [svc.id]: true }))}
+                    />
+                    {/* TAT Badge instead of count */}
+                    <View style={[styles.homeCatCountBadge, { backgroundColor: svc.accent }]}>
+                      <Text style={styles.homeCatCountText}>{svc.tat}</Text>
+                    </View>
+                  </View>
+                  <Text style={styles.homeCatTitle} numberOfLines={2}>{svc.title}</Text>
+                  <Text style={[styles.servicePriceSmall, { color: svc.accent }]} numberOfLines={1}>
+                    {svc.priceText}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        </View>
+
+        {/* 3. ACTIVE OFFERS & PROMOTIONS - Right after Services */}
         <PromotionsSection
           onPressPromotion={(couponCode) => {
             if (couponCode) {
@@ -1408,7 +1468,7 @@ const styles = StyleSheet.create({
     borderRadius: 2,
   },
 
-  // Browse Categories: 4 per row
+  // Browse Categories: 4 per row, 2 rows (8 items total)
   homeCategory4Grid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -1419,57 +1479,63 @@ const styles = StyleSheet.create({
   homeCategory4Col: {
     width: '25%',
     alignItems: 'center',
-    marginBottom: 16,
-    paddingHorizontal: 2,
+    marginBottom: 20,
+    paddingHorizontal: 4,
   },
   homeCatCircleWrap: {
-    width: 66,
-    height: 66,
-    borderRadius: 33,
-    borderWidth: 2,
-    padding: 2,
+    width: 70,
+    height: 70,
+    borderRadius: 20,  // Increased from 33 (more rounded square)
+    borderWidth: 2.5,
+    padding: 3,
     backgroundColor: '#FFFFFF',
     position: 'relative',
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: '#0F172A',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 4,
-    elevation: 3,
-    marginBottom: 6,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.12,
+    shadowRadius: 6,
+    elevation: 4,
+    marginBottom: 8,
   },
   homeCatCircleImg: {
     width: '100%',
     height: '100%',
-    borderRadius: 30,
+    borderRadius: 16,  // Increased from 30 (match outer border)
   },
   homeCatCountBadge: {
     position: 'absolute',
-    bottom: -5,
-    paddingHorizontal: 6,
-    paddingVertical: 1.5,
-    borderRadius: 6,
-    borderWidth: 1.5,
+    bottom: -6,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 8,  // Increased from 6
+    borderWidth: 2,
     borderColor: '#FFFFFF',
     shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.15,
-    shadowRadius: 2,
-    elevation: 2,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 3,
+    elevation: 3,
   },
   homeCatCountText: {
-    fontSize: 8,
+    fontSize: 9,
     fontWeight: '800',
     color: '#FFFFFF',
-    letterSpacing: 0.1,
+    letterSpacing: 0.2,
   },
   homeCatTitle: {
-    fontSize: 10.5,
+    fontSize: 11,
     fontWeight: '700',
     color: '#0F172A',
     textAlign: 'center',
-    lineHeight: 13,
+    lineHeight: 14,
+  },
+  servicePriceSmall: {
+    fontSize: 10,
+    fontWeight: '800',
+    textAlign: 'center',
+    marginTop: 2,
   },
 
   greetingHeader: {

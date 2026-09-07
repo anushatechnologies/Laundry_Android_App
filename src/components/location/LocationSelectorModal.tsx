@@ -15,6 +15,7 @@ import {
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { api, type AddressSearchResult } from '@/lib/api';
+import { openLocationSettings } from '@/services/location/locationService';
 import type { CustomerAddress } from '@/types/domain';
 import type { CustomerLocation } from '@/services/location/types';
 
@@ -104,9 +105,10 @@ export function LocationSelectorModal({
       } else {
         Alert.alert(
           'Location Unavailable',
-          'Could not retrieve current GPS position. Please check your location settings or choose on map.',
+          'Could not retrieve current GPS position. Please check your device location settings or choose on map.',
           [
             { text: 'Cancel', style: 'cancel' },
+            { text: 'Open Settings', onPress: () => void openLocationSettings() },
             { text: 'Choose on Map', onPress: () => { onClose(); onOpenMapPicker(); } },
           ]
         );

@@ -460,7 +460,8 @@ const styles = StyleSheet.create({
     color: '#111827',
   },
   scrollContent: {
-    padding: 16,
+    paddingHorizontal: 16,
+    paddingTop: 0,
     paddingBottom: 48,
     gap: 16,
   },

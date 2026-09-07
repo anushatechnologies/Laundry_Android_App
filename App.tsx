@@ -34,6 +34,7 @@ import { runFirstLaunchPermissions } from '@/services/permissions/permissionCoor
 import { WishlistScreen } from '@/screens/WishlistScreen';
 import { AppErrorBoundary } from '@/components/AppErrorBoundary';
 import { useCustomerLocation } from '@/services/location/useCustomerLocation';
+import { resolveCustomerLocationCoordinates } from '@/services/location/locationService';
 import { LocationSelectorModal } from '@/components/location/LocationSelectorModal';
 import type { CustomerLocation } from '@/services/location/types';
 import { APP_THEME, COLORS } from '@/ui/theme';
@@ -277,6 +278,17 @@ function AuthenticatedApp() {
   });
   const permissionsRunRef = useRef(false);
 
+  const {
+    state: locationState,
+    hydrated: hasLoadedUserLocation,
+    saveDeliveryLocation,
+    refreshCurrentLocation,
+    switchToGpsLocation,
+  } = useCustomerLocation({
+    ownerId: session?.user.id ?? null,
+    refreshOnForeground: true,
+  });
+
   useEffect(() => {
     if (permissionsRunRef.current) return;
     permissionsRunRef.current = true;
@@ -294,26 +306,33 @@ function AuthenticatedApp() {
         locationBlocked: res.locationBlocked,
         gpsCoords: res.gpsCoords,
       });
+
+      // Swiggy / Zomato instant location auto-population on launch
+      if (res.locationGranted && res.gpsCoords) {
+        try {
+          const loc = await resolveCustomerLocationCoordinates(
+            res.gpsCoords.latitude,
+            res.gpsCoords.longitude,
+            'gps'
+          );
+          if (isMounted) {
+            await saveDeliveryLocation(loc);
+          }
+        } catch (err) {
+          console.warn('[App] Auto-location startup resolution error:', err);
+        }
+      }
     })();
 
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [saveDeliveryLocation]);
+
   const { route, history } = navigation;
   // First launch opens the real map flow directly; Back still reveals the brand landing page.
   const [onboardingStage, setOnboardingStage] = useState<OnboardingStage>('LOCATION');
   const [showLocationModal, setShowLocationModal] = useState(false);
-  const {
-    state: locationState,
-    hydrated: hasLoadedUserLocation,
-    saveDeliveryLocation,
-    refreshCurrentLocation,
-    switchToGpsLocation,
-  } = useCustomerLocation({
-    ownerId: session?.user.id ?? null,
-    refreshOnForeground: true,
-  });
   const [couponCode, setCouponCode] = useState('');
   const [selectedCategoryInfo, setSelectedCategoryInfo] = useState<{
     tag: string;
