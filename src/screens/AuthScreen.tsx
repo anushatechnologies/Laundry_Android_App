@@ -44,6 +44,7 @@ export function AuthScreen({ reason = 'ACCOUNT', onBack }: AuthScreenProps) {
   const [email, setEmail] = useState('');
   const [referralCode, setReferralCode] = useState('');
   const [autoDetectedReferral, setAutoDetectedReferral] = useState(false);
+  const [detectedBonus, setDetectedBonus] = useState(25);
   const [otp, setOtp] = useState('');
 
   const [loading, setLoading] = useState(false);
@@ -79,6 +80,9 @@ export function AuthScreen({ reason = 'ACCOUNT', onBack }: AuthScreenProps) {
         if (detection.detected && detection.referralCode && isMounted) {
           const clean = detection.referralCode.trim().toUpperCase();
           setReferralCode(clean);
+          if (detection.bonus) {
+            setDetectedBonus(detection.bonus);
+          }
           setAutoDetectedReferral(true);
           await AsyncStorage.setItem('@pending_referral_code', clean);
         }
@@ -600,7 +604,7 @@ export function AuthScreen({ reason = 'ACCOUNT', onBack }: AuthScreenProps) {
                     <View style={styles.detectedBadge}>
                       <MaterialCommunityIcons name="check-circle" size={13} color="#10B981" />
                       <Text style={styles.detectedBadgeText}>
-                        Invite code {referralCode} auto-detected! ₹50 bonus will be credited.
+                        Invite code {referralCode} auto-detected! ₹{detectedBonus} bonus will be credited.
                       </Text>
                     </View>
                   )}

@@ -90,9 +90,10 @@ export function ReferralScreen({ onUseReward, onSignIn, onNavigateWallet, onBack
       if (id !== requestId.current) return;
       setData(summary);
       setInviteCode('');
+      const bonusCredited = summary?.friendBonus ?? 25;
       Alert.alert(
         'Code Applied! 🎉',
-        'Referral code successfully applied. Your welcome bonus of ₹50 has been credited to your LaundryFresh Wallet!',
+        `Referral code successfully applied. Your welcome bonus of ₹${bonusCredited} has been credited to your LaundryFresh Wallet!`,
       );
     } catch (err) {
       Alert.alert('Could Not Apply Code', err instanceof Error ? err.message : 'Please check the code and try again.');
@@ -101,9 +102,12 @@ export function ReferralScreen({ onUseReward, onSignIn, onNavigateWallet, onBack
     }
   };
 
+  const referrerReward = data?.rewardAmount ?? 50;
+  const friendBonus = data?.friendBonus ?? 25;
+
   const getShareMessage = () => {
     const code = data?.code || 'LAUNDRY';
-    const bonus = data?.friendBonus || 50;
+    const bonus = friendBonus;
     const baseDownloadUrl = data?.shareUrl || 'https://laundryfresh.in/download';
     const referralLink = baseDownloadUrl.includes('?')
       ? `${baseDownloadUrl}&ref=${encodeURIComponent(code)}`
@@ -132,7 +136,7 @@ export function ReferralScreen({ onUseReward, onSignIn, onNavigateWallet, onBack
   const handleNativeShare = async () => {
     const message = getShareMessage();
     try {
-      await Share.share({ message, title: 'Join LaundryFresh & Get ₹50' });
+      await Share.share({ message, title: `Join LaundryFresh & Get ₹${friendBonus}` });
     } catch {
       // Ignored
     }
@@ -167,9 +171,9 @@ export function ReferralScreen({ onUseReward, onSignIn, onNavigateWallet, onBack
         )}
         <View style={styles.guestContainer}>
           <MaterialCommunityIcons name="gift-outline" size={72} color="#F97316" />
-          <Text style={styles.guestTitle}>Refer Friends & Earn ₹100</Text>
+          <Text style={styles.guestTitle}>Refer Friends & Earn ₹{referrerReward}</Text>
           <Text style={styles.guestSubtitle}>
-            Sign in to get your exclusive referral code. Earn ₹100 in your wallet for every friend who joins!
+            Sign in to get your exclusive referral code. Earn ₹{referrerReward} in your wallet for every friend who joins!
           </Text>
           {onSignIn && (
             <Pressable onPress={onSignIn} style={styles.primaryBtn}>
@@ -183,7 +187,7 @@ export function ReferralScreen({ onUseReward, onSignIn, onNavigateWallet, onBack
 
   const referralCode = data?.code || '';
   const invitedCount = data?.stats?.invited ?? 0;
-  const totalEarned = data?.stats?.totalEarned ?? (invitedCount * 100);
+  const totalEarned = data?.stats?.totalEarned ?? (invitedCount * referrerReward);
   const friends: ReferralFriend[] = data?.friends ?? [];
 
   return (
@@ -197,7 +201,7 @@ export function ReferralScreen({ onUseReward, onSignIn, onNavigateWallet, onBack
         ) : (
           <View style={{ width: 24 }} />
         )}
-        <Text style={styles.navTitle}>Refer & Earn ₹100</Text>
+        <Text style={styles.navTitle}>Refer & Earn ₹{referrerReward}</Text>
         {onNavigateWallet ? (
           <Pressable onPress={onNavigateWallet} hitSlop={12} style={styles.walletHeaderBtn}>
             <MaterialCommunityIcons name="wallet-outline" size={20} color="#F97316" />
@@ -229,9 +233,9 @@ export function ReferralScreen({ onUseReward, onSignIn, onNavigateWallet, onBack
           <View style={styles.heroIconCircle}>
             <MaterialCommunityIcons name="gift-open-outline" size={36} color="#F59E0B" />
           </View>
-          <Text style={styles.heroTitle}>Refer Friends & Earn ₹100</Text>
+          <Text style={styles.heroTitle}>Refer Friends & Earn ₹{referrerReward}</Text>
           <Text style={styles.heroSubtitle}>
-            When a friend signs up using your invite code, you get <Text style={styles.heroHighlight}>₹100 added to your Wallet</Text> and they get <Text style={styles.heroHighlight}>₹50 Welcome Cash</Text>!
+            When a friend signs up using your invite code, you get <Text style={styles.heroHighlight}>₹{referrerReward} added to your Wallet</Text> and they get <Text style={styles.heroHighlight}>₹{friendBonus} Welcome Cash</Text>!
           </Text>
           <View style={styles.heroBadgeRow}>
             <View style={styles.heroPill}>
@@ -311,7 +315,7 @@ export function ReferralScreen({ onUseReward, onSignIn, onNavigateWallet, onBack
               <View style={[styles.statIconWrap, { backgroundColor: '#FFF7ED' }]}>
                 <MaterialCommunityIcons name="lightning-bolt" size={20} color="#EA580C" />
               </View>
-              <Text style={[styles.statValue, { color: '#EA580C' }]}>₹100</Text>
+              <Text style={[styles.statValue, { color: '#EA580C' }]}>₹{referrerReward}</Text>
               <Text style={styles.statLabel}>Per Referral</Text>
             </View>
           </View>
@@ -342,7 +346,7 @@ export function ReferralScreen({ onUseReward, onSignIn, onNavigateWallet, onBack
               <MaterialCommunityIcons name="account-clock-outline" size={48} color="#D1D5DB" />
               <Text style={styles.emptyFriendsTitle}>No friends registered yet</Text>
               <Text style={styles.emptyFriendsDesc}>
-                Share your referral code now! As soon as a friend creates an account, you will see them here with ₹100 credited.
+                Share your referral code now! As soon as a friend creates an account, you will see them here with ₹{referrerReward} credited.
               </Text>
               <Pressable style={styles.inviteNowBtn} onPress={handleShareWhatsApp}>
                 <MaterialCommunityIcons name="whatsapp" size={18} color="#FFFFFF" />
@@ -373,7 +377,7 @@ export function ReferralScreen({ onUseReward, onSignIn, onNavigateWallet, onBack
                   </View>
                   <View style={styles.rewardTag}>
                     <MaterialCommunityIcons name="check-circle" size={14} color="#10B981" />
-                    <Text style={styles.rewardTagText}>+₹100 Added</Text>
+                    <Text style={styles.rewardTagText}>+₹{friend.bonusAwarded || referrerReward} Added</Text>
                   </View>
                 </View>
               );
@@ -389,7 +393,7 @@ export function ReferralScreen({ onUseReward, onSignIn, onNavigateWallet, onBack
               <Text style={styles.sectionTitle}>Have a Friend's Invite Code?</Text>
             </View>
             <Text style={styles.applyDesc}>
-              Enter their code to receive ₹50 Welcome Bonus instantly in your wallet!
+              Enter their code to receive ₹{friendBonus} Welcome Bonus instantly in your wallet!
             </Text>
             <View style={styles.applyInputRow}>
               <TextInput
@@ -442,7 +446,7 @@ export function ReferralScreen({ onUseReward, onSignIn, onNavigateWallet, onBack
             <View style={styles.stepContent}>
               <Text style={styles.stepHeading}>Friend Registers</Text>
               <Text style={styles.stepText}>
-                When they create an account with your code, they get ₹50 free wallet cash.
+                When they create an account with your code, they get ₹{friendBonus} free wallet cash.
               </Text>
             </View>
           </View>
@@ -454,9 +458,9 @@ export function ReferralScreen({ onUseReward, onSignIn, onNavigateWallet, onBack
               <Text style={styles.stepNum}>3</Text>
             </View>
             <View style={styles.stepContent}>
-              <Text style={styles.stepHeading}>You Get ₹100 Instantly</Text>
+              <Text style={styles.stepHeading}>You Get ₹{referrerReward} Instantly</Text>
               <Text style={styles.stepText}>
-                ₹100 is credited directly to your LaundryFresh Wallet to spend on any order!
+                ₹{referrerReward} is credited directly to your LaundryFresh Wallet to spend on any order!
               </Text>
             </View>
           </View>
