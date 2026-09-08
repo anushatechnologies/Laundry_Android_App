@@ -26,12 +26,12 @@ export const PINCODE_COORDINATES: Record<string, { lat: number; lng: number; are
   '500075': { lat: 17.3750, lng: 78.3290, area: 'Narsingi / Gandipet' },
 
   // Andhra Pradesh - Rajahmundry Hub Network
-  '533101': { lat: 16.9891, lng: 81.7840, area: 'Rajahmundry Central / Main Road' },
-  '533102': { lat: 17.0005, lng: 81.7800, area: 'Aryapuram / Danavaipeta' },
-  '533103': { lat: 17.0200, lng: 81.8000, area: 'Danavaipeta / Lalitha Nagar' },
-  '533104': { lat: 17.0150, lng: 81.8100, area: 'Morampudi / Prakash Nagar' },
-  '533105': { lat: 16.9750, lng: 81.7900, area: 'Innespeta / Kambala Cheruvu' },
-  '533106': { lat: 16.9600, lng: 81.8200, area: 'Dowleswaram / Cotton Barrage' },
+  '533101': { lat: 16.9891, lng: 81.784, area: 'Rajahmundry Central / Main Road' },
+  '533102': { lat: 17.0005, lng: 81.78, area: 'Aryapuram / Danavaipeta' },
+  '533103': { lat: 17.02, lng: 81.8, area: 'Danavaipeta / Lalitha Nagar' },
+  '533104': { lat: 17.015, lng: 81.81, area: 'Morampudi / Prakash Nagar' },
+  '533105': { lat: 16.975, lng: 81.79, area: 'Innespeta / Kambala Cheruvu' },
+  '533106': { lat: 16.96, lng: 81.82, area: 'Dowleswaram / Cotton Barrage' },
 };
 
 export function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
