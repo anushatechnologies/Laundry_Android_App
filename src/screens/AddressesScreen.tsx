@@ -194,11 +194,6 @@ export function AddressesScreen({ onBook, onSignIn }: AddressesScreenProps) {
         />
       }
     >
-      <View style={styles.header}>
-        <Text style={styles.title}>Saved Addresses</Text>
-        <Text style={styles.subtitle}>Doorstep pickup and delivery locations.</Text>
-      </View>
-
       {creating ? (
         <Card style={styles.formCard}>
           <Text style={styles.formTitle}>Add New Address</Text>
@@ -338,7 +333,7 @@ export function AddressesScreen({ onBook, onSignIn }: AddressesScreenProps) {
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: '#FAF5EF' },
-  content: { paddingHorizontal: 16, paddingTop: 0, paddingBottom: 40, gap: 14 },
+  content: { paddingHorizontal: 16, paddingTop: 14, paddingBottom: 40, gap: 14 },
   guestContainer: { padding: 24, paddingTop: 40, paddingBottom: 60, alignItems: 'center' },
   guestIllustrationBox: {
     width: 96,

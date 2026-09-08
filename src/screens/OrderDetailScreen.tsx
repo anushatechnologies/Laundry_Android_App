@@ -12,6 +12,8 @@ import {
   View,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import * as FileSystem from 'expo-file-system/legacy';
+import * as Sharing from 'expo-sharing';
 import { useApp } from '@/context/AppContext';
 import { Card } from '@/ui/components';
 import { COLORS, dateTime, money, shortDate, statusLabel, statusTone } from '@/ui/theme';
@@ -149,11 +151,35 @@ export function OrderDetailScreen({
     ]);
   };
 
-  const handleDownloadInvoice = () => {
-    const invoiceUrl = `${API_BASE_URL}/orders/${order?.id}/invoice`;
-    void Linking.openURL(invoiceUrl).catch(() => {
-      setShowInvoiceModal(true);
-    });
+  const handleDownloadInvoice = async () => {
+    if (!order?.id) return;
+    
+    try {
+      const invoiceUrl = `${API_BASE_URL}/orders/${order.id}/invoice`;
+      const fileName = `LaundryFresh_Invoice_${order.id}.pdf`;
+      const fileUri = FileSystem.documentDirectory + fileName;
+      
+      // Download PDF directly to device
+      const downloadResult = await FileSystem.downloadAsync(invoiceUrl, fileUri);
+      
+      if (downloadResult.status === 200) {
+        // Share/save the downloaded PDF
+        await Sharing.shareAsync(downloadResult.uri, {
+          mimeType: 'application/pdf',
+          dialogTitle: 'Save Invoice',
+          UTI: 'com.adobe.pdf',
+        });
+      } else {
+        throw new Error('Download failed');
+      }
+    } catch (error) {
+      console.error('Invoice download error:', error);
+      // Fallback to opening in browser
+      const invoiceUrl = `${API_BASE_URL}/orders/${order?.id}/invoice`;
+      void Linking.openURL(invoiceUrl).catch(() => {
+        setShowInvoiceModal(true);
+      });
+    }
   };
 
   const openWhatsAppSupport = () => {

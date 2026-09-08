@@ -15,6 +15,7 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useApp } from '@/context/AppContext';
 import { api } from '@/lib/api';
 import { COLORS } from '@/ui/theme';
@@ -42,6 +43,7 @@ export function AuthScreen({ reason = 'ACCOUNT', onBack }: AuthScreenProps) {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [referralCode, setReferralCode] = useState('');
+  const [autoDetectedReferral, setAutoDetectedReferral] = useState(false);
   const [otp, setOtp] = useState('');
 
   const [loading, setLoading] = useState(false);
@@ -58,6 +60,38 @@ export function AuthScreen({ reason = 'ACCOUNT', onBack }: AuthScreenProps) {
   const slideAnim = useRef(new Animated.Value(0)).current;
   const fadeAnim = useRef(new Animated.Value(1)).current;
   const scaleAnim = useRef(new Animated.Value(1)).current;
+
+  // Auto-detect referral code on install (from deep link storage or backend IP fingerprint matching)
+  useEffect(() => {
+    let isMounted = true;
+    const detectInvite = async () => {
+      try {
+        // 1. Check local pending referral from deep link
+        const localCode = await AsyncStorage.getItem('@pending_referral_code');
+        if (localCode && localCode.trim().length > 0 && isMounted) {
+          setReferralCode(localCode.trim().toUpperCase());
+          setAutoDetectedReferral(true);
+          return;
+        }
+
+        // 2. Query backend deferred deep link (IP matching from APK download click)
+        const detection = await api.detectReferralInstall();
+        if (detection.detected && detection.referralCode && isMounted) {
+          const clean = detection.referralCode.trim().toUpperCase();
+          setReferralCode(clean);
+          setAutoDetectedReferral(true);
+          await AsyncStorage.setItem('@pending_referral_code', clean);
+        }
+      } catch {
+        // Ignored
+      }
+    };
+
+    detectInvite();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   useEffect(() => {
     let timer: NodeJS.Timeout;
@@ -216,6 +250,7 @@ export function AuthScreen({ reason = 'ACCOUNT', onBack }: AuthScreenProps) {
         email.trim() || undefined,
         referralCode.trim().toUpperCase() || undefined,
       );
+      await AsyncStorage.removeItem('@pending_referral_code').catch(() => {});
       // Successful sign in automatically triggers navigation back in App.tsx!
     } catch (err) {
       setErrorMessage(err instanceof Error ? err.message : 'Invalid or expired verification code.');
@@ -539,8 +574,8 @@ export function AuthScreen({ reason = 'ACCOUNT', onBack }: AuthScreenProps) {
                     <Text style={styles.inputLabel}>🎁 Referral Code <Text style={{ color: '#A3A3A3', fontSize: 11 }}>(Optional)</Text></Text>
                     <Text style={{ color: '#10B981', fontSize: 11, fontWeight: '700' }}>Get ₹50 Free</Text>
                   </View>
-                  <View style={styles.textInputContainer}>
-                    <MaterialCommunityIcons name="ticket-percent-outline" size={20} color="#F97316" />
+                  <View style={[styles.textInputContainer, autoDetectedReferral && referralCode.length > 0 && styles.textInputContainerDetected]}>
+                    <MaterialCommunityIcons name="ticket-percent-outline" size={20} color={autoDetectedReferral && referralCode.length > 0 ? '#10B981' : '#F97316'} />
                     <TextInput
                       style={[styles.textInput, { textTransform: 'uppercase', letterSpacing: 1.5, fontWeight: '700' }]}
                       placeholder="e.g. LAUND-AB12"
@@ -550,16 +585,25 @@ export function AuthScreen({ reason = 'ACCOUNT', onBack }: AuthScreenProps) {
                       value={referralCode}
                       onChangeText={(val) => {
                         setReferralCode(val.toUpperCase());
+                        setAutoDetectedReferral(false);
                         setErrorMessage(null);
                       }}
                       accessibilityLabel="Referral code input"
                     />
                     {referralCode.length > 0 && (
-                      <Pressable onPress={() => setReferralCode('')} hitSlop={8}>
+                      <Pressable onPress={() => { setReferralCode(''); setAutoDetectedReferral(false); }} hitSlop={8}>
                         <MaterialCommunityIcons name="close-circle" size={18} color="#A3A3A3" />
                       </Pressable>
                     )}
                   </View>
+                  {autoDetectedReferral && referralCode.length > 0 && (
+                    <View style={styles.detectedBadge}>
+                      <MaterialCommunityIcons name="check-circle" size={13} color="#10B981" />
+                      <Text style={styles.detectedBadgeText}>
+                        Invite code {referralCode} auto-detected! ₹50 bonus will be credited.
+                      </Text>
+                    </View>
+                  )}
                 </View>
 
                 {/* Submit Register */}
@@ -986,6 +1030,28 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '600',
     color: '#1C0B18',
+  },
+  textInputContainerDetected: {
+    borderColor: '#10B981',
+    backgroundColor: '#F0FDF4',
+  },
+  detectedBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    backgroundColor: '#ECFDF5',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#A7F3D0',
+  },
+  detectedBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#047857',
+    flex: 1,
   },
 
   // OTP Input

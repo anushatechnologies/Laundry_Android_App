@@ -143,6 +143,17 @@ export const api = {
   baseURL: API_BASE_URL,
   getReferrals: () => request<ReferralSummary>('/referrals/me', {}, true),
   applyReferral: (code: string) => request<ReferralSummary>('/referrals/apply', { method: 'POST', body: JSON.stringify({ code }) }, true),
+  detectReferralInstall: async (): Promise<{ detected: boolean; referralCode?: string; bonus?: number }> => {
+    try {
+      const res = await request<{ success: boolean; detected: boolean; referralCode?: string; bonus?: number }>('/referrals/detect-install', {}, false);
+      if (res && res.detected && res.referralCode) {
+        return { detected: true, referralCode: res.referralCode, bonus: res.bonus };
+      }
+    } catch {
+      // Unauthenticated or network error, fallback gracefully
+    }
+    return { detected: false };
+  },
   getWallet: () => request<WalletData>('/wallet', {}, true),
   createWalletTopupOrder: (amount: number) =>
     request<{ orderId: string; amount: number; currency: string; key: string }>(
@@ -437,6 +448,8 @@ export function createOrderPayload(session: AuthSession, cart: CartItem[], input
     couponCode: input.couponCode || undefined,
     paymentMethod: input.paymentMethod,
     useWallet: input.useWallet ?? false,
+    customerSubscriptionId: input.customerSubscriptionId || undefined,
+    subscriptionKgUsed: input.subscriptionKgUsed || undefined,
     notes: input.notes || undefined,
   };
 }

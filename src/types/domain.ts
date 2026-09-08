@@ -404,6 +404,8 @@ export interface CheckoutInput {
   couponCode?: string;
   notes?: string;
   useWallet?: boolean;
+  customerSubscriptionId?: string;
+  subscriptionKgUsed?: number;
   onLaunchOnlinePayment?: (paymentOrder: RazorpayPaymentOrder) => Promise<{
     razorpay_order_id: string;
     razorpay_payment_id: string;
@@ -518,6 +520,8 @@ export interface CustomerSubscription {
   includedKg: number;
   ordersCount: number;
   features: string[];
+  freePickupDelivery?: boolean;
+  priorityService?: boolean;
 }
 
 export interface WalletItem {
@@ -600,4 +604,30 @@ export interface InAppNotification {
   isRead: boolean;
   createdAt: string;
 }
+
+export interface ServicePriceOption {
+  serviceId: string;
+  serviceCode: string;
+  serviceName: string;
+  displayName: string;
+  shortLabel: string;
+  icon: string;
+  price: number;
+  unit: string;
+  turnaroundHours?: number;
+}
+
+export interface ProductItem {
+  id: string;
+  name: string;
+  categoryTag: string;
+  categoryLabel: string;
+  subcategory: string;
+  imageUrl?: string;
+  fallbackImageUrl?: string;
+  description?: string;
+  services: ServicePriceOption[];
+  minPrice: number;
+}
+
 

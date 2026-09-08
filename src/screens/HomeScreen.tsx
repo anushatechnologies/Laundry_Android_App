@@ -1393,69 +1393,70 @@ const styles = StyleSheet.create({
   services4Row: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    paddingHorizontal: 12,
+    paddingHorizontal: 8,
     marginTop: 10,
-    gap: 8,
+    gap: 10,  // Better spacing between cards
   },
   service4Tile: {
     flex: 1,
     backgroundColor: '#FFFFFF',
-    borderRadius: 20,  // Increased from 16 for more curved look
-    paddingTop: 10,
-    paddingBottom: 10,
-    paddingHorizontal: 4,
+    borderRadius: 18,  // Rounded corners
+    paddingTop: 12,
+    paddingBottom: 12,
+    paddingHorizontal: 6,
     alignItems: 'center',
-    borderWidth: 1,
+    borderWidth: 1.5,
     borderColor: '#F1F5F9',
-    shadowColor: '#0F172A',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 6,
-    elevation: 2,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 3,
   },
   service4TatPill: {
-    borderRadius: 6,
-    paddingHorizontal: 6,
-    paddingVertical: 2.5,
-    marginBottom: 6,
+    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    marginBottom: 8,
   },
   service4TatText: {
-    fontSize: 8.5,
-    fontWeight: '800',
-    letterSpacing: 0.2,
+    fontSize: 9,
+    fontWeight: '900',
+    letterSpacing: 0.3,
   },
   service4ImgWrap: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
+    width: 56,  // Slightly larger
+    height: 56,
+    borderRadius: 16,  // More rounded
     overflow: 'hidden',
     backgroundColor: '#F8FAFC',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 6,
+    marginBottom: 8,
+    borderWidth: 1.5,
   },
   service4Img: {
     width: '100%',
     height: '100%',
   },
   service4Title: {
-    fontSize: 10.5,
+    fontSize: 11,
     fontWeight: '800',
     color: '#0F172A',
     textAlign: 'center',
-    marginBottom: 2,
-    lineHeight: 13,
+    marginBottom: 3,
+    lineHeight: 14,
   },
   service4PriceText: {
-    fontSize: 10,
-    fontWeight: '800',
+    fontSize: 10.5,
+    fontWeight: '900',
     color: '#EA580C',
     textAlign: 'center',
-    marginBottom: 5,
+    marginBottom: 6,
   },
   service4BottomLine: {
-    width: 20,
-    height: 2.5,
+    width: 24,
+    height: 3,
     borderRadius: 2,
   },
 
@@ -1465,64 +1466,65 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     justifyContent: 'flex-start',
     marginTop: 12,
-    paddingHorizontal: 6,
-    gap: 4,  // Add gap for better spacing
+    paddingHorizontal: 4,
+    gap: 8,  // Increased gap for better spacing
   },
   homeCategory4Col: {
     width: '25%',
     alignItems: 'center',
-    marginBottom: 24,
+    marginBottom: 20,
     paddingHorizontal: 4,
   },
   homeCatCircleWrap: {
-    width: 90,  // Increased from 70 for better icon visibility
-    height: 90,  // Increased from 70
-    borderRadius: 24,  // Larger rounded corners
-    borderWidth: 0,  // Remove border for cleaner look
-    padding: 0,
+    width: 80,  // Optimized size
+    height: 80,
+    borderRadius: 20,  // More rounded
+    borderWidth: 2,
+    borderColor: '#E5E7EB',  // Default border
+    padding: 2,
     backgroundColor: '#FFFFFF',
     position: 'relative',
     alignItems: 'center',
     justifyContent: 'center',
-    overflow: 'hidden',  // Ensure image fits properly
-    shadowColor: '#0F172A',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    elevation: 6,
-    marginBottom: 10,
+    overflow: 'hidden',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.1,
+    shadowRadius: 6,
+    elevation: 4,
+    marginBottom: 8,
   },
   homeCatCircleImg: {
     width: '100%',
     height: '100%',
-    borderRadius: 0,  // No inner radius since parent handles it
+    borderRadius: 18,  // Match parent
   },
   homeCatCountBadge: {
     position: 'absolute',
-    bottom: -8,
-    paddingHorizontal: 10,
-    paddingVertical: 3,
+    bottom: -6,
+    paddingHorizontal: 8,
+    paddingVertical: 2.5,
     borderRadius: 10,
-    borderWidth: 2.5,
+    borderWidth: 2,
     borderColor: '#FFFFFF',
     shadowColor: '#000000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
+    shadowOpacity: 0.2,
+    shadowRadius: 3,
     elevation: 4,
   },
   homeCatCountText: {
-    fontSize: 10,  // Increased from 9
-    fontWeight: '800',
+    fontSize: 9,
+    fontWeight: '900',
     color: '#FFFFFF',
-    letterSpacing: 0.3,
+    letterSpacing: 0.4,
   },
   homeCatTitle: {
-    fontSize: 12,  // Increased from 11
+    fontSize: 11,
     fontWeight: '700',
     color: '#0F172A',
     textAlign: 'center',
-    lineHeight: 16,
+    lineHeight: 14,
     marginTop: 2,
   },
   servicePriceSmall: {
@@ -1811,7 +1813,7 @@ const styles = StyleSheet.create({
   },
   content: {
     paddingTop: 8,
-    paddingBottom: 30,
+    paddingBottom: 110,
   },
   tracker: {
     marginHorizontal: 16,

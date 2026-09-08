@@ -35,7 +35,6 @@ export function PricingScreen({ onBook }: { onBook: () => void }) {
 
   return (
     <ScrollView style={styles.root} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-      <Text style={styles.title}>Bulk laundry pricing</Text>
       <Text style={styles.subtitle}>Clear package slabs for your bag. Your final total is confirmed after weighing and checkout.</Text>
 
       <Card style={styles.noteCard}>
@@ -72,7 +71,7 @@ export function PricingScreen({ onBook }: { onBook: () => void }) {
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: COLORS.cream },
   errorRoot: { flex: 1, backgroundColor: COLORS.cream, padding: 16, justifyContent: 'center' },
-  content: { paddingHorizontal: 16, paddingTop: 0, paddingBottom: 32, gap: 16 },
+  content: { paddingHorizontal: 16, paddingTop: 14, paddingBottom: 32, gap: 16 },
   centered: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 11, backgroundColor: COLORS.cream },
   loadingText: { color: COLORS.muted, fontSize: 13 },
   title: { color: COLORS.plumDark, fontSize: 26, fontWeight: '900' },

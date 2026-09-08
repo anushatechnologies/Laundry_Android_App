@@ -92,8 +92,8 @@ export function ExpandableFAB({ mainIcon, mainAction, badge, actions }: Expandab
         </Pressable>
       </Modal>
 
-      {/* Main Tab Bar FAB */}
-      <View style={styles.container}>
+      {/* Main Tab Bar FAB (hidden when modal is open to prevent double FAB visual glitch) */}
+      <View style={[styles.container, expanded && { opacity: 0 }]} pointerEvents={expanded ? 'none' : 'auto'}>
         <Pressable
           style={styles.fab}
           onPress={() => setExpanded(true)}

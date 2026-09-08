@@ -102,14 +102,15 @@ export function ReferralScreen({ onUseReward, onSignIn, onNavigateWallet, onBack
   };
 
   const getShareMessage = () => {
-    if (data?.shareMessage) return data.shareMessage;
     const code = data?.code || 'LAUNDRY';
     const bonus = data?.friendBonus || 50;
-    const downloadUrl = data?.shareUrl || 'https://laundryfresh.in/download';
+    const baseDownloadUrl = data?.shareUrl || 'https://laundryfresh.in/download';
+    const referralLink = baseDownloadUrl.includes('?')
+      ? `${baseDownloadUrl}&ref=${encodeURIComponent(code)}`
+      : `${baseDownloadUrl}?ref=${encodeURIComponent(code)}`;
+
     return (
-      `Hey! Use my referral code *${code}* when signing up on LaundryFresh and get *₹${bonus} Welcome Cash* directly in your wallet! 🧺✨\n\n` +
-      `Experience premium doorstep laundry, dry cleaning & shoe care.\n` +
-      `Download now: ${downloadUrl}`
+      `Use my invite code *${code}* on LaundryFresh to get ₹${bonus} welcome cash in your wallet for premium laundry & dry cleaning! Download now: ${referralLink}`
     );
   };
 

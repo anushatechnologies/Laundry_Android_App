@@ -28,6 +28,7 @@ interface CategoryCatalogScreenProps {
   onViewCart?: () => void;
   onOpenCart?: () => void;
   onOpenBulkLaundry?: () => void;
+  onSelectProduct?: (product: ProductItem) => void;
 }
 
 type CatalogServiceCode = 'PRESS' | 'WASH_FOLD' | 'WASH_IRON' | 'DRY_CLEAN' | 'SHOE_SPA' | 'SAREE_POLISH' | 'STARCH' | 'EXPRESS' | 'OTHER';
@@ -215,6 +216,7 @@ export function CategoryCatalogScreen({
   onViewCart,
   onOpenCart,
   onOpenBulkLaundry,
+  onSelectProduct,
 }: CategoryCatalogScreenProps) {
   const insets = useSafeAreaInsets();
   const { width: windowWidth } = useWindowDimensions();
@@ -235,6 +237,7 @@ export function CategoryCatalogScreen({
     (initialServiceFilter as any) || 'ALL'
   );
   const [searchQuery, setSearchQuery] = useState<string>('');
+  const [isSearchOpen, setIsSearchOpen] = useState<boolean>(false);
   const [selectedSort, setSelectedSort] = useState<'POPULAR' | 'PRICE_LOW' | 'PRICE_HIGH'>('POPULAR');
 
   // Track chosen service per cloth ID
@@ -455,7 +458,7 @@ export function CategoryCatalogScreen({
     });
 
     return activeClothTypes.map((cloth: any) => {
-      const servicesForCloth: ServicePriceOption[] = (matrixLookup[cloth.id] || [])
+      const rawServices: ServicePriceOption[] = (matrixLookup[cloth.id] || [])
         .map((priceItem: any) => {
           const master = serviceMastersById.get(priceItem.serviceId);
           const details = getServiceDetails(
@@ -475,7 +478,18 @@ export function CategoryCatalogScreen({
             unit: priceItem.unit || 'Piece',
             turnaroundHours: Number(priceItem.turnaroundHours || master?.turnaroundHours) || undefined,
           };
-        })
+        });
+
+      // Deduplicate by serviceCode so each service appears at most once per garment (no duplicate Press/Press)
+      const uniqueServicesMap = new Map<CatalogServiceCode, ServicePriceOption>();
+      rawServices.forEach((srv) => {
+        const existing = uniqueServicesMap.get(srv.serviceCode);
+        if (!existing || srv.price < existing.price) {
+          uniqueServicesMap.set(srv.serviceCode, srv);
+        }
+      });
+
+      const servicesForCloth: ServicePriceOption[] = Array.from(uniqueServicesMap.values())
         .sort((a, b) => {
           const aOrder = SERVICE_FILTERS.findIndex((filter) => filter.key === a.serviceCode);
           const bOrder = SERVICE_FILTERS.findIndex((filter) => filter.key === b.serviceCode);
@@ -648,17 +662,17 @@ export function CategoryCatalogScreen({
     ? (initialServiceName ? `${initialServiceName} Collection` : 'All Garments')
     : (categoriesList.find((cat) => cat.tag === activeCategoryTag)?.label || activeCategoryTitle || 'Catalog');
 
-  // Responsive Grid Widths
-  const screenPadding = 12;
-  const gridGap = 10;
+  // Responsive Grid Widths (Pixel-perfect 2-column calculation matching padding)
+  const SCREEN_PADDING = 12;
+  const GRID_GAP = 10;
   const useSingleColumn = windowWidth < 340;
   const cardWidth = useSingleColumn
-    ? Math.floor(windowWidth - screenPadding * 2)
-    : Math.floor((windowWidth - screenPadding * 2 - gridGap) / 2);
+    ? Math.floor(windowWidth - SCREEN_PADDING * 2)
+    : Math.floor((windowWidth - SCREEN_PADDING * 2 - GRID_GAP) / 2);
 
   return (
     <View style={styles.root}>
-      {/* 1. TOP APP BAR (Compact 54px height, clean title, proper cart badge without overlap) */}
+      {/* 1. TOP APP BAR (Compact 52px height, count badge, search toggle and cart shortcut) */}
       <View style={styles.topBar}>
         <Pressable
           style={({ pressed }) => [styles.backBtn, pressed && styles.pressedBtn]}
@@ -666,38 +680,58 @@ export function CategoryCatalogScreen({
           hitSlop={8}
           accessibilityLabel="Back"
         >
-          <MaterialCommunityIcons name="arrow-left" size={22} color="#0F172A" />
+          <MaterialCommunityIcons name="arrow-left" size={20} color="#0F172A" />
         </Pressable>
 
         <View style={styles.titleColumn}>
-          <Text style={styles.topBarTitle} numberOfLines={1}>
-            {displayTitle}
-          </Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            <Text style={styles.topBarTitle} numberOfLines={1}>
+              {displayTitle}
+            </Text>
+            <View style={styles.countBadgePill}>
+              <Text style={styles.countBadgePillText}>{filteredProducts.length}</Text>
+            </View>
+          </View>
           <Text style={styles.topBarSubtitle}>
             {selectedServiceFilter !== 'ALL'
-              ? `${availableServiceFilters.find((filter) => filter.key === selectedServiceFilter)?.label || 'Selected service'} · ${filteredProducts.length} items`
-              : `${filteredProducts.length} ${filteredProducts.length === 1 ? 'item' : 'items'} available`}
+              ? `${availableServiceFilters.find((filter) => filter.key === selectedServiceFilter)?.label || 'Selected service'}`
+              : 'Tap garment for custom fabric care'}
           </Text>
         </View>
 
-        <Pressable
-          style={({ pressed }) => [styles.cartBtn, pressed && styles.pressedBtn]}
-          onPress={handleCartClick}
-          hitSlop={8}
-          accessibilityLabel={`Shopping bag, ${cartSummary.itemCount} items`}
-        >
-          <MaterialCommunityIcons name="shopping-outline" size={22} color="#0F172A" />
-          {cartSummary.itemCount > 0 && (
-            <View style={styles.cartBadge}>
-              <Text style={styles.cartBadgeText}>
-                {cartSummary.itemCount > 99 ? '99+' : cartSummary.itemCount}
-              </Text>
-            </View>
-          )}
-        </Pressable>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+          <Pressable
+            style={[styles.headerActionBtn, (isSearchOpen || searchQuery.length > 0) && styles.headerActionBtnActive]}
+            onPress={() => setIsSearchOpen((prev) => !prev)}
+            hitSlop={8}
+            accessibilityLabel="Search"
+          >
+            <MaterialCommunityIcons
+              name={isSearchOpen || searchQuery.length > 0 ? 'close' : 'magnify'}
+              size={20}
+              color={isSearchOpen || searchQuery.length > 0 ? '#FF6B0B' : '#0F172A'}
+            />
+          </Pressable>
+
+          <Pressable
+            style={({ pressed }) => [styles.cartBtn, pressed && styles.pressedBtn]}
+            onPress={handleCartClick}
+            hitSlop={8}
+            accessibilityLabel={`Shopping bag, ${cartSummary.itemCount} items`}
+          >
+            <MaterialCommunityIcons name="shopping-outline" size={20} color="#0F172A" />
+            {cartSummary.itemCount > 0 && (
+              <View style={styles.cartBadge}>
+                <Text style={styles.cartBadgeText}>
+                  {cartSummary.itemCount > 99 ? '99+' : cartSummary.itemCount}
+                </Text>
+              </View>
+            )}
+          </Pressable>
+        </View>
       </View>
 
-      {/* 2. MAIN CATEGORY TABS (Compact 36px height, solid orange active state, full horizontal padding) */}
+      {/* 2. MAIN CATEGORY TABS (Luxury pills, solid active glow) */}
       <View style={styles.categoryTabsContainer}>
         <ScrollView
           horizontal
@@ -747,27 +781,30 @@ export function CategoryCatalogScreen({
         </ScrollView>
       </View>
 
-      {/* 3. SEARCH BAR (Compact 40px height, rounded-full pill design) */}
-      <View style={styles.searchBarWrap}>
-        <View style={styles.searchBar}>
-          <MaterialCommunityIcons name="magnify" size={18} color="#94A3B8" />
-          <TextInput
-            style={styles.searchInput}
-            placeholder={`Search in ${displayTitle}...`}
-            placeholderTextColor="#94A3B8"
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-            returnKeyType="search"
-            clearButtonMode="while-editing"
-            accessibilityLabel="Search garments"
-          />
-          {searchQuery.length > 0 && (
-            <Pressable onPress={() => setSearchQuery('')} hitSlop={8} accessibilityRole="button" accessibilityLabel="Clear garment search">
-              <MaterialCommunityIcons name="close-circle" size={16} color="#94A3B8" />
-            </Pressable>
-          )}
+      {/* 3. CONDITIONAL COMPACT SEARCH BAR */}
+      {(isSearchOpen || searchQuery.length > 0) && (
+        <View style={styles.searchBarWrap}>
+          <View style={styles.searchBar}>
+            <MaterialCommunityIcons name="magnify" size={18} color="#94A3B8" />
+            <TextInput
+              style={styles.searchInput}
+              placeholder={`Search in ${displayTitle}...`}
+              placeholderTextColor="#94A3B8"
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              returnKeyType="search"
+              clearButtonMode="while-editing"
+              autoFocus={isSearchOpen && searchQuery.length === 0}
+              accessibilityLabel="Search garments"
+            />
+            {searchQuery.length > 0 && (
+              <Pressable onPress={() => setSearchQuery('')} hitSlop={8} accessibilityRole="button" accessibilityLabel="Clear garment search">
+                <MaterialCommunityIcons name="close-circle" size={16} color="#94A3B8" />
+              </Pressable>
+            )}
+          </View>
         </View>
-      </View>
+      )}
 
       {/* 4. HORIZONTAL GARMENT SUBCATEGORY CAROUSEL (Never blank: verified photo + icon layer) */}
       <View style={styles.subcatCarouselContainer}>
@@ -838,8 +875,28 @@ export function CategoryCatalogScreen({
         </ScrollView>
       </View>
 
-      {/* 5. INTEGRATED SERVICE FILTERS & SORT ROW (Compact 34px, no vertical stacking) */}
+      {/* 5. INTEGRATED SERVICE FILTERS & SORT ROW (Left pinned Sort + Full-width natural scroll) */}
       <View style={styles.filterSortBar}>
+        <Pressable
+          style={styles.sortButtonPill}
+          onPress={() => {
+            setSelectedSort((prev) =>
+              prev === 'POPULAR' ? 'PRICE_LOW' : prev === 'PRICE_LOW' ? 'PRICE_HIGH' : 'POPULAR'
+            );
+          }}
+          hitSlop={6}
+          accessibilityRole="button"
+          accessibilityLabel="Change sort order"
+        >
+          <MaterialCommunityIcons name="swap-vertical" size={13} color="#FF6B0B" />
+          <Text style={styles.sortButtonPillText}>
+            {selectedSort === 'POPULAR' ? 'Sort' : selectedSort === 'PRICE_LOW' ? 'Price ↑' : 'Price ↓'}
+          </Text>
+          <MaterialCommunityIcons name="chevron-down" size={12} color="#64748B" />
+        </Pressable>
+
+        <View style={styles.filterDivider} />
+
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -879,22 +936,6 @@ export function CategoryCatalogScreen({
             );
           })}
         </ScrollView>
-
-        <Pressable
-          style={styles.sortButtonPill}
-          onPress={() => {
-            setSelectedSort((prev) =>
-              prev === 'POPULAR' ? 'PRICE_LOW' : prev === 'PRICE_LOW' ? 'PRICE_HIGH' : 'POPULAR'
-            );
-          }}
-          hitSlop={6}
-        >
-          <MaterialCommunityIcons name="swap-vertical" size={13} color="#FF6B0B" />
-          <Text style={styles.sortButtonPillText}>
-            {selectedSort === 'POPULAR' ? 'Recommended' : selectedSort === 'PRICE_LOW' ? 'Price: Low' : 'Price: High'}
-          </Text>
-          <MaterialCommunityIcons name="chevron-down" size={13} color="#64748B" />
-        </Pressable>
       </View>
 
       {/* 6. PRODUCT GRID (Compact, fast to scan, 4-6 products visible, safe bottom padding) */}
@@ -928,7 +969,7 @@ export function CategoryCatalogScreen({
           contentContainerStyle={[
             styles.productsScrollContent,
             {
-              paddingBottom: 24,
+              paddingBottom: cartSummary.itemCount > 0 ? Math.max(insets.bottom, 16) + 84 : 28,
             },
           ]}
           refreshControl={
@@ -962,8 +1003,13 @@ export function CategoryCatalogScreen({
                   key={cloth.id}
                   style={[styles.productCard, { width: cardWidth }]}
                 >
-                  {/* PRODUCT IMAGE (Compact 110px height, clean cover crop) */}
-                  <View style={styles.cardImageContainer}>
+                  {/* PRODUCT IMAGE (Elevated 124px height, clean cover crop) */}
+                  <Pressable
+                    style={styles.cardImageContainer}
+                    onPress={() => onSelectProduct?.(cloth)}
+                    accessibilityRole="button"
+                    accessibilityLabel={`View details for ${cloth.name}`}
+                  >
                     {photoUrl ? (
                       <>
                         <Image
@@ -990,7 +1036,16 @@ export function CategoryCatalogScreen({
                       </>
                     ) : (
                       <View style={styles.cardImageFallback}>
-                        <MaterialCommunityIcons name="tshirt-crew" size={32} color="#CBD5E1" />
+                        <MaterialCommunityIcons name="tshirt-crew" size={34} color="#CBD5E1" />
+                      </View>
+                    )}
+
+                    {/* Subcategory Pill Tag */}
+                    {(cloth.subcategory || cloth.categoryLabel) && (
+                      <View style={styles.cardSubcatBadge}>
+                        <Text style={styles.cardSubcatBadgeText} numberOfLines={1}>
+                          {cloth.subcategory || cloth.categoryLabel}
+                        </Text>
                       </View>
                     )}
 
@@ -1011,22 +1066,34 @@ export function CategoryCatalogScreen({
 
                     {turnaround ? (
                       <View style={styles.turnaroundBadge}>
-                        <MaterialCommunityIcons name="clock-outline" size={10} color="#2563EB" />
+                        <MaterialCommunityIcons name="lightning-bolt" size={10} color="#EA580C" />
                         <Text style={styles.turnaroundBadgeText}>{turnaround} TAT</Text>
                       </View>
                     ) : null}
+                  </Pressable>
 
-                  </View>
-
-                  {/* PRODUCT CARD BODY (Compact ~95px, clear price & service selection) */}
+                  {/* PRODUCT CARD BODY */}
                   <View style={styles.cardBody}>
                     {/* Title */}
-                    <Text style={styles.productCardTitle} numberOfLines={1}>
-                      {cloth.name}
-                    </Text>
+                    <Pressable
+                      onPress={() => onSelectProduct?.(cloth)}
+                      accessibilityRole="button"
+                      accessibilityLabel={`View details for ${cloth.name}`}
+                    >
+                      <View style={styles.titleRow}>
+                        <Text style={styles.productCardTitle} numberOfLines={1}>
+                          {cloth.name}
+                        </Text>
+                        <MaterialCommunityIcons name="chevron-right" size={14} color="#94A3B8" />
+                      </View>
+                    </Pressable>
 
-                    {/* Service Selector Mini-Pills (Press, Wash+Iron, Dry Clean) */}
-                    <View style={styles.serviceMiniRow}>
+                    {/* Service Selector Mini-Pills (Horizontal Scroll: prevents unequal card heights) */}
+                    <ScrollView
+                      horizontal
+                      showsHorizontalScrollIndicator={false}
+                      contentContainerStyle={styles.serviceMiniRow}
+                    >
                       {cloth.services.map((srv) => {
                         const isChosen = chosenService.serviceId === srv.serviceId;
                         const label =
@@ -1049,7 +1116,7 @@ export function CategoryCatalogScreen({
                             hitSlop={4}
                             accessibilityRole="radio"
                             accessibilityState={{ selected: isChosen }}
-                            accessibilityLabel={`Choose ${srv.displayName} for ${cloth.name}, ${String.fromCharCode(0x20B9)}${srv.price} per ${srv.unit.toLowerCase()}`}
+                            accessibilityLabel={`Choose ${srv.displayName} for ${cloth.name}, ₹${srv.price} per ${srv.unit.toLowerCase()}`}
                           >
                             <Text
                               style={[
@@ -1062,14 +1129,14 @@ export function CategoryCatalogScreen({
                           </Pressable>
                         );
                       })}
-                    </View>
+                    </ScrollView>
 
                     {/* Price & Action Row */}
                     <View style={styles.priceAndActionRow}>
                       <View style={styles.priceCol}>
                         <Text style={styles.priceText}>₹{chosenService.price}</Text>
                         <Text style={styles.priceUnitText} numberOfLines={1}>
-                          {chosenService.shortLabel} · /{chosenService.unit === 'KG' ? 'kg' : 'pc'}
+                          /{chosenService.unit === 'KG' ? 'kg' : 'pc'}
                         </Text>
                       </View>
 
@@ -1101,13 +1168,23 @@ export function CategoryCatalogScreen({
                           onPress={() => handleAddToCart(cloth, chosenService)}
                           hitSlop={6}
                           accessibilityRole="button"
-                          accessibilityLabel={`Add ${cloth.name}, ${chosenService.displayName}, ${String.fromCharCode(0x20B9)}${chosenService.price}, to bag`}
+                          accessibilityLabel={`Add ${cloth.name}, ${chosenService.displayName}, ₹${chosenService.price}, to bag`}
                         >
                           <MaterialCommunityIcons name="plus" size={13} color="#FF6B0B" />
                           <Text style={styles.addBtnTextCompact}>ADD</Text>
                         </Pressable>
                       )}
                     </View>
+
+                    {/* Quick Link to Custom Care Options */}
+                    <Pressable
+                      style={styles.customCareLink}
+                      onPress={() => onSelectProduct?.(cloth)}
+                      hitSlop={4}
+                    >
+                      <Text style={styles.customCareLinkText}>Options & care</Text>
+                      <MaterialCommunityIcons name="arrow-right" size={11} color="#EA580C" />
+                    </Pressable>
                   </View>
                 </View>
               );
@@ -1159,22 +1236,24 @@ const styles = StyleSheet.create({
     backgroundColor: '#F8FAFC',
   },
 
-  /* 1. Top App Bar (54px) */
+  /* 1. Top App Bar (52px) */
   topBar: {
-    height: 54,
+    height: 52,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
+    paddingHorizontal: 14,
     backgroundColor: '#FFFFFF',
     borderBottomWidth: 1,
     borderBottomColor: '#F1F5F9',
-    gap: 12,
+    gap: 10,
   },
   backBtn: {
     width: 38,
     height: 38,
-    borderRadius: 19,
+    borderRadius: 12,
     backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1187,29 +1266,58 @@ const styles = StyleSheet.create({
     color: '#0F172A',
     letterSpacing: -0.2,
   },
+  countBadgePill: {
+    backgroundColor: '#FFF7ED',
+    borderWidth: 1,
+    borderColor: '#FED7AA',
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    borderRadius: 8,
+  },
+  countBadgePillText: {
+    fontSize: 10,
+    fontWeight: '900',
+    color: '#EA580C',
+  },
   topBarSubtitle: {
     fontSize: 11,
     color: '#64748B',
     fontWeight: '600',
     marginTop: 1,
   },
+  headerActionBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 12,
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerActionBtnActive: {
+    backgroundColor: '#FFF7ED',
+    borderColor: '#FED7AA',
+  },
   cartBtn: {
     width: 38,
     height: 38,
-    borderRadius: 19,
+    borderRadius: 12,
     backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
     alignItems: 'center',
     justifyContent: 'center',
     position: 'relative',
   },
   cartBadge: {
     position: 'absolute',
-    top: 2,
-    right: 2,
+    top: -3,
+    right: -3,
     backgroundColor: '#FF6B0B',
-    minWidth: 16,
-    height: 16,
-    borderRadius: 8,
+    minWidth: 17,
+    height: 17,
+    borderRadius: 8.5,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 3,
@@ -1225,32 +1333,32 @@ const styles = StyleSheet.create({
   /* 2. Main Category Tabs (36px) */
   categoryTabsContainer: {
     backgroundColor: '#FFFFFF',
-    paddingVertical: 6,
+    paddingVertical: 8,
     borderBottomWidth: 1,
     borderBottomColor: '#F1F5F9',
   },
   categoryTabsScroll: {
-    paddingHorizontal: 16,
+    paddingHorizontal: 14,
     gap: 8,
     paddingRight: 24,
   },
   categoryPill: {
-    height: 32,
+    height: 34,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 12,
-    borderRadius: 16,
+    paddingHorizontal: 14,
+    borderRadius: 17,
   },
   categoryPillSelected: {
     backgroundColor: '#FF6B0B',
     shadowColor: '#FF6B0B',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
-    elevation: 2,
+    shadowOpacity: 0.3,
+    shadowRadius: 5,
+    elevation: 3,
   },
   categoryPillUnselected: {
-    backgroundColor: '#F8FAFC',
+    backgroundColor: '#FFFFFF',
     borderWidth: 1,
     borderColor: '#E2E8F0',
   },
@@ -1265,22 +1373,22 @@ const styles = StyleSheet.create({
     color: '#475569',
   },
 
-  /* 3. Search Bar (40px) */
+  /* 3. Search Bar */
   searchBarWrap: {
     backgroundColor: '#FFFFFF',
-    paddingHorizontal: 16,
+    paddingHorizontal: 14,
     paddingVertical: 6,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
   },
   searchBar: {
     height: 38,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F8FAFC',
-    borderRadius: 19,
+    backgroundColor: '#F1F5F9',
+    borderRadius: 12,
     paddingHorizontal: 12,
     gap: 8,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
   },
   searchInput: {
     flex: 1,
@@ -1295,21 +1403,21 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderBottomWidth: 1,
     borderBottomColor: '#F1F5F9',
-    paddingVertical: 8,
+    paddingVertical: 10,
   },
   subcatCarouselScroll: {
-    paddingHorizontal: 16,
+    paddingHorizontal: 14,
     gap: 12,
     paddingRight: 24,
   },
   subcatCircleItem: {
-    width: 58,
+    width: 60,
     alignItems: 'center',
   },
   subcatCircleWrap: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: 50,
+    height: 50,
+    borderRadius: 25,
     backgroundColor: '#F1F5F9',
     alignItems: 'center',
     justifyContent: 'center',
@@ -1320,7 +1428,7 @@ const styles = StyleSheet.create({
   },
   subcatCircleWrapSelected: {
     borderColor: '#FF6B0B',
-    borderWidth: 2,
+    borderWidth: 2.5,
     backgroundColor: '#FFF7ED',
   },
   subcatIconLayer: {
@@ -1333,17 +1441,17 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   subcatCircleImg: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: 50,
+    height: 50,
+    borderRadius: 25,
   },
   subcatCircleText: {
-    fontSize: 10,
+    fontSize: 10.5,
     fontWeight: '600',
     color: '#64748B',
     textAlign: 'center',
-    marginTop: 4,
-    lineHeight: 12,
+    marginTop: 5,
+    lineHeight: 13,
   },
   subcatCircleTextSelected: {
     color: '#FF6B0B',
@@ -1354,13 +1462,17 @@ const styles = StyleSheet.create({
   filterSortBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
     backgroundColor: '#FFFFFF',
-    paddingVertical: 6,
-    paddingHorizontal: 12,
+    paddingVertical: 8,
+    paddingHorizontal: 14,
     borderBottomWidth: 1,
-    borderBottomColor: '#E2E8F0',
-    gap: 8,
+    borderBottomColor: '#F1F5F9',
+  },
+  filterDivider: {
+    width: 1,
+    height: 18,
+    backgroundColor: '#E2E8F0',
+    marginHorizontal: 8,
   },
   serviceFilterScrollView: {
     flex: 1,
@@ -1368,14 +1480,14 @@ const styles = StyleSheet.create({
   serviceFilterScroll: {
     gap: 6,
     alignItems: 'center',
-    paddingRight: 6,
+    paddingRight: 16,
   },
   serviceChipCompact: {
-    height: 28,
+    height: 30,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 10,
-    borderRadius: 14,
+    paddingHorizontal: 12,
+    borderRadius: 15,
   },
   serviceChipCompactSelected: {
     backgroundColor: '#FFF7ED',
@@ -1400,13 +1512,13 @@ const styles = StyleSheet.create({
   },
   sortButtonPill: {
     flexShrink: 0,
-    height: 28,
+    height: 30,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 9,
-    borderRadius: 14,
+    paddingHorizontal: 10,
+    borderRadius: 15,
     backgroundColor: '#FFFFFF',
-    borderWidth: 1.5,
+    borderWidth: 1,
     borderColor: '#E2E8F0',
     gap: 3,
     shadowColor: '#0F172A',
@@ -1433,24 +1545,24 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 10,
-    justifyContent: 'space-between',
   },
   productCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 12,
+    borderRadius: 18,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: '#F1F5F9',
     overflow: 'hidden',
     shadowColor: '#0F172A',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 3,
-    elevation: 1,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.07,
+    shadowRadius: 10,
+    elevation: 3,
+    marginBottom: 12,
   },
 
   /* Card Image */
   cardImageContainer: {
-    height: 110,
+    height: 124,
     backgroundColor: '#F8FAFC',
     position: 'relative',
     overflow: 'hidden',
@@ -1472,62 +1584,97 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  cardSubcatBadge: {
+    position: 'absolute',
+    top: 7,
+    left: 7,
+    backgroundColor: 'rgba(255, 255, 255, 0.92)',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  cardSubcatBadgeText: {
+    fontSize: 9,
+    fontWeight: '800',
+    color: '#475569',
+    letterSpacing: 0.2,
+  },
   favoriteCircleBtn: {
     position: 'absolute',
-    top: 6,
-    right: 6,
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    top: 7,
+    right: 7,
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: 'rgba(255, 255, 255, 0.92)',
     alignItems: 'center',
     justifyContent: 'center',
-    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.12,
+    shadowRadius: 4,
+    elevation: 3,
   },
   turnaroundBadge: {
     position: 'absolute',
-    left: 6,
-    bottom: 6,
+    left: 7,
+    bottom: 7,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 3,
-    backgroundColor: '#EFF6FF',
-    paddingHorizontal: 5,
-    paddingVertical: 2,
-    borderRadius: 4,
-    borderWidth: 0.5,
-    borderColor: '#BFDBFE',
+    backgroundColor: 'rgba(15, 23, 42, 0.78)',
+    paddingHorizontal: 6,
+    paddingVertical: 2.5,
+    borderRadius: 6,
   },
   turnaroundBadgeText: {
     fontSize: 9.5,
     fontWeight: '800',
-    color: '#2563EB',
+    color: '#FFFFFF',
+    letterSpacing: 0.3,
   },
 
   /* Card Body */
   cardBody: {
-    padding: 8,
+    padding: 10,
+    justifyContent: 'space-between',
+    minHeight: 126,
+  },
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 2,
   },
   productCardTitle: {
-    fontSize: 13,
-    fontWeight: '700',
+    fontSize: 13.5,
+    fontWeight: '800',
     color: '#0F172A',
-    marginBottom: 4,
+    letterSpacing: -0.2,
+    flex: 1,
   },
   serviceMiniRow: {
     flexDirection: 'row',
     gap: 4,
-    flexWrap: 'wrap',
-    marginBottom: 6,
+    alignItems: 'center',
+    marginVertical: 4,
   },
   serviceMiniPill: {
     paddingHorizontal: 6,
     paddingVertical: 2.5,
-    borderRadius: 4,
+    borderRadius: 5,
     backgroundColor: '#F1F5F9',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
   },
   serviceMiniPillActive: {
-    backgroundColor: '#FF6B0B',
+    backgroundColor: '#FFF7ED',
+    borderColor: '#FF6B0B',
   },
   serviceMiniText: {
     fontSize: 9.5,
@@ -1535,14 +1682,14 @@ const styles = StyleSheet.create({
     color: '#64748B',
   },
   serviceMiniTextActive: {
-    color: '#FFFFFF',
+    color: '#EA580C',
     fontWeight: '800',
   },
   priceAndActionRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginTop: 2,
+    marginTop: 3,
   },
   priceCol: {
     flexDirection: 'row',
@@ -1551,51 +1698,74 @@ const styles = StyleSheet.create({
     minWidth: 0,
   },
   priceText: {
-    fontSize: 16,
+    fontSize: 17,
     fontWeight: '900',
     color: '#0F172A',
+    letterSpacing: -0.3,
   },
   priceUnitText: {
-    fontSize: 9.5,
+    fontSize: 10,
     color: '#64748B',
     fontWeight: '600',
   },
   addBtnCompact: {
-    height: 28,
-    paddingHorizontal: 10,
-    borderRadius: 6,
+    height: 30,
+    paddingHorizontal: 12,
+    borderRadius: 8,
     backgroundColor: '#FFF7ED',
-    borderWidth: 1,
+    borderWidth: 1.5,
     borderColor: '#FF6B0B',
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 2,
+    gap: 3,
+    shadowColor: '#FF6B0B',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.15,
+    shadowRadius: 2,
+    elevation: 1,
   },
   addBtnTextCompact: {
-    fontSize: 11,
-    fontWeight: '800',
+    fontSize: 11.5,
+    fontWeight: '900',
     color: '#FF6B0B',
+    letterSpacing: 0.3,
   },
   stepperCompact: {
-    height: 28,
-    borderRadius: 6,
+    height: 30,
+    borderRadius: 8,
     backgroundColor: '#FF6B0B',
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 4,
+    shadowColor: '#FF6B0B',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3,
+    elevation: 2,
   },
   stepperActionBtnCompact: {
-    width: 20,
-    height: 20,
+    width: 22,
+    height: 22,
     alignItems: 'center',
     justifyContent: 'center',
   },
   stepperQtyCompact: {
     color: '#FFFFFF',
-    fontSize: 12,
-    fontWeight: '800',
-    minWidth: 18,
+    fontSize: 12.5,
+    fontWeight: '900',
+    minWidth: 20,
     textAlign: 'center',
+  },
+  customCareLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+    marginTop: 4,
+  },
+  customCareLinkText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#EA580C',
   },
 
   /* Empty & Loading */
@@ -1653,18 +1823,18 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   stickyCartBar: {
-    height: 56,
+    height: 58,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     backgroundColor: '#0F172A',
-    borderRadius: 16,
+    borderRadius: 18,
     paddingHorizontal: 14,
     shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
-    shadowRadius: 8,
-    elevation: 8,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.28,
+    shadowRadius: 12,
+    elevation: 10,
   },
   cartBarLeft: {
     flexDirection: 'row',
@@ -1673,9 +1843,9 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   cartBarIconBadge: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     backgroundColor: '#FF6B0B',
     alignItems: 'center',
     justifyContent: 'center',
@@ -1710,6 +1880,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: 12,
+    shadowColor: '#FF6B0B',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.35,
+    shadowRadius: 4,
+    elevation: 3,
   },
   cartBarActionText: {
     color: '#FFFFFF',

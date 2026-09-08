@@ -17,14 +17,17 @@ import { useApp } from '@/context/AppContext';
 import { COLORS, money } from '@/ui/theme';
 import { getGarmentImageUrl } from '@/lib/garment-photos';
 import { api } from '@/lib/api';
+import type { ProductItem } from '@/types/domain';
 
 interface SearchScreenProps {
   onBook: () => void;
+  onBack?: () => void;
+  onSelectProduct?: (product: ProductItem) => void;
 }
 
 const RECENT_SEARCHES_KEY = '@laundryfresh_recent_searches';
 
-export function SearchScreen({ onBook }: SearchScreenProps) {
+export function SearchScreen({ onBook, onBack, onSelectProduct }: SearchScreenProps) {
   const insets = useSafeAreaInsets();
   const { cart, cartSummary, addCartItem, setCartQuantity, removeFromCart, catalog } = useApp();
   const [query, setQuery] = useState('');
@@ -213,6 +216,87 @@ export function SearchScreen({ onBook }: SearchScreenProps) {
     return [];
   }, [searchResults, query]);
 
+  const handleOpenProductDetail = (item: any) => {
+    if (!onSelectProduct) return;
+
+    const cloth = catalog?.clothTypes?.find((c: any) => c.id === item.id);
+    const matrix = Array.isArray(catalog?.priceMatrix)
+      ? catalog.priceMatrix.filter((p: any) => p && (p.clothTypeId === item.id || p.clothId === item.id) && p.isActive !== false)
+      : [];
+
+    let services: any[] = [];
+    if (matrix.length > 0) {
+      services = matrix.map((pm: any) => {
+        const sName = pm.serviceName || (pm.serviceCode === 'PRESS' ? 'Steam Press' : pm.serviceCode === 'DRY_CLEAN' ? 'Dry Cleaning' : 'Wash & Iron');
+        const code = pm.serviceCode || (sName.toLowerCase().includes('dry') ? 'DRY_CLEAN' : sName.toLowerCase().includes('wash') ? 'WASH_IRON' : 'PRESS');
+        return {
+          serviceId: pm.serviceId || `srv-${item.id}`,
+          serviceName: sName,
+          displayName: sName,
+          shortLabel: code === 'PRESS' ? 'Press' : code === 'DRY_CLEAN' ? 'Dry Clean' : 'Wash+Iron',
+          serviceCode: code,
+          price: Number(pm.price) || item.price,
+          icon: code === 'PRESS' ? 'iron' : code === 'DRY_CLEAN' ? 'coat-rack' : 'washing-machine',
+          unit: pm.unit || item.unit || 'Piece',
+          turnaroundHours: Number(pm.turnaroundHours) || 24,
+        };
+      });
+    }
+
+    if (services.length === 0) {
+      services = [
+        {
+          serviceId: `srv-${item.id}-press`,
+          serviceName: 'Steam Press',
+          displayName: 'Steam Press',
+          shortLabel: 'Press',
+          serviceCode: 'PRESS',
+          price: item.price,
+          icon: 'iron',
+          unit: item.unit || 'Piece',
+          turnaroundHours: 24,
+        },
+        {
+          serviceId: `srv-${item.id}-wash-iron`,
+          serviceName: 'Wash & Iron',
+          displayName: 'Wash & Iron',
+          shortLabel: 'Wash+Iron',
+          serviceCode: 'WASH_IRON',
+          price: Math.round(item.price * 1.5),
+          icon: 'washing-machine',
+          unit: item.unit || 'Piece',
+          turnaroundHours: 48,
+        },
+        {
+          serviceId: `srv-${item.id}-dry-clean`,
+          serviceName: 'Dry Cleaning',
+          displayName: 'Dry Cleaning',
+          shortLabel: 'Dry Clean',
+          serviceCode: 'DRY_CLEAN',
+          price: Math.round(item.price * 2.2),
+          icon: 'coat-rack',
+          unit: item.unit || 'Piece',
+          turnaroundHours: 48,
+        },
+      ];
+    }
+
+    const product: ProductItem = {
+      id: item.id,
+      name: item.name,
+      categoryTag: item.category || cloth?.categoryTag || 'MENS',
+      categoryLabel: item.category || cloth?.categoryLabel || "Men's Wear",
+      subcategory: cloth?.subCategory || 'General',
+      imageUrl: item.imageUrl || cloth?.imageUrl,
+      fallbackImageUrl: getGarmentImageUrl(item.id, undefined, item.category || cloth?.categoryTag, item.name),
+      description: cloth?.description,
+      services,
+      minPrice: Math.min(...services.map((s: any) => s.price)),
+    };
+
+    onSelectProduct(product);
+  };
+
   const handleSelectKeyword = (term: string) => {
     const clean = String(term || '').trim();
     if (!clean) return;
@@ -225,7 +309,12 @@ export function SearchScreen({ onBook }: SearchScreenProps) {
     <View style={styles.root}>
       {/* Top Search Input Bar */}
       <View style={styles.header}>
-        <View style={styles.searchBar}>
+        {onBack ? (
+          <Pressable onPress={onBack} hitSlop={12} style={styles.headerBackBtn} accessibilityLabel="Back">
+            <MaterialCommunityIcons name="arrow-left" size={24} color="#0F172A" />
+          </Pressable>
+        ) : null}
+        <View style={[styles.searchBar, onBack ? { flex: 1 } : null]}>
           <MaterialCommunityIcons name="magnify" size={20} color="#2563EB" style={styles.searchIcon} />
           <TextInput
             style={styles.searchInput}
@@ -438,7 +527,13 @@ export function SearchScreen({ onBook }: SearchScreenProps) {
                   const qty = foundInCart ? foundInCart.quantity : 0;
 
                   return (
-                    <View key={item.id} style={styles.garmentCard}>
+                    <Pressable
+                      key={item.id}
+                      style={styles.garmentCard}
+                      onPress={() => handleOpenProductDetail(item)}
+                      accessibilityRole="button"
+                      accessibilityLabel={`View details for ${item.name}`}
+                    >
                       <View style={styles.garmentThumbWrap}>
                         <Image source={{ uri: item.imageUrl }} style={styles.garmentThumb} resizeMode="cover" />
                         <View style={styles.tatBadge}>
@@ -503,7 +598,7 @@ export function SearchScreen({ onBook }: SearchScreenProps) {
                           )}
                         </View>
                       </View>
-                    </View>
+                    </Pressable>
                   );
                 })}
               </View>
@@ -545,13 +640,24 @@ const styles = StyleSheet.create({
     backgroundColor: '#F8FAFC',
   },
   header: {
+    flexDirection: 'row',
+    alignItems: 'center',
     backgroundColor: '#FFFFFF',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
     borderBottomWidth: 1,
     borderBottomColor: '#F1F5F9',
+    gap: 8,
+  },
+  headerBackBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   searchBar: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#F1F5F9',

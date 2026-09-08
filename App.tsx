@@ -1,6 +1,6 @@
-import { ExpandableFAB } from '@/components/ExpandableFAB';
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { Animated, BackHandler, Easing, Image, PanResponder, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Animated, BackHandler, Easing, Image, Linking, PanResponder, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { StatusBar } from 'expo-status-bar';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as Notifications from 'expo-notifications';
@@ -29,6 +29,8 @@ import { PricingScreen } from '@/screens/PricingScreen';
 import { ProfileScreen } from '@/screens/ProfileScreen';
 import { ServicesScreen } from '@/screens/ServicesScreen';
 import { SubscriptionsScreen } from '@/screens/SubscriptionsScreen';
+import { ProductDetailScreen } from '@/screens/ProductDetailScreen';
+import type { ProductItem } from '@/types/domain';
 import { WelcomeScreen } from '@/screens/WelcomeScreen';
 import { runFirstLaunchPermissions } from '@/services/permissions/permissionCoordinator';
 import { WishlistScreen } from '@/screens/WishlistScreen';
@@ -41,7 +43,7 @@ import { APP_THEME, COLORS } from '@/ui/theme';
 import './global.css';
 
 type MainTab = 'HOME' | 'SERVICES' | 'CART' | 'ORDERS' | 'PROFILE';
-type DetailRoute = 'BOOK' | 'WISHLIST' | 'OFFERS' | 'PRICING' | 'ADDRESSES' | 'LOCATION' | 'ORDER_DETAIL' | 'SEARCH' | 'NOTIFICATIONS' | 'HELP' | 'PAYMENT_METHODS' | 'REFERRAL' | 'WALLET' | 'SETTINGS' | 'RATING' | 'STATS' | 'LIVE_CHAT' | 'CATEGORY_CATALOG' | 'BULK_LAUNDRY' | 'SUBSCRIPTIONS';
+type DetailRoute = 'BOOK' | 'WISHLIST' | 'OFFERS' | 'PRICING' | 'ADDRESSES' | 'LOCATION' | 'ORDER_DETAIL' | 'SEARCH' | 'NOTIFICATIONS' | 'HELP' | 'PAYMENT_METHODS' | 'REFERRAL' | 'WALLET' | 'SETTINGS' | 'RATING' | 'STATS' | 'LIVE_CHAT' | 'CATEGORY_CATALOG' | 'BULK_LAUNDRY' | 'SUBSCRIPTIONS' | 'PRODUCT_DETAIL';
 type LoginReason = 'ACCOUNT' | 'CHECKOUT';
 type AppRoute = MainTab | DetailRoute | 'AUTH';
 type NavigationState = { route: AppRoute; history: AppRoute[] };
@@ -81,6 +83,7 @@ const detailTitles: Record<DetailRoute, string> = {
   CATEGORY_CATALOG: 'Garment Collection',
   BULK_LAUNDRY: 'Bulk Laundry (Pay by KG)',
   SUBSCRIPTIONS: 'My Subscriptions',
+  PRODUCT_DETAIL: 'Product Details',
 };
 
 const detailBackRoute: Record<DetailRoute, MainTab> = {
@@ -104,6 +107,7 @@ const detailBackRoute: Record<DetailRoute, MainTab> = {
   STATS: 'PROFILE',
   LIVE_CHAT: 'PROFILE',
   SUBSCRIPTIONS: 'PROFILE',
+  PRODUCT_DETAIL: 'HOME',
 };
 
 function LoadingScreen() {
@@ -262,10 +266,21 @@ function LoadingScreen() {
 function DetailShell({ title, onBack, children }: { title: string; onBack: () => void; children: ReactNode }) {
   return (
     <View style={styles.detailRoot}>
-      <Appbar.Header mode="small" style={styles.appbar} elevated>
-        <Appbar.BackAction onPress={onBack} color={COLORS.plum} />
-        <Appbar.Content title={title} titleStyle={styles.appbarTitle} />
-      </Appbar.Header>
+      <View style={styles.detailHeader}>
+        <Pressable
+          style={styles.detailBackBtn}
+          onPress={onBack}
+          hitSlop={12}
+          accessibilityRole="button"
+          accessibilityLabel="Go back"
+        >
+          <MaterialCommunityIcons name="arrow-left" size={22} color="#0F172A" />
+        </Pressable>
+        <Text style={styles.detailTitle} numberOfLines={1}>
+          {title}
+        </Text>
+        <View style={styles.detailHeaderSpacer} />
+      </View>
       <View style={styles.detailContent}>{children}</View>
     </View>
   );
@@ -297,6 +312,28 @@ function AuthenticatedApp() {
     ownerId: session?.user.id ?? null,
     refreshOnForeground: true,
   });
+
+  const cartScaleAnim = useRef(new Animated.Value(1)).current;
+  const prevCartCountRef = useRef(cartSummary.itemCount);
+
+  useEffect(() => {
+    if (cartSummary.itemCount > prevCartCountRef.current) {
+      Animated.sequence([
+        Animated.timing(cartScaleAnim, {
+          toValue: 1.25,
+          duration: 140,
+          useNativeDriver: true,
+        }),
+        Animated.spring(cartScaleAnim, {
+          toValue: 1,
+          friction: 4,
+          tension: 90,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    }
+    prevCartCountRef.current = cartSummary.itemCount;
+  }, [cartSummary.itemCount, cartScaleAnim]);
 
   useEffect(() => {
     if (permissionsRunRef.current) return;
@@ -348,6 +385,7 @@ function AuthenticatedApp() {
     serviceCode?: string;
     serviceName?: string;
   }>({ tag: 'MENS', title: "Men's Wear", serviceCode: 'ALL', serviceName: 'All Services' });
+  const [selectedProductForDetail, setSelectedProductForDetail] = useState<ProductItem | null>(null);
   const [loginReason, setLoginReason] = useState<LoginReason>('ACCOUNT');
   const [resumeCheckout, setResumeCheckout] = useState(false);
   const [selectedOrderId, setSelectedOrderId] = useState('');
@@ -441,6 +479,30 @@ function AuthenticatedApp() {
     setCouponCode(code);
     navigateTo('BOOK');
   };
+
+  // Handle incoming deep links (e.g. laundryfresh://invite?code=LFD7E5EE or https://laundryfresh.in/download?ref=LFD7E5EE)
+  useEffect(() => {
+    const handleDeepLink = async (url: string | null) => {
+      if (!url) return;
+      try {
+        const match = url.match(/[?&](?:ref|code)=([A-Za-z0-9]+)/i);
+        if (match && match[1]) {
+          const clean = match[1].trim().toUpperCase();
+          await AsyncStorage.setItem('@pending_referral_code', clean);
+          if (!session) {
+            setLoginReason('ACCOUNT');
+            navigateTo('AUTH');
+          }
+        }
+      } catch (err) {
+        console.warn('[App] Deep link parse error:', err);
+      }
+    };
+
+    Linking.getInitialURL().then(handleDeepLink).catch(() => {});
+    const sub = Linking.addEventListener('url', (event) => handleDeepLink(event.url));
+    return () => sub.remove();
+  }, [session, navigateTo]);
 
   useEffect(() => {
     if (session && route === 'AUTH') {
@@ -628,7 +690,25 @@ function AuthenticatedApp() {
         onBack={() => goBack('HOME')}
         onOpenCart={() => navigateTo('CART')}
         onOpenBulkLaundry={() => navigateTo('BULK_LAUNDRY')}
+        onSelectProduct={(product) => {
+          setSelectedProductForDetail(product);
+          navigateTo('PRODUCT_DETAIL');
+        }}
       />
+    );
+  } else if (route === 'PRODUCT_DETAIL') {
+    screen = selectedProductForDetail ? (
+      <ProductDetailScreen
+        product={selectedProductForDetail}
+        onBack={() => goBack()}
+        onViewCart={() => navigateTo('CART')}
+      />
+    ) : (
+      <DetailShell title="Product Details" onBack={() => goBack('HOME')}>
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+          <Text style={{ fontSize: 16, color: '#64748B' }}>No product selected.</Text>
+        </View>
+      </DetailShell>
     );
   } else if (route === 'LOCATION') {
     screen = (
@@ -724,9 +804,14 @@ function AuthenticatedApp() {
     );
   } else if (route === 'SEARCH') {
     screen = (
-      <DetailShell title={detailTitles.SEARCH} onBack={() => goBack(detailBackRoute.SEARCH)}>
-        <SearchScreen onBook={startBooking} />
-      </DetailShell>
+      <SearchScreen
+        onBook={startBooking}
+        onBack={() => goBack(detailBackRoute.SEARCH)}
+        onSelectProduct={(product) => {
+          setSelectedProductForDetail(product);
+          navigateTo('PRODUCT_DETAIL');
+        }}
+      />
     );
   } else if (route === 'NOTIFICATIONS') {
     screen = (
@@ -745,24 +830,20 @@ function AuthenticatedApp() {
     );
   } else if (route === 'REFERRAL') {
     screen = (
-      <DetailShell title={detailTitles.REFERRAL} onBack={() => goBack(detailBackRoute.REFERRAL)}>
-        <ReferralScreen
-          onUseReward={startBooking}
-          onSignIn={() => openLogin('ACCOUNT')}
-          onNavigateWallet={() => navigateTo('WALLET')}
-          onBack={() => goBack(detailBackRoute.REFERRAL)}
-        />
-      </DetailShell>
+      <ReferralScreen
+        onUseReward={startBooking}
+        onSignIn={() => openLogin('ACCOUNT')}
+        onNavigateWallet={() => navigateTo('WALLET')}
+        onBack={() => goBack(detailBackRoute.REFERRAL)}
+      />
     );
   } else if (route === 'WALLET') {
     screen = (
-      <DetailShell title={detailTitles.WALLET} onBack={() => goBack(detailBackRoute.WALLET)}>
-        <WalletScreen
-          onBack={() => goBack(detailBackRoute.WALLET)}
-          onNavigateReferral={() => navigateTo('REFERRAL')}
-          onSignIn={() => openLogin('ACCOUNT')}
-        />
-      </DetailShell>
+      <WalletScreen
+        onBack={() => goBack(detailBackRoute.WALLET)}
+        onNavigateReferral={() => navigateTo('REFERRAL')}
+        onSignIn={() => openLogin('ACCOUNT')}
+      />
     );
   } else if (route === 'SETTINGS') {
     screen = (
@@ -790,7 +871,9 @@ function AuthenticatedApp() {
     );
   }
 
-  const showingDetail = !tabs.some((tab) => tab.key === route);
+  // Only show the bottom navigation bar on primary discovery tabs.
+  // Checkout flow (CART / BOOK) and detail screens hide it so the action bar is never obstructed.
+  const showBottomNav = ['HOME', 'SERVICES', 'ORDERS', 'PROFILE'].includes(route);
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
@@ -799,21 +882,52 @@ function AuthenticatedApp() {
           {screen}
         </AppErrorBoundary>
       </View>
-      {!showingDetail ? (
-        <View style={styles.customTabBarContainer}>
+      {showBottomNav ? (
+        <View style={styles.customTabBarContainer} pointerEvents="box-none">
+          {/* FLOATING QUICK-CHECKOUT CART BAR (Blinkit / Swiggy style) */}
+          {cartSummary.itemCount > 0 && route !== 'CART' && (
+            <Animated.View style={styles.floatingCartBarWrap}>
+              <Pressable
+                style={({ pressed }) => [
+                  styles.floatingCartBar,
+                  pressed && { opacity: 0.92, transform: [{ scale: 0.98 }] },
+                ]}
+                onPress={() => navigateTo('CART')}
+                accessibilityRole="button"
+                accessibilityLabel={`View cart, ${cartSummary.itemCount} items, total ${cartSummary.itemTotal} rupees`}
+              >
+                <View style={styles.floatingCartLeft}>
+                  <View style={styles.floatingCartIconBadge}>
+                    <MaterialCommunityIcons name="shopping" size={18} color="#FFFFFF" />
+                  </View>
+                  <View>
+                    <Text style={styles.floatingCartCountText}>
+                      {cartSummary.itemCount} {cartSummary.itemCount === 1 ? 'item' : 'items'} in bag
+                    </Text>
+                    <Text style={styles.floatingCartPriceText}>₹{cartSummary.itemTotal}</Text>
+                  </View>
+                </View>
+                <View style={styles.floatingCartRightBtn}>
+                  <Text style={styles.floatingCartBtnText}>View Bag</Text>
+                  <MaterialCommunityIcons name="arrow-right" size={16} color="#FFFFFF" />
+                </View>
+              </Pressable>
+            </Animated.View>
+          )}
+
+          {/* MAIN FLOATING PILL TAB BAR */}
           <View style={styles.customTabBar}>
+            {/* TABS 0 & 1: HOME & SERVICES */}
             {tabs.slice(0, 2).map((tab) => {
               const isActive = route === tab.key;
-              const hasCartBadge = tab.key === 'CART' && cartSummary.itemCount > 0;
-              const hasOrdersBadge = tab.key === 'ORDERS' && orders.some((o) => !['COMPLETED', 'DELIVERED', 'CANCELLED'].includes(o.currentStatus));
 
               return (
                 <Pressable
                   key={tab.key}
                   style={[styles.tabItem, isActive && styles.tabItemActive]}
-                  onPress={() => {
-                    navigateTo(tab.key);
-                  }}
+                  onPress={() => navigateTo(tab.key)}
+                  accessibilityRole="button"
+                  accessibilityLabel={tab.title}
                 >
                   <View style={styles.tabIconWrap}>
                     <MaterialCommunityIcons
@@ -821,12 +935,6 @@ function AuthenticatedApp() {
                       size={22}
                       color={isActive ? '#FF7A00' : '#94A3B8'}
                     />
-                    {hasCartBadge && (
-                      <View style={styles.tabBadge}>
-                        <Text style={styles.tabBadgeText}>{cartSummary.itemCount}</Text>
-                      </View>
-                    )}
-                    {hasOrdersBadge && <View style={styles.tabDotBadge} />}
                   </View>
                   <Text style={[styles.tabLabel, isActive && styles.tabLabelActive]}>
                     {tab.title}
@@ -835,45 +943,52 @@ function AuthenticatedApp() {
               );
             })}
 
-            {/* CENTER EXPANDABLE FAB */}
-            <ExpandableFAB
-              mainIcon="shopping"
-              mainAction={() => navigateTo('CART')}
-              badge={cartSummary.itemCount}
-              actions={[
-                {
-                  icon: 'shopping',
-                  label: 'View Cart',
-                  onPress: () => navigateTo('CART'),
-                  color: '#FF7A00',
-                },
-                {
-                  icon: 'tag-multiple',
-                  label: 'Offers',
-                  onPress: () => navigateTo('OFFERS'),
-                  color: '#8B5CF6',
-                },
-                {
-                  icon: 'heart-outline',
-                  label: 'Wishlist',
-                  onPress: () => navigateTo('WISHLIST'),
-                  color: '#EC4899',
-                },
-              ]}
-            />
+            {/* CENTER ELEVATED HERO CART TAB (1-Tap Direct Checkout) */}
+            <View style={styles.centerFabWrap} pointerEvents="box-none">
+              <Pressable
+                style={({ pressed }) => [
+                  styles.centerFab,
+                  route === 'CART' && styles.centerFabActive,
+                  pressed && { transform: [{ scale: 0.92 }] },
+                ]}
+                onPress={() => navigateTo('CART')}
+                accessibilityRole="button"
+                accessibilityLabel={`Shopping Bag, ${cartSummary.itemCount} items`}
+              >
+                <Animated.View style={{ transform: [{ scale: cartScaleAnim }], alignItems: 'center', justifyContent: 'center' }}>
+                  <MaterialCommunityIcons
+                    name="shopping"
+                    size={26}
+                    color="#FFFFFF"
+                  />
+                </Animated.View>
+                {cartSummary.itemCount > 0 && (
+                  <View style={styles.centerFabBadge}>
+                    <Text style={styles.centerFabBadgeText}>
+                      {cartSummary.itemCount > 99 ? '99+' : cartSummary.itemCount}
+                    </Text>
+                  </View>
+                )}
+              </Pressable>
+              <Text style={[styles.centerFabLabel, route === 'CART' && styles.tabLabelActive]}>
+                Bag
+              </Text>
+            </View>
 
+            {/* TABS 3 & 4: ORDERS & PROFILE */}
             {tabs.slice(3, 5).map((tab) => {
               const isActive = route === tab.key;
-              const hasCartBadge = tab.key === 'CART' && cartSummary.itemCount > 0;
-              const hasOrdersBadge = tab.key === 'ORDERS' && orders.some((o) => !['COMPLETED', 'DELIVERED', 'CANCELLED'].includes(o.currentStatus));
+              const hasOrdersBadge =
+                tab.key === 'ORDERS' &&
+                orders.some((o) => !['COMPLETED', 'DELIVERED', 'CANCELLED'].includes(o.currentStatus));
 
               return (
                 <Pressable
                   key={tab.key}
                   style={[styles.tabItem, isActive && styles.tabItemActive]}
-                  onPress={() => {
-                    navigateTo(tab.key);
-                  }}
+                  onPress={() => navigateTo(tab.key)}
+                  accessibilityRole="button"
+                  accessibilityLabel={tab.title}
                 >
                   <View style={styles.tabIconWrap}>
                     <MaterialCommunityIcons
@@ -881,11 +996,6 @@ function AuthenticatedApp() {
                       size={22}
                       color={isActive ? '#FF7A00' : '#94A3B8'}
                     />
-                    {hasCartBadge && (
-                      <View style={styles.tabBadge}>
-                        <Text style={styles.tabBadgeText}>{cartSummary.itemCount}</Text>
-                      </View>
-                    )}
                     {hasOrdersBadge && <View style={styles.tabDotBadge} />}
                   </View>
                   <Text style={[styles.tabLabel, isActive && styles.tabLabelActive]}>
@@ -959,46 +1069,113 @@ const styles = StyleSheet.create({
     elevation: 8,
     position: 'relative',
   },
-  fabContainer: {
-    position: 'absolute',
-    top: -28,
-    left: '50%',
-    marginLeft: -30,
-    zIndex: 10,
+  floatingCartBarWrap: {
+    marginHorizontal: 16,
+    marginBottom: 8,
   },
-  fab: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
+  floatingCartBar: {
+    height: 52,
+    backgroundColor: '#0F172A',
+    borderRadius: 18,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 12,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.22,
+    shadowRadius: 10,
+    elevation: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  floatingCartLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    flex: 1,
+  },
+  floatingCartIconBadge: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#FF7A00',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  floatingCartCountText: {
+    color: '#94A3B8',
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  floatingCartPriceText: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '800',
+  },
+  floatingCartRightBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#FF7A00',
+    paddingVertical: 7,
+    paddingHorizontal: 14,
+    borderRadius: 14,
+  },
+  floatingCartBtnText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  centerFabWrap: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: -22,
+    marginHorizontal: 4,
+  },
+  centerFab: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
     backgroundColor: '#FF7A00',
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: '#FF7A00',
-    shadowOffset: { width: 0, height: 8 },
+    shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.4,
-    shadowRadius: 16,
-    elevation: 12,
-    borderWidth: 4,
+    shadowRadius: 12,
+    elevation: 10,
+    borderWidth: 3.5,
     borderColor: '#FFFFFF',
   },
-  fabBadge: {
+  centerFabActive: {
+    backgroundColor: '#EA580C',
+    borderColor: '#FFF7ED',
+  },
+  centerFabBadge: {
     position: 'absolute',
-    top: -4,
-    right: -4,
+    top: -3,
+    right: -3,
     backgroundColor: '#EF4444',
-    borderRadius: 12,
-    minWidth: 22,
-    height: 22,
+    borderRadius: 10,
+    minWidth: 20,
+    height: 20,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 6,
+    paddingHorizontal: 5,
     borderWidth: 2,
     borderColor: '#FFFFFF',
   },
-  fabBadgeText: {
+  centerFabBadgeText: {
     color: '#FFFFFF',
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '900',
+  },
+  centerFabLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#94A3B8',
+    marginTop: 2,
   },
   tabItem: {
     flex: 1,
@@ -1096,8 +1273,33 @@ const styles = StyleSheet.create({
     elevation: 8,
   },
   loadingText: { color: 'rgba(255,255,255,0.6)', fontSize: 13, fontWeight: '600', marginTop: 24, textAlign: 'center', paddingHorizontal: 40 },
-  detailRoot: { flex: 1, backgroundColor: COLORS.cream },
-  appbar: { backgroundColor: COLORS.white },
-  appbarTitle: { color: COLORS.plumDark, fontWeight: '900' },
+  detailRoot: { flex: 1, backgroundColor: '#FAF5EF' },
+  detailHeader: {
+    height: 52,
+    backgroundColor: '#FFFFFF',
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
+  },
+  detailBackBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 6,
+  },
+  detailTitle: {
+    flex: 1,
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#0F172A',
+    letterSpacing: -0.2,
+  },
+  detailHeaderSpacer: {
+    width: 38,
+  },
   detailContent: { flex: 1 },
 });

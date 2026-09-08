@@ -87,13 +87,12 @@ export function OffersScreen({ onUseCoupon }: { onUseCoupon: (code: string) => v
         />
       }
     >
-      <View style={styles.header}>
-        <View style={styles.headerCopy}>
-          <Text style={styles.title}>Offers for you</Text>
-          <Text style={styles.subtitle}>Savings and eligibility for your current laundry bag.</Text>
+      {cartSummary.itemCount ? (
+        <View style={styles.bagBar}>
+          <Text style={styles.bagBarText}>Applying to your bag:</Text>
+          <Badge style={styles.bagBadge}>{money(cartSummary.itemTotal)}</Badge>
         </View>
-        {cartSummary.itemCount ? <Badge style={styles.bagBadge}>{money(cartSummary.itemTotal)}</Badge> : null}
-      </View>
+      ) : null}
 
       <Card style={styles.manualCard}>
         <Text style={styles.manualTitle}>Have a promo code?</Text>
@@ -146,8 +145,9 @@ export function OffersScreen({ onUseCoupon }: { onUseCoupon: (code: string) => v
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: COLORS.cream },
-  content: { paddingHorizontal: 16, paddingTop: 0, paddingBottom: 32, gap: 16 },
-  header: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 },
+  content: { paddingHorizontal: 16, paddingTop: 14, paddingBottom: 32, gap: 16 },
+  bagBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#FFFFFF', paddingHorizontal: 16, paddingVertical: 10, borderRadius: 14, borderWidth: 1, borderColor: '#F1F5F9' },
+  bagBarText: { fontSize: 13, fontWeight: '700', color: COLORS.plumDark },
   headerCopy: { flex: 1 },
   title: { color: COLORS.plumDark, fontSize: 26, fontWeight: '900' },
   subtitle: { color: COLORS.muted, fontSize: 14, lineHeight: 20, marginTop: 4 },

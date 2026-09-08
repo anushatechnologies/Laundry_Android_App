@@ -24,7 +24,7 @@ import { calculateLocalDeliveryFee, PINCODE_COORDINATES } from '@/services/locat
 import { AppButton, AppInput, Card, Chip, EmptyState, SectionTitle } from '@/ui/components';
 import { COLORS, localDateString, money, shortDate } from '@/ui/theme';
 import { getGarmentImageUrl } from '@/lib/garment-photos';
-import type { Coupon, CustomerAddress, DeliveryFeeCalculation, ExpressTier, PaymentMethod, PickupSlot, PincodeCheck, PricingSettings, RazorpayPaymentOrder } from '@/types/domain';
+import type { Coupon, CustomerAddress, CustomerSubscription, DeliveryFeeCalculation, ExpressTier, PaymentMethod, PickupSlot, PincodeCheck, PricingSettings, RazorpayPaymentOrder } from '@/types/domain';
 import type { RazorpayResult } from '@/lib/payments';
 import type { CustomerLocation } from '@/services/location/types';
 
@@ -170,6 +170,8 @@ export function BookScreen({
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('ONLINE_RAZORPAY');
   const [useWallet, setUseWallet] = useState(true);
   const [walletBalance, setWalletBalance] = useState(0);
+  const [activeSubscription, setActiveSubscription] = useState<CustomerSubscription | null>(null);
+  const [useSubscription, setUseSubscription] = useState(true);
   const [couponCode, setCouponCode] = useState(initialCouponCode || '');
   const [couponApplied, setCouponApplied] = useState(false);
   const [couponDiscount, setCouponDiscount] = useState(0);
@@ -217,6 +219,14 @@ export function BookScreen({
       api.getWallet()
         .then((w) => setWalletBalance(w.wallet?.balance ?? 0))
         .catch(() => undefined);
+      api.getCustomerSubscriptions(session.user.id)
+        .then((subs) => {
+          const active = subs.find((s) => s.isActive || s.status === 'ACTIVE');
+          setActiveSubscription(active || null);
+        })
+        .catch(() => undefined);
+    } else {
+      setActiveSubscription(null);
     }
   }, [session?.user?.id]);
 
@@ -475,12 +485,34 @@ export function BookScreen({
     pricingSettings,
   ]);
 
+  // Subscription Perks Calculation
+  const subHasFreeDelivery = Boolean(
+    useSubscription &&
+    activeSubscription &&
+    (activeSubscription.freePickupDelivery ||
+      activeSubscription.features?.some(
+        (f) => f.toLowerCase().includes('free pickup') || f.toLowerCase().includes('zero delivery')
+      ))
+  );
+
   const freeDeliveryThreshold = liveDeliveryCalc?.freeDeliveryThreshold ?? selectedAddressZone?.minFreeOrderValue ?? pricingSettings?.freeDeliveryThreshold ?? 499;
   const standardDeliveryFee = liveDeliveryCalc?.standardDeliveryFee ?? selectedAddressZone?.standardFee ?? pricingSettings?.standardDeliveryFee ?? 30;
-  const isFreeDelivery = cartSummary.itemTotal >= freeDeliveryThreshold;
+  const isFreeDelivery = subHasFreeDelivery || (cartSummary.itemTotal >= freeDeliveryThreshold);
   const deliveryFee = isFreeDelivery
     ? 0
     : (liveDeliveryCalc?.deliveryFee ?? (cartSummary.itemTotal < 499 ? standardDeliveryFee : 0));
+
+  // Subscription Weight Quota Calculation:
+  const orderWeightKg = cartSummary.totalKg > 0
+    ? cartSummary.totalKg
+    : Math.max(1, Number((cartSummary.itemCount * 0.25).toFixed(1)));
+
+  const subKgRemaining = (useSubscription && activeSubscription) ? (activeSubscription.remainingKg ?? 0) : 0;
+  const subKgUsed = Math.min(subKgRemaining, orderWeightKg);
+  const subQuotaFraction = orderWeightKg > 0 ? Math.min(1, subKgUsed / orderWeightKg) : 0;
+  const subQuotaDiscount = (useSubscription && activeSubscription && subKgRemaining > 0)
+    ? Math.min(cartSummary.itemTotal, Number((cartSummary.itemTotal * subQuotaFraction).toFixed(2)))
+    : 0;
 
   const expressFeeFromSettings = liveDeliveryCalc?.expressDeliveryFee ?? pricingSettings?.expressDeliveryFee ?? 80;
   const sameDayFeeFromSettings = liveDeliveryCalc?.sameDayDeliveryFee ?? pricingSettings?.sameDayDeliveryFee ?? (expressFeeFromSettings * 2);
@@ -493,18 +525,21 @@ export function BookScreen({
 
   const isGstEnabled = (liveDeliveryCalc?.isGstEnabled !== undefined) ? liveDeliveryCalc.isGstEnabled : (pricingSettings?.isGstEnabled !== false);
   const taxPercentage = isGstEnabled ? (liveDeliveryCalc?.taxPercentage ?? pricingSettings?.taxPercentage ?? 5) : 0;
-  const preCouponTaxable = cartSummary.itemTotal + deliveryFee + expressCharge;
+  const preCouponTaxable = Math.max(0, cartSummary.itemTotal - subQuotaDiscount) + deliveryFee + expressCharge;
   const preCouponGst = Number((preCouponTaxable * (taxPercentage / 100)).toFixed(2));
   const preCouponTotal = Number((preCouponTaxable + preCouponGst).toFixed(2));
 
-  const taxableAmount = Math.max(0, cartSummary.itemTotal - couponDiscount + deliveryFee + expressCharge);
+  const taxableAmount = Math.max(0, cartSummary.itemTotal - subQuotaDiscount - couponDiscount + deliveryFee + expressCharge);
   const gstCharge = Number((taxableAmount * (taxPercentage / 100)).toFixed(2));
   const preWalletTotal = Math.max(0, Number((taxableAmount + gstCharge).toFixed(2)));
   const walletDeduction = (useWallet && walletBalance > 0) ? Math.min(walletBalance, preWalletTotal) : 0;
   const finalPayable = Math.max(0, Number((preWalletTotal - walletDeduction).toFixed(2)));
-  const totalSavings = couponDiscount + (isFreeDelivery ? standardDeliveryFee : 0) + walletDeduction;
+  const totalSavings = subQuotaDiscount + couponDiscount + (isFreeDelivery ? standardDeliveryFee : 0) + walletDeduction;
 
   const deliveryDistanceNote = useMemo(() => {
+    if (subHasFreeDelivery) {
+      return '💎 Free Doorstep Delivery Unlocked via Active Membership';
+    }
     if (isFreeDelivery) {
       return `🎉 Free delivery unlocked (Order ≥ ${money(freeDeliveryThreshold)})`;
     }
@@ -515,7 +550,7 @@ export function BookScreen({
       return `📍 Distance: ${liveDeliveryCalc.distanceKm} km from Central Hub`;
     }
     return `Standard delivery fee ${money(standardDeliveryFee)}`;
-  }, [isFreeDelivery, liveDeliveryCalc?.breakdown, liveDeliveryCalc?.distanceKm, freeDeliveryThreshold, standardDeliveryFee]);
+  }, [subHasFreeDelivery, isFreeDelivery, liveDeliveryCalc?.breakdown, liveDeliveryCalc?.distanceKm, freeDeliveryThreshold, standardDeliveryFee]);
 
   const handleApplyCoupon = async (code: string, isManual: boolean = true) => {
     const cleanCode = code.trim().toUpperCase();
@@ -691,17 +726,29 @@ export function BookScreen({
 
     try {
       setIsRetryingOrder(true);
-      const isFullWalletPayment = useWallet && walletBalance >= preWalletTotal;
+      const isZeroPayable = finalPayable === 0;
+      const isFullWalletPayment = isZeroPayable || (useWallet && walletBalance >= preWalletTotal);
       const result = await checkout({
         address: selectedAddress,
         slot: selectedSlot,
         expressTier,
         paymentMethod: isFullWalletPayment ? 'WALLET' : effectiveMethod,
         useWallet: useWallet && walletBalance > 0,
+        customerSubscriptionId: (useSubscription && activeSubscription) ? activeSubscription.id : undefined,
+        subscriptionKgUsed: (useSubscription && activeSubscription && subKgUsed > 0) ? subKgUsed : undefined,
         couponCode: couponApplied ? couponCode : undefined,
         notes: notes.trim() || undefined,
         onLaunchOnlinePayment: !isFullWalletPayment && effectiveMethod === 'ONLINE_RAZORPAY' ? handleLaunchOnlinePayment : undefined,
       });
+
+      // Background refresh of wallet & subscription usage
+      if (session?.user?.id) {
+        api.getWallet().then((w) => setWalletBalance(w.wallet?.balance ?? 0)).catch(() => undefined);
+        api.getCustomerSubscriptions(session.user.id).then((subs) => {
+          const active = subs.find((s) => s.isActive || s.status === 'ACTIVE');
+          setActiveSubscription(active || null);
+        }).catch(() => undefined);
+      }
 
       setPaymentRetryModalVisible(false);
 
@@ -737,7 +784,9 @@ export function BookScreen({
             <MaterialCommunityIcons name="calendar-clock" size={20} color="#F97316" />
             <View style={{ flex: 1 }}>
               <Text style={styles.successRowLabel}>Pickup Time Slot</Text>
-              <Text style={styles.successRowVal}>{shortDate(slotDate)} • {`${selectedSlot?.startTime} - ${selectedSlot?.endTime}`}</Text>
+              <Text style={styles.successRowVal}>
+                {shortDate(slotDate)} • {selectedSlot?.startTime && selectedSlot?.endTime ? `${selectedSlot.startTime} - ${selectedSlot.endTime}` : 'Flexible Collection Window'}
+              </Text>
             </View>
           </View>
 
@@ -1178,9 +1227,9 @@ export function BookScreen({
         {/* ================= STAGE 2: DETAILS (Address & Slot) ================= */}
         {stage === 'DETAILS' && (
           <View style={styles.stageWrap}>
-            {/* 1. PICKUP ADDRESS SELECTOR */}
+            {/* PICKUP ADDRESS SELECTOR */}
             <View style={styles.stageTitleRow}>
-              <Text style={styles.stageTitle}>1. Doorstep Pickup Address</Text>
+              <Text style={styles.stageTitle}>Doorstep Pickup Address</Text>
               <Text style={styles.stageSubtitle}>Where should our executive collect your laundry?</Text>
             </View>
 
@@ -1409,27 +1458,27 @@ export function BookScreen({
                             <View style={styles.addressDelivMainRow}>
                               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1 }}>
                                 <MaterialCommunityIcons
-                                  name={activeCalc.isFreeDelivery ? 'gift-outline' : 'truck-delivery'}
+                                  name={activeCalc?.isFreeDelivery ? 'gift-outline' : 'truck-delivery'}
                                   size={18}
-                                  color={activeCalc.isFreeDelivery ? '#16A34A' : '#EA580C'}
+                                  color={activeCalc?.isFreeDelivery ? '#16A34A' : '#EA580C'}
                                 />
-                                <Text style={[styles.addressDelivLabel, activeCalc.isFreeDelivery && { color: '#166534' }]}>
-                                  {activeCalc.isFreeDelivery ? 'Free Delivery Unlocked' : 'Delivery Fee'}
+                                <Text style={[styles.addressDelivLabel, Boolean(activeCalc?.isFreeDelivery) && { color: '#166534' }]}>
+                                  {activeCalc?.isFreeDelivery ? 'Free Delivery Unlocked' : 'Delivery Fee'}
                                 </Text>
                                 {calculatingDeliveryFee && (
                                   <ActivityIndicator size="small" color="#F97316" style={{ transform: [{ scale: 0.7 }] }} />
                                 )}
                               </View>
-                              <View style={[styles.addressPricePill, activeCalc.isFreeDelivery && styles.addressPricePillFree]}>
-                                <Text style={[styles.addressPricePillText, activeCalc.isFreeDelivery && styles.addressPricePillTextFree]}>
-                                  {activeCalc.isFreeDelivery ? 'FREE' : money(activeCalc.deliveryFee)}
+                              <View style={[styles.addressPricePill, Boolean(activeCalc?.isFreeDelivery) && styles.addressPricePillFree]}>
+                                <Text style={[styles.addressPricePillText, Boolean(activeCalc?.isFreeDelivery) && styles.addressPricePillTextFree]}>
+                                  {activeCalc?.isFreeDelivery ? 'FREE' : money(activeCalc?.deliveryFee ?? 0)}
                                 </Text>
                               </View>
                             </View>
-                            <Text style={[styles.addressDelivSubtext, activeCalc.isFreeDelivery && { color: '#15803D' }]}>
-                              {activeCalc.isFreeDelivery
-                                ? `Order ₹${cartSummary.itemTotal} ≥ ₹${activeCalc.freeDeliveryThreshold} • ${activeCalc.distanceKm} km from Central Hub`
-                                : `📍 ${activeCalc.distanceKm} km from Central Hub • Base ${activeCalc.baseDistanceKm} km slab (₹${activeCalc.baseDeliveryFee})${activeCalc.distanceKm > activeCalc.baseDistanceKm ? ` + ${(activeCalc.distanceKm - activeCalc.baseDistanceKm).toFixed(1)} km × ₹${activeCalc.perKmRateAfterBase}/km` : ''}`}
+                            <Text style={[styles.addressDelivSubtext, Boolean(activeCalc?.isFreeDelivery) && { color: '#15803D' }]}>
+                              {activeCalc?.isFreeDelivery
+                                ? `Order ₹${cartSummary.itemTotal} ≥ ₹${activeCalc?.freeDeliveryThreshold ?? 499} • ${activeCalc?.distanceKm ?? 0} km from Central Hub`
+                                : `📍 ${activeCalc?.distanceKm ?? 0} km from Central Hub • Base ${activeCalc?.baseDistanceKm ?? 3} km slab (₹${activeCalc?.baseDeliveryFee ?? 30})${((activeCalc?.distanceKm ?? 0) > (activeCalc?.baseDistanceKm ?? 3)) ? ` + ${((activeCalc?.distanceKm ?? 0) - (activeCalc?.baseDistanceKm ?? 3)).toFixed(1)} km × ₹${activeCalc?.perKmRateAfterBase ?? 10}/km` : ''}`}
                             </Text>
                           </View>
                         </>
@@ -1438,7 +1487,7 @@ export function BookScreen({
                         <View style={styles.addressUnselectedDelivRow}>
                           <MaterialCommunityIcons name="truck-delivery-outline" size={14} color="#78716C" />
                           <Text style={styles.addressUnselectedDelivText}>
-                            Delivery: {itemCalc.isFreeDelivery ? 'FREE' : money(itemCalc.deliveryFee)} • {itemCalc.distanceKm} km from hub
+                            Delivery: {itemCalc?.isFreeDelivery ? 'FREE' : money(itemCalc?.deliveryFee ?? 0)} • {itemCalc?.distanceKm ?? 0} km from hub
                           </Text>
                         </View>
                       )}
@@ -1453,9 +1502,9 @@ export function BookScreen({
               </View>
             )}
 
-            {/* 2. PICKUP DATE CALENDAR TILES */}
+            {/* PICKUP DATE CALENDAR TILES */}
             <View style={[styles.stageTitleRow, { marginTop: 20 }]}>
-              <Text style={styles.stageTitle}>2. Choose Pickup Date</Text>
+              <Text style={styles.stageTitle}>Choose Pickup Date</Text>
               <Text style={styles.stageSubtitle}>Executive will arrive on selected day</Text>
             </View>
 
@@ -1481,9 +1530,9 @@ export function BookScreen({
               })}
             </ScrollView>
 
-            {/* 3. TIME SLOT GRID */}
+            {/* PICKUP TIME SLOT GRID */}
             <View style={[styles.stageTitleRow, { marginTop: 20 }]}>
-              <Text style={styles.stageTitle}>3. Pickup Time Slot</Text>
+              <Text style={styles.stageTitle}>Select Pickup Time Slot</Text>
               <Text style={styles.stageSubtitle}>Select 2-hour collection window</Text>
             </View>
 
@@ -1654,7 +1703,7 @@ export function BookScreen({
                 <MaterialCommunityIcons name="map-marker" size={18} color="#F97316" />
                 <View style={{ flex: 1 }}>
                   <Text style={styles.overviewLabel}>Pickup Point</Text>
-                  <Text style={styles.overviewVal}>{selectedAddress?.street}, {selectedAddress?.city}</Text>
+                  <Text style={styles.overviewVal}>{selectedAddress?.street ? `${selectedAddress.street}, ${selectedAddress.city || 'Hyderabad'}` : 'Doorstep Pickup Point'}</Text>
                 </View>
                 <Pressable onPress={() => setStage('DETAILS')}>
                   <Text style={styles.editLink}>Change</Text>
@@ -1667,7 +1716,7 @@ export function BookScreen({
                 <MaterialCommunityIcons name="clock-outline" size={18} color="#16A34A" />
                 <View style={{ flex: 1 }}>
                   <Text style={styles.overviewLabel}>Scheduled Slot</Text>
-                  <Text style={styles.overviewVal}>{shortDate(slotDate)} • {`${selectedSlot?.startTime} - ${selectedSlot?.endTime}`}</Text>
+                  <Text style={styles.overviewVal}>{shortDate(slotDate)} • {selectedSlot?.startTime && selectedSlot?.endTime ? `${selectedSlot.startTime} - ${selectedSlot.endTime}` : 'Flexible Collection Window'}</Text>
                 </View>
                 <Pressable onPress={() => setStage('DETAILS')}>
                   <Text style={styles.editLink}>Change</Text>
@@ -1700,6 +1749,77 @@ export function BookScreen({
                 </>
               )}
             </Card>
+
+            {/* VIP MEMBERSHIP PERKS CARD (If user has an active membership) */}
+            {activeSubscription && (
+              <View style={styles.subPerksCard}>
+                <Pressable
+                  style={styles.subPerksHeaderRow}
+                  onPress={() => setUseSubscription(!useSubscription)}
+                >
+                  <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1, gap: 10 }}>
+                    <MaterialCommunityIcons
+                      name={useSubscription ? 'checkbox-marked-circle' : 'checkbox-blank-circle-outline'}
+                      size={24}
+                      color="#059669"
+                    />
+                    <View style={{ flex: 1 }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                        <Text style={styles.subPerksTitle}>{activeSubscription.planName}</Text>
+                        <View style={styles.subPerksActiveBadge}>
+                          <Text style={styles.subPerksActiveBadgeText}>ACTIVE MEMBER</Text>
+                        </View>
+                      </View>
+                      <Text style={styles.subPerksSubtitle}>
+                        {useSubscription ? 'Membership benefits & quota applied' : 'Tap to apply membership perks'}
+                      </Text>
+                    </View>
+                  </View>
+                  <MaterialCommunityIcons name="crown" size={26} color="#D97706" />
+                </Pressable>
+
+                {useSubscription && (
+                  <View style={styles.subPerksBody}>
+                    <View style={styles.subPerksDivider} />
+                    <View style={styles.subPerksGrid}>
+                      <View style={styles.subPerksItem}>
+                        <MaterialCommunityIcons name="scale-bathroom" size={16} color="#059669" />
+                        <Text style={styles.subPerksItemText}>
+                          Quota: <Text style={{ fontWeight: '800' }}>{activeSubscription.remainingKg ?? 0} KG</Text> available
+                        </Text>
+                      </View>
+
+                      {subKgUsed > 0 && (
+                        <View style={styles.subPerksItem}>
+                          <MaterialCommunityIcons name="check-bold" size={16} color="#059669" />
+                          <Text style={styles.subPerksItemText}>
+                            Applying <Text style={{ fontWeight: '800' }}>{subKgUsed} KG</Text> for this order
+                          </Text>
+                        </View>
+                      )}
+
+                      {subHasFreeDelivery && (
+                        <View style={styles.subPerksItem}>
+                          <MaterialCommunityIcons name="truck-fast-outline" size={16} color="#059669" />
+                          <Text style={[styles.subPerksItemText, { fontWeight: '800', color: '#059669' }]}>
+                            100% Free Doorstep Delivery
+                          </Text>
+                        </View>
+                      )}
+                    </View>
+
+                    {subQuotaDiscount > 0 && (
+                      <View style={styles.subPerksSavingPill}>
+                        <MaterialCommunityIcons name="party-popper" size={16} color="#047857" />
+                        <Text style={styles.subPerksSavingText}>
+                          Quota covers {money(subQuotaDiscount)} of your laundry cost!
+                        </Text>
+                      </View>
+                    )}
+                  </View>
+                )}
+              </View>
+            )}
 
             {/* BIGBASKET-STYLE COUPONS & OFFERS SECTION */}
             <View style={styles.bbCouponCardContainer}>
@@ -1775,7 +1895,7 @@ export function BookScreen({
 
             {/* LAUNDRYFRESH WALLET DEDUCTION */}
             {walletBalance > 0 && (
-              <View style={{ backgroundColor: '#F0FDF4', borderColor: '#86EFAC', borderWidth: 1.5, borderRadius: 16, padding: 14, marginBottom: 14 }}>
+              <View style={styles.walletBox}>
                 <Pressable
                   style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}
                   onPress={() => setUseWallet(!useWallet)}
@@ -1798,7 +1918,7 @@ export function BookScreen({
                   <MaterialCommunityIcons name="wallet-giftcard" size={26} color="#16A34A" />
                 </Pressable>
 
-                {useWallet && walletBalance >= preWalletTotal && (
+                {useWallet && walletDeduction >= preWalletTotal && preWalletTotal > 0 && (
                   <View style={{ marginTop: 10, backgroundColor: '#DCFCE7', padding: 8, borderRadius: 8, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                     <MaterialCommunityIcons name="check-circle" size={16} color="#16A34A" />
                     <Text style={{ fontSize: 11, fontWeight: '700', color: '#166534' }}>
@@ -1806,45 +1926,89 @@ export function BookScreen({
                     </Text>
                   </View>
                 )}
+
+                {useWallet && walletDeduction > 0 && finalPayable > 0 && (
+                  <View style={{ marginTop: 10, backgroundColor: '#EFF6FF', padding: 8, borderRadius: 8, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    <MaterialCommunityIcons name="swap-horizontal-bold" size={16} color="#2563EB" />
+                    <Text style={{ fontSize: 11, fontWeight: '700', color: '#1D4ED8' }}>
+                      Split Payment: ₹{walletDeduction.toFixed(2)} from wallet + remaining ₹{finalPayable.toFixed(2)} below
+                    </Text>
+                  </View>
+                )}
               </View>
             )}
 
             {/* PAYMENT METHOD SELECTION */}
-            <View style={styles.paymentSection}>
-              <Text style={styles.paymentHeaderTitle}>Payment Method</Text>
-
-              <Pressable
-                style={[styles.paymentTile, paymentMethod === 'ONLINE_RAZORPAY' && styles.paymentTileActive]}
-                onPress={() => setPaymentMethod('ONLINE_RAZORPAY')}
-              >
-                <MaterialCommunityIcons
-                  name={paymentMethod === 'ONLINE_RAZORPAY' ? 'radiobox-marked' : 'radiobox-blank'}
-                  size={20}
-                  color={paymentMethod === 'ONLINE_RAZORPAY' ? '#F97316' : '#8A7A84'}
-                />
-                <View style={{ flex: 1, marginLeft: 10 }}>
-                  <Text style={styles.paymentTileName}>UPI / Google Pay / PhonePe / Cards</Text>
-                  <Text style={styles.paymentTileSub}>256-Bit Encrypted Secure Razorpay Gateway</Text>
+            {finalPayable === 0 ? (
+              <View style={styles.zeroPayableBanner}>
+                <View style={styles.zeroPayableIconWrap}>
+                  <MaterialCommunityIcons name="check-decagram" size={28} color="#059669" />
                 </View>
-                <MaterialCommunityIcons name="shield-check" size={18} color="#16A34A" />
-              </Pressable>
-
-              <Pressable
-                style={[styles.paymentTile, paymentMethod === 'COD' && styles.paymentTileActive]}
-                onPress={() => setPaymentMethod('COD')}
-              >
-                <MaterialCommunityIcons
-                  name={paymentMethod === 'COD' ? 'radiobox-marked' : 'radiobox-blank'}
-                  size={20}
-                  color={paymentMethod === 'COD' ? '#F97316' : '#8A7A84'}
-                />
-                <View style={{ flex: 1, marginLeft: 10 }}>
-                  <Text style={styles.paymentTileName}>Pay on Delivery (Cash / UPI at Doorstep)</Text>
-                  <Text style={styles.paymentTileSub}>Pay rider after verifying freshly washed clothes</Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.zeroPayableTitle}>100% Covered — No Payment Needed</Text>
+                  <Text style={styles.zeroPayableSubtitle}>
+                    {subQuotaDiscount > 0 && walletDeduction > 0
+                      ? 'Your order is completely covered by Membership Quota & Wallet Balance!'
+                      : subQuotaDiscount > 0
+                      ? 'Your order is completely covered by your Membership Quota!'
+                      : 'Your order is completely covered by your LaundryFresh Wallet!'}
+                  </Text>
                 </View>
-                <MaterialCommunityIcons name="cash" size={18} color="#F97316" />
-              </Pressable>
-            </View>
+              </View>
+            ) : (
+              <View style={styles.paymentSection}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+                  <Text style={styles.paymentHeaderTitle}>
+                    {walletDeduction > 0 ? `Pay Remaining: ${money(finalPayable)}` : 'Payment Method'}
+                  </Text>
+                  {walletDeduction > 0 && (
+                    <View style={styles.splitPayTag}>
+                      <Text style={styles.splitPayTagText}>SPLIT PAYMENT</Text>
+                    </View>
+                  )}
+                </View>
+
+                <Pressable
+                  style={[styles.paymentTile, paymentMethod === 'ONLINE_RAZORPAY' && styles.paymentTileActive]}
+                  onPress={() => setPaymentMethod('ONLINE_RAZORPAY')}
+                >
+                  <MaterialCommunityIcons
+                    name={paymentMethod === 'ONLINE_RAZORPAY' ? 'radiobox-marked' : 'radiobox-blank'}
+                    size={20}
+                    color={paymentMethod === 'ONLINE_RAZORPAY' ? '#F97316' : '#8A7A84'}
+                  />
+                  <View style={{ flex: 1, marginLeft: 10 }}>
+                    <Text style={styles.paymentTileName}>UPI / Google Pay / PhonePe / Cards</Text>
+                    <Text style={styles.paymentTileSub}>
+                      {walletDeduction > 0
+                        ? `Pay remaining ${money(finalPayable)} via secure Razorpay Gateway`
+                        : '256-Bit Encrypted Secure Razorpay Gateway'}
+                    </Text>
+                  </View>
+                  <MaterialCommunityIcons name="shield-check" size={18} color="#16A34A" />
+                </Pressable>
+
+                <Pressable
+                  style={[styles.paymentTile, paymentMethod === 'COD' && styles.paymentTileActive]}
+                  onPress={() => setPaymentMethod('COD')}
+                >
+                  <MaterialCommunityIcons
+                    name={paymentMethod === 'COD' ? 'radiobox-marked' : 'radiobox-blank'}
+                    size={20}
+                    color={paymentMethod === 'COD' ? '#F97316' : '#8A7A84'}
+                  />
+                  <View style={{ flex: 1, marginLeft: 10 }}>
+                    <Text style={styles.paymentTileName}>Pay on Delivery (Cash / UPI at Doorstep)</Text>
+                    <Text style={styles.paymentTileSub}>
+                      {walletDeduction > 0
+                        ? `Pay remaining ${money(finalPayable)} to rider upon delivery`
+                        : 'Pay rider after verifying freshly washed clothes'}
+                    </Text>
+                  </View>
+                  <MaterialCommunityIcons name="cash" size={18} color="#F97316" />
+                </Pressable>
+              </View>
+            )}
 
             {/* ITEMIZED BILL SUMMARY */}
             <Card style={styles.billCard}>
@@ -1865,7 +2029,24 @@ export function BookScreen({
                 <Text style={styles.billLineVal}>{money(cartSummary.itemTotal)}</Text>
               </View>
 
-              {/* 2. Pickup & Delivery fee */}
+              {/* 2. Subscription Quota Applied */}
+              {subQuotaDiscount > 0 && (
+                <View style={styles.billLine}>
+                  <View>
+                    <Text style={[styles.billLineLabel, { color: '#059669', fontWeight: '700' }]}>
+                      💎 Subscription Quota ({subKgUsed} KG)
+                    </Text>
+                    <Text style={[styles.billLineSubtext, { color: '#047857' }]}>
+                      Covered by {activeSubscription?.planName || 'Membership'}
+                    </Text>
+                  </View>
+                  <Text style={[styles.billLineVal, { color: '#059669', fontWeight: '800' }]}>
+                    -{money(subQuotaDiscount)}
+                  </Text>
+                </View>
+              )}
+
+              {/* 3. Pickup & Delivery fee */}
               <View style={styles.billLine}>
                 <View style={{ flex: 1, paddingRight: 8 }}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
@@ -1885,14 +2066,16 @@ export function BookScreen({
                 {isFreeDelivery ? (
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                     <Text style={styles.billStrikethrough}>{money(standardDeliveryFee)}</Text>
-                    <Text style={[styles.billLineVal, { color: '#16A34A', fontWeight: '800' }]}>FREE</Text>
+                    <Text style={[styles.billLineVal, { color: '#16A34A', fontWeight: '800' }]}>
+                      {subHasFreeDelivery ? 'FREE (Member Perk)' : 'FREE'}
+                    </Text>
                   </View>
                 ) : (
                   <Text style={styles.billLineVal}>{money(deliveryFee)}</Text>
                 )}
               </View>
 
-              {/* 3. Express Delivery Surcharge */}
+              {/* 4. Express Delivery Surcharge */}
               {expressCharge > 0 && (
                 <View style={styles.billLine}>
                   <View>
@@ -1907,7 +2090,7 @@ export function BookScreen({
                 </View>
               )}
 
-              {/* 4. Coupon Discount */}
+              {/* 5. Coupon Discount */}
               {couponDiscount > 0 && (
                 <View style={styles.billLine}>
                   <View>
@@ -1918,7 +2101,7 @@ export function BookScreen({
                 </View>
               )}
 
-              {/* 5. GST */}
+              {/* 6. GST */}
               <View style={styles.billLine}>
                 <View>
                   <Text style={styles.billLineLabel}>
@@ -1931,7 +2114,7 @@ export function BookScreen({
                 </Text>
               </View>
 
-              {/* 6. Wallet */}
+              {/* 7. Wallet */}
               {walletDeduction > 0 && (
                 <View style={styles.billLine}>
                   <View>
@@ -1982,11 +2165,17 @@ export function BookScreen({
         ) : (
           <>
             <View style={styles.footerPriceCol}>
-              <Text style={styles.footerPriceLabel}>Final Amount</Text>
+              <Text style={styles.footerPriceLabel}>
+                {finalPayable === 0 ? 'Total Due' : walletDeduction > 0 ? 'Payable Now' : 'Final Amount'}
+              </Text>
               <Text style={styles.footerPriceVal}>{money(finalPayable)}</Text>
               {stage !== 'BAG' && (
                 <Text style={[styles.footerPriceSub, isFreeDelivery && { color: '#16A34A' }]}>
-                  {isFreeDelivery ? '🎉 Free delivery' : `Incl. ${money(deliveryFee)} delivery`}
+                  {subHasFreeDelivery
+                    ? '💎 Member Free Delivery'
+                    : isFreeDelivery
+                    ? '🎉 Free delivery'
+                    : `Incl. ${money(deliveryFee)} delivery`}
                 </Text>
               )}
             </View>
@@ -2013,9 +2202,21 @@ export function BookScreen({
             onPress={() => placeOrder()}
             disabled={isCheckingOut}
           >
-            <MaterialCommunityIcons name="lock" size={16} color="#FFFFFF" />
+            <MaterialCommunityIcons
+              name={finalPayable === 0 ? 'check-decagram' : 'lock'}
+              size={16}
+              color="#FFFFFF"
+            />
             <Text style={styles.footerPrimaryBtnText}>
-              {isCheckingOut ? 'Scheduling Pickup...' : `Confirm & Place Order`}
+              {isCheckingOut
+                ? 'Scheduling Pickup...'
+                : finalPayable === 0
+                ? 'Confirm Order (₹0 • 100% Covered)'
+                : walletDeduction > 0
+                ? `Pay Remaining ${money(finalPayable)} & Book`
+                : paymentMethod === 'COD'
+                ? 'Confirm & Place Order (COD)'
+                : `Pay ${money(finalPayable)} & Place Order`}
             </Text>
             <MaterialCommunityIcons name="arrow-right" size={18} color="#FFFFFF" />
           </Pressable>
@@ -2295,7 +2496,7 @@ export function BookScreen({
                   <Text style={styles.payRetryOrderSublabel}>Pickup Slot</Text>
                 </View>
                 <Text style={styles.payRetryOrderSubval}>
-                  {shortDate(slotDate)} • {selectedSlot?.startTime} - {selectedSlot?.endTime}
+                  {shortDate(slotDate)} • {selectedSlot?.startTime && selectedSlot?.endTime ? `${selectedSlot.startTime} - ${selectedSlot.endTime}` : 'Flexible Collection Window'}
                 </Text>
               </View>
 
@@ -2585,7 +2786,7 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingHorizontal: 16,
     paddingTop: 0,  // No top padding - stage header provides spacing
-    paddingBottom: 40,
+    paddingBottom: 110,
   },
   stageWrap: {
     gap: 14,
@@ -2646,6 +2847,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     paddingVertical: 15,
     paddingHorizontal: 20,
+    marginVertical: 6,
     shadowColor: '#FF7A00',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.35,
@@ -3377,14 +3579,15 @@ const styles = StyleSheet.create({
   },
   stickyFooter: {
     position: 'absolute',
-    bottom: 80,  // Above the tab bar (tab bar is ~70-80px high)
+    bottom: 0,
     left: 0,
     right: 0,
     backgroundColor: '#FFFFFF',
     borderTopWidth: 1,
     borderColor: '#F3E8DF',
     paddingHorizontal: 20,
-    paddingVertical: 14,
+    paddingTop: 14,
+    paddingBottom: Platform.OS === 'ios' ? 30 : 16,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -4230,5 +4433,149 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
     color: '#64748B',
+  },
+
+  // VIP Membership Perks Card
+  subPerksCard: {
+    backgroundColor: '#F0FDF4',
+    borderWidth: 1.5,
+    borderColor: '#86EFAC',
+    borderRadius: 18,
+    padding: 14,
+    marginBottom: 14,
+    shadowColor: '#059669',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  subPerksHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  subPerksTitle: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#065F46',
+  },
+  subPerksActiveBadge: {
+    backgroundColor: '#DCFCE7',
+    borderWidth: 1,
+    borderColor: '#86EFAC',
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  subPerksActiveBadgeText: {
+    fontSize: 10,
+    fontWeight: '900',
+    color: '#166534',
+    letterSpacing: 0.5,
+  },
+  subPerksSubtitle: {
+    fontSize: 12,
+    color: '#047857',
+    marginTop: 2,
+  },
+  subPerksBody: {
+    marginTop: 10,
+  },
+  subPerksDivider: {
+    height: 1,
+    backgroundColor: '#BBF7D0',
+    marginVertical: 10,
+  },
+  subPerksGrid: {
+    gap: 8,
+  },
+  subPerksItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  subPerksItemText: {
+    fontSize: 13,
+    color: '#065F46',
+  },
+  subPerksSavingPill: {
+    marginTop: 10,
+    backgroundColor: '#DCFCE7',
+    borderColor: '#86EFAC',
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  subPerksSavingText: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#047857',
+  },
+
+  // Wallet Deduction Box
+  walletBox: {
+    backgroundColor: '#F0FDF4',
+    borderColor: '#86EFAC',
+    borderWidth: 1.5,
+    borderRadius: 16,
+    padding: 14,
+    marginBottom: 14,
+  },
+
+  // Zero-Payable Banner
+  zeroPayableBanner: {
+    backgroundColor: '#ECFDF5',
+    borderWidth: 1.5,
+    borderColor: '#6EE7B7',
+    borderRadius: 18,
+    padding: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+    marginBottom: 16,
+    shadowColor: '#059669',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+  zeroPayableIconWrap: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#D1FAE5',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  zeroPayableTitle: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#065F46',
+  },
+  zeroPayableSubtitle: {
+    fontSize: 12,
+    color: '#047857',
+    marginTop: 3,
+    lineHeight: 17,
+  },
+
+  // Split Payment Tag
+  splitPayTag: {
+    backgroundColor: '#EFF6FF',
+    borderWidth: 1,
+    borderColor: '#93C5FD',
+    borderRadius: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 2.5,
+  },
+  splitPayTagText: {
+    fontSize: 10,
+    fontWeight: '900',
+    color: '#1D4ED8',
+    letterSpacing: 0.4,
   },
 });
