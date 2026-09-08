@@ -2,7 +2,7 @@
   "expo": {
     "name": "LaundryFresh",
     "slug": "laundryfresh-customer",
-    "version": "1.0.12",
+    "version": "1.0.14",
     "icon": "./assets/brand-logo.png",
     "orientation": "portrait",
     "userInterfaceStyle": "light",
@@ -11,7 +11,7 @@
     "android": {
       "package": "com.anusha.laundry",
       "googleServicesFile": "./google-services.json",
-      "versionCode": 12,
+      "versionCode": 14,
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#FFFFFF"
@@ -19,7 +19,9 @@
       "permissions": [
         "ACCESS_COARSE_LOCATION",
         "ACCESS_FINE_LOCATION",
-        "POST_NOTIFICATIONS"
+        "POST_NOTIFICATIONS",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION"
       ]
     },
     "web": {
@@ -53,7 +55,11 @@
       ]
     ],
     "extra": {
-      "apiUrl": "https://laundry.anushatechnologies.com/api"
-    }
+      "apiUrl": "https://laundry.anushatechnologies.com/api",
+      "eas": {
+        "projectId": "dd069378-41c0-45ea-917b-455411dc44b5"
+      }
+    },
+    "owner": "anushabazaar"
   }
 }

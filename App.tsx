@@ -890,7 +890,7 @@ function AuthenticatedApp() {
               <Pressable
                 style={({ pressed }) => [
                   styles.floatingCartBar,
-                  pressed && { opacity: 0.92, transform: [{ scale: 0.98 }] },
+                  pressed && { opacity: 0.95, transform: [{ scale: 0.99 }] },
                 ]}
                 onPress={() => navigateTo('CART')}
                 accessibilityRole="button"
@@ -898,86 +898,32 @@ function AuthenticatedApp() {
               >
                 <View style={styles.floatingCartLeft}>
                   <View style={styles.floatingCartIconBadge}>
-                    <MaterialCommunityIcons name="shopping" size={18} color="#FFFFFF" />
+                    <MaterialCommunityIcons name="shopping" size={19} color="#FFFFFF" />
                   </View>
-                  <View>
-                    <Text style={styles.floatingCartCountText}>
-                      {cartSummary.itemCount} {cartSummary.itemCount === 1 ? 'item' : 'items'} in bag
+                  <View style={styles.floatingCartTextCol}>
+                    <Text style={styles.floatingCartPriceRow}>
+                      <Text style={styles.floatingCartCountBold}>
+                        {cartSummary.itemCount} {cartSummary.itemCount === 1 ? 'item' : 'items'}
+                      </Text>
+                      <Text style={styles.floatingCartDot}> • </Text>
+                      <Text style={styles.floatingCartPriceText}>₹{cartSummary.itemTotal}</Text>
                     </Text>
-                    <Text style={styles.floatingCartPriceText}>₹{cartSummary.itemTotal}</Text>
+                    <Text style={styles.floatingCartSubtext}>Tap to review & checkout</Text>
                   </View>
                 </View>
                 <View style={styles.floatingCartRightBtn}>
                   <Text style={styles.floatingCartBtnText}>View Bag</Text>
-                  <MaterialCommunityIcons name="arrow-right" size={16} color="#FFFFFF" />
+                  <MaterialCommunityIcons name="arrow-right" size={15} color="#FFFFFF" />
                 </View>
               </Pressable>
             </Animated.View>
           )}
 
-          {/* MAIN FLOATING PILL TAB BAR */}
+          {/* MAIN FLOATING PILL TAB BAR (All 5 Discovery Tabs) */}
           <View style={styles.customTabBar}>
-            {/* TABS 0 & 1: HOME & SERVICES */}
-            {tabs.slice(0, 2).map((tab) => {
+            {tabs.map((tab) => {
               const isActive = route === tab.key;
-
-              return (
-                <Pressable
-                  key={tab.key}
-                  style={[styles.tabItem, isActive && styles.tabItemActive]}
-                  onPress={() => navigateTo(tab.key)}
-                  accessibilityRole="button"
-                  accessibilityLabel={tab.title}
-                >
-                  <View style={styles.tabIconWrap}>
-                    <MaterialCommunityIcons
-                      name={(isActive ? tab.focusedIcon : tab.unfocusedIcon) as any}
-                      size={22}
-                      color={isActive ? '#FF7A00' : '#94A3B8'}
-                    />
-                  </View>
-                  <Text style={[styles.tabLabel, isActive && styles.tabLabelActive]}>
-                    {tab.title}
-                  </Text>
-                </Pressable>
-              );
-            })}
-
-            {/* CENTER ELEVATED HERO CART TAB (1-Tap Direct Checkout) */}
-            <View style={styles.centerFabWrap} pointerEvents="box-none">
-              <Pressable
-                style={({ pressed }) => [
-                  styles.centerFab,
-                  route === 'CART' && styles.centerFabActive,
-                  pressed && { transform: [{ scale: 0.92 }] },
-                ]}
-                onPress={() => navigateTo('CART')}
-                accessibilityRole="button"
-                accessibilityLabel={`Shopping Bag, ${cartSummary.itemCount} items`}
-              >
-                <Animated.View style={{ transform: [{ scale: cartScaleAnim }], alignItems: 'center', justifyContent: 'center' }}>
-                  <MaterialCommunityIcons
-                    name="shopping"
-                    size={26}
-                    color="#FFFFFF"
-                  />
-                </Animated.View>
-                {cartSummary.itemCount > 0 && (
-                  <View style={styles.centerFabBadge}>
-                    <Text style={styles.centerFabBadgeText}>
-                      {cartSummary.itemCount > 99 ? '99+' : cartSummary.itemCount}
-                    </Text>
-                  </View>
-                )}
-              </Pressable>
-              <Text style={[styles.centerFabLabel, route === 'CART' && styles.tabLabelActive]}>
-                Bag
-              </Text>
-            </View>
-
-            {/* TABS 3 & 4: ORDERS & PROFILE */}
-            {tabs.slice(3, 5).map((tab) => {
-              const isActive = route === tab.key;
+              const isCartTab = tab.key === 'CART';
               const hasOrdersBadge =
                 tab.key === 'ORDERS' &&
                 orders.some((o) => !['COMPLETED', 'DELIVERED', 'CANCELLED'].includes(o.currentStatus));
@@ -991,11 +937,26 @@ function AuthenticatedApp() {
                   accessibilityLabel={tab.title}
                 >
                   <View style={styles.tabIconWrap}>
-                    <MaterialCommunityIcons
-                      name={(isActive ? tab.focusedIcon : tab.unfocusedIcon) as any}
-                      size={22}
-                      color={isActive ? '#FF7A00' : '#94A3B8'}
-                    />
+                    <Animated.View
+                      style={
+                        isCartTab
+                          ? { transform: [{ scale: cartScaleAnim }], alignItems: 'center', justifyContent: 'center' }
+                          : { alignItems: 'center', justifyContent: 'center' }
+                      }
+                    >
+                      <MaterialCommunityIcons
+                        name={(isActive ? tab.focusedIcon : tab.unfocusedIcon) as any}
+                        size={22}
+                        color={isActive ? '#FF7A00' : '#94A3B8'}
+                      />
+                    </Animated.View>
+                    {isCartTab && cartSummary.itemCount > 0 && (
+                      <View style={styles.tabBadge}>
+                        <Text style={styles.tabBadgeText}>
+                          {cartSummary.itemCount > 99 ? '99+' : cartSummary.itemCount}
+                        </Text>
+                      </View>
+                    )}
                     {hasOrdersBadge && <View style={styles.tabDotBadge} />}
                   </View>
                   <Text style={[styles.tabLabel, isActive && styles.tabLabelActive]}>
@@ -1074,20 +1035,20 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   floatingCartBar: {
-    height: 52,
+    height: 56,
     backgroundColor: '#0F172A',
     borderRadius: 18,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 12,
+    paddingHorizontal: 14,
     shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.22,
-    shadowRadius: 10,
-    elevation: 6,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.28,
+    shadowRadius: 12,
+    elevation: 10,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
+    borderColor: '#334155',
   },
   floatingCartLeft: {
     flexDirection: 'row',
@@ -1096,86 +1057,58 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   floatingCartIconBadge: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     backgroundColor: '#FF7A00',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  floatingCartCountText: {
-    color: '#94A3B8',
-    fontSize: 11,
-    fontWeight: '600',
+  floatingCartTextCol: {
+    justifyContent: 'center',
+  },
+  floatingCartPriceRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  floatingCartCountBold: {
+    color: '#F1F5F9',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  floatingCartDot: {
+    color: '#64748B',
+    fontSize: 12,
   },
   floatingCartPriceText: {
     color: '#FFFFFF',
     fontSize: 15,
-    fontWeight: '800',
+    fontWeight: '900',
+  },
+  floatingCartSubtext: {
+    color: '#94A3B8',
+    fontSize: 10.5,
+    fontWeight: '500',
+    marginTop: 1,
   },
   floatingCartRightBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 5,
     backgroundColor: '#FF7A00',
-    paddingVertical: 7,
+    paddingVertical: 8,
     paddingHorizontal: 14,
-    borderRadius: 14,
+    borderRadius: 12,
+    shadowColor: '#FF7A00',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.35,
+    shadowRadius: 4,
+    elevation: 4,
   },
   floatingCartBtnText: {
     color: '#FFFFFF',
     fontSize: 13,
-    fontWeight: '700',
-  },
-  centerFabWrap: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: -22,
-    marginHorizontal: 4,
-  },
-  centerFab: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: '#FF7A00',
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#FF7A00',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.4,
-    shadowRadius: 12,
-    elevation: 10,
-    borderWidth: 3.5,
-    borderColor: '#FFFFFF',
-  },
-  centerFabActive: {
-    backgroundColor: '#EA580C',
-    borderColor: '#FFF7ED',
-  },
-  centerFabBadge: {
-    position: 'absolute',
-    top: -3,
-    right: -3,
-    backgroundColor: '#EF4444',
-    borderRadius: 10,
-    minWidth: 20,
-    height: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 5,
-    borderWidth: 2,
-    borderColor: '#FFFFFF',
-  },
-  centerFabBadgeText: {
-    color: '#FFFFFF',
-    fontSize: 10,
-    fontWeight: '900',
-  },
-  centerFabLabel: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#94A3B8',
-    marginTop: 2,
+    fontWeight: '800',
   },
   tabItem: {
     flex: 1,
@@ -1190,23 +1123,25 @@ const styles = StyleSheet.create({
     position: 'relative',
     alignItems: 'center',
     justifyContent: 'center',
+    width: 32,
+    height: 28,
   },
   tabLabel: {
     fontSize: 11,
-    fontWeight: '500',
+    fontWeight: '600',
     color: '#94A3B8',
-    marginTop: 3,
+    marginTop: 2,
   },
   tabLabelActive: {
-    color: '#111827',
-    fontWeight: '700',
+    color: '#FF7A00',
+    fontWeight: '800',
   },
   tabBadge: {
     position: 'absolute',
     top: -5,
-    right: -12,
-    backgroundColor: '#FF7A00',
-    borderRadius: 10,
+    right: -8,
+    backgroundColor: '#EF4444',
+    borderRadius: 9,
     minWidth: 18,
     height: 18,
     justifyContent: 'center',
@@ -1214,6 +1149,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 4,
     borderWidth: 1.5,
     borderColor: '#FFFFFF',
+    elevation: 3,
   },
   tabBadgeText: {
     color: '#FFFFFF',

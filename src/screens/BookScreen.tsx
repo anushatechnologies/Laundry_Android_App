@@ -1188,7 +1188,7 @@ export function BookScreen({
                     <Text style={styles.billLineLabel}>
                       {!isGstEnabled || taxPercentage === 0 ? 'GST (Temporarily Waived)' : `GST & Taxes (${taxPercentage}%)`}
                     </Text>
-                    <Text style={styles.billLineSubtext}>5% GST applicable on taxable subtotal</Text>
+                    <Text style={styles.billLineSubtext}>{!isGstEnabled || taxPercentage === 0 ? 'GST waived by merchant' : `${taxPercentage}% GST on taxable subtotal`}</Text>
                   </View>
                   <Text style={[styles.billLineVal, (!isGstEnabled || taxPercentage === 0) && { color: '#16A34A' }]}>
                     {!isGstEnabled || taxPercentage === 0 ? '₹0 (0%)' : money(gstCharge)}
@@ -2107,7 +2107,7 @@ export function BookScreen({
                   <Text style={styles.billLineLabel}>
                     {!isGstEnabled || taxPercentage === 0 ? 'GST (Temporarily Waived)' : `GST & Taxes (${taxPercentage}%)`}
                   </Text>
-                  <Text style={styles.billLineSubtext}>5% GST applicable on taxable order amount</Text>
+                  <Text style={styles.billLineSubtext}>{!isGstEnabled || taxPercentage === 0 ? 'GST waived by merchant' : `${taxPercentage}% GST on taxable order amount`}</Text>
                 </View>
                 <Text style={[styles.billLineVal, (!isGstEnabled || taxPercentage === 0) && { color: '#16A34A' }]}>
                   {!isGstEnabled || taxPercentage === 0 ? '₹0 (0%)' : money(gstCharge)}

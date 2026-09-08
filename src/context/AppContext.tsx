@@ -233,63 +233,25 @@ export function AppProvider({ children }: PropsWithChildren) {
   const pendingPhoneRef = useRef<string | null>(null);
   const useBackendOtpRef = useRef<boolean>(false);
 
-  // High-Reliability OTP Strategy:
-  // 1. Primary: Fast2SMS Indian SMS Gateway (Direct delivery to Indian mobile numbers via recharged Fast2SMS account)
-  // 2. Fallback: Google Firebase Phone Auth (if backend SMS gateway is unreachable)
-  const requestOtp = useCallback(async (phone: string, name?: string, email?: string, referralCode?: string) => {
+  // Strict Google Firebase Phone Auth (100% Free via Google carrier infrastructure, reCAPTCHA / Play Integrity verification)
+  const requestOtp = useCallback(async (phone: string, _name?: string, _email?: string, _referralCode?: string) => {
     pendingPhoneRef.current = phone;
-
-    // 1. Dispatch via Fast2SMS Indian Gateway
-    try {
-      const res = await api.sendOtp(phone, name, email, referralCode);
-      if (res.success) {
-        useBackendOtpRef.current = true;
-        console.log('[Phone Auth] Real OTP SMS sent via Fast2SMS gateway:', res.gateway);
-        return;
-      }
-    } catch (backendErr: any) {
-      console.warn('[Phone Auth] Fast2SMS dispatch failed, trying Firebase native auth fallback:', backendErr?.message);
-    }
-
-    // 2. Fallback to Firebase Phone Auth
+    console.log('[Firebase Phone Auth] Initiating native Google Firebase verification for:', phone);
     try {
       await requestFirebasePhoneOtp(phone);
-      useBackendOtpRef.current = false;
-      console.log('[Phone Auth] Verification code requested via Firebase Phone Auth.');
+      console.log('[Firebase Phone Auth] Google Firebase SMS verification dispatched successfully.');
     } catch (firebaseErr: any) {
-      throw new Error(firebaseErr instanceof Error ? firebaseErr.message : 'Could not send verification code.');
+      console.error('[Firebase Phone Auth] Error during phone OTP request:', firebaseErr);
+      throw new Error(firebaseErr instanceof Error ? firebaseErr.message : 'Could not send verification code via Firebase.');
     }
   }, []);
 
-  // Confirms OTP via either Backend Fast2SMS verification or Firebase Phone Auth
+  // Confirms OTP strictly via Google Firebase Phone Auth & logs into backend with Firebase ID Token
   const signIn = useCallback(async (otp: string, name?: string, email?: string, referralCode?: string) => {
-    let nextSession: AuthSession;
-
-    if (useBackendOtpRef.current && pendingPhoneRef.current) {
-      try {
-        nextSession = await api.verifyOtp(pendingPhoneRef.current, otp, name, email, referralCode);
-      } catch (backendVerifyErr) {
-        // If backend verify failed, try firebase confirm as secondary fallback
-        try {
-          const result = await confirmFirebasePhoneOtp(otp);
-          nextSession = await api.loginWithFirebase(result.idToken, name, email, referralCode);
-        } catch {
-          throw backendVerifyErr;
-        }
-      }
-    } else {
-      try {
-        const result = await confirmFirebasePhoneOtp(otp);
-        nextSession = await api.loginWithFirebase(result.idToken, name, email, referralCode);
-      } catch (firebaseConfirmErr) {
-        if (pendingPhoneRef.current) {
-          console.log('[Phone Auth] Firebase confirmation failed, trying backend verify-otp fallback...');
-          nextSession = await api.verifyOtp(pendingPhoneRef.current, otp, name, email, referralCode);
-        } else {
-          throw firebaseConfirmErr;
-        }
-      }
-    }
+    console.log('[Firebase Phone Auth] Verifying code with Google Firebase...');
+    const result = await confirmFirebasePhoneOtp(otp);
+    console.log('[Firebase Phone Auth] Firebase verified! Logging in with server session...');
+    const nextSession = await api.loginWithFirebase(result.idToken, name, email, referralCode);
 
     // Fix #2: pass the listener so token refreshes are persisted in SecureStore
     configureApiSession(nextSession, async (next) => {
