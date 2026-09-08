@@ -374,10 +374,10 @@ export function ProfileScreen({
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
               <Text style={styles.menuTitle}>Refer & Earn</Text>
               <View style={{ backgroundColor: '#FEF3C7', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}>
-                <Text style={{ color: '#D97706', fontSize: 10, fontWeight: '800' }}>GET ₹100</Text>
+                <Text style={{ color: '#D97706', fontSize: 10, fontWeight: '800' }}>GET ₹50</Text>
               </View>
             </View>
-            <Text style={styles.menuSubtitle}>Invite friends and earn ₹100 directly to wallet</Text>
+            <Text style={styles.menuSubtitle}>Invite friends and earn ₹50 directly to wallet</Text>
           </View>
           <MaterialCommunityIcons name="chevron-right" size={20} color="#8A7A84" />
         </Pressable>
@@ -432,6 +432,27 @@ export function ProfileScreen({
           <View style={styles.menuText}>
             <Text style={styles.menuTitle}>Call Customer Care</Text>
             <Text style={styles.menuSubtitle}>+91 8522918866</Text>
+          </View>
+          <MaterialCommunityIcons name="chevron-right" size={20} color="#8A7A84" />
+        </Pressable>
+
+        <View style={styles.menuDivider} />
+
+        <Pressable
+          style={styles.menuRow}
+          onPress={() => Linking.openURL('https://laundryfresh.in/download')}
+        >
+          <View style={[styles.menuIconBox, { backgroundColor: '#EFF6FF' }]}>
+            <MaterialCommunityIcons name="cellphone-arrow-down" size={20} color="#2563EB" />
+          </View>
+          <View style={styles.menuText}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              <Text style={styles.menuTitle}>Check for App Updates</Text>
+              <View style={{ backgroundColor: '#DBEAFE', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}>
+                <Text style={{ color: '#1E40AF', fontSize: 10, fontWeight: '800' }}>v1.0.12</Text>
+              </View>
+            </View>
+            <Text style={styles.menuSubtitle}>Download latest release & get new features</Text>
           </View>
           <MaterialCommunityIcons name="chevron-right" size={20} color="#8A7A84" />
         </Pressable>
