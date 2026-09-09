@@ -182,21 +182,6 @@ export const api = {
     return payload.data ?? payload;
   },
 
-  async sendOtp(phone: string, name?: string, email?: string, referralCode?: string): Promise<{ success: boolean; message: string; gateway?: string; exists?: boolean }> {
-    const payload = await request<{ success: boolean; message: string; gateway?: string; exists?: boolean }>('/customers/send-otp', {
-      method: 'POST',
-      body: JSON.stringify({ phone, name, email, referralCode }),
-    });
-    return payload;
-  },
-
-  async verifyOtp(phone: string, otp: string, name?: string, email?: string, referralCode?: string): Promise<AuthSession> {
-    const payload = await request<AuthSession & { data?: AuthSession }>('/customers/verify-otp', {
-      method: 'POST',
-      body: JSON.stringify({ phone, otp, name, email, referralCode }),
-    });
-    return payload.data ?? payload;
-  },
 
   getCatalog: (categoryTag?: string, subcategory?: string, search?: string) => {
     const qs = new URLSearchParams();

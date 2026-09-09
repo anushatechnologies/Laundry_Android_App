@@ -19,7 +19,7 @@ function friendlyFirebaseError(error: unknown) {
   if (code.includes('invalid-verification-code')) return 'That 6-digit verification code is incorrect. Please check and try again.';
   if (code.includes('session-expired')) return 'This verification code has expired. Please tap Resend Code.';
   if (code.includes('app-not-authorized')) return 'This app is not authorized for Firebase Phone Auth. Check the Firebase Android package and SHA-1 certificate settings.';
-  if (code.includes('missing-client-identifier')) return 'Firebase app verification failed. Confirm Phone sign-in is enabled in Firebase Console.';
+  if (code.includes('missing-client-identifier')) return 'Firebase app verification failed. Please ensure Phone Auth is enabled in Firebase Console and test numbers are added.';
   if (code.includes('network-request-failed')) return 'Network error. Please check your internet connection and try again.';
   if (msg) return msg;
   return 'Firebase could not complete phone verification. Please try again.';

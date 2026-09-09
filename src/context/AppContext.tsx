@@ -231,7 +231,7 @@ export function AppProvider({ children }: PropsWithChildren) {
   }, [ready, session?.user.id, refreshAccountData]);
 
   const pendingPhoneRef = useRef<string | null>(null);
-  // Pure Google Firebase Phone Authentication (Fast2SMS completely removed)
+  // Strictly Pure Google Firebase Phone Authentication
   const requestOtp = useCallback(async (phone: string) => {
     pendingPhoneRef.current = phone;
     console.log('[Firebase Phone Auth] Requesting Firebase verification code for +91' + phone);
