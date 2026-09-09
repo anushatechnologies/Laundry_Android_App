@@ -1140,58 +1140,36 @@ export function HomeScreen({
             </Pressable>
           </View>
 
-          {/* 8 Specialized Services (2 Columns, Modern Service Treatment Cards) */}
-          <View style={styles.serviceCardGrid}>
+          {/* 8 Specialized Services (4 Rounded Items Per Row, 2 Rows = 8 Services) */}
+          <View style={styles.homeCategory4Grid}>
             {allServicesList.map((svc) => (
               <Pressable
                 key={svc.id}
                 style={({ pressed }) => [
-                  styles.serviceCardItem,
-                  pressed && styles.serviceCardItemPressed,
+                  styles.homeCategory4Col,
+                  pressed && styles.categoryItemPressed,
                 ]}
                 onPress={() => handleServicePress(svc)}
                 accessibilityRole="button"
                 accessibilityLabel={svc.title}
               >
-                {/* 1. Image Banner with Overlaid Badges */}
-                <View style={styles.serviceCardImageWrap}>
+                <View style={[styles.homeCatCircleWrap, { borderColor: svc.accent || '#16A34A' }]}>
                   <Image
                     source={{ uri: serviceImgErrors[svc.id] ? svc.fallbackUrl : svc.imageUrl }}
-                    style={styles.serviceCardImage}
+                    style={styles.homeCatCircleImg}
                     resizeMode="cover"
                     onError={() => setServiceImgErrors((prev) => ({ ...prev, [svc.id]: true }))}
                   />
-                  {/* TAT Badge top-left */}
-                  <View style={styles.serviceCardTatBadge}>
-                    <MaterialCommunityIcons name="lightning-bolt" size={10} color="#16A34A" />
-                    <Text style={styles.serviceCardTatText}>{svc.tat}</Text>
+                  {/* Turnaround Badge Top-Right */}
+                  <View style={styles.serviceTatCircleBadge}>
+                    <Text style={styles.serviceTatCircleBadgeText}>{svc.tat}</Text>
                   </View>
-                  {/* Feature badge top-right */}
-                  {svc.badge ? (
-                    <View style={styles.serviceCardFeatureBadge}>
-                      <Text style={styles.serviceCardFeatureText}>{svc.badge}</Text>
-                    </View>
-                  ) : null}
-                </View>
-
-                {/* 2. Service Info */}
-                <View style={styles.serviceCardBody}>
-                  <Text style={styles.serviceCardTitle} numberOfLines={1}>
-                    {svc.shortTitle || svc.title}
-                  </Text>
-                  <Text style={styles.serviceCardDesc} numberOfLines={1}>
-                    {svc.description}
-                  </Text>
-                  <View style={styles.serviceCardBottomRow}>
-                    <Text style={styles.serviceCardPriceText}>
-                      {svc.priceText}
-                    </Text>
-                    <View style={styles.serviceCardExploreBtn}>
-                      <Text style={styles.serviceCardExploreText}>Book</Text>
-                      <MaterialCommunityIcons name="arrow-right" size={11} color="#166534" />
-                    </View>
+                  {/* Price Tag Bottom */}
+                  <View style={[styles.homeCatCountBadge, { backgroundColor: svc.accent || '#16A34A' }]}>
+                    <Text style={styles.homeCatCountText}>{svc.priceText}</Text>
                   </View>
                 </View>
+                <Text style={styles.homeCatTitle} numberOfLines={2}>{svc.shortTitle || svc.title}</Text>
               </Pressable>
             ))}
           </View>
@@ -1445,9 +1423,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 2,
   },
   homeCatCircleWrap: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,  // 100% FULL ROUNDED CIRCLE
+    width: 66,
+    height: 66,
+    borderRadius: 33,  // 100% FULL ROUNDED CIRCLE
     borderWidth: 2.5,
     borderColor: '#E5E7EB',
     padding: 2,
@@ -1460,12 +1438,33 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.12,
     shadowRadius: 5,
     elevation: 3,
-    marginBottom: 8,
+    marginBottom: 6,
   },
   homeCatCircleImg: {
     width: '100%',
     height: '100%',
-    borderRadius: 34,  // 100% FULL ROUNDED CIRCLE
+    borderRadius: 31,  // 100% FULL ROUNDED CIRCLE
+  },
+  serviceTatCircleBadge: {
+    position: 'absolute',
+    top: -5,
+    right: -5,
+    backgroundColor: '#DCFCE7',
+    borderWidth: 1.5,
+    borderColor: '#16A34A',
+    borderRadius: 8,
+    paddingHorizontal: 4,
+    paddingVertical: 1,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.15,
+    shadowRadius: 2,
+    elevation: 4,
+  },
+  serviceTatCircleBadgeText: {
+    fontSize: 8,
+    fontWeight: '900',
+    color: '#166534',
   },
   homeCatCountBadge: {
     position: 'absolute',

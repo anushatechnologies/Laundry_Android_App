@@ -515,71 +515,23 @@ export function AuthScreen({ reason = 'ACCOUNT', onBack }: AuthScreenProps) {
                   </View>
                 </View>
 
-                {/* Password Input with Show/Hide Toggle */}
-                <View style={styles.inputGroup}>
-                  <Text style={styles.inputLabel}>Password *</Text>
-                  <View style={styles.textInputContainer}>
-                    <MaterialCommunityIcons name="lock-outline" size={20} color="#64748B" />
-                    <TextInput
-                      style={styles.textInput}
-                      placeholder="Enter your password"
-                      placeholderTextColor="#94A3B8"
-                      secureTextEntry={!showPassword}
-                      value={password}
-                      onChangeText={(val) => {
-                        setPassword(val);
-                        setErrorMessage(null);
-                      }}
-                      accessibilityLabel="Password input"
-                    />
-                    <Pressable
-                      onPress={() => setShowPassword(!showPassword)}
-                      hitSlop={10}
-                      accessibilityLabel="Toggle password visibility"
-                    >
-                      <MaterialCommunityIcons
-                        name={showPassword ? 'eye-off-outline' : 'eye-outline'}
-                        size={20}
-                        color="#64748B"
-                      />
-                    </Pressable>
-                  </View>
-                </View>
-
-                {/* Remember Me and Forgot Password */}
-                <View style={styles.rememberForgotRow}>
-                  <Pressable
-                    style={styles.rememberMeContainer}
-                    onPress={() => setRememberMe(!rememberMe)}
-                    accessibilityRole="checkbox"
-                    accessibilityState={{ checked: rememberMe }}
-                  >
-                    <MaterialCommunityIcons
-                      name={rememberMe ? 'checkbox-marked' : 'checkbox-blank-outline'}
-                      size={20}
-                      color={rememberMe ? '#16A34A' : '#94A3B8'}
-                    />
-                    <Text style={styles.rememberMeText}>Remember Me</Text>
-                  </Pressable>
-
-                  <Pressable
-                    onPress={handleForgotPassword}
-                    accessibilityRole="button"
-                    accessibilityLabel="Forgot Password"
-                  >
-                    <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
-                  </Pressable>
+                {/* Pure Firebase Phone OTP Notice */}
+                <View style={styles.otpNoticeRow}>
+                  <MaterialCommunityIcons name="shield-check" size={18} color="#16A34A" />
+                  <Text style={styles.otpNoticeText}>
+                    Instant sign in with Firebase SMS verification. No password needed!
+                  </Text>
                 </View>
 
                 {/* Main CTA: Green Gradient #16A34A -> #10B981 */}
-                <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
+                <Animated.View style={{ transform: [{ scale: scaleAnim }], marginTop: 10 }}>
                   <Pressable
                     onPress={handleLoginSubmit}
                     onPressIn={handlePressIn}
                     onPressOut={handlePressOut}
                     disabled={loading}
                     accessibilityRole="button"
-                    accessibilityLabel="Login"
+                    accessibilityLabel="Login with OTP"
                   >
                     <LinearGradient
                       colors={['#16A34A', '#10B981']}
@@ -590,31 +542,11 @@ export function AuthScreen({ reason = 'ACCOUNT', onBack }: AuthScreenProps) {
                       {loading ? (
                         <ActivityIndicator color="#FFFFFF" size="small" />
                       ) : (
-                        <>
-                          <Text style={styles.primaryBtnText}>Login →</Text>
-                        </>
+                        <Text style={styles.primaryBtnText}>Login with OTP →</Text>
                       )}
                     </LinearGradient>
                   </Pressable>
                 </Animated.View>
-
-                {/* OR Divider Line */}
-                <View style={styles.dividerRow}>
-                  <View style={styles.dividerLine} />
-                  <Text style={styles.dividerText}>OR</Text>
-                  <View style={styles.dividerLine} />
-                </View>
-
-                {/* White Outlined "Continue with Google" Button */}
-                <Pressable
-                  style={styles.googleBtn}
-                  onPress={handleGoogleSignIn}
-                  accessibilityRole="button"
-                  accessibilityLabel="Continue with Google"
-                >
-                  <MaterialCommunityIcons name="google" size={20} color="#EA4335" />
-                  <Text style={styles.googleBtnText}>Continue with Google</Text>
-                </Pressable>
 
                 {/* Bottom Switch Link */}
                 <View style={styles.bottomSwitchRow}>
@@ -764,58 +696,7 @@ export function AuthScreen({ reason = 'ACCOUNT', onBack }: AuthScreenProps) {
                   </View>
                 </View>
 
-                {/* 4. Password */}
-                <View style={styles.inputGroup}>
-                  <Text style={styles.inputLabel}>Password *</Text>
-                  <View style={styles.textInputContainer}>
-                    <MaterialCommunityIcons name="lock-outline" size={20} color="#64748B" />
-                    <TextInput
-                      style={styles.textInput}
-                      placeholder="Create a strong password"
-                      placeholderTextColor="#94A3B8"
-                      secureTextEntry={!showPassword}
-                      value={password}
-                      onChangeText={(val) => {
-                        setPassword(val);
-                        setErrorMessage(null);
-                      }}
-                      accessibilityLabel="Password input"
-                    />
-                    <Pressable
-                      onPress={() => setShowPassword(!showPassword)}
-                      hitSlop={10}
-                      accessibilityLabel="Toggle password visibility"
-                    >
-                      <MaterialCommunityIcons
-                        name={showPassword ? 'eye-off-outline' : 'eye-outline'}
-                        size={20}
-                        color="#64748B"
-                      />
-                    </Pressable>
-                  </View>
-                </View>
 
-                {/* 5. Delivery Address */}
-                <View style={styles.inputGroup}>
-                  <Text style={styles.inputLabel}>
-                    Delivery Address{' '}
-                    <Text style={{ color: '#64748B', fontSize: 11 }}>(Optional)</Text>
-                  </Text>
-                  <View style={styles.textInputContainer}>
-                    <MaterialCommunityIcons name="map-marker-outline" size={20} color="#64748B" />
-                    <TextInput
-                      style={styles.textInput}
-                      placeholder="Flat / House no, Street, Landmark"
-                      placeholderTextColor="#94A3B8"
-                      value={deliveryAddress}
-                      onChangeText={(val) => {
-                        setDeliveryAddress(val);
-                        setErrorMessage(null);
-                      }}
-                      accessibilityLabel="Delivery address input"
-                    />
-                  </View>
-                </View>
 
                 {/* 6. Referral Code (Optional) with Gold Accent Badge */}
                 <View style={styles.inputGroup}>
@@ -898,9 +779,7 @@ export function AuthScreen({ reason = 'ACCOUNT', onBack }: AuthScreenProps) {
                       {loading ? (
                         <ActivityIndicator color="#FFFFFF" size="small" />
                       ) : (
-                        <>
-                          <Text style={styles.primaryBtnText}>Create Account →</Text>
-                        </>
+                        <Text style={styles.primaryBtnText}>Register with OTP →</Text>
                       )}
                     </LinearGradient>
                   </Pressable>
@@ -1759,5 +1638,25 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
     color: '#475569',
+  },
+  otpNoticeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: '#F0FDF4',
+    borderWidth: 1,
+    borderColor: '#DCFCE7',
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginTop: 8,
+    marginBottom: 6,
+  },
+  otpNoticeText: {
+    fontSize: 12,
+    color: '#166534',
+    flex: 1,
+    lineHeight: 16,
+    fontWeight: '600',
   },
 });
