@@ -888,47 +888,59 @@ export function BookScreen({
               <View style={styles.luxuryEmptyCartWrap}>
                 {/* Visual Icon Badge */}
                 <View style={styles.emptyIconCircle}>
-                  <MaterialCommunityIcons name="shopping-outline" size={44} color="#FF7A00" />
+                  <MaterialCommunityIcons name="shopping" size={44} color="#16A34A" />
                 </View>
                 <Text style={styles.luxuryEmptyTitle}>Your Laundry Bag is Empty</Text>
                 <Text style={styles.luxuryEmptySubtitle}>
                   Choose from expert dry cleaning, everyday wash & fold, steam pressing, and premium fabric spa.
                 </Text>
 
-                {/* Primary CTA Button: Book a Service */}
-                <Pressable
-                  style={({ pressed }) => [styles.emptyPrimaryBtn, pressed && { opacity: 0.9, transform: [{ scale: 0.99 }] }]}
+                {/* Primary CTA Button: Explore Garments */}
+                <TouchableOpacity
+                  style={styles.emptyPrimaryBtn}
                   onPress={onBrowseServices}
+                  activeOpacity={0.85}
                   accessibilityLabel="Book a Service and Explore Garments"
                 >
-                  <MaterialCommunityIcons name="hanger" size={20} color="#FFFFFF" />
-                  <Text style={styles.emptyPrimaryBtnText}>Book a Service / Explore Garments</Text>
-                  <MaterialCommunityIcons name="arrow-right" size={18} color="#FFFFFF" />
-                </Pressable>
+                  <MaterialCommunityIcons name="hanger" size={22} color="#FFFFFF" />
+                  <Text style={styles.emptyPrimaryBtnText}>Explore Garments & Services</Text>
+                  <MaterialCommunityIcons name="arrow-right" size={20} color="#FFFFFF" />
+                </TouchableOpacity>
 
                 {/* Secondary Horizontal Button: Browse Categories */}
-                <Pressable
-                  style={({ pressed }) => [styles.emptySecondaryBtn, pressed && { opacity: 0.85 }]}
+                <TouchableOpacity
+                  style={styles.emptySecondaryBtn}
                   onPress={onBrowseServices}
+                  activeOpacity={0.85}
                   accessibilityLabel="Browse all categories"
                 >
-                  <MaterialCommunityIcons name="view-grid-outline" size={18} color="#1C0B18" />
-                  <Text style={styles.emptySecondaryBtnText}>Browse by Categories</Text>
-                  <MaterialCommunityIcons name="chevron-right" size={18} color="#8A7A84" />
-                </Pressable>
+                  <View style={styles.emptySecondaryLeft}>
+                    <View style={styles.emptySecondaryIconCircle}>
+                      <MaterialCommunityIcons name="view-grid-outline" size={18} color="#16A34A" />
+                    </View>
+                    <Text style={styles.emptySecondaryBtnText}>Browse by Categories</Text>
+                  </View>
+                  <MaterialCommunityIcons name="chevron-right" size={20} color="#64748B" />
+                </TouchableOpacity>
 
                 {/* Trust Highlights */}
                 <View style={styles.emptyTrustBox}>
                   <View style={styles.emptyTrustItem}>
-                    <MaterialCommunityIcons name="moped" size={18} color="#FF7A00" />
+                    <View style={[styles.emptyTrustIconWrap, { backgroundColor: '#DCFCE7' }]}>
+                      <MaterialCommunityIcons name="moped" size={16} color="#16A34A" />
+                    </View>
                     <Text style={styles.emptyTrustText}>Free Doorstep Pickup & Delivery</Text>
                   </View>
                   <View style={styles.emptyTrustItem}>
-                    <MaterialCommunityIcons name="shield-check" size={18} color="#16A34A" />
+                    <View style={[styles.emptyTrustIconWrap, { backgroundColor: '#D1FAE5' }]}>
+                      <MaterialCommunityIcons name="shield-check" size={16} color="#059669" />
+                    </View>
                     <Text style={styles.emptyTrustText}>German Eco Care & 100% Color Protection</Text>
                   </View>
                   <View style={styles.emptyTrustItem}>
-                    <MaterialCommunityIcons name="clock-fast" size={18} color="#2563EB" />
+                    <View style={[styles.emptyTrustIconWrap, { backgroundColor: '#EFF6FF' }]}>
+                      <MaterialCommunityIcons name="clock-fast" size={16} color="#2563EB" />
+                    </View>
                     <Text style={styles.emptyTrustText}>Fast 24-48 Hour Turnaround Available</Text>
                   </View>
                 </View>
@@ -2739,8 +2751,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   stepDotActive: {
-    backgroundColor: '#F97316',
-    borderColor: '#F97316',
+    backgroundColor: '#16A34A',
+    borderColor: '#16A34A',
   },
   stepDotCompleted: {
     backgroundColor: '#16A34A',
@@ -2777,7 +2789,7 @@ const styles = StyleSheet.create({
     color: '#8A7A84',
   },
   stepLabelTextActive: {
-    color: '#F97316',
+    color: '#16A34A',
     fontWeight: '900',
   },
   scrollArea: {
@@ -2807,30 +2819,30 @@ const styles = StyleSheet.create({
   },
   luxuryEmptyCartWrap: {
     alignItems: 'center',
-    paddingVertical: 36,
-    paddingHorizontal: 8,
+    paddingVertical: 28,
+    paddingHorizontal: 12,
     gap: 14,
   },
   emptyIconCircle: {
-    width: 88,
-    height: 88,
-    borderRadius: 44,
-    backgroundColor: '#FFF4EB',
+    width: 90,
+    height: 90,
+    borderRadius: 45,
+    backgroundColor: '#DCFCE7',
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 4,
     borderWidth: 2,
-    borderColor: '#FED7AA',
+    borderColor: '#86EFAC',
   },
   luxuryEmptyTitle: {
-    fontSize: 20,
+    fontSize: 21,
     fontWeight: '900',
-    color: '#1C0B18',
+    color: '#0F172A',
     textAlign: 'center',
     letterSpacing: -0.3,
   },
   luxuryEmptySubtitle: {
-    fontSize: 13,
+    fontSize: 13.5,
     color: '#64748B',
     textAlign: 'center',
     lineHeight: 20,
@@ -2843,20 +2855,20 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 10,
-    backgroundColor: '#FF7A00',
+    backgroundColor: '#16A34A',
     borderRadius: 16,
     paddingVertical: 15,
     paddingHorizontal: 20,
-    marginVertical: 6,
-    shadowColor: '#FF7A00',
+    marginVertical: 4,
+    shadowColor: '#16A34A',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.35,
-    shadowRadius: 10,
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
     elevation: 4,
   },
   emptyPrimaryBtnText: {
     color: '#FFFFFF',
-    fontSize: 15,
+    fontSize: 15.5,
     fontWeight: '800',
     letterSpacing: 0.2,
   },
@@ -2867,31 +2879,42 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     backgroundColor: '#FFFFFF',
     borderRadius: 16,
-    paddingVertical: 14,
-    paddingHorizontal: 18,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
     borderWidth: 1.5,
-    borderColor: '#E2E8F0',
+    borderColor: '#CBD5E1',
     shadowColor: '#000000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.04,
     shadowRadius: 6,
     elevation: 1,
   },
+  emptySecondaryLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  emptySecondaryIconCircle: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#DCFCE7',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   emptySecondaryBtnText: {
-    color: '#1C0B18',
-    fontSize: 14,
+    color: '#0F172A',
+    fontSize: 14.5,
     fontWeight: '800',
-    flex: 1,
-    marginLeft: 10,
   },
   emptyTrustBox: {
     width: '100%',
-    backgroundColor: '#F8FAFC',
+    backgroundColor: '#FFFFFF',
     borderRadius: 16,
     padding: 16,
     gap: 12,
     borderWidth: 1,
-    borderColor: '#EDF2F7',
+    borderColor: '#E2E8F0',
     marginTop: 8,
   },
   emptyTrustItem: {
@@ -2899,8 +2922,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 10,
   },
+  emptyTrustIconWrap: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   emptyTrustText: {
-    fontSize: 12,
+    fontSize: 12.5,
     fontWeight: '600',
     color: '#334155',
     flex: 1,
@@ -3618,14 +3648,14 @@ const styles = StyleSheet.create({
   footerPrimaryBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FF7A00',
+    backgroundColor: '#16A34A',
     paddingVertical: 14,
     paddingHorizontal: 22,
     borderRadius: 16,
     gap: 8,
-    shadowColor: '#FF7A00',
+    shadowColor: '#16A34A',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.35,
+    shadowOpacity: 0.3,
     shadowRadius: 10,
     elevation: 4,
   },
@@ -3715,12 +3745,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    backgroundColor: '#FF7A00',
+    backgroundColor: '#16A34A',
     height: 52,
     borderRadius: 16,
-    shadowColor: '#FF7A00',
+    shadowColor: '#16A34A',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.35,
+    shadowOpacity: 0.3,
     shadowRadius: 10,
     elevation: 6,
   },
@@ -3736,7 +3766,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#F97316',
+    backgroundColor: '#16A34A',
     borderRadius: 16,
     paddingVertical: 14,
     gap: 8,

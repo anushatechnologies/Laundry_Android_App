@@ -726,8 +726,8 @@ function AuthenticatedApp() {
   } else if (route === 'SERVICES') {
     screen = (
       <CategoryCatalogScreen
-        categoryTag={selectedCategoryInfo.tag || 'MENS'}
-        categoryTitle={selectedCategoryInfo.title || "Men's Wear"}
+        categoryTag={selectedCategoryInfo.tag || 'ALL'}
+        categoryTitle={selectedCategoryInfo.title || 'All Items'}
         initialServiceFilter={selectedCategoryInfo.serviceCode || 'ALL'}
         initialServiceName={selectedCategoryInfo.serviceName || 'All Services'}
         onBack={() => navigateTo('HOME')}
@@ -747,13 +747,26 @@ function AuthenticatedApp() {
         deliveryLocation={locationState.deliveryLocation}
         onViewOrders={() => navigateTo('ORDERS')}
         onRequireSignIn={startCheckout}
-        onBrowseServices={() => navigateTo('SERVICES')}
+        onBrowseServices={() => {
+          setSelectedCategoryInfo({ tag: 'ALL', title: 'All Items', serviceCode: 'ALL', serviceName: 'All Services' });
+          navigateTo('SERVICES');
+        }}
         resumeCheckout={resumeCheckout}
         onCheckoutResumed={() => setResumeCheckout(false)}
       />
     );
   } else if (route === 'ORDERS') {
-    screen = <OrdersScreen onBook={startBooking} onSignIn={() => openLogin('ACCOUNT')} onBrowseServices={() => navigateTo('SERVICES')} onOpenOrderDetail={openOrderDetail} />;
+    screen = (
+      <OrdersScreen
+        onBook={startBooking}
+        onSignIn={() => openLogin('ACCOUNT')}
+        onBrowseServices={() => {
+          setSelectedCategoryInfo({ tag: 'ALL', title: 'All Items', serviceCode: 'ALL', serviceName: 'All Services' });
+          navigateTo('SERVICES');
+        }}
+        onOpenOrderDetail={openOrderDetail}
+      />
+    );
   } else if (route === 'PROFILE') {
     screen = (
       <ProfileScreen
@@ -912,7 +925,12 @@ function AuthenticatedApp() {
                 <Pressable
                   key={tab.key}
                   style={[styles.tabItem, isActive && styles.tabItemActive]}
-                  onPress={() => navigateTo(tab.key)}
+                  onPress={() => {
+                    if (tab.key === 'SERVICES') {
+                      setSelectedCategoryInfo({ tag: 'ALL', title: 'All Items', serviceCode: 'ALL', serviceName: 'All Services' });
+                    }
+                    navigateTo(tab.key);
+                  }}
                   accessibilityRole="button"
                   accessibilityLabel={tab.title}
                 >

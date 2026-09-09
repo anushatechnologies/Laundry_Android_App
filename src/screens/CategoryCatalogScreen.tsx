@@ -419,7 +419,7 @@ export function CategoryCatalogScreen({
     });
 
     const activeSubs = (dynamicCatalog?.subcategories || catalog?.subcategories || []).filter(
-      (s: any) => s && s.categoryTag === activeCategoryTag && s.isActive !== false
+      (s: any) => s && (activeCategoryTag === 'ALL' || s.categoryTag === activeCategoryTag) && s.isActive !== false
     );
     activeSubs.forEach((s: any) => {
       if (s && s.name && typeof s.name === 'string' && s.name.trim()) {
@@ -821,11 +821,11 @@ export function CategoryCatalogScreen({
             const subcategoryKey = `${activeCategoryTag}-${sub}`;
             const currentCatObj = categoriesList.find((c) => c.tag === activeCategoryTag);
             const matchedSubObj = (dynamicCatalog?.subcategories || catalog?.subcategories || []).find(
-              (s: any) => s && s.categoryTag === activeCategoryTag && String(s.name || '').toLowerCase() === String(sub || '').toLowerCase()
+              (s: any) => s && (activeCategoryTag === 'ALL' || s.categoryTag === activeCategoryTag) && String(s.name || '').toLowerCase() === String(sub || '').toLowerCase()
             );
             const subPhotoUrl = isAll
               ? getCategoryImageUrl(activeCategoryTag, currentCatObj?.imageUrl)
-              : getSubcategoryImageUrl(sub, activeCategoryTag, matchedSubObj?.imageUrl);
+              : getSubcategoryImageUrl(sub, matchedSubObj?.categoryTag || activeCategoryTag, matchedSubObj?.imageUrl);
             const displayName = isAll ? 'All' : sub;
             const hasImgError = subcategoryImageErrors[subcategoryKey];
 
