@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   Animated,
   Image,
   KeyboardAvoidingView,
@@ -18,7 +19,6 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useApp } from '@/context/AppContext';
 import { api } from '@/lib/api';
-import { COLORS } from '@/ui/theme';
 
 const brandLogo = require('../../assets/brand-logo.png');
 
@@ -36,12 +36,16 @@ function normalisePhone(value: string) {
 }
 
 export function AuthScreen({ reason = 'ACCOUNT', onBack }: AuthScreenProps) {
-  const { signIn, requestOtp } = useApp();
+  const { signIn, requestOtp, saveAddress } = useApp();
 
   const [mode, setMode] = useState<AuthMode>('LOGIN');
   const [phone, setPhone] = useState('');
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [deliveryAddress, setDeliveryAddress] = useState('');
+  const [rememberMe, setRememberMe] = useState(true);
   const [referralCode, setReferralCode] = useState('');
   const [autoDetectedReferral, setAutoDetectedReferral] = useState(false);
   const [detectedBonus, setDetectedBonus] = useState(25);
@@ -57,16 +61,25 @@ export function AuthScreen({ reason = 'ACCOUNT', onBack }: AuthScreenProps) {
   const [countdown, setCountdown] = useState(30);
   const [canResend, setCanResend] = useState(false);
 
+  // Tab layout width for responsive slide animation
+  const [switcherWidth, setSwitcherWidth] = useState(320);
+
   // Animation values
   const slideAnim = useRef(new Animated.Value(0)).current;
   const fadeAnim = useRef(new Animated.Value(1)).current;
   const scaleAnim = useRef(new Animated.Value(1)).current;
 
-  // Auto-detect referral code on install (from deep link storage or backend IP fingerprint matching)
+  // Load remembered phone & auto-detect referral code on install
   useEffect(() => {
     let isMounted = true;
-    const detectInvite = async () => {
+    const initAuthData = async () => {
       try {
+        // Load remembered phone number
+        const remembered = await AsyncStorage.getItem('@remembered_phone');
+        if (remembered && isMounted) {
+          setPhone(remembered);
+        }
+
         // 1. Check local pending referral from deep link
         const localCode = await AsyncStorage.getItem('@pending_referral_code');
         if (localCode && localCode.trim().length > 0 && isMounted) {
@@ -91,7 +104,7 @@ export function AuthScreen({ reason = 'ACCOUNT', onBack }: AuthScreenProps) {
       }
     };
 
-    detectInvite();
+    initAuthData();
     return () => {
       isMounted = false;
     };
@@ -112,18 +125,18 @@ export function AuthScreen({ reason = 'ACCOUNT', onBack }: AuthScreenProps) {
     Animated.parallel([
       Animated.timing(fadeAnim, {
         toValue: 0,
-        duration: 150,
+        duration: 140,
         useNativeDriver: true,
       }),
       Animated.timing(slideAnim, {
         toValue: mode === 'LOGIN' ? 0 : 1,
-        duration: 300,
+        duration: 260,
         useNativeDriver: true,
       }),
     ]).start(() => {
       Animated.timing(fadeAnim, {
         toValue: 1,
-        duration: 200,
+        duration: 180,
         useNativeDriver: true,
       }).start();
     });
@@ -132,7 +145,7 @@ export function AuthScreen({ reason = 'ACCOUNT', onBack }: AuthScreenProps) {
   // Button press animation
   const handlePressIn = () => {
     Animated.spring(scaleAnim, {
-      toValue: 0.96,
+      toValue: 0.97,
       useNativeDriver: true,
     }).start();
   };
@@ -145,7 +158,7 @@ export function AuthScreen({ reason = 'ACCOUNT', onBack }: AuthScreenProps) {
     }).start();
   };
 
-  // Existing customers request their verification code from Firebase.
+  // Login submission
   const handleLoginSubmit = async () => {
     const cleanPhone = normalisePhone(phone);
     if (cleanPhone.length !== 10) {
@@ -157,6 +170,13 @@ export function AuthScreen({ reason = 'ACCOUNT', onBack }: AuthScreenProps) {
     setErrorMessage(null);
 
     try {
+      // Remember me handling
+      if (rememberMe) {
+        await AsyncStorage.setItem('@remembered_phone', cleanPhone).catch(() => {});
+      } else {
+        await AsyncStorage.removeItem('@remembered_phone').catch(() => {});
+      }
+
       // 1. Check if user is registered
       const check = await api.checkPhone(cleanPhone);
 
@@ -169,7 +189,7 @@ export function AuthScreen({ reason = 'ACCOUNT', onBack }: AuthScreenProps) {
 
       // 2. User exists: Firebase sends the verification code.
       await requestOtp(cleanPhone);
-      
+
       setPhone(cleanPhone);
       setMode('OTP');
       setCountdown(30);
@@ -181,7 +201,7 @@ export function AuthScreen({ reason = 'ACCOUNT', onBack }: AuthScreenProps) {
     }
   };
 
-  // New customers are created only after Firebase verifies their phone number.
+  // Register submission
   const handleRegisterSubmit = async () => {
     const cleanPhone = normalisePhone(phone);
     if (cleanPhone.length !== 10) {
@@ -192,7 +212,7 @@ export function AuthScreen({ reason = 'ACCOUNT', onBack }: AuthScreenProps) {
       setErrorMessage('Please enter your full name (letters only).');
       return;
     }
-    // Additional name validation - check if it contains only letters, spaces, dots, hyphens
+    // Name validation - check if it contains only letters, spaces, dots, hyphens
     if (!/^[a-zA-Z\s.\-]+$/.test(name.trim())) {
       setErrorMessage('Name should only contain letters, spaces, dots, and hyphens.');
       return;
@@ -206,25 +226,28 @@ export function AuthScreen({ reason = 'ACCOUNT', onBack }: AuthScreenProps) {
     setErrorMessage(null);
 
     try {
-      // 1. First check if phone number already exists
+      // 1. Check if phone number already exists
       const check = await api.checkPhone(cleanPhone);
 
       if (check.exists) {
-        // Phone already registered - show error and suggest sign in
         setErrorMessage('This phone number is already registered. Please use Sign In instead.');
         setLoading(false);
         return;
       }
 
+      // Save delivery address to pending storage if provided
+      if (deliveryAddress.trim()) {
+        await AsyncStorage.setItem('@pending_signup_address', deliveryAddress.trim()).catch(() => {});
+      }
+
       // 2. Phone available - proceed with OTP
-      // Firebase / Fast2SMS sends the verification code.
       await requestOtp(
         cleanPhone,
         name.trim(),
         email.trim() || undefined,
         referralCode.trim().toUpperCase() || undefined,
       );
-      
+
       setPhone(cleanPhone);
       setMode('OTP');
       setCountdown(30);
@@ -255,7 +278,23 @@ export function AuthScreen({ reason = 'ACCOUNT', onBack }: AuthScreenProps) {
         referralCode.trim().toUpperCase() || undefined,
       );
       await AsyncStorage.removeItem('@pending_referral_code').catch(() => {});
-      // Successful sign in automatically triggers navigation back in App.tsx!
+
+      // If pending delivery address was provided during register, save it
+      try {
+        const pendingAddr = await AsyncStorage.getItem('@pending_signup_address');
+        if (pendingAddr && pendingAddr.trim()) {
+          await saveAddress({
+            type: 'Home',
+            street: pendingAddr.trim(),
+            city: 'Hyderabad',
+            pincode: '500001',
+            isDefault: true,
+          }).catch(() => {});
+          await AsyncStorage.removeItem('@pending_signup_address').catch(() => {});
+        }
+      } catch {
+        // Ignored
+      }
     } catch (err) {
       setErrorMessage(err instanceof Error ? err.message : 'Invalid or expired verification code.');
     } finally {
@@ -263,14 +302,13 @@ export function AuthScreen({ reason = 'ACCOUNT', onBack }: AuthScreenProps) {
     }
   };
 
-  // Firebase sends every resend request too.
+  // Firebase resend OTP
   const handleResendOtp = async () => {
     if (!canResend) return;
     setLoading(true);
     setErrorMessage(null);
     try {
       await requestOtp(phone);
-      
       setCountdown(30);
       setCanResend(false);
       setOtp('');
@@ -281,19 +319,37 @@ export function AuthScreen({ reason = 'ACCOUNT', onBack }: AuthScreenProps) {
     }
   };
 
+  const handleForgotPassword = () => {
+    Alert.alert(
+      'Forgot Password?',
+      'LaundryFresh uses high-security SMS OTP verification for passwordless instant sign in. Simply enter your mobile number and tap Login to verify.',
+      [{ text: 'Got It', style: 'default' }]
+    );
+  };
+
+  const handleGoogleSignIn = () => {
+    Alert.alert(
+      'Google Sign In',
+      'For seamless order updates and delivery notifications, please enter your mobile number to sign in with secure SMS verification.',
+      [{ text: 'OK', style: 'default' }]
+    );
+  };
+
   const navigateToRegister = () => {
     setShowNotFoundModal(false);
     setErrorMessage(null);
     setMode('REGISTER');
   };
 
+  const tabWidth = Math.max(120, (switcherWidth - 8) / 2);
+
   return (
     <View style={styles.root}>
-      {/* Premium Gradient Header */}
+      {/* Premium Fresh Green Ambient Header */}
       <LinearGradient
-        colors={['#1C0B18', '#3D2134', '#1C0B18']}
+        colors={['#DCFCE7', '#E8F5E9', '#F0FDF4']}
         start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
+        end={{ x: 0, y: 1 }}
         style={styles.gradientHeader}
       >
         {/* Top Navigation Bar */}
@@ -305,58 +361,88 @@ export function AuthScreen({ reason = 'ACCOUNT', onBack }: AuthScreenProps) {
               accessibilityRole="button"
               accessibilityLabel="Go back"
             >
-              <MaterialCommunityIcons name="arrow-left" size={20} color="#FFFFFF" />
+              <MaterialCommunityIcons name="arrow-left" size={22} color="#0F172A" />
             </Pressable>
           ) : (
-            <View style={{ width: 40 }} />
+            <View style={{ width: 42 }} />
           )}
 
-          {reason === 'CHECKOUT' && (
+          {reason === 'CHECKOUT' ? (
             <View style={styles.checkoutBadge}>
-              <MaterialCommunityIcons name="shield-lock-outline" size={12} color="#D6B36A" />
+              <MaterialCommunityIcons name="shield-lock-outline" size={14} color="#16A34A" />
               <Text style={styles.checkoutBadgeText}>Secure Checkout</Text>
             </View>
+          ) : (
+            <View style={styles.headerRightPlaceholder} />
           )}
         </View>
 
-        {/* Brand Identity */}
+        {/* Brand Identity with Mint Gradient Glow */}
         <View style={styles.brandSection}>
-          <View style={styles.logoCircle}>
-            <Image source={brandLogo} style={styles.logo} resizeMode="contain" />
+          <View style={styles.glowOuterCircle}>
+            <View style={styles.logoCircle}>
+              <Image source={brandLogo} style={styles.logo} resizeMode="contain" />
+            </View>
           </View>
           <Text style={styles.brandTitle}>LaundryFresh</Text>
-          <Text style={styles.brandTagline}>PREMIUM FABRIC CARE</Text>
+          <View style={styles.taglineBadge}>
+            <Text style={styles.brandTagline}>PREMIUM FABRIC CARE</Text>
+          </View>
         </View>
 
         {/* Tab Switcher (Only for LOGIN/REGISTER, hidden during OTP) */}
         {mode !== 'OTP' && (
-          <View style={styles.tabSwitcher}>
+          <View
+            style={styles.tabSwitcher}
+            onLayout={(e) => {
+              const { width } = e.nativeEvent.layout;
+              if (width > 0) setSwitcherWidth(width);
+            }}
+          >
             <Animated.View
               style={[
-                styles.tabIndicator,
+                styles.tabIndicatorWrapper,
                 {
-                  transform: [{
-                    translateX: slideAnim.interpolate({
-                      inputRange: [0, 1],
-                      outputRange: [0, 160],
-                    }),
-                  }],
+                  width: tabWidth,
+                  transform: [
+                    {
+                      translateX: slideAnim.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: [0, tabWidth],
+                      }),
+                    },
+                  ],
                 },
               ]}
-            />
+            >
+              <LinearGradient
+                colors={['#16A34A', '#10B981']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.tabIndicatorGradient}
+              />
+            </Animated.View>
+
             <Pressable
               style={styles.tabButton}
-              onPress={() => { setMode('LOGIN'); setErrorMessage(null); }}
+              onPress={() => {
+                setMode('LOGIN');
+                setErrorMessage(null);
+              }}
               accessibilityRole="tab"
-              accessibilityLabel="Sign In"
+              accessibilityLabel="Login"
             >
               <Text style={[styles.tabText, mode === 'LOGIN' && styles.tabTextActive]}>
                 Sign In
               </Text>
             </Pressable>
+
             <Pressable
               style={styles.tabButton}
-              onPress={() => { setMode('REGISTER'); setErrorMessage(null); }}
+              onPress={() => {
+                setMode('REGISTER');
+                setErrorMessage(null);
+              }}
               accessibilityRole="tab"
               accessibilityLabel="Register"
             >
@@ -378,7 +464,7 @@ export function AuthScreen({ reason = 'ACCOUNT', onBack }: AuthScreenProps) {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          {/* Floating Card Container */}
+          {/* Main White Rounded Card */}
           <Animated.View
             style={[
               styles.floatingCard,
@@ -391,12 +477,11 @@ export function AuthScreen({ reason = 'ACCOUNT', onBack }: AuthScreenProps) {
             {/* STAGE 1: LOGIN */}
             {mode === 'LOGIN' && (
               <View style={styles.formSection}>
-                <View style={styles.welcomeHeader}>
-                  <MaterialCommunityIcons name="hand-wave" size={28} color="#F97316" />
-                  <Text style={styles.formTitle}>Welcome Back</Text>
+                <View style={styles.headerTextRow}>
+                  <Text style={styles.formTitle}>Welcome Back!</Text>
                 </View>
                 <Text style={styles.formSubtitle}>
-                  Sign in to manage your orders and track pickups
+                  Sign in to manage your orders and track your pickups.
                 </Text>
 
                 {errorMessage && (
@@ -406,9 +491,9 @@ export function AuthScreen({ reason = 'ACCOUNT', onBack }: AuthScreenProps) {
                   </View>
                 )}
 
-                {/* Mobile Phone Input */}
+                {/* Mobile Phone Input with +91 Selector */}
                 <View style={styles.inputGroup}>
-                  <Text style={styles.inputLabel}>Mobile Number</Text>
+                  <Text style={styles.inputLabel}>Mobile Number *</Text>
                   <View style={styles.phoneInputContainer}>
                     <View style={styles.countryPrefix}>
                       <Text style={styles.flagEmoji}>🇮🇳</Text>
@@ -417,7 +502,7 @@ export function AuthScreen({ reason = 'ACCOUNT', onBack }: AuthScreenProps) {
                     <TextInput
                       style={styles.phoneInput}
                       placeholder="Enter 10-digit mobile"
-                      placeholderTextColor="#A3A3A3"
+                      placeholderTextColor="#94A3B8"
                       keyboardType="number-pad"
                       maxLength={10}
                       value={phone}
@@ -430,40 +515,132 @@ export function AuthScreen({ reason = 'ACCOUNT', onBack }: AuthScreenProps) {
                   </View>
                 </View>
 
-                {/* Continue Button */}
+                {/* Password Input with Show/Hide Toggle */}
+                <View style={styles.inputGroup}>
+                  <Text style={styles.inputLabel}>Password *</Text>
+                  <View style={styles.textInputContainer}>
+                    <MaterialCommunityIcons name="lock-outline" size={20} color="#64748B" />
+                    <TextInput
+                      style={styles.textInput}
+                      placeholder="Enter your password"
+                      placeholderTextColor="#94A3B8"
+                      secureTextEntry={!showPassword}
+                      value={password}
+                      onChangeText={(val) => {
+                        setPassword(val);
+                        setErrorMessage(null);
+                      }}
+                      accessibilityLabel="Password input"
+                    />
+                    <Pressable
+                      onPress={() => setShowPassword(!showPassword)}
+                      hitSlop={10}
+                      accessibilityLabel="Toggle password visibility"
+                    >
+                      <MaterialCommunityIcons
+                        name={showPassword ? 'eye-off-outline' : 'eye-outline'}
+                        size={20}
+                        color="#64748B"
+                      />
+                    </Pressable>
+                  </View>
+                </View>
+
+                {/* Remember Me and Forgot Password */}
+                <View style={styles.rememberForgotRow}>
+                  <Pressable
+                    style={styles.rememberMeContainer}
+                    onPress={() => setRememberMe(!rememberMe)}
+                    accessibilityRole="checkbox"
+                    accessibilityState={{ checked: rememberMe }}
+                  >
+                    <MaterialCommunityIcons
+                      name={rememberMe ? 'checkbox-marked' : 'checkbox-blank-outline'}
+                      size={20}
+                      color={rememberMe ? '#16A34A' : '#94A3B8'}
+                    />
+                    <Text style={styles.rememberMeText}>Remember Me</Text>
+                  </Pressable>
+
+                  <Pressable
+                    onPress={handleForgotPassword}
+                    accessibilityRole="button"
+                    accessibilityLabel="Forgot Password"
+                  >
+                    <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
+                  </Pressable>
+                </View>
+
+                {/* Main CTA: Green Gradient #16A34A -> #10B981 */}
                 <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
                   <Pressable
-                    style={[styles.primaryBtn, loading && styles.btnDisabled]}
                     onPress={handleLoginSubmit}
                     onPressIn={handlePressIn}
                     onPressOut={handlePressOut}
                     disabled={loading}
                     accessibilityRole="button"
-                    accessibilityLabel="Send verification code"
+                    accessibilityLabel="Login"
                   >
-                    {loading ? (
-                      <ActivityIndicator color="#FFFFFF" size="small" />
-                    ) : (
-                      <>
-                        <Text style={styles.primaryBtnText}>Send Verification Code</Text>
-                        <MaterialCommunityIcons name="arrow-right-circle" size={20} color="#FFFFFF" />
-                      </>
-                    )}
+                    <LinearGradient
+                      colors={['#16A34A', '#10B981']}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 0 }}
+                      style={[styles.primaryGradientBtn, loading && styles.btnDisabled]}
+                    >
+                      {loading ? (
+                        <ActivityIndicator color="#FFFFFF" size="small" />
+                      ) : (
+                        <>
+                          <Text style={styles.primaryBtnText}>Login →</Text>
+                        </>
+                      )}
+                    </LinearGradient>
                   </Pressable>
                 </Animated.View>
 
-                {/* Quick Info Pills */}
+                {/* OR Divider Line */}
+                <View style={styles.dividerRow}>
+                  <View style={styles.dividerLine} />
+                  <Text style={styles.dividerText}>OR</Text>
+                  <View style={styles.dividerLine} />
+                </View>
+
+                {/* White Outlined "Continue with Google" Button */}
+                <Pressable
+                  style={styles.googleBtn}
+                  onPress={handleGoogleSignIn}
+                  accessibilityRole="button"
+                  accessibilityLabel="Continue with Google"
+                >
+                  <MaterialCommunityIcons name="google" size={20} color="#EA4335" />
+                  <Text style={styles.googleBtnText}>Continue with Google</Text>
+                </Pressable>
+
+                {/* Bottom Switch Link */}
+                <View style={styles.bottomSwitchRow}>
+                  <Text style={styles.bottomSwitchMuted}>Don't have an account? </Text>
+                  <Pressable
+                    onPress={() => {
+                      setMode('REGISTER');
+                      setErrorMessage(null);
+                    }}
+                  >
+                    <Text style={styles.bottomSwitchAction}>Register</Text>
+                  </Pressable>
+                </View>
+
+                {/* Quick Info Benefits */}
                 <View style={styles.benefitsRow}>
                   <View style={styles.benefitPill}>
-                    <MaterialCommunityIcons name="clock-fast" size={14} color="#10B981" />
+                    <MaterialCommunityIcons name="clock-fast" size={14} color="#16A34A" />
                     <Text style={styles.benefitText}>2-Hour Express</Text>
                   </View>
                   <View style={styles.benefitPill}>
-                    <MaterialCommunityIcons name="shield-check" size={14} color="#3B82F6" />
+                    <MaterialCommunityIcons name="shield-check" size={14} color="#10B981" />
                     <Text style={styles.benefitText}>100% Safe</Text>
                   </View>
                   <View style={styles.benefitPill}>
-                    <MaterialCommunityIcons name="truck-fast" size={14} color="#F97316" />
+                    <MaterialCommunityIcons name="truck-fast" size={14} color="#16A34A" />
                     <Text style={styles.benefitText}>Free Pickup</Text>
                   </View>
                 </View>
@@ -473,31 +650,39 @@ export function AuthScreen({ reason = 'ACCOUNT', onBack }: AuthScreenProps) {
             {/* STAGE 2: REGISTER */}
             {mode === 'REGISTER' && (
               <View style={styles.formSection}>
-                <View style={styles.welcomeHeader}>
-                  <MaterialCommunityIcons name="account-plus" size={28} color="#10B981" />
-                  <Text style={styles.formTitle}>Create Account</Text>
+                <View style={styles.headerTextRow}>
+                  <Text style={styles.formTitle}>Create Your Account</Text>
                 </View>
                 <Text style={styles.formSubtitle}>
-                  Join thousands of happy customers enjoying premium laundry care
+                  Join thousands of happy customers enjoying fresh, premium laundry care.
                 </Text>
 
                 {errorMessage && (
-                  <View style={[
-                    styles.errorBox,
-                    errorMessage.includes('already registered') && { backgroundColor: '#FEF3C7', borderColor: '#F59E0B' }
-                  ]}>
-                    <MaterialCommunityIcons 
-                      name={errorMessage.includes('already registered') ? 'information' : 'alert-circle'} 
-                      size={18} 
-                      color={errorMessage.includes('already registered') ? '#F59E0B' : '#EF4444'} 
+                  <View
+                    style={[
+                      styles.errorBox,
+                      errorMessage.includes('already registered') && {
+                        backgroundColor: '#FEF3C7',
+                        borderLeftColor: '#F59E0B',
+                      },
+                    ]}
+                  >
+                    <MaterialCommunityIcons
+                      name={errorMessage.includes('already registered') ? 'information' : 'alert-circle'}
+                      size={18}
+                      color={errorMessage.includes('already registered') ? '#F59E0B' : '#EF4444'}
                     />
-                    <Text style={[
-                      styles.errorText,
-                      errorMessage.includes('already registered') && { color: '#92400E' }
-                    ]}>{errorMessage}</Text>
+                    <Text
+                      style={[
+                        styles.errorText,
+                        errorMessage.includes('already registered') && { color: '#92400E' },
+                      ]}
+                    >
+                      {errorMessage}
+                    </Text>
                   </View>
                 )}
-                
+
                 {errorMessage?.includes('already registered') && (
                   <Pressable
                     onPress={() => {
@@ -506,52 +691,32 @@ export function AuthScreen({ reason = 'ACCOUNT', onBack }: AuthScreenProps) {
                     }}
                     style={styles.switchToSignInBtn}
                   >
-                    <MaterialCommunityIcons name="login" size={18} color="#10B981" />
+                    <MaterialCommunityIcons name="login" size={18} color="#16A34A" />
                     <Text style={styles.switchToSignInText}>Switch to Sign In</Text>
                   </Pressable>
                 )}
 
-                {/* Full Name */}
+                {/* 1. Full Name */}
                 <View style={styles.inputGroup}>
                   <Text style={styles.inputLabel}>Full Name *</Text>
                   <View style={styles.textInputContainer}>
-                    <MaterialCommunityIcons name="account-outline" size={20} color="#8A7A84" />
+                    <MaterialCommunityIcons name="account-outline" size={20} color="#64748B" />
                     <TextInput
                       style={styles.textInput}
                       placeholder="Enter your full name"
-                      placeholderTextColor="#A3A3A3"
+                      placeholderTextColor="#94A3B8"
                       value={name}
                       onChangeText={(val) => {
-                        // Only allow letters, spaces, dots, and hyphens (no numbers or special chars)
                         const filtered = val.replace(/[^a-zA-Z\s.\-]/g, '');
                         setName(filtered);
                         setErrorMessage(null);
                       }}
                       accessibilityLabel="Full name input"
-                      keyboardType="default"
                     />
                   </View>
                 </View>
 
-                {/* Email Address */}
-                <View style={styles.inputGroup}>
-                  <Text style={styles.inputLabel}>📧 Email Address <Text style={{ color: '#F97316', fontSize: 10 }}>(for order confirmations)</Text></Text>
-                  <View style={styles.textInputContainer}>
-                    <MaterialCommunityIcons name="email-outline" size={20} color="#8A7A84" />
-                    <TextInput
-                      style={styles.textInput}
-                      placeholder="yourname@gmail.com — receive order emails here"
-                      placeholderTextColor="#A3A3A3"
-                      keyboardType="email-address"
-                      autoCapitalize="none"
-                      value={email}
-                      onChangeText={(val) => { setEmail(val); setErrorMessage(null); }}
-                      accessibilityLabel="Email address input"
-                    />
-                  </View>
-                </View>
-
-                {/* Mobile Phone */}
+                {/* 2. Mobile Phone */}
                 <View style={styles.inputGroup}>
                   <Text style={styles.inputLabel}>Mobile Number *</Text>
                   <View style={styles.phoneInputContainer}>
@@ -562,28 +727,126 @@ export function AuthScreen({ reason = 'ACCOUNT', onBack }: AuthScreenProps) {
                     <TextInput
                       style={styles.phoneInput}
                       placeholder="Enter 10-digit mobile"
-                      placeholderTextColor="#A3A3A3"
+                      placeholderTextColor="#94A3B8"
                       keyboardType="number-pad"
                       maxLength={10}
                       value={phone}
-                      onChangeText={(val) => { setPhone(val); setErrorMessage(null); }}
+                      onChangeText={(val) => {
+                        setPhone(val);
+                        setErrorMessage(null);
+                      }}
                       accessibilityLabel="Mobile number input"
                     />
                   </View>
                 </View>
 
-                {/* Referral Code (Optional) */}
+                {/* 3. Email Address */}
                 <View style={styles.inputGroup}>
-                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-                    <Text style={styles.inputLabel}>🎁 Referral Code <Text style={{ color: '#A3A3A3', fontSize: 11 }}>(Optional)</Text></Text>
-                    <Text style={{ color: '#10B981', fontSize: 11, fontWeight: '700' }}>Get ₹50 Free</Text>
-                  </View>
-                  <View style={[styles.textInputContainer, autoDetectedReferral && referralCode.length > 0 && styles.textInputContainerDetected]}>
-                    <MaterialCommunityIcons name="ticket-percent-outline" size={20} color={autoDetectedReferral && referralCode.length > 0 ? '#10B981' : '#F97316'} />
+                  <Text style={styles.inputLabel}>
+                    Email Address{' '}
+                    <Text style={{ color: '#16A34A', fontSize: 11 }}>(for order confirmations)</Text>
+                  </Text>
+                  <View style={styles.textInputContainer}>
+                    <MaterialCommunityIcons name="email-outline" size={20} color="#64748B" />
                     <TextInput
-                      style={[styles.textInput, { textTransform: 'uppercase', letterSpacing: 1.5, fontWeight: '700' }]}
+                      style={styles.textInput}
+                      placeholder="yourname@gmail.com"
+                      placeholderTextColor="#94A3B8"
+                      keyboardType="email-address"
+                      autoCapitalize="none"
+                      value={email}
+                      onChangeText={(val) => {
+                        setEmail(val);
+                        setErrorMessage(null);
+                      }}
+                      accessibilityLabel="Email address input"
+                    />
+                  </View>
+                </View>
+
+                {/* 4. Password */}
+                <View style={styles.inputGroup}>
+                  <Text style={styles.inputLabel}>Password *</Text>
+                  <View style={styles.textInputContainer}>
+                    <MaterialCommunityIcons name="lock-outline" size={20} color="#64748B" />
+                    <TextInput
+                      style={styles.textInput}
+                      placeholder="Create a strong password"
+                      placeholderTextColor="#94A3B8"
+                      secureTextEntry={!showPassword}
+                      value={password}
+                      onChangeText={(val) => {
+                        setPassword(val);
+                        setErrorMessage(null);
+                      }}
+                      accessibilityLabel="Password input"
+                    />
+                    <Pressable
+                      onPress={() => setShowPassword(!showPassword)}
+                      hitSlop={10}
+                      accessibilityLabel="Toggle password visibility"
+                    >
+                      <MaterialCommunityIcons
+                        name={showPassword ? 'eye-off-outline' : 'eye-outline'}
+                        size={20}
+                        color="#64748B"
+                      />
+                    </Pressable>
+                  </View>
+                </View>
+
+                {/* 5. Delivery Address */}
+                <View style={styles.inputGroup}>
+                  <Text style={styles.inputLabel}>
+                    Delivery Address{' '}
+                    <Text style={{ color: '#64748B', fontSize: 11 }}>(Optional)</Text>
+                  </Text>
+                  <View style={styles.textInputContainer}>
+                    <MaterialCommunityIcons name="map-marker-outline" size={20} color="#64748B" />
+                    <TextInput
+                      style={styles.textInput}
+                      placeholder="Flat / House no, Street, Landmark"
+                      placeholderTextColor="#94A3B8"
+                      value={deliveryAddress}
+                      onChangeText={(val) => {
+                        setDeliveryAddress(val);
+                        setErrorMessage(null);
+                      }}
+                      accessibilityLabel="Delivery address input"
+                    />
+                  </View>
+                </View>
+
+                {/* 6. Referral Code (Optional) with Gold Accent Badge */}
+                <View style={styles.inputGroup}>
+                  <View style={styles.referralHeaderRow}>
+                    <Text style={styles.inputLabel}>
+                      🎁 Referral Code{' '}
+                      <Text style={{ color: '#64748B', fontSize: 11 }}>(Optional)</Text>
+                    </Text>
+                    <View style={styles.goldBadge}>
+                      <MaterialCommunityIcons name="gift-outline" size={12} color="#B45309" />
+                      <Text style={styles.goldBadgeText}>Get ₹50 Free</Text>
+                    </View>
+                  </View>
+                  <View
+                    style={[
+                      styles.textInputContainer,
+                      autoDetectedReferral && referralCode.length > 0 && styles.textInputContainerDetected,
+                    ]}
+                  >
+                    <MaterialCommunityIcons
+                      name="ticket-percent-outline"
+                      size={20}
+                      color={autoDetectedReferral && referralCode.length > 0 ? '#16A34A' : '#F59E0B'}
+                    />
+                    <TextInput
+                      style={[
+                        styles.textInput,
+                        { textTransform: 'uppercase', letterSpacing: 1.5, fontWeight: '700' },
+                      ]}
                       placeholder="e.g. LAUND-AB12"
-                      placeholderTextColor="#737373"
+                      placeholderTextColor="#94A3B8"
                       autoCapitalize="characters"
                       maxLength={12}
                       value={referralCode}
@@ -595,14 +858,20 @@ export function AuthScreen({ reason = 'ACCOUNT', onBack }: AuthScreenProps) {
                       accessibilityLabel="Referral code input"
                     />
                     {referralCode.length > 0 && (
-                      <Pressable onPress={() => { setReferralCode(''); setAutoDetectedReferral(false); }} hitSlop={8}>
-                        <MaterialCommunityIcons name="close-circle" size={18} color="#A3A3A3" />
+                      <Pressable
+                        onPress={() => {
+                          setReferralCode('');
+                          setAutoDetectedReferral(false);
+                        }}
+                        hitSlop={8}
+                      >
+                        <MaterialCommunityIcons name="close-circle" size={18} color="#94A3B8" />
                       </Pressable>
                     )}
                   </View>
                   {autoDetectedReferral && referralCode.length > 0 && (
                     <View style={styles.detectedBadge}>
-                      <MaterialCommunityIcons name="check-circle" size={13} color="#10B981" />
+                      <MaterialCommunityIcons name="check-circle" size={14} color="#16A34A" />
                       <Text style={styles.detectedBadgeText}>
                         Invite code {referralCode} auto-detected! ₹{detectedBonus} bonus will be credited.
                       </Text>
@@ -610,31 +879,49 @@ export function AuthScreen({ reason = 'ACCOUNT', onBack }: AuthScreenProps) {
                   )}
                 </View>
 
-                {/* Submit Register */}
+                {/* Main CTA: Green Gradient #16A34A -> #10B981 */}
                 <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
                   <Pressable
-                    style={[styles.primaryBtn, loading && styles.btnDisabled]}
                     onPress={handleRegisterSubmit}
                     onPressIn={handlePressIn}
                     onPressOut={handlePressOut}
                     disabled={loading}
                     accessibilityRole="button"
-                    accessibilityLabel="Create account"
+                    accessibilityLabel="Create Account"
                   >
-                    {loading ? (
-                      <ActivityIndicator color="#FFFFFF" size="small" />
-                    ) : (
-                      <>
-                        <Text style={styles.primaryBtnText}>Create Account</Text>
-                        <MaterialCommunityIcons name="arrow-right-circle" size={20} color="#FFFFFF" />
-                      </>
-                    )}
+                    <LinearGradient
+                      colors={['#16A34A', '#10B981']}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 0 }}
+                      style={[styles.primaryGradientBtn, loading && styles.btnDisabled]}
+                    >
+                      {loading ? (
+                        <ActivityIndicator color="#FFFFFF" size="small" />
+                      ) : (
+                        <>
+                          <Text style={styles.primaryBtnText}>Create Account →</Text>
+                        </>
+                      )}
+                    </LinearGradient>
                   </Pressable>
                 </Animated.View>
 
+                {/* Bottom Switch Link */}
+                <View style={styles.bottomSwitchRow}>
+                  <Text style={styles.bottomSwitchMuted}>Already have an account? </Text>
+                  <Pressable
+                    onPress={() => {
+                      setMode('LOGIN');
+                      setErrorMessage(null);
+                    }}
+                  >
+                    <Text style={styles.bottomSwitchAction}>Login</Text>
+                  </Pressable>
+                </View>
+
                 {/* Privacy Note */}
                 <Text style={styles.privacyNote}>
-                  By continuing, you agree to our Terms of Service and Privacy Policy
+                  By continuing, you agree to our Terms of Service & Privacy Policy.
                 </Text>
               </View>
             )}
@@ -644,11 +931,11 @@ export function AuthScreen({ reason = 'ACCOUNT', onBack }: AuthScreenProps) {
               <View style={styles.formSection}>
                 <View style={styles.otpHeader}>
                   <View style={styles.otpIconCircle}>
-                    <MaterialCommunityIcons name="message-text-lock" size={32} color="#F97316" />
+                    <MaterialCommunityIcons name="message-text-lock" size={34} color="#16A34A" />
                   </View>
                   <Text style={styles.formTitle}>Verify Your Number</Text>
                   <Text style={styles.formSubtitle}>
-                    Enter the 6-digit code sent to{'\n'}
+                    Enter the 6-digit verification code sent to{'\n'}
                     <Text style={styles.phoneHighlight}>+91 {phone}</Text>
                   </Text>
                 </View>
@@ -665,7 +952,7 @@ export function AuthScreen({ reason = 'ACCOUNT', onBack }: AuthScreenProps) {
                   <TextInput
                     style={styles.otpInput}
                     placeholder="000000"
-                    placeholderTextColor="#C7C7C7"
+                    placeholderTextColor="#CBD5E1"
                     keyboardType="number-pad"
                     maxLength={6}
                     value={otp}
@@ -674,14 +961,13 @@ export function AuthScreen({ reason = 'ACCOUNT', onBack }: AuthScreenProps) {
                       setErrorMessage(null);
                     }}
                     autoFocus
-                    accessibilityLabel="Enter OTP code"
+                    accessibilityLabel="Enter 6-digit OTP code"
                   />
                 </View>
 
                 {/* Verify Button */}
                 <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
                   <Pressable
-                    style={[styles.primaryBtn, loading && styles.btnDisabled]}
                     onPress={handleVerifyOtp}
                     onPressIn={handlePressIn}
                     onPressOut={handlePressOut}
@@ -689,18 +975,25 @@ export function AuthScreen({ reason = 'ACCOUNT', onBack }: AuthScreenProps) {
                     accessibilityRole="button"
                     accessibilityLabel="Verify OTP"
                   >
-                    {loading ? (
-                      <ActivityIndicator color="#FFFFFF" size="small" />
-                    ) : (
-                      <>
-                        <Text style={styles.primaryBtnText}>Verify & Continue</Text>
-                        <MaterialCommunityIcons name="check-circle" size={20} color="#FFFFFF" />
-                      </>
-                    )}
+                    <LinearGradient
+                      colors={['#16A34A', '#10B981']}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 0 }}
+                      style={[styles.primaryGradientBtn, loading && styles.btnDisabled]}
+                    >
+                      {loading ? (
+                        <ActivityIndicator color="#FFFFFF" size="small" />
+                      ) : (
+                        <>
+                          <Text style={styles.primaryBtnText}>Verify & Continue →</Text>
+                          <MaterialCommunityIcons name="check-circle-outline" size={20} color="#FFFFFF" />
+                        </>
+                      )}
+                    </LinearGradient>
                   </Pressable>
                 </Animated.View>
 
-                {/* Resend & Change Actions */}
+                {/* Resend & Change Number Actions */}
                 <View style={styles.otpActions}>
                   {canResend ? (
                     <Pressable
@@ -710,14 +1003,14 @@ export function AuthScreen({ reason = 'ACCOUNT', onBack }: AuthScreenProps) {
                       accessibilityRole="button"
                       accessibilityLabel="Resend verification code"
                     >
-                      <MaterialCommunityIcons name="refresh" size={16} color="#F97316" />
+                      <MaterialCommunityIcons name="refresh" size={18} color="#16A34A" />
                       <Text style={styles.resendText}>Resend Code</Text>
                     </Pressable>
                   ) : (
                     <View style={styles.timerRow}>
-                      <MaterialCommunityIcons name="timer-sand" size={16} color="#8A7A84" />
+                      <MaterialCommunityIcons name="timer-sand" size={16} color="#64748B" />
                       <Text style={styles.timerText}>
-                        Resend in <Text style={styles.timerBold}>{countdown}s</Text>
+                        Resend code in <Text style={styles.timerBold}>{countdown}s</Text>
                       </Text>
                     </View>
                   )}
@@ -732,7 +1025,7 @@ export function AuthScreen({ reason = 'ACCOUNT', onBack }: AuthScreenProps) {
                     accessibilityRole="button"
                     accessibilityLabel="Change phone number"
                   >
-                    <MaterialCommunityIcons name="pencil" size={14} color="#8A7A84" />
+                    <MaterialCommunityIcons name="pencil" size={14} color="#64748B" />
                     <Text style={styles.changeNumberText}>Change Number</Text>
                   </Pressable>
                 </View>
@@ -740,9 +1033,9 @@ export function AuthScreen({ reason = 'ACCOUNT', onBack }: AuthScreenProps) {
             )}
           </Animated.View>
 
-          {/* Trust Badge */}
+          {/* Security & Trust Badges */}
           <View style={styles.trustBadge}>
-            <MaterialCommunityIcons name="shield-lock" size={16} color="#10B981" />
+            <MaterialCommunityIcons name="shield-check" size={18} color="#16A34A" />
             <Text style={styles.trustText}>
               256-bit Encrypted · Privacy Protected
             </Text>
@@ -755,7 +1048,7 @@ export function AuthScreen({ reason = 'ACCOUNT', onBack }: AuthScreenProps) {
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
             <View style={styles.modalIconWrap}>
-              <MaterialCommunityIcons name="account-question-outline" size={36} color="#F97316" />
+              <MaterialCommunityIcons name="account-question-outline" size={38} color="#16A34A" />
             </View>
 
             <Text style={styles.modalTitle}>Account Not Found</Text>
@@ -768,14 +1061,27 @@ export function AuthScreen({ reason = 'ACCOUNT', onBack }: AuthScreenProps) {
             </Text>
 
             <View style={styles.modalButtons}>
-              <Pressable style={styles.modalPrimaryBtn} onPress={navigateToRegister}>
-                <Text style={styles.modalPrimaryText}>Create New Account</Text>
-                <MaterialCommunityIcons name="arrow-right" size={16} color="#FFFFFF" />
+              <Pressable
+                style={styles.modalPrimaryBtnWrapper}
+                onPress={navigateToRegister}
+                accessibilityRole="button"
+                accessibilityLabel="Create New Account"
+              >
+                <LinearGradient
+                  colors={['#16A34A', '#10B981']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={styles.modalPrimaryBtnGradient}
+                >
+                  <Text style={styles.modalPrimaryText}>Create New Account →</Text>
+                </LinearGradient>
               </Pressable>
 
               <Pressable
                 style={styles.modalSecondaryBtn}
                 onPress={() => setShowNotFoundModal(false)}
+                accessibilityRole="button"
+                accessibilityLabel="Check Mobile Number"
               >
                 <Text style={styles.modalSecondaryText}>Check Mobile Number</Text>
               </Pressable>
@@ -790,103 +1096,136 @@ export function AuthScreen({ reason = 'ACCOUNT', onBack }: AuthScreenProps) {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: '#F5F5F5',
+    backgroundColor: '#F0FDF4', // Soft mint/white background
   },
 
-  // ==================== GRADIENT HEADER ====================
+  // ==================== AMBIENT HEADER ====================
   gradientHeader: {
-    paddingTop: Platform.OS === 'ios' ? 50 : 20,
-    paddingBottom: 30,
+    paddingTop: Platform.OS === 'ios' ? 50 : 24,
+    paddingBottom: 24,
     paddingHorizontal: 20,
+    borderBottomLeftRadius: 28,
+    borderBottomRightRadius: 28,
   },
   topNav: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 24,
+    marginBottom: 16,
   },
   backBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255,255,255,0.15)',
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: '#FFFFFF',
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.2)',
+    borderColor: '#DCFCE7',
+    shadowColor: '#16A34A',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
+    elevation: 2,
   },
   checkoutBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(214, 179, 106, 0.2)',
+    backgroundColor: '#DCFCE7',
     paddingHorizontal: 12,
     paddingVertical: 6,
-    borderRadius: 12,
-    gap: 5,
+    borderRadius: 14,
+    gap: 6,
     borderWidth: 1,
-    borderColor: 'rgba(214, 179, 106, 0.3)',
+    borderColor: '#86EFAC',
   },
   checkoutBadgeText: {
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: '700',
-    color: '#D6B36A',
+    color: '#16A34A',
+  },
+  headerRightPlaceholder: {
+    width: 42,
   },
 
-  // Brand Section
+  // Brand Section with Green Gradient Glow Behind Logo
   brandSection: {
     alignItems: 'center',
-    marginBottom: 28,
+    marginBottom: 20,
   },
-  logoCircle: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: 'rgba(255,255,255,0.12)',
+  glowOuterCircle: {
+    width: 96,
+    height: 96,
+    borderRadius: 48,
+    backgroundColor: '#DCFCE7',
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 14,
+    marginBottom: 12,
+    shadowColor: '#16A34A',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.25,
+    shadowRadius: 16,
+    elevation: 6,
+  },
+  logoCircle: {
+    width: 76,
+    height: 76,
+    borderRadius: 38,
+    backgroundColor: '#FFFFFF',
+    justifyContent: 'center',
+    alignItems: 'center',
     borderWidth: 2,
-    borderColor: 'rgba(214, 179, 106, 0.3)',
+    borderColor: '#BBF7D0',
   },
   logo: {
-    width: 50,
-    height: 50,
+    width: 52,
+    height: 52,
   },
   brandTitle: {
-    fontSize: 28,
+    fontSize: 26,
     fontWeight: '900',
-    color: '#FFFFFF',
+    color: '#0F172A', // Deep Navy
     letterSpacing: -0.5,
     marginBottom: 4,
   },
+  taglineBadge: {
+    backgroundColor: '#DCFCE7',
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    borderRadius: 8,
+  },
   brandTagline: {
     fontSize: 10,
-    fontWeight: '700',
-    color: '#D6B36A',
+    fontWeight: '800',
+    color: '#16A34A', // Fresh Green
     letterSpacing: 2,
   },
 
   // Tab Switcher
   tabSwitcher: {
     flexDirection: 'row',
-    backgroundColor: 'rgba(255,255,255,0.1)',
+    backgroundColor: '#DCFCE7',
     borderRadius: 16,
     padding: 4,
     position: 'relative',
+    borderWidth: 1,
+    borderColor: '#BBF7D0',
   },
-  tabIndicator: {
+  tabIndicatorWrapper: {
     position: 'absolute',
     left: 4,
     top: 4,
     bottom: 4,
-    width: 156,
-    backgroundColor: '#F97316',
     borderRadius: 12,
-    shadowColor: '#F97316',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.4,
+    overflow: 'hidden',
+    shadowColor: '#16A34A',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.25,
     shadowRadius: 8,
-    elevation: 4,
+    elevation: 3,
+  },
+  tabIndicatorGradient: {
+    flex: 1,
   },
   tabButton: {
     flex: 1,
@@ -898,7 +1237,7 @@ const styles = StyleSheet.create({
   tabText: {
     fontSize: 14,
     fontWeight: '700',
-    color: 'rgba(255,255,255,0.6)',
+    color: '#475569',
   },
   tabTextActive: {
     color: '#FFFFFF',
@@ -907,57 +1246,57 @@ const styles = StyleSheet.create({
 
   // ==================== CONTENT AREA ====================
   content: {
-    paddingHorizontal: 20,
-    paddingTop: 20,
+    paddingHorizontal: 18,
+    paddingTop: 16,
     paddingBottom: 40,
   },
 
-  // Floating Card
+  // Large White Rounded Login Card with Soft Shadow
   floatingCard: {
     backgroundColor: '#FFFFFF',
     borderRadius: 24,
     padding: 24,
-    shadowColor: '#000',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    shadowColor: '#0F172A',
     shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.1,
-    shadowRadius: 16,
-    elevation: 6,
-    marginBottom: 20,
+    shadowOpacity: 0.07,
+    shadowRadius: 18,
+    elevation: 4,
+    marginBottom: 18,
   },
 
-  // ==================== FORM SECTIONS ====================
+  // Form Section
   formSection: {
     width: '100%',
   },
-  welcomeHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    marginBottom: 8,
+  headerTextRow: {
+    marginBottom: 6,
   },
   formTitle: {
-    fontSize: 22,
+    fontSize: 23,
     fontWeight: '900',
-    color: '#1C0B18',
+    color: '#0F172A', // Deep Navy
+    letterSpacing: -0.3,
   },
   formSubtitle: {
     fontSize: 13,
-    color: '#6B6B6B',
+    color: '#475569', // Body Text
     lineHeight: 19,
-    marginBottom: 24,
+    marginBottom: 22,
   },
 
   // Error Box
   errorBox: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FEE2E2',
+    backgroundColor: '#FEF2F2',
     borderLeftWidth: 4,
     borderLeftColor: '#EF4444',
     paddingHorizontal: 14,
     paddingVertical: 12,
     borderRadius: 12,
-    marginBottom: 20,
+    marginBottom: 18,
     gap: 10,
   },
   errorText: {
@@ -970,22 +1309,22 @@ const styles = StyleSheet.create({
 
   // ==================== INPUTS ====================
   inputGroup: {
-    marginBottom: 18,
+    marginBottom: 16,
   },
   inputLabel: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#1C0B18',
+    color: '#0F172A', // Deep Navy
     marginBottom: 8,
   },
 
-  // Phone Input
+  // Phone Input Container with India +91 Selector
   phoneInputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F9FAFB',
+    backgroundColor: '#F8FAFC',
     borderWidth: 1.5,
-    borderColor: '#E5E7EB',
+    borderColor: '#CBD5E1',
     borderRadius: 16,
     overflow: 'hidden',
   },
@@ -993,10 +1332,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 14,
-    paddingVertical: 16,
-    backgroundColor: '#F3F4F6',
+    paddingVertical: 15,
+    backgroundColor: '#F1F5F9',
     borderRightWidth: 1,
-    borderRightColor: '#E5E7EB',
+    borderRightColor: '#CBD5E1',
     gap: 6,
   },
   flagEmoji: {
@@ -1005,124 +1344,195 @@ const styles = StyleSheet.create({
   countryCode: {
     fontSize: 15,
     fontWeight: '800',
-    color: '#1C0B18',
+    color: '#0F172A',
   },
   phoneInput: {
     flex: 1,
     paddingHorizontal: 16,
-    paddingVertical: 16,
+    paddingVertical: 15,
     fontSize: 16,
     fontWeight: '700',
-    color: '#1C0B18',
-    letterSpacing: 1.5,
+    color: '#0F172A',
+    letterSpacing: 1.2,
   },
 
-  // Text Input
+  // General Text Input Container
   textInputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F9FAFB',
+    backgroundColor: '#F8FAFC',
     borderWidth: 1.5,
-    borderColor: '#E5E7EB',
+    borderColor: '#CBD5E1',
     borderRadius: 16,
     paddingHorizontal: 14,
     gap: 10,
   },
   textInput: {
     flex: 1,
-    paddingVertical: 16,
+    paddingVertical: 15,
     fontSize: 15,
     fontWeight: '600',
-    color: '#1C0B18',
+    color: '#0F172A',
   },
   textInputContainerDetected: {
-    borderColor: '#10B981',
+    borderColor: '#16A34A',
     backgroundColor: '#F0FDF4',
+  },
+
+  // Remember Me & Forgot Password Row
+  rememberForgotRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 4,
+    marginBottom: 20,
+  },
+  rememberMeContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  rememberMeText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#475569',
+  },
+  forgotPasswordText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#16A34A', // Fresh Green
+  },
+
+  // Referral Row & Gold Accent Badge
+  referralHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  goldBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#FEF3C7',
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+  },
+  goldBadgeText: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#B45309', // Gold accent
   },
   detectedBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
     marginTop: 6,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    backgroundColor: '#ECFDF5',
-    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    backgroundColor: '#DCFCE7',
+    borderRadius: 10,
     borderWidth: 1,
-    borderColor: '#A7F3D0',
+    borderColor: '#86EFAC',
   },
   detectedBadgeText: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#047857',
+    color: '#166534',
     flex: 1,
   },
 
-  // OTP Input
-  otpHeader: {
-    alignItems: 'center',
-    marginBottom: 28,
-  },
-  otpIconCircle: {
-    width: 70,
-    height: 70,
-    borderRadius: 35,
-    backgroundColor: '#FFF7ED',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 16,
-    borderWidth: 2,
-    borderColor: '#FFEDD5',
-  },
-  phoneHighlight: {
-    fontWeight: '900',
-    color: '#F97316',
-  },
-  otpInputWrapper: {
-    marginBottom: 20,
-  },
-  otpInput: {
-    backgroundColor: '#F9FAFB',
-    borderWidth: 2,
-    borderColor: '#F97316',
-    borderRadius: 20,
-    paddingVertical: 18,
-    fontSize: 28,
-    fontWeight: '900',
-    color: '#1C0B18',
-    textAlign: 'center',
-    letterSpacing: 12,
-  },
-
   // ==================== BUTTONS ====================
-  primaryBtn: {
+  primaryGradientBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#F97316',
     borderRadius: 16,
     paddingVertical: 16,
     gap: 8,
-    shadowColor: '#F97316',
+    shadowColor: '#16A34A',
     shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.4,
+    shadowOpacity: 0.35,
     shadowRadius: 12,
     elevation: 5,
   },
   btnDisabled: {
-    opacity: 0.6,
+    opacity: 0.65,
   },
   primaryBtnText: {
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: '800',
     color: '#FFFFFF',
+    letterSpacing: 0.2,
   },
 
-  // Benefits Pills (Login Only)
+  // OR Divider
+  dividerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: 18,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: '#CBD5E1',
+  },
+  dividerText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#94A3B8',
+    paddingHorizontal: 14,
+  },
+
+  // White Outlined "Continue with Google" Button
+  googleBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1.5,
+    borderColor: '#CBD5E1',
+    borderRadius: 16,
+    paddingVertical: 15,
+    gap: 10,
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 4,
+    elevation: 1,
+  },
+  googleBtnText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+
+  // Bottom Switch Text
+  bottomSwitchRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 20,
+  },
+  bottomSwitchMuted: {
+    fontSize: 13,
+    color: '#475569',
+    fontWeight: '500',
+  },
+  bottomSwitchAction: {
+    fontSize: 13,
+    color: '#16A34A',
+    fontWeight: '800',
+  },
+
+  // Benefits Row
   benefitsRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginTop: 20,
+    marginTop: 22,
     gap: 8,
   },
   benefitPill: {
@@ -1130,30 +1540,83 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#F9FAFB',
+    backgroundColor: '#DCFCE7',
     paddingVertical: 10,
-    paddingHorizontal: 8,
+    paddingHorizontal: 6,
     borderRadius: 12,
-    gap: 5,
+    gap: 4,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: '#BBF7D0',
   },
   benefitText: {
     fontSize: 10,
     fontWeight: '700',
-    color: '#374151',
+    color: '#166534',
   },
 
-  // Privacy Note (Register Only)
+  // Privacy Note
   privacyNote: {
     fontSize: 11,
-    color: '#9CA3AF',
+    color: '#94A3B8',
     textAlign: 'center',
     marginTop: 16,
     lineHeight: 16,
   },
 
-  // OTP Actions
+  // Switch to sign in banner button in register mode
+  switchToSignInBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#DCFCE7',
+    borderRadius: 14,
+    paddingVertical: 12,
+    gap: 8,
+    marginBottom: 16,
+    borderWidth: 1.5,
+    borderColor: '#16A34A',
+  },
+  switchToSignInText: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#16A34A',
+  },
+
+  // ==================== OTP VERIFICATION ====================
+  otpHeader: {
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+  otpIconCircle: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: '#DCFCE7',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 16,
+    borderWidth: 2,
+    borderColor: '#86EFAC',
+  },
+  phoneHighlight: {
+    fontWeight: '900',
+    color: '#16A34A',
+  },
+  otpInputWrapper: {
+    marginBottom: 22,
+  },
+  otpInput: {
+    backgroundColor: '#F8FAFC',
+    borderWidth: 2,
+    borderColor: '#16A34A',
+    borderRadius: 20,
+    paddingVertical: 18,
+    fontSize: 28,
+    fontWeight: '900',
+    color: '#0F172A',
+    textAlign: 'center',
+    letterSpacing: 12,
+  },
   otpActions: {
     marginTop: 20,
     alignItems: 'center',
@@ -1168,7 +1631,7 @@ const styles = StyleSheet.create({
   resendText: {
     fontSize: 14,
     fontWeight: '800',
-    color: '#F97316',
+    color: '#16A34A',
   },
   timerRow: {
     flexDirection: 'row',
@@ -1177,11 +1640,11 @@ const styles = StyleSheet.create({
   },
   timerText: {
     fontSize: 13,
-    color: '#6B7280',
+    color: '#64748B',
   },
   timerBold: {
     fontWeight: '800',
-    color: '#1C0B18',
+    color: '#0F172A',
   },
   changeNumberBtn: {
     flexDirection: 'row',
@@ -1192,7 +1655,7 @@ const styles = StyleSheet.create({
   changeNumberText: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#6B7280',
+    color: '#64748B',
   },
 
   // ==================== TRUST BADGE ====================
@@ -1200,19 +1663,19 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
-    paddingVertical: 12,
+    gap: 6,
+    paddingVertical: 14,
   },
   trustText: {
     fontSize: 12,
-    fontWeight: '600',
-    color: '#059669',
+    fontWeight: '700',
+    color: '#16A34A',
   },
 
-  // ==================== MODAL (Not Found) ====================
+  // ==================== MODAL (Account Not Found) ====================
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.65)',
+    backgroundColor: 'rgba(15, 23, 42, 0.65)',
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,
@@ -1224,65 +1687,60 @@ const styles = StyleSheet.create({
     borderRadius: 28,
     padding: 28,
     alignItems: 'center',
-    shadowColor: '#000',
+    shadowColor: '#0F172A',
     shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.3,
-    shadowRadius: 20,
+    shadowOpacity: 0.2,
+    shadowRadius: 24,
     elevation: 10,
   },
   modalIconWrap: {
     width: 72,
     height: 72,
     borderRadius: 36,
-    backgroundColor: '#FFF7ED',
+    backgroundColor: '#DCFCE7',
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 18,
     borderWidth: 2,
-    borderColor: '#FFEDD5',
+    borderColor: '#86EFAC',
   },
   modalTitle: {
-    fontSize: 20,
+    fontSize: 21,
     fontWeight: '900',
-    color: '#1C0B18',
+    color: '#0F172A',
     marginBottom: 8,
     textAlign: 'center',
   },
   modalSubtitle: {
     fontSize: 14,
-    color: '#6B7280',
+    color: '#475569',
     textAlign: 'center',
     lineHeight: 20,
   },
   modalPhone: {
     fontWeight: '800',
-    color: '#F97316',
+    color: '#16A34A',
   },
   modalNote: {
     fontSize: 12,
-    color: '#9CA3AF',
+    color: '#64748B',
     textAlign: 'center',
     marginTop: 10,
     marginBottom: 24,
-    lineHeight: 17,
+    lineHeight: 18,
   },
   modalButtons: {
     width: '100%',
     gap: 12,
   },
-  modalPrimaryBtn: {
-    flexDirection: 'row',
+  modalPrimaryBtnWrapper: {
+    borderRadius: 16,
+    overflow: 'hidden',
+  },
+  modalPrimaryBtnGradient: {
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#F97316',
-    borderRadius: 16,
-    paddingVertical: 14,
-    gap: 8,
-    shadowColor: '#F97316',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 4,
+    paddingVertical: 15,
   },
   modalPrimaryText: {
     fontSize: 14,
@@ -1294,31 +1752,12 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     borderRadius: 16,
     borderWidth: 1.5,
-    borderColor: '#E5E7EB',
-    backgroundColor: '#F9FAFB',
+    borderColor: '#CBD5E1',
+    backgroundColor: '#F8FAFC',
   },
   modalSecondaryText: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#6B7280',
-  },
-  
-  // ==================== SWITCH TO SIGN IN BUTTON ====================
-  switchToSignInBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#ECFDF5',
-    borderRadius: 14,
-    paddingVertical: 14,
-    gap: 8,
-    marginTop: 12,
-    borderWidth: 1.5,
-    borderColor: '#10B981',
-  },
-  switchToSignInText: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: '#10B981',
+    color: '#475569',
   },
 });
