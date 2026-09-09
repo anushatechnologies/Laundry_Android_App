@@ -834,21 +834,21 @@ const styles = StyleSheet.create({
   },
   dockPrimaryBtn: {
     height: 48,
-    backgroundColor: '#FF7A00',
+    backgroundColor: '#059669',
     borderRadius: 14,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    shadowColor: '#FF7A00',
+    shadowColor: '#059669',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
     elevation: 4,
   },
   dockPrimaryBtnUpdate: {
-    backgroundColor: '#16A34A',
-    shadowColor: '#16A34A',
+    backgroundColor: '#0D9488',
+    shadowColor: '#0D9488',
   },
   dockPrimaryBtnText: {
     color: '#FFFFFF',
@@ -862,6 +862,6 @@ const styles = StyleSheet.create({
   viewCartShortcutText: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#EA580C',
+    color: '#059669',
   },
 });

@@ -541,7 +541,7 @@ export function BulkLaundryScreen({
             onPress={() => handleAddWeightToCart(weightKg)}
           >
             <LinearGradient
-              colors={['#FF7A00', '#FF5A00']}
+              colors={['#10B981', '#059669']}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
               style={styles.bottomAddBtnGradient}
@@ -1107,7 +1107,7 @@ const styles = StyleSheet.create({
   },
   bottomRateTag: {
     fontSize: 11.5,
-    color: '#FF6B0B',
+    color: '#059669',
     fontWeight: '700',
   },
   bottomPriceSub: {
@@ -1124,7 +1124,7 @@ const styles = StyleSheet.create({
   bottomAddBtnWrap: {
     borderRadius: 14,
     overflow: 'hidden',
-    shadowColor: '#FF6B0B',
+    shadowColor: '#059669',
     shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.28,
     shadowRadius: 8,

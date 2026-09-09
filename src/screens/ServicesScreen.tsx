@@ -127,6 +127,105 @@ const CATEGORY_METAS: Record<string, {
   },
 };
 
+const ALL_CARE_SERVICES = [
+  {
+    id: 'srv-m-wash-fold',
+    title: 'Wash & Fold',
+    shortTitle: 'Wash & Fold',
+    tat: '24h TAT',
+    tatBg: '#E0F2FE',
+    tatColor: '#0891B2',
+    accent: '#0891B2',
+    imageUrl: 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/services/service_wash_fold.jpg',
+    priceText: 'From ₹60/kg',
+    serviceCode: 'WASH_FOLD',
+  },
+  {
+    id: 'srv-m-wash-iron',
+    title: 'Wash & Steam Iron',
+    shortTitle: 'Wash & Iron',
+    tat: '24h TAT',
+    tatBg: '#F3E8FF',
+    tatColor: '#7C3AED',
+    accent: '#7C3AED',
+    imageUrl: 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/services/service_wash_iron.jpg',
+    priceText: 'From ₹85/kg',
+    serviceCode: 'WASH_IRON',
+  },
+  {
+    id: 'srv-m-steam-iron',
+    title: 'Steam Press',
+    shortTitle: 'Steam Press',
+    tat: '12h Express',
+    tatBg: '#FEF3C7',
+    tatColor: '#D97706',
+    accent: '#D97706',
+    imageUrl: 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/services/service_steam_press.jpg',
+    priceText: 'From ₹120/kg',
+    serviceCode: 'PRESS',
+  },
+  {
+    id: 'srv-m-dry-clean',
+    title: 'Dry Cleaning',
+    shortTitle: 'Dry Clean',
+    tat: '48h TAT',
+    tatBg: '#EFF6FF',
+    tatColor: '#2563EB',
+    accent: '#2563EB',
+    imageUrl: 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/services/service_dry_cleaning.jpg',
+    priceText: 'From ₹35',
+    serviceCode: 'DRY_CLEAN',
+  },
+  {
+    id: 'srv-m-spa',
+    title: 'Shoe & Sneaker Spa',
+    shortTitle: 'Shoe Spa',
+    tat: '48h TAT',
+    tatBg: '#DCFCE7',
+    tatColor: '#16A34A',
+    accent: '#16A34A',
+    imageUrl: 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/services/service_shoe_clean.jpg',
+    priceText: 'From ₹90',
+    serviceCode: 'SHOE_SPA',
+  },
+  {
+    id: 'srv-m-charak',
+    title: 'Saree Rolling & Charak Polish',
+    shortTitle: 'Saree Charak',
+    tat: '48h TAT',
+    tatBg: '#FDF4FF',
+    tatColor: '#C026D3',
+    accent: '#C026D3',
+    imageUrl: 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/categories/cat-wedding-silk.jpg',
+    priceText: 'From ₹120',
+    serviceCode: 'SAREE_POLISH',
+  },
+  {
+    id: 'srv-m-starch',
+    title: 'Starch & Crisp Finish',
+    shortTitle: 'Starch & Crisp',
+    tat: '24h TAT',
+    tatBg: '#ECFEFF',
+    tatColor: '#0D9488',
+    accent: '#0D9488',
+    imageUrl: 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/garments/cloth-shirt.jpg',
+    priceText: 'From ₹20',
+    serviceCode: 'STARCH',
+  },
+  {
+    id: 'srv-m-express',
+    title: 'Express 24h Emergency',
+    shortTitle: 'Express 24h',
+    tat: '12-24h Rapid',
+    tatBg: '#FFEDD5',
+    tatColor: '#EA580C',
+    accent: '#EA580C',
+    imageUrl: 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/services/delivery_van_driver.jpg',
+    priceText: 'From ₹120/kg',
+    serviceCode: 'EXPRESS',
+  },
+];
+
 export function ServicesScreen({ onBook, onOpenBulkLaundry }: ServicesScreenProps) {
   const {
     catalog,
@@ -324,13 +423,13 @@ export function ServicesScreen({ onBook, onOpenBulkLaundry }: ServicesScreenProp
 
   // Filtered products
   const filteredProducts = useMemo(() => {
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase();
+    if (searchQuery && searchQuery.trim()) {
+      const q = String(searchQuery).toLowerCase().trim();
       return allProductsList.filter(
         (p) =>
-          p.name.toLowerCase().includes(q) ||
-          p.serviceName.toLowerCase().includes(q) ||
-          p.subCategory.toLowerCase().includes(q)
+          String(p.name || '').toLowerCase().includes(q) ||
+          String(p.serviceName || '').toLowerCase().includes(q) ||
+          String(p.subCategory || '').toLowerCase().includes(q)
       );
     }
 
@@ -385,7 +484,7 @@ export function ServicesScreen({ onBook, onOpenBulkLaundry }: ServicesScreenProp
 
           {viewMode === 'ALL_CATEGORIES' && (
             <Pressable style={styles.splitToggleBtn} onPress={() => setViewMode('SPLIT_VIEW')}>
-              <MaterialCommunityIcons name="view-split-vertical" size={16} color="#2563EB" />
+              <MaterialCommunityIcons name="view-split-vertical" size={16} color="#0F766E" />
               <Text style={styles.splitToggleText}>Browse Rail</Text>
             </Pressable>
           )}
@@ -454,9 +553,10 @@ export function ServicesScreen({ onBook, onOpenBulkLaundry }: ServicesScreenProp
             />
           }
         >
+          {/* 1. BROWSE CATEGORIES (4 items per row, full rounded circle avatars) */}
           <View style={styles.sectionHeaderRow}>
-            <Text style={styles.overviewHeading}>Explore by Category ({categoriesList.length})</Text>
-            <Text style={styles.overviewSub}>Tap to view all garments</Text>
+            <Text style={styles.overviewHeading}>Browse Categories ({categoriesList.length})</Text>
+            <Text style={styles.overviewSub}>Tap category to view specialized garments</Text>
           </View>
 
           <View style={styles.circleGridContainer}>
@@ -466,8 +566,8 @@ export function ServicesScreen({ onBook, onOpenBulkLaundry }: ServicesScreenProp
                 style={({ pressed }) => [styles.circleCatCol, pressed && styles.circleCatPressed]}
                 onPress={() => handleOpenCategory(cat.id)}
               >
-                {/* Circular Image with Gold/Orange Accent Ring */}
-                <View style={styles.circleAvatarWrapper}>
+                {/* Full Rounded Circular Image with matching Accent Border */}
+                <View style={[styles.circleAvatarWrapper, { borderColor: cat.iconColor || '#0F766E' }]}>
                   <Image
                     source={{
                       uri: imgErrors[cat.id]
@@ -478,9 +578,9 @@ export function ServicesScreen({ onBook, onOpenBulkLaundry }: ServicesScreenProp
                     resizeMode="cover"
                     onError={() => setImgErrors((prev) => ({ ...prev, [cat.id]: true }))}
                   />
-                  {/* Subtle item count pill */}
-                  <View style={styles.circlePillBadge}>
-                    <Text style={styles.circlePillText}>{cat.itemCount} items</Text>
+                  {/* Item count pill badge at bottom */}
+                  <View style={[styles.circlePillBadge, { backgroundColor: cat.iconColor || '#0F766E' }]}>
+                    <Text style={styles.circlePillText}>{cat.itemCount} Items</Text>
                   </View>
                 </View>
 
@@ -488,11 +588,58 @@ export function ServicesScreen({ onBook, onOpenBulkLaundry }: ServicesScreenProp
                 <Text style={styles.circleCatTitle} numberOfLines={2}>
                   {cat.shortName || cat.name}
                 </Text>
+              </Pressable>
+            ))}
+          </View>
 
-                {/* Starting Price */}
-                <Text style={styles.circleCatPrice}>
-                  From ₹{cat.startPrice}
+          {/* 2. ALL SERVICES & CARE (4 items per row, full rounded circle avatars) */}
+          <View style={[styles.sectionHeaderRow, { marginTop: 22 }]}>
+            <Text style={styles.overviewHeading}>All Services & Care (8)</Text>
+            <Text style={styles.overviewSub}>8 specialized treatments for every fabric</Text>
+          </View>
+
+          <View style={styles.circleGridContainer}>
+            {ALL_CARE_SERVICES.map((svc) => (
+              <Pressable
+                key={svc.id}
+                style={({ pressed }) => [styles.circleCatCol, pressed && styles.circleCatPressed]}
+                onPress={() => {
+                  if (svc.serviceCode === 'BULK_LAUNDRY' || svc.id === 'bulk-laundry') {
+                    if (onOpenBulkLaundry) onOpenBulkLaundry();
+                    return;
+                  }
+                  setSearchQuery(svc.shortTitle || svc.title);
+                  setViewMode('SPLIT_VIEW');
+                }}
+              >
+                {/* 1. Turnaround Time Pill Badge at TOP */}
+                <View style={[styles.serviceTopTatBadge, { backgroundColor: svc.tatBg || '#F0FDFA' }]}>
+                  <Text style={[styles.serviceTopTatText, { color: svc.tatColor || svc.accent || '#0F766E' }]}>
+                    {svc.tat}
+                  </Text>
+                </View>
+
+                {/* 2. 100% Full Rounded Circular Avatar */}
+                <View style={[styles.serviceCircleWrap, { borderColor: svc.accent || '#0F766E' }]}>
+                  <Image
+                    source={{ uri: svc.imageUrl }}
+                    style={styles.serviceCircleImg}
+                    resizeMode="cover"
+                  />
+                </View>
+
+                {/* 3. Title */}
+                <Text style={styles.serviceTitleText} numberOfLines={1}>
+                  {svc.shortTitle || svc.title}
                 </Text>
+
+                {/* 4. Price */}
+                <Text style={[styles.servicePriceText, { color: svc.accent || '#059669' }]}>
+                  {svc.priceText}
+                </Text>
+
+                {/* 5. Colored Accent Underline Bar */}
+                <View style={[styles.serviceBottomBar, { backgroundColor: svc.accent || '#0F766E' }]} />
               </Pressable>
             ))}
           </View>
@@ -682,76 +829,125 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'flex-start',
-    paddingHorizontal: 6,
-    marginTop: 8,
+    paddingHorizontal: 2,
+    marginTop: 10,
   },
   circleCatCol: {
-    width: '33.333%',
+    width: '25%',
     alignItems: 'center',
-    marginBottom: 22,
-    paddingHorizontal: 4,
+    marginBottom: 16,
+    paddingHorizontal: 2,
   },
   circleCatPressed: {
     transform: [{ scale: 0.94 }],
     opacity: 0.88,
   },
   circleAvatarWrapper: {
-    width: 86,
-    height: 86,
-    borderRadius: 43,
+    width: 72,
+    height: 72,
+    borderRadius: 36,  // 100% FULL ROUNDED CIRCLE
     borderWidth: 2.5,
-    borderColor: '#FF7A00',
-    padding: 3,
+    borderColor: '#0F766E',
+    padding: 2,
     backgroundColor: '#FFFFFF',
     shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 4 },
+    shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.12,
-    shadowRadius: 8,
-    elevation: 5,
+    shadowRadius: 5,
+    elevation: 3,
     position: 'relative',
     alignItems: 'center',
     justifyContent: 'center',
+    marginBottom: 8,
   },
   circleAvatarImg: {
     width: '100%',
     height: '100%',
-    borderRadius: 40,
+    borderRadius: 34,
   },
   circlePillBadge: {
     position: 'absolute',
-    bottom: -6,
-    backgroundColor: '#0F172A',
+    bottom: -5,
     borderRadius: 10,
     paddingHorizontal: 7,
-    paddingVertical: 1.5,
-    borderWidth: 1,
+    paddingVertical: 2,
+    borderWidth: 1.5,
     borderColor: '#FFFFFF',
     shadowColor: '#000000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
+    shadowOpacity: 0.2,
     shadowRadius: 3,
-    elevation: 3,
+    elevation: 4,
   },
   circlePillText: {
-    fontSize: 9.5,
-    fontWeight: '700',
+    fontSize: 8.5,
+    fontWeight: '900',
     color: '#FFFFFF',
+    letterSpacing: 0.3,
   },
   circleCatTitle: {
-    fontSize: 12.5,
+    fontSize: 11,
     fontWeight: '700',
     color: '#0F172A',
     textAlign: 'center',
-    marginTop: 10,
-    lineHeight: 16,
-    paddingHorizontal: 2,
-  },
-  circleCatPrice: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#EA580C',
-    textAlign: 'center',
+    lineHeight: 14,
     marginTop: 2,
+  },
+  serviceTopTatBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+    marginBottom: 4,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  serviceTopTatText: {
+    fontSize: 8.5,
+    fontWeight: '800',
+    letterSpacing: 0.2,
+  },
+  serviceCircleWrap: {
+    width: 66,
+    height: 66,
+    borderRadius: 33,  // 100% FULL ROUNDED CIRCLE
+    borderWidth: 2,
+    borderColor: '#E2E8F0',
+    padding: 2,
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+    marginBottom: 4,
+  },
+  serviceCircleImg: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 31,
+  },
+  serviceTitleText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#0F172A',
+    textAlign: 'center',
+    lineHeight: 14,
+    marginTop: 2,
+  },
+  servicePriceText: {
+    fontSize: 10.5,
+    fontWeight: '800',
+    textAlign: 'center',
+    marginTop: 1,
+  },
+  serviceBottomBar: {
+    width: 20,
+    height: 2.5,
+    borderRadius: 2,
+    marginTop: 3,
+    alignSelf: 'center',
   },
 
   root: {
@@ -1112,7 +1308,7 @@ const styles = StyleSheet.create({
     lineHeight: 13,
   },
   railTextActive: {
-    color: '#2563EB',
+    color: '#0F766E',
     fontWeight: '900',
   },
 
@@ -1138,7 +1334,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#F1F5F9',
   },
   subPillActive: {
-    backgroundColor: '#2563EB',
+    backgroundColor: '#0F766E',
   },
   subPillText: {
     fontSize: 11,
@@ -1224,7 +1420,7 @@ const styles = StyleSheet.create({
   servicePillText: {
     fontSize: 10,
     fontWeight: '700',
-    color: '#2563EB',
+    color: '#0F766E',
   },
   productBottomRow: {
     flexDirection: 'row',
@@ -1246,9 +1442,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 3,
-    backgroundColor: '#EFF6FF',
+    backgroundColor: '#F0FDFA',
     borderWidth: 1.5,
-    borderColor: '#2563EB',
+    borderColor: '#0F766E',
     paddingHorizontal: 12,
     height: 30,
     borderRadius: 8,
@@ -1256,13 +1452,13 @@ const styles = StyleSheet.create({
   addBtnText: {
     fontSize: 12,
     fontWeight: '900',
-    color: '#2563EB',
+    color: '#0F766E',
     letterSpacing: 0.3,
   },
   stepperBox: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#2563EB',
+    backgroundColor: '#059669',
     borderRadius: 8,
     height: 30,
     overflow: 'hidden',

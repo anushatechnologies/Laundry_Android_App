@@ -1,6 +1,7 @@
 import Constants from 'expo-constants';
 import React, { useState, useEffect, useCallback } from 'react';
 import {
+  ActivityIndicator,
   Alert,
   KeyboardAvoidingView,
   Linking,
@@ -19,6 +20,7 @@ import { useApp } from '@/context/AppContext';
 import { Card, SectionTitle } from '@/ui/components';
 import { COLORS } from '@/ui/theme';
 import { api } from '@/lib/api';
+import { API_BASE_URL } from '@/lib/config';
 import { PolicyData } from '@/types/domain';
 
 interface ProfileScreenProps {
@@ -59,6 +61,89 @@ export function ProfileScreen({
   const [savingProfile, setSavingProfile] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [walletBalance, setWalletBalance] = useState<number>(0);
+  const [checkingUpdate, setCheckingUpdate] = useState(false);
+
+  const currentAppVersion = Constants.expoConfig?.version || '1.0.16';
+  const currentAppCode = Constants.expoConfig?.android?.versionCode || 16;
+
+  const handleCheckUpdates = async () => {
+    if (checkingUpdate) return;
+    setCheckingUpdate(true);
+    try {
+      const res = await fetch(`${API_BASE_URL}/app-release/latest`);
+      const json = await res.json();
+
+      if (json?.success && json?.data) {
+        const release = json.data;
+        const downloadUrl = (release.fileUrl && release.fileUrl.startsWith('http'))
+          ? release.fileUrl
+          : `${API_BASE_URL}/app-release/download`;
+
+        const latestCode = release.versionCode || 0;
+        const hasNewer = latestCode > currentAppCode;
+
+        if (hasNewer) {
+          Alert.alert(
+            `🚀 New Update Available! (${release.versionName || 'Latest'})`,
+            `${release.releaseNotes || 'A new version with performance improvements and bug fixes is ready.'}\n\nSize: ${release.fileSizeBytes ? (release.fileSizeBytes / (1024 * 1024)).toFixed(1) + ' MB' : 'Full APK'}`,
+            [
+              { text: 'Later', style: 'cancel' },
+              {
+                text: 'Download & Install',
+                onPress: () => {
+                  void Linking.openURL(downloadUrl);
+                },
+              },
+            ]
+          );
+        } else {
+          Alert.alert(
+            'You Are Up to Date! 🎉',
+            `You are using LaundryFresh v${currentAppVersion} (Build ${currentAppCode}) which is the latest version available.`,
+            [
+              { text: 'OK', style: 'cancel' },
+              {
+                text: 'Re-download APK',
+                onPress: () => {
+                  void Linking.openURL(downloadUrl);
+                },
+              },
+            ]
+          );
+        }
+      } else {
+        Alert.alert(
+          'Download Latest Release',
+          'Download the official LaundryFresh APK package directly from our cloud server.',
+          [
+            { text: 'Cancel', style: 'cancel' },
+            {
+              text: 'Download APK',
+              onPress: () => {
+                void Linking.openURL('https://anjanilaundry.s3.ap-south-2.amazonaws.com/releases/LaundryFresh-v1.0.16-release.apk');
+              },
+            },
+          ]
+        );
+      }
+    } catch {
+      Alert.alert(
+        'Latest Release APK',
+        'Download the official LaundryFresh APK installer directly.',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Download APK',
+            onPress: () => {
+              void Linking.openURL('https://anjanilaundry.s3.ap-south-2.amazonaws.com/releases/LaundryFresh-v1.0.16-release.apk');
+            },
+          },
+        ]
+      );
+    } finally {
+      setCheckingUpdate(false);
+    }
+  };
 
   useEffect(() => {
     if (session?.user?.id) {
@@ -440,19 +525,26 @@ export function ProfileScreen({
 
         <Pressable
           style={styles.menuRow}
-          onPress={() => Linking.openURL('https://laundryfresh.in/download')}
+          onPress={handleCheckUpdates}
+          disabled={checkingUpdate}
         >
-          <View style={[styles.menuIconBox, { backgroundColor: '#EFF6FF' }]}>
-            <MaterialCommunityIcons name="cellphone-arrow-down" size={20} color="#2563EB" />
+          <View style={[styles.menuIconBox, { backgroundColor: '#F0FDFA' }]}>
+            {checkingUpdate ? (
+              <ActivityIndicator size="small" color="#0F766E" />
+            ) : (
+              <MaterialCommunityIcons name="cellphone-arrow-down" size={20} color="#0F766E" />
+            )}
           </View>
           <View style={styles.menuText}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
               <Text style={styles.menuTitle}>Check for App Updates</Text>
-              <View style={{ backgroundColor: '#DBEAFE', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}>
-                <Text style={{ color: '#1E40AF', fontSize: 10, fontWeight: '800' }}>v1.0.12</Text>
+              <View style={{ backgroundColor: '#CCFBF1', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}>
+                <Text style={{ color: '#0F766E', fontSize: 10, fontWeight: '800' }}>v{currentAppVersion}</Text>
               </View>
             </View>
-            <Text style={styles.menuSubtitle}>Download latest release & get new features</Text>
+            <Text style={styles.menuSubtitle}>
+              {checkingUpdate ? 'Checking server for latest release...' : 'Download latest release & get new features'}
+            </Text>
           </View>
           <MaterialCommunityIcons name="chevron-right" size={20} color="#8A7A84" />
         </Pressable>

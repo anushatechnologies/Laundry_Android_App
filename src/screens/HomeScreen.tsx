@@ -50,6 +50,7 @@ interface HomeScreenProps {
   onOpenBulkLaundry?: () => void;
   onSelectService?: (serviceCode: string, serviceName: string, tag?: string, title?: string) => void;
   onViewSubscriptions?: () => void;
+  onViewReferral?: () => void;
 }
 
 export function HomeScreen({
@@ -70,6 +71,7 @@ export function HomeScreen({
   onOpenBulkLaundry,
   onSelectService,
   onViewSubscriptions,
+  onViewReferral,
 }: HomeScreenProps) {
   const {
     session,
@@ -545,7 +547,7 @@ export function HomeScreen({
         title: 'Wash & Fold',
         shortTitle: 'Wash & Fold',
         tat: '24h TAT',
-        tatBg: '#EFF6FF',
+        tatBg: '#E0F2FE',
         tatColor: '#0891B2',
         badge: 'Daily Fresh',
         accent: '#0891B2',
@@ -564,7 +566,7 @@ export function HomeScreen({
         title: 'Wash & Steam Iron',
         shortTitle: 'Wash & Iron',
         tat: '24h TAT',
-        tatBg: '#F5F3FF',
+        tatBg: '#F3E8FF',
         tatColor: '#7C3AED',
         badge: 'Crease-Free',
         accent: '#7C3AED',
@@ -589,7 +591,7 @@ export function HomeScreen({
         accent: '#D97706',
         imageUrl: sPress?.imageUrl || 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/services/service_steam_press.jpg',
         fallbackUrl: 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/services/service_steam_press.jpg',
-        priceText: sPress ? formatPricing(sPress) : 'From ₹18',
+        priceText: sPress ? formatPricing(sPress) : 'From ₹120/kg',
         pricingType: 'PER_ITEM',
         serviceCode: 'PRESS',
         slug: 'steam-iron',
@@ -608,7 +610,7 @@ export function HomeScreen({
         accent: '#2563EB',
         imageUrl: sDryClean?.imageUrl || 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/services/service_dry_cleaning.jpg',
         fallbackUrl: 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/services/service_dry_cleaning.jpg',
-        priceText: sDryClean ? formatPricing(sDryClean) : 'From ₹70',
+        priceText: sDryClean ? formatPricing(sDryClean) : 'From ₹35',
         pricingType: 'PER_ITEM',
         serviceCode: 'DRY_CLEAN',
         slug: 'dry-cleaning',
@@ -621,13 +623,13 @@ export function HomeScreen({
         title: 'Shoe & Sneaker Spa',
         shortTitle: 'Shoe Spa',
         tat: '48h TAT',
-        tatBg: '#F0FDF4',
-        tatColor: '#059669',
+        tatBg: '#DCFCE7',
+        tatColor: '#16A34A',
         badge: 'Deep Restored',
-        accent: '#059669',
+        accent: '#16A34A',
         imageUrl: sSpa?.imageUrl || 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/services/service_shoe_clean.jpg',
         fallbackUrl: 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/services/service_shoe_clean.jpg',
-        priceText: sSpa ? formatPricing(sSpa) : 'From ₹199',
+        priceText: sSpa ? formatPricing(sSpa) : 'From ₹90',
         pricingType: 'PER_ITEM',
         serviceCode: 'SHOE_SPA',
         slug: 'shoe-spa',
@@ -640,13 +642,13 @@ export function HomeScreen({
         title: 'Saree Rolling & Charak Polish',
         shortTitle: 'Saree Charak',
         tat: '48h TAT',
-        tatBg: '#FAF5FF',
-        tatColor: '#9333EA',
+        tatBg: '#FDF4FF',
+        tatColor: '#C026D3',
         badge: 'Zero Bleed Safe',
-        accent: '#9333EA',
+        accent: '#C026D3',
         imageUrl: sCharak?.imageUrl || 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/categories/cat-wedding-silk.jpg',
         fallbackUrl: 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/categories/cat-wedding-silk.jpg',
-        priceText: sCharak ? formatPricing(sCharak) : 'From ₹149',
+        priceText: sCharak ? formatPricing(sCharak) : 'From ₹120',
         pricingType: 'PER_ITEM',
         serviceCode: 'SAREE_POLISH',
         slug: 'saree-polish-charak',
@@ -660,12 +662,12 @@ export function HomeScreen({
         shortTitle: 'Starch & Crisp',
         tat: '24h TAT',
         tatBg: '#ECFEFF',
-        tatColor: '#06B6D4',
+        tatColor: '#0D9488',
         badge: 'Crisp Finish',
-        accent: '#06B6D4',
+        accent: '#0D9488',
         imageUrl: sStarch?.imageUrl || 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/garments/cloth-shirt.jpg',
         fallbackUrl: 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/garments/cloth-shirt.jpg',
-        priceText: sStarch ? formatPricing(sStarch) : 'From ₹49',
+        priceText: sStarch ? formatPricing(sStarch) : 'From ₹20',
         pricingType: 'PER_ITEM',
         serviceCode: 'STARCH',
         slug: 'starch-crisp',
@@ -678,7 +680,7 @@ export function HomeScreen({
         title: 'Express 24h Emergency',
         shortTitle: 'Express 24h',
         tat: '12-24h Rapid',
-        tatBg: '#FFF7ED',
+        tatBg: '#FFEDD5',
         tatColor: '#EA580C',
         badge: 'Emergency Care',
         accent: '#EA580C',
@@ -725,7 +727,7 @@ export function HomeScreen({
         label: "Men's Wear",
         imageUrl: 'https://images.unsplash.com/photo-1594938298603-c8148c4dae35?auto=format&fit=crop&w=300&q=80',
         count: getCount('MENS', '16 Items'),
-        accent: '#2563EB',
+        accent: '#0F766E',
       },
       {
         id: 'cat-2',
@@ -953,18 +955,8 @@ export function HomeScreen({
             </View>
           </View>
 
-          {/* Right: Action Icons */}
+          {/* Right: Action Icons (Wishlist & Notifications) */}
           <View style={styles.navRightActions}>
-            {/* Search Icon */}
-            <Pressable
-              style={styles.actionBtn}
-              onPress={onOpenSearch}
-              accessibilityLabel="Search Services"
-              accessibilityRole="button"
-            >
-              <MaterialCommunityIcons name="magnify" size={20} color="#FFFFFF" />
-            </Pressable>
-
             {/* Wishlist Icon with Badge */}
             <Pressable
               style={styles.actionBtn}
@@ -996,9 +988,25 @@ export function HomeScreen({
             </Pressable>
           </View>
         </View>
+
+        {/* Full-width Pill Search Bar below Location (Image 1 reference) */}
+        <Pressable
+          style={({ pressed }) => [
+            styles.headerSearchBar,
+            pressed && { opacity: 0.95, transform: [{ scale: 0.99 }] },
+          ]}
+          onPress={onOpenSearch}
+          accessibilityRole="button"
+          accessibilityLabel="Search services and clothes"
+        >
+          <MaterialCommunityIcons name="magnify" size={20} color="#0F766E" />
+          <Text style={styles.headerSearchPlaceholder}>
+            Search for "Dry Clean", "Ironing", "Shirts"…
+          </Text>
+        </Pressable>
       </View>
 
-{/* 2. SCROLLABLE PAGE BODY */}
+      {/* 2. SCROLLABLE PAGE BODY */}
       <ScrollView
         style={styles.root}
         contentContainerStyle={styles.content}
@@ -1007,8 +1015,8 @@ export function HomeScreen({
           <RefreshControl
             refreshing={refreshing}
             onRefresh={handleRefresh}
-            colors={['#2563EB', '#F97316']}
-            tintColor="#2563EB"
+            colors={['#0F766E', '#10B981']}
+            tintColor="#0F766E"
           />
         }
       >
@@ -1128,80 +1136,52 @@ export function HomeScreen({
               accessibilityLabel="View all service details"
             >
               <Text style={styles.viewAllText}>View Details</Text>
-              <MaterialCommunityIcons name="chevron-right" size={16} color="#2563EB" />
+              <MaterialCommunityIcons name="chevron-right" size={16} color="#0F766E" />
             </Pressable>
           </View>
 
-          {/* Row 1: First 4 Services */}
-          <View style={styles.services4Row}>
-            {allServicesList.slice(0, 4).map((svc) => (
+          {/* 8 Specialized Services (4 per row, Full Rounded Circles matching Categories) */}
+          <View style={styles.homeCategory4Grid}>
+            {allServicesList.map((svc) => (
               <Pressable
                 key={svc.id}
                 style={({ pressed }) => [
-                  styles.service4Tile,
-                  pressed && { opacity: 0.85, transform: [{ scale: 0.96 }] },
+                  styles.homeCategory4Col,
+                  pressed && styles.categoryItemPressed,
                 ]}
                 onPress={() => handleServicePress(svc)}
                 accessibilityRole="button"
                 accessibilityLabel={svc.title}
               >
-                <View style={[styles.service4TatPill, { backgroundColor: svc.tatBg || '#EFF6FF' }]}>
-                  <Text style={[styles.service4TatText, { color: svc.tatColor || svc.accent || '#2563EB' }]}>
+                {/* 1. Turnaround Time Pill Badge at TOP */}
+                <View style={[styles.serviceTopTatBadge, { backgroundColor: svc.tatBg || '#F0FDFA' }]}>
+                  <Text style={[styles.serviceTopTatText, { color: svc.tatColor || svc.accent || '#0F766E' }]}>
                     {svc.tat}
                   </Text>
                 </View>
-                <View style={[styles.service4ImgWrap, { borderColor: `${svc.accent}35`, borderWidth: 1.5 }]}>
-                  <Image
-                    source={{ uri: serviceImgErrors[svc.id] ? svc.fallbackUrl : svc.imageUrl }}
-                    style={styles.service4Img}
-                    resizeMode="cover"
-                    onError={() => setServiceImgErrors((prev) => ({ ...prev, [svc.id]: true }))}
-                  />
-                </View>
-                <Text style={styles.service4Title} numberOfLines={1}>
-                  {svc.shortTitle || svc.title}
-                </Text>
-                <Text style={[styles.service4PriceText, { color: svc.accent || '#EA580C' }]}>
-                  {svc.priceText}
-                </Text>
-                <View style={[styles.service4BottomLine, { backgroundColor: svc.accent || '#2563EB' }]} />
-              </Pressable>
-            ))}
-          </View>
 
-          {/* Row 2: Next 4 Services */}
-          <View style={[styles.services4Row, { marginTop: 10 }]}>
-            {allServicesList.slice(4, 8).map((svc) => (
-              <Pressable
-                key={svc.id}
-                style={({ pressed }) => [
-                  styles.service4Tile,
-                  pressed && { opacity: 0.85, transform: [{ scale: 0.96 }] },
-                ]}
-                onPress={() => handleServicePress(svc)}
-                accessibilityRole="button"
-                accessibilityLabel={svc.title}
-              >
-                <View style={[styles.service4TatPill, { backgroundColor: svc.tatBg || '#EFF6FF' }]}>
-                  <Text style={[styles.service4TatText, { color: svc.tatColor || svc.accent || '#2563EB' }]}>
-                    {svc.tat}
-                  </Text>
-                </View>
-                <View style={[styles.service4ImgWrap, { borderColor: `${svc.accent}35`, borderWidth: 1.5 }]}>
+                {/* 2. 100% Full Rounded Circular Avatar */}
+                <View style={[styles.serviceCircleWrap, { borderColor: svc.accent || '#0F766E' }]}>
                   <Image
                     source={{ uri: serviceImgErrors[svc.id] ? svc.fallbackUrl : svc.imageUrl }}
-                    style={styles.service4Img}
+                    style={styles.serviceCircleImg}
                     resizeMode="cover"
                     onError={() => setServiceImgErrors((prev) => ({ ...prev, [svc.id]: true }))}
                   />
                 </View>
-                <Text style={styles.service4Title} numberOfLines={1}>
+
+                {/* 3. Service Title */}
+                <Text style={styles.serviceTitleText} numberOfLines={1}>
                   {svc.shortTitle || svc.title}
                 </Text>
-                <Text style={[styles.service4PriceText, { color: svc.accent || '#EA580C' }]}>
+
+                {/* 4. Price */}
+                <Text style={[styles.servicePriceText, { color: svc.accent || '#059669' }]}>
                   {svc.priceText}
                 </Text>
-                <View style={[styles.service4BottomLine, { backgroundColor: svc.accent || '#2563EB' }]} />
+
+                {/* 5. Colored Accent Underline Bar */}
+                <View style={[styles.serviceBottomBar, { backgroundColor: svc.accent || '#0F766E' }]} />
               </Pressable>
             ))}
           </View>
@@ -1216,56 +1196,29 @@ export function HomeScreen({
           }}
         />
 
-        {/* 4. WHY CHOOSE LAUNDRYFRESH VALUE PROPOSITIONS */}
-        <View style={styles.whyUsSection}>
-          <Text style={styles.whyUsTitle}>Why Choose LaundryFresh?</Text>
-          <View style={styles.whyUsGrid}>
-            <View style={styles.whyUsItem}>
-              <View style={[styles.whyUsIconBox, { backgroundColor: '#EFF6FF' }]}>
-                <MaterialCommunityIcons name="shield-check" size={22} color="#2563EB" />
+        {/* 4. REFER & EARN BANNER */}
+        {onViewReferral && (
+          <Pressable style={styles.homeReferralCard} onPress={onViewReferral}>
+            <LinearGradient
+              colors={['#0F766E', '#115E59']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.homeReferralGradient}
+            >
+              <View style={styles.homeReferralIconBox}>
+                <MaterialCommunityIcons name="gift-open-outline" size={26} color="#34D399" />
               </View>
-              <Text style={styles.whyUsItemHeading}>100% Ozone Sanitation</Text>
-              <Text style={styles.whyUsItemDesc}>Hospital-grade sterilization eliminates 99.9% bacteria & allergens</Text>
-            </View>
-
-            <View style={styles.whyUsItem}>
-              <View style={[styles.whyUsIconBox, { backgroundColor: '#F0FDF4' }]}>
-                <MaterialCommunityIcons name="truck-fast" size={22} color="#16A34A" />
+              <View style={styles.homeReferralTextWrap}>
+                <Text style={styles.homeReferralHeading}>Refer Friends & Earn ₹50</Text>
+                <Text style={styles.homeReferralSub}>Friends get ₹25 welcome cash • 100% wallet credit</Text>
               </View>
-              <Text style={styles.whyUsItemHeading}>30-Min Doorstep Pickup</Text>
-              <Text style={styles.whyUsItemDesc}>Prompt rider dispatch with digital calibrated weighing scales</Text>
-            </View>
-
-            <View style={styles.whyUsItem}>
-              <View style={[styles.whyUsIconBox, { backgroundColor: '#FEF3C7' }]}>
-                <MaterialCommunityIcons name="palette-swatch-outline" size={22} color="#D97706" />
+              <View style={styles.homeReferralActionBtn}>
+                <Text style={styles.homeReferralActionText}>Invite</Text>
+                <MaterialCommunityIcons name="chevron-right" size={16} color="#0F766E" />
               </View>
-              <Text style={styles.whyUsItemHeading}>Zero Colour-Bleed Safe</Text>
-              <Text style={styles.whyUsItemDesc}>German eco-friendly solvents that protect fabric texture and vibrancy</Text>
-            </View>
-
-            <View style={styles.whyUsItem}>
-              <View style={[styles.whyUsIconBox, { backgroundColor: '#FAF5FF' }]}>
-                <MaterialCommunityIcons name="lightning-bolt" size={22} color="#7C3AED" />
-              </View>
-              <Text style={styles.whyUsItemHeading}>Express 24h Delivery</Text>
-              <Text style={styles.whyUsItemDesc}>Urgent laundry turnaround returned crisp and ready to wear</Text>
-            </View>
-          </View>
-        </View>
-
-        {/* 4. GUARANTEE FOOTER CARD */}
-        <View style={styles.guaranteeBanner}>
-          <View style={styles.guaranteeIconBox}>
-            <MaterialCommunityIcons name="shield-crown-outline" size={26} color="#2563EB" />
-          </View>
-          <View style={styles.guaranteeTextWrap}>
-            <Text style={styles.guaranteeTitle}>The LaundryFresh Promise</Text>
-            <Text style={styles.guaranteeSubtitle}>
-              100% Free Re-wash Guarantee • Zero Color Bleed Assurance • Digital Calibrated Scales
-            </Text>
-          </View>
-        </View>
+            </LinearGradient>
+          </Pressable>
+        )}
 
       </ScrollView>
 
@@ -1273,7 +1226,7 @@ export function HomeScreen({
       {purchaseLoading && (
         <View style={styles.paymentLoadingOverlay}>
           <View style={styles.paymentLoadingCard}>
-            <MaterialCommunityIcons name="loading" size={48} color="#2563EB" style={{ transform: [{ rotate: '360deg' }] }} />
+            <MaterialCommunityIcons name="loading" size={48} color="#0F766E" style={{ transform: [{ rotate: '360deg' }] }} />
             <Text style={styles.paymentLoadingTitle}>Processing Payment...</Text>
             <Text style={styles.paymentLoadingText}>Please wait while we secure your subscription</Text>
           </View>
@@ -1455,57 +1408,56 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   service4BottomLine: {
-    width: 24,
-    height: 3,
+    width: 20,
+    height: 2.5,
     borderRadius: 2,
+    marginTop: 3,
   },
 
-  // Browse Categories: 4 per row, 2 rows (8 items total)
+  // Browse Categories & Services: 4 per row, 100% Full Rounded Circles
   homeCategory4Grid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'flex-start',
-    marginTop: 12,
-    paddingHorizontal: 4,
-    gap: 8,  // Increased gap for better spacing
+    marginTop: 10,
+    paddingHorizontal: 2,
   },
   homeCategory4Col: {
     width: '25%',
     alignItems: 'center',
-    marginBottom: 20,
-    paddingHorizontal: 4,
+    marginBottom: 16,
+    paddingHorizontal: 2,
   },
   homeCatCircleWrap: {
-    width: 80,  // Optimized size
-    height: 80,
-    borderRadius: 20,  // More rounded
-    borderWidth: 2,
-    borderColor: '#E5E7EB',  // Default border
+    width: 72,
+    height: 72,
+    borderRadius: 36,  // 100% FULL ROUNDED CIRCLE
+    borderWidth: 2.5,
+    borderColor: '#E5E7EB',
     padding: 2,
     backgroundColor: '#FFFFFF',
     position: 'relative',
     alignItems: 'center',
     justifyContent: 'center',
-    overflow: 'hidden',
     shadowColor: '#000000',
     shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.1,
-    shadowRadius: 6,
-    elevation: 4,
+    shadowOpacity: 0.12,
+    shadowRadius: 5,
+    elevation: 3,
     marginBottom: 8,
   },
   homeCatCircleImg: {
     width: '100%',
     height: '100%',
-    borderRadius: 18,  // Match parent
+    borderRadius: 34,  // 100% FULL ROUNDED CIRCLE
   },
   homeCatCountBadge: {
     position: 'absolute',
-    bottom: -6,
-    paddingHorizontal: 8,
-    paddingVertical: 2.5,
+    bottom: -5,
+    paddingHorizontal: 7,
+    paddingVertical: 2,
     borderRadius: 10,
-    borderWidth: 2,
+    borderWidth: 1.5,
     borderColor: '#FFFFFF',
     shadowColor: '#000000',
     shadowOffset: { width: 0, height: 2 },
@@ -1514,10 +1466,10 @@ const styles = StyleSheet.create({
     elevation: 4,
   },
   homeCatCountText: {
-    fontSize: 9,
+    fontSize: 8.5,
     fontWeight: '900',
     color: '#FFFFFF',
-    letterSpacing: 0.4,
+    letterSpacing: 0.3,
   },
   homeCatTitle: {
     fontSize: 11,
@@ -1527,11 +1479,123 @@ const styles = StyleSheet.create({
     lineHeight: 14,
     marginTop: 2,
   },
-  servicePriceSmall: {
-    fontSize: 11,  // Increased from 10
+
+  // Services Specific Styles
+  serviceTopTatBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+    marginBottom: 4,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  serviceTopTatText: {
+    fontSize: 8.5,
+    fontWeight: '800',
+    letterSpacing: 0.2,
+  },
+  serviceCircleWrap: {
+    width: 66,
+    height: 66,
+    borderRadius: 33,  // 100% FULL ROUNDED CIRCLE
+    borderWidth: 2,
+    borderColor: '#E2E8F0',
+    padding: 2,
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+    marginBottom: 4,
+  },
+  serviceCircleImg: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 31,
+  },
+  serviceTitleText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#0F172A',
+    textAlign: 'center',
+    lineHeight: 14,
+    marginTop: 2,
+  },
+  servicePriceText: {
+    fontSize: 10.5,
     fontWeight: '800',
     textAlign: 'center',
+    marginTop: 1,
+  },
+  serviceBottomBar: {
+    width: 20,
+    height: 2.5,
+    borderRadius: 2,
     marginTop: 3,
+    alignSelf: 'center',
+  },
+
+  // Refer & Earn Banner on Home
+  homeReferralCard: {
+    marginHorizontal: 16,
+    marginTop: 18,
+    marginBottom: 8,
+    borderRadius: 18,
+    overflow: 'hidden',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.12,
+    shadowRadius: 6,
+    elevation: 4,
+  },
+  homeReferralGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    gap: 12,
+  },
+  homeReferralIconBox: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.25)',
+  },
+  homeReferralTextWrap: {
+    flex: 1,
+  },
+  homeReferralHeading: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    letterSpacing: 0.2,
+  },
+  homeReferralSub: {
+    fontSize: 11,
+    color: '#CCFBF1',
+    marginTop: 2,
+    lineHeight: 15,
+  },
+  homeReferralActionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 20,
+    gap: 2,
+  },
+  homeReferralActionText: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#0F766E',
   },
 
   greetingHeader: {
@@ -1654,61 +1718,43 @@ const styles = StyleSheet.create({
   categoriesSection: {
     marginTop: 20,
   },
-  whyUsSection: {
-    marginTop: 24,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 20,
-    padding: 18,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-  },
-  whyUsTitle: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: '#0F172A',
-    marginBottom: 14,
-  },
-  whyUsGrid: {
-    gap: 14,
-  },
-  whyUsItem: {
-    flexDirection: 'column',
-  },
-  whyUsIconBox: {
-    width: 38,
-    height: 38,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 6,
-  },
-  whyUsItemHeading: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#0F172A',
-    marginBottom: 2,
-  },
-  whyUsItemDesc: {
-    fontSize: 11,
-    color: '#64748B',
-    lineHeight: 16,
-  },
   outerWrap: {
     flex: 1,
-    backgroundColor: '#F0F4FF',
+    backgroundColor: '#F0FDFA',
   },
   stickyHeader: {
-    backgroundColor: '#2563EB',
+    backgroundColor: '#0F766E',
     paddingHorizontal: 16,
     paddingTop: 8,
-    paddingBottom: 12,  // Increased for better spacing
-    borderBottomLeftRadius: 24,   // Rounded bottom-left corner
-    borderBottomRightRadius: 24,  // Rounded bottom-right corner
+    paddingBottom: 14,
+    borderBottomLeftRadius: 24,
+    borderBottomRightRadius: 24,
     shadowColor: '#000000',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
+    shadowOpacity: 0.12,
     shadowRadius: 16,
-    elevation: 4,
+    elevation: 6,
+  },
+  headerSearchBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 22,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    marginTop: 10,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
+    elevation: 3,
+  },
+  headerSearchPlaceholder: {
+    fontSize: 13,
+    color: '#64748B',
+    marginLeft: 8,
+    fontWeight: '500',
+    flex: 1,
   },
   navMainRow: {
     flexDirection: 'row',
@@ -1725,17 +1771,17 @@ const styles = StyleSheet.create({
   logoContainer: {
     width: 36,
     height: 36,
-    borderRadius: 18,  // More rounded - half of width/height for circular
-    backgroundColor: '#3B82F6',
+    borderRadius: 18,
+    backgroundColor: '#115E59',
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#3B82F6',
+    shadowColor: '#0F766E',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.4,
     shadowRadius: 6,
     elevation: 4,
     borderWidth: 1,
-    borderColor: '#60A5FA',
+    borderColor: '#14B8A6',
   },
   brandLogoImage: {
     width: 24,
@@ -1771,9 +1817,9 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: 'rgba(255,255,255,0.15)',
+    backgroundColor: 'rgba(255,255,255,0.18)',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.2)',
+    borderColor: 'rgba(255,255,255,0.25)',
     alignItems: 'center',
     justifyContent: 'center',
     position: 'relative',
@@ -1790,12 +1836,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: 4,
     borderWidth: 2,
-    borderColor: '#1E3A8A',
+    borderColor: '#0F766E',
   },
   badgeText: {
     fontSize: 9,
     fontWeight: '900',
-    color: '#1E3A8A',
+    color: '#0F766E',
   },
   notifDot: {
     position: 'absolute',
@@ -1806,7 +1852,7 @@ const styles = StyleSheet.create({
     borderRadius: 4,
     backgroundColor: '#FCD34D',
     borderWidth: 2,
-    borderColor: '#1E3A8A',
+    borderColor: '#0F766E',
   },
   root: {
     flex: 1,
@@ -1832,7 +1878,7 @@ const styles = StyleSheet.create({
   trackerLabel: {
     fontSize: 10,
     fontWeight: '800',
-    color: '#2563EB',
+    color: '#0F766E',
     letterSpacing: 0.5,
   },
   trackerId: {
@@ -1902,7 +1948,7 @@ const styles = StyleSheet.create({
   viewAllText: {
     fontSize: 12,
     fontWeight: '800',
-    color: '#2563EB',
+    color: '#0F766E',
   },
   
   categoryGridContainer: {

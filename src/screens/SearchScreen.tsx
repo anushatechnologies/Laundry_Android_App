@@ -315,7 +315,7 @@ export function SearchScreen({ onBook, onBack, onSelectProduct }: SearchScreenPr
           </Pressable>
         ) : null}
         <View style={[styles.searchBar, onBack ? { flex: 1 } : null]}>
-          <MaterialCommunityIcons name="magnify" size={20} color="#2563EB" style={styles.searchIcon} />
+          <MaterialCommunityIcons name="magnify" size={20} color="#0F766E" style={styles.searchIcon} />
           <TextInput
             style={styles.searchInput}
             placeholder="Search 70+ clothes, fabrics & services..."
@@ -851,9 +851,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   suggestionChip: {
-    backgroundColor: '#EFF6FF',
+    backgroundColor: '#F0FDFA',
     borderWidth: 1,
-    borderColor: '#BFDBFE',
+    borderColor: '#CCFBF1',
     borderRadius: 16,
     paddingHorizontal: 14,
     paddingVertical: 6,
@@ -861,7 +861,7 @@ const styles = StyleSheet.create({
   suggestionChipText: {
     fontSize: 12.5,
     fontWeight: '600',
-    color: '#2563EB',
+    color: '#0F766E',
   },
   trendingBadge: {
     flexDirection: 'row',
@@ -979,7 +979,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: '#2563EB',
+    backgroundColor: '#059669',
     borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 5,
@@ -992,7 +992,7 @@ const styles = StyleSheet.create({
   stepperContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#2563EB',
+    backgroundColor: '#059669',
     borderRadius: 8,
     height: 28,
   },
@@ -1044,7 +1044,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: '#FF7A00',
+    backgroundColor: '#059669',
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: 10,

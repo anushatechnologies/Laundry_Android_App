@@ -1,0 +1,20 @@
+# Exclude build artifacts and caches
+android/.gradle
+android/build
+android/app/build
+android/app/.cxx
+android/.kotlin
+
+# Exclude heap dumps and large debug files
+android/**/*.hprof
+android/java_pid*.hprof
+
+# Exclude local config
+android/local.properties
+
+# Exclude iOS build artifacts (if any)
+ios/build
+ios/Pods
+
+# Exclude node_modules (EAS installs them fresh)
+# node_modules  # Keep this commented - EAS needs it to resolve packages

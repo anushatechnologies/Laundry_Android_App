@@ -231,26 +231,24 @@ export function AppProvider({ children }: PropsWithChildren) {
   }, [ready, session?.user.id, refreshAccountData]);
 
   const pendingPhoneRef = useRef<string | null>(null);
-  const useBackendOtpRef = useRef<boolean>(false);
-
-  // Strict Google Firebase Phone Auth (100% Free via Google carrier infrastructure, reCAPTCHA / Play Integrity verification)
-  const requestOtp = useCallback(async (phone: string, _name?: string, _email?: string, _referralCode?: string) => {
+  // Pure Google Firebase Phone Authentication (Fast2SMS completely removed)
+  const requestOtp = useCallback(async (phone: string) => {
     pendingPhoneRef.current = phone;
-    console.log('[Firebase Phone Auth] Initiating native Google Firebase verification for:', phone);
+    console.log('[Firebase Phone Auth] Requesting Firebase verification code for +91' + phone);
     try {
       await requestFirebasePhoneOtp(phone);
-      console.log('[Firebase Phone Auth] Google Firebase SMS verification dispatched successfully.');
+      console.log('[Firebase Phone Auth] Verification code requested via Firebase Phone Auth.');
     } catch (firebaseErr: any) {
       console.error('[Firebase Phone Auth] Error during phone OTP request:', firebaseErr);
       throw new Error(firebaseErr instanceof Error ? firebaseErr.message : 'Could not send verification code via Firebase.');
     }
   }, []);
 
-  // Confirms OTP strictly via Google Firebase Phone Auth & logs into backend with Firebase ID Token
+  // Confirms OTP strictly via Google Firebase Phone Auth
   const signIn = useCallback(async (otp: string, name?: string, email?: string, referralCode?: string) => {
     console.log('[Firebase Phone Auth] Verifying code with Google Firebase...');
     const result = await confirmFirebasePhoneOtp(otp);
-    console.log('[Firebase Phone Auth] Firebase verified! Logging in with server session...');
+    console.log('[Firebase Phone Auth] Firebase verified! Exchanging ID token for backend session...');
     const nextSession = await api.loginWithFirebase(result.idToken, name, email, referralCode);
 
     // Fix #2: pass the listener so token refreshes are persisted in SecureStore

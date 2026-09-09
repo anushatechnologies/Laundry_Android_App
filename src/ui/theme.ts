@@ -2,79 +2,79 @@ import type { OrderStatus } from '@/types/domain';
 import { MD3LightTheme, type MD3Theme } from 'react-native-paper';
 
 export const COLORS = {
-  // Brand Color System (Blinkit / Swiggy / Zepto Production Standards)
-  primary: '#2563EB',         // Primary Blue
-  primaryDark: '#1E40AF',     // Primary Dark Blue
-  primaryLight: '#3B82F6',
-  primarySoft: '#EFF6FF',
+  // Brand Color System (Nordic Deep Teal & Fresh Mint Production Standards)
+  primary: '#0F766E',         // Deep Luxury Teal
+  primaryDark: '#115E59',     // Nordic Forest Pine
+  primaryLight: '#14B8A6',    // Aqua Teal Highlight
+  primarySoft: '#F0FDFA',     // Glacier Water Tint
   
-  // Secondary / High-Conversion Action (Orange CTA)
-  orange: '#FF7A00',          // Brand CTA Orange
-  orangeHover: '#E96A00',     // Darkened CTA
-  orangeDark: '#FF5A00',      // Gradient Terminal
-  orangeSoft: '#FFF7ED',      // Orange Tint
-  orangeGlow: 'rgba(255, 122, 0, 0.24)',
+  // Secondary / High-Conversion Action (Mint / Emerald CTA)
+  orange: '#059669',          // Crisp Emerald Mint CTA
+  orangeHover: '#047857',     // Deep Emerald
+  orangeDark: '#065F46',      // Dark Forest Terminal
+  orangeSoft: '#ECFDF5',      // Soft Mint Tint
+  orangeGlow: 'rgba(5, 150, 105, 0.24)',
 
   // Semantic Feedback
-  success: '#16A34A',         // Production Green
-  successDark: '#15803D',
-  successSoft: '#F0FDF4',
-  warning: '#F59E0B',         // Warm Amber
+  success: '#10B981',         // Crisp Mint
+  successDark: '#059669',
+  successSoft: '#ECFDF5',
+  warning: '#D97706',         // Warm Amber Gold
   warningSoft: '#FFFBEB',
   danger: '#DC2626',          // Crisp Crimson
   dangerSoft: '#FEF2F2',
   
   // Surfaces & Backgrounds
-  background: '#F8FAFC',      // Crisp modern app background
-  surface: '#FFFFFF',         // Card surface
+  background: '#F8FAFC',      // Crisp porcelain app background
+  surface: '#FFFFFF',         // Linen card surface
   section: '#F1F5F9',         // Section background
   border: '#E2E8F0',          // Subtle border
   borderDark: '#CBD5E1',
 
   // Typography System
-  textHeading: '#111827',     // Pure dark heading
-  textBody: '#4B5563',        // Readable neutral body
-  textCaption: '#9CA3AF',     // Muted captions & metadata
+  textHeading: '#0F172A',     // Pure dark slate heading
+  textBody: '#334155',        // Readable neutral body
+  textCaption: '#64748B',     // Muted captions & metadata
   textLight: '#FFFFFF',
 
   // Dark Mode Palette
-  darkBackground: '#0F172A',
-  darkSurface: '#1E293B',
-  darkBorder: '#334155',
-  darkTextHeading: '#F8FAFC',
-  darkTextBody: '#94A3B8',
+  darkBackground: '#0B1514',
+  darkSurface: '#132A27',
+  darkBorder: '#1D3E3A',
+  darkTextHeading: '#F0FDFA',
+  darkTextBody: '#99F6E4',
 
   // Backward-compatible tokens (preserving legacy screen bindings)
-  amber: '#FF7A00',
-  amberDark: '#FF5A00',
-  amberSoft: '#FFF7ED',
-  plum: '#1E40AF',
-  plumDark: '#172554',
-  plumLight: '#2563EB',
+  amber: '#059669',
+  amberDark: '#047857',
+  amberSoft: '#ECFDF5',
+  plum: '#0F766E',
+  plumDark: '#115E59',
+  plumLight: '#14B8A6',
   cream: '#F8FAFC',
   creamDark: '#F1F5F9',
-  blush: '#EFF6FF',
-  ink: '#111827',
-  inkLight: '#4B5563',
-  muted: '#9CA3AF',
+  blush: '#F0FDFA',
+  ink: '#0F172A',
+  inkLight: '#334155',
+  muted: '#64748B',
   line: '#E2E8F0',
   lineDark: '#CBD5E1',
   white: '#FFFFFF',
-  gold: '#F59E0B',
+  gold: '#D97706',
   goldLight: '#FEF3C7',
-  blue: '#2563EB',
-  blueSoft: '#EFF6FF',
-  indigo: '#4F46E5',
-  indigoSoft: '#EEF2FF',
+  blue: '#0F766E',
+  blueSoft: '#F0FDFA',
+  indigo: '#0D9488',
+  indigoSoft: '#CCFBF1',
 } as const;
 
 export const GRADIENTS = {
-  primaryCta: ['#FF7A00', '#FF5A00'] as [string, string],
-  primaryBlue: ['#2563EB', '#1E40AF'] as [string, string],
+  primaryCta: ['#10B981', '#059669'] as [string, string],
+  primaryBlue: ['#0F766E', '#115E59'] as [string, string],
   cardGlass: ['rgba(255,255,255,0.95)', 'rgba(255,255,255,0.85)'] as [string, string],
-  cardDark: ['#1E293B', '#0F172A'] as [string, string],
-  badgeExpress: ['#F59E0B', '#D97706'] as [string, string],
-  badgeEco: ['#16A34A', '#15803D'] as [string, string],
+  cardDark: ['#132A27', '#0B1514'] as [string, string],
+  badgeExpress: ['#D97706', '#B45309'] as [string, string],
+  badgeEco: ['#10B981', '#059669'] as [string, string],
 } as const;
 
 export const TYPOGRAPHY = {
@@ -131,7 +131,7 @@ export const SHADOWS = {
     elevation: 10,
   },
   ctaGlow: {
-    shadowColor: '#FF7A00',
+    shadowColor: '#059669',
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.28,
     shadowRadius: 16,
@@ -212,10 +212,10 @@ export function statusTone(status: OrderStatus | string | undefined) {
     return { backgroundColor: COLORS.dangerSoft, color: COLORS.danger, borderColor: '#FECACA' };
   }
   if (status === 'OUT_FOR_DELIVERY' || status === 'PICKUP_ASSIGNED' || status === 'DELIVERY_ASSIGNED') {
-    return { backgroundColor: COLORS.primarySoft, color: COLORS.primary, borderColor: '#BFDBFE' };
+    return { backgroundColor: COLORS.primarySoft, color: COLORS.primary, borderColor: '#99F6E4' };
   }
   if (status === 'WASHING_AND_IRONING' || status === 'IN_PROGRESS' || status === 'AT_WORKSHOP') {
-    return { backgroundColor: COLORS.indigoSoft, color: COLORS.indigo, borderColor: '#C7D2FE' };
+    return { backgroundColor: COLORS.indigoSoft, color: COLORS.indigo, borderColor: '#A7F3D0' };
   }
   return { backgroundColor: COLORS.warningSoft, color: COLORS.warning, borderColor: '#FDE68A' };
 }

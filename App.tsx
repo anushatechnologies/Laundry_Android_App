@@ -635,6 +635,7 @@ function AuthenticatedApp() {
         onViewServices={() => navigateTo('SERVICES')}
         onViewOffers={() => navigateTo('OFFERS')}
         onViewPricing={() => navigateTo('PRICING')}
+        onViewReferral={() => navigateTo('REFERRAL')}
         onSignIn={() => openLogin('ACCOUNT')}
         userLocation={locationState.deliveryLocation}
         locationStatus={locationState.loading && !locationState.deliveryLocation ? 'detecting' : locationState.error && !locationState.deliveryLocation ? 'unavailable' : 'ready'}
@@ -884,41 +885,6 @@ function AuthenticatedApp() {
       </View>
       {showBottomNav ? (
         <View style={styles.customTabBarContainer} pointerEvents="box-none">
-          {/* FLOATING QUICK-CHECKOUT CART BAR (Blinkit / Swiggy style) */}
-          {cartSummary.itemCount > 0 && route !== 'CART' && (
-            <Animated.View style={styles.floatingCartBarWrap}>
-              <Pressable
-                style={({ pressed }) => [
-                  styles.floatingCartBar,
-                  pressed && { opacity: 0.95, transform: [{ scale: 0.99 }] },
-                ]}
-                onPress={() => navigateTo('CART')}
-                accessibilityRole="button"
-                accessibilityLabel={`View cart, ${cartSummary.itemCount} items, total ${cartSummary.itemTotal} rupees`}
-              >
-                <View style={styles.floatingCartLeft}>
-                  <View style={styles.floatingCartIconBadge}>
-                    <MaterialCommunityIcons name="shopping" size={19} color="#FFFFFF" />
-                  </View>
-                  <View style={styles.floatingCartTextCol}>
-                    <Text style={styles.floatingCartPriceRow}>
-                      <Text style={styles.floatingCartCountBold}>
-                        {cartSummary.itemCount} {cartSummary.itemCount === 1 ? 'item' : 'items'}
-                      </Text>
-                      <Text style={styles.floatingCartDot}> • </Text>
-                      <Text style={styles.floatingCartPriceText}>₹{cartSummary.itemTotal}</Text>
-                    </Text>
-                    <Text style={styles.floatingCartSubtext}>Tap to review & checkout</Text>
-                  </View>
-                </View>
-                <View style={styles.floatingCartRightBtn}>
-                  <Text style={styles.floatingCartBtnText}>View Bag</Text>
-                  <MaterialCommunityIcons name="arrow-right" size={15} color="#FFFFFF" />
-                </View>
-              </Pressable>
-            </Animated.View>
-          )}
-
           {/* MAIN FLOATING PILL TAB BAR (All 5 Discovery Tabs) */}
           <View style={styles.customTabBar}>
             {tabs.map((tab) => {
@@ -947,7 +913,7 @@ function AuthenticatedApp() {
                       <MaterialCommunityIcons
                         name={(isActive ? tab.focusedIcon : tab.unfocusedIcon) as any}
                         size={22}
-                        color={isActive ? '#FF7A00' : '#94A3B8'}
+                        color={isActive ? '#0F766E' : '#94A3B8'}
                       />
                     </Animated.View>
                     {isCartTab && cartSummary.itemCount > 0 && (
@@ -1030,86 +996,6 @@ const styles = StyleSheet.create({
     elevation: 8,
     position: 'relative',
   },
-  floatingCartBarWrap: {
-    marginHorizontal: 16,
-    marginBottom: 8,
-  },
-  floatingCartBar: {
-    height: 56,
-    backgroundColor: '#0F172A',
-    borderRadius: 18,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 14,
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.28,
-    shadowRadius: 12,
-    elevation: 10,
-    borderWidth: 1,
-    borderColor: '#334155',
-  },
-  floatingCartLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    flex: 1,
-  },
-  floatingCartIconBadge: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: '#FF7A00',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  floatingCartTextCol: {
-    justifyContent: 'center',
-  },
-  floatingCartPriceRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  floatingCartCountBold: {
-    color: '#F1F5F9',
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  floatingCartDot: {
-    color: '#64748B',
-    fontSize: 12,
-  },
-  floatingCartPriceText: {
-    color: '#FFFFFF',
-    fontSize: 15,
-    fontWeight: '900',
-  },
-  floatingCartSubtext: {
-    color: '#94A3B8',
-    fontSize: 10.5,
-    fontWeight: '500',
-    marginTop: 1,
-  },
-  floatingCartRightBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    backgroundColor: '#FF7A00',
-    paddingVertical: 8,
-    paddingHorizontal: 14,
-    borderRadius: 12,
-    shadowColor: '#FF7A00',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.35,
-    shadowRadius: 4,
-    elevation: 4,
-  },
-  floatingCartBtnText: {
-    color: '#FFFFFF',
-    fontSize: 13,
-    fontWeight: '800',
-  },
   tabItem: {
     flex: 1,
     alignItems: 'center',
@@ -1117,7 +1003,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
   },
   tabItemActive: {
-    backgroundColor: '#FFF7ED',
+    backgroundColor: '#F0FDFA',
   },
   tabIconWrap: {
     position: 'relative',
@@ -1129,18 +1015,18 @@ const styles = StyleSheet.create({
   tabLabel: {
     fontSize: 11,
     fontWeight: '600',
-    color: '#94A3B8',
+    color: '#64748B',
     marginTop: 2,
   },
   tabLabelActive: {
-    color: '#FF7A00',
+    color: '#0F766E',
     fontWeight: '800',
   },
   tabBadge: {
     position: 'absolute',
     top: -5,
     right: -8,
-    backgroundColor: '#EF4444',
+    backgroundColor: '#059669',
     borderRadius: 9,
     minWidth: 18,
     height: 18,
@@ -1163,7 +1049,7 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: '#FF7A00',
+    backgroundColor: '#059669',
     borderWidth: 1.5,
     borderColor: '#FFFFFF',
   },

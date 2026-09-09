@@ -108,7 +108,7 @@ export function ReferralScreen({ onUseReward, onSignIn, onNavigateWallet, onBack
   const getShareMessage = () => {
     const code = data?.code || 'LAUNDRY';
     const bonus = friendBonus;
-    const baseDownloadUrl = data?.shareUrl || 'https://laundryfresh.in/download';
+    const baseDownloadUrl = data?.shareUrl || 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/releases/LaundryFresh-v1.0.16-release.apk';
     const referralLink = baseDownloadUrl.includes('?')
       ? `${baseDownloadUrl}&ref=${encodeURIComponent(code)}`
       : `${baseDownloadUrl}?ref=${encodeURIComponent(code)}`;
@@ -170,7 +170,7 @@ export function ReferralScreen({ onUseReward, onSignIn, onNavigateWallet, onBack
           </View>
         )}
         <View style={styles.guestContainer}>
-          <MaterialCommunityIcons name="gift-outline" size={72} color="#F97316" />
+          <MaterialCommunityIcons name="gift-outline" size={72} color="#0F766E" />
           <Text style={styles.guestTitle}>Refer Friends & Earn ₹{referrerReward}</Text>
           <Text style={styles.guestSubtitle}>
             Sign in to get your exclusive referral code. Earn ₹{referrerReward} in your wallet for every friend who joins!
@@ -204,7 +204,7 @@ export function ReferralScreen({ onUseReward, onSignIn, onNavigateWallet, onBack
         <Text style={styles.navTitle}>Refer & Earn ₹{referrerReward}</Text>
         {onNavigateWallet ? (
           <Pressable onPress={onNavigateWallet} hitSlop={12} style={styles.walletHeaderBtn}>
-            <MaterialCommunityIcons name="wallet-outline" size={20} color="#F97316" />
+            <MaterialCommunityIcons name="wallet-outline" size={20} color="#0F766E" />
             <Text style={styles.walletHeaderBtnText}>Wallet</Text>
           </Pressable>
         ) : (
@@ -219,19 +219,19 @@ export function ReferralScreen({ onUseReward, onSignIn, onNavigateWallet, onBack
           <RefreshControl
             refreshing={refreshing}
             onRefresh={() => void load(true)}
-            colors={['#F97316']}
+            colors={['#0F766E']}
           />
         }
       >
         {/* Hero Card */}
         <LinearGradient
-          colors={['#1E1B4B', '#311042', '#1C0B18']}
+          colors={['#0F766E', '#115E59', '#134E4A']}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={styles.heroCard}
         >
           <View style={styles.heroIconCircle}>
-            <MaterialCommunityIcons name="gift-open-outline" size={36} color="#F59E0B" />
+            <MaterialCommunityIcons name="gift-open-outline" size={36} color="#34D399" />
           </View>
           <Text style={styles.heroTitle}>Refer Friends & Earn ₹{referrerReward}</Text>
           <Text style={styles.heroSubtitle}>
@@ -250,7 +250,7 @@ export function ReferralScreen({ onUseReward, onSignIn, onNavigateWallet, onBack
         </LinearGradient>
 
         {loading && !data && (
-          <ActivityIndicator color="#F97316" style={{ marginVertical: 20 }} />
+          <ActivityIndicator color="#0F766E" style={{ marginVertical: 20 }} />
         )}
 
         {/* Code Sharing Card */}
@@ -265,9 +265,9 @@ export function ReferralScreen({ onUseReward, onSignIn, onNavigateWallet, onBack
                 <MaterialCommunityIcons
                   name={copied ? 'check' : 'content-copy'}
                   size={20}
-                  color={copied ? '#10B981' : '#F97316'}
+                  color={copied ? '#059669' : '#0F766E'}
                 />
-                <Text style={[styles.copyIconText, copied && { color: '#10B981' }]}>
+                <Text style={[styles.copyIconText, copied && { color: '#059669' }]}>
                   {copied ? 'Copied' : 'Share'}
                 </Text>
               </Pressable>
@@ -296,8 +296,8 @@ export function ReferralScreen({ onUseReward, onSignIn, onNavigateWallet, onBack
           <Text style={styles.sectionTitle}>Your Referral Performance</Text>
           <View style={styles.statsGrid}>
             <View style={styles.statBox}>
-              <View style={[styles.statIconWrap, { backgroundColor: '#EFF6FF' }]}>
-                <MaterialCommunityIcons name="account-group" size={20} color="#2563EB" />
+              <View style={[styles.statIconWrap, { backgroundColor: '#F0FDFA' }]}>
+                <MaterialCommunityIcons name="account-group" size={20} color="#0F766E" />
               </View>
               <Text style={styles.statValue}>{invitedCount}</Text>
               <Text style={styles.statLabel}>Friends Joined</Text>
@@ -312,19 +312,19 @@ export function ReferralScreen({ onUseReward, onSignIn, onNavigateWallet, onBack
             </View>
 
             <View style={styles.statBox}>
-              <View style={[styles.statIconWrap, { backgroundColor: '#FFF7ED' }]}>
-                <MaterialCommunityIcons name="lightning-bolt" size={20} color="#EA580C" />
+              <View style={[styles.statIconWrap, { backgroundColor: '#FEF3C7' }]}>
+                <MaterialCommunityIcons name="lightning-bolt" size={20} color="#D97706" />
               </View>
-              <Text style={[styles.statValue, { color: '#EA580C' }]}>₹{referrerReward}</Text>
+              <Text style={[styles.statValue, { color: '#D97706' }]}>₹{referrerReward}</Text>
               <Text style={styles.statLabel}>Per Referral</Text>
             </View>
           </View>
 
           {onNavigateWallet && (
             <Pressable style={styles.viewWalletRow} onPress={onNavigateWallet}>
-              <MaterialCommunityIcons name="wallet-outline" size={18} color="#F97316" />
+              <MaterialCommunityIcons name="wallet-outline" size={18} color="#0F766E" />
               <Text style={styles.viewWalletText}>View & Use Wallet Balance</Text>
-              <MaterialCommunityIcons name="chevron-right" size={18} color="#F97316" />
+              <MaterialCommunityIcons name="chevron-right" size={18} color="#0F766E" />
             </Pressable>
           )}
         </View>
@@ -364,7 +364,7 @@ export function ReferralScreen({ onUseReward, onSignIn, onNavigateWallet, onBack
               return (
                 <View key={friend.id || index} style={styles.friendRow}>
                   <View style={styles.friendAvatar}>
-                    <MaterialCommunityIcons name="account" size={20} color="#4F46E5" />
+                    <MaterialCommunityIcons name="account" size={20} color="#0F766E" />
                   </View>
                   <View style={styles.friendInfo}>
                     <Text style={styles.friendName}>
@@ -389,7 +389,7 @@ export function ReferralScreen({ onUseReward, onSignIn, onNavigateWallet, onBack
         {data?.canApply && (
           <View style={styles.applyCard}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-              <MaterialCommunityIcons name="ticket-percent-outline" size={20} color="#F97316" />
+              <MaterialCommunityIcons name="ticket-percent-outline" size={20} color="#0F766E" />
               <Text style={styles.sectionTitle}>Have a Friend's Invite Code?</Text>
             </View>
             <Text style={styles.applyDesc}>
@@ -498,7 +498,7 @@ const styles = StyleSheet.create({
   walletHeaderBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFF7ED',
+    backgroundColor: '#F0FDFA',
     paddingHorizontal: 10,
     paddingVertical: 5,
     borderRadius: 12,
@@ -507,7 +507,7 @@ const styles = StyleSheet.create({
   walletHeaderBtnText: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#F97316',
+    color: '#0F766E',
   },
   content: {
     paddingHorizontal: 16,
@@ -590,9 +590,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#FFF7ED',
+    backgroundColor: '#F0FDFA',
     borderWidth: 2,
-    borderColor: '#FDBA74',
+    borderColor: '#14B8A6',
     borderStyle: 'dashed',
     borderRadius: 14,
     paddingHorizontal: 20,
@@ -602,7 +602,7 @@ const styles = StyleSheet.create({
   codeText: {
     fontSize: 24,
     fontWeight: '900',
-    color: '#EA580C',
+    color: '#0F766E',
     letterSpacing: 3,
   },
   copyIconBtn: {
@@ -613,13 +613,13 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: '#FED7AA',
+    borderColor: '#99F6E4',
     gap: 4,
   },
   copyIconText: {
     fontSize: 12,
     fontWeight: '800',
-    color: '#EA580C',
+    color: '#0F766E',
   },
   codeHint: {
     fontSize: 12,
@@ -711,7 +711,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#FFF7ED',
+    backgroundColor: '#F0FDFA',
     borderRadius: 12,
     paddingVertical: 10,
     gap: 6,
@@ -719,7 +719,7 @@ const styles = StyleSheet.create({
   viewWalletText: {
     fontSize: 13,
     fontWeight: '800',
-    color: '#F97316',
+    color: '#0F766E',
   },
   friendsCard: {
     backgroundColor: '#FFFFFF',
@@ -757,7 +757,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#EEF2FF',
+    backgroundColor: '#F0FDFA',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -855,7 +855,7 @@ const styles = StyleSheet.create({
     color: '#111827',
   },
   applyBtn: {
-    backgroundColor: '#F97316',
+    backgroundColor: '#0F766E',
     borderRadius: 12,
     paddingHorizontal: 20,
     alignItems: 'center',
@@ -885,16 +885,16 @@ const styles = StyleSheet.create({
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: '#FFF7ED',
+    backgroundColor: '#F0FDFA',
     borderWidth: 1.5,
-    borderColor: '#FDBA74',
+    borderColor: '#14B8A6',
     alignItems: 'center',
     justifyContent: 'center',
   },
   stepNum: {
     fontSize: 12,
     fontWeight: '900',
-    color: '#EA580C',
+    color: '#0F766E',
   },
   stepContent: {
     flex: 1,
@@ -938,7 +938,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   primaryBtn: {
-    backgroundColor: '#F97316',
+    backgroundColor: '#0F766E',
     paddingHorizontal: 24,
     paddingVertical: 14,
     borderRadius: 14,

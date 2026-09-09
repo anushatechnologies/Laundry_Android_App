@@ -382,7 +382,7 @@ export function WishlistScreen({ onBook, onExploreServices }: WishlistScreenProp
                       ) : (
                         <Pressable style={styles.addBtn} onPress={() => handleAddToCart(item)}>
                           <LinearGradient
-                            colors={['#FF7A00', '#FF5A00']}
+                            colors={['#10B981', '#059669']}
                             start={{ x: 0, y: 0 }}
                             end={{ x: 1, y: 1 }}
                             style={styles.addBtnGradient}
@@ -410,7 +410,7 @@ export function WishlistScreen({ onBook, onExploreServices }: WishlistScreenProp
         <View style={styles.bottomBarButtons}>
           <Pressable style={styles.addAllBtn} onPress={handleAddAllToCart}>
             <LinearGradient
-              colors={['#FF7A00', '#FF5A00']}
+              colors={['#10B981', '#059669']}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
               style={styles.addAllBtnGradient}
@@ -687,7 +687,7 @@ const styles = StyleSheet.create({
   stepperContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FF7A00',
+    backgroundColor: '#059669',
     borderRadius: 9,
     paddingHorizontal: 3,
     paddingVertical: 2,
@@ -748,7 +748,7 @@ const styles = StyleSheet.create({
   addAllBtn: {
     borderRadius: 12,
     overflow: 'hidden',
-    shadowColor: '#FF7A00',
+    shadowColor: '#059669',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,
     shadowRadius: 4,

@@ -419,10 +419,12 @@ export function CategoryCatalogScreen({
     });
 
     const activeSubs = (dynamicCatalog?.subcategories || catalog?.subcategories || []).filter(
-      (s: any) => s.categoryTag === activeCategoryTag && s.isActive !== false
+      (s: any) => s && s.categoryTag === activeCategoryTag && s.isActive !== false
     );
     activeSubs.forEach((s: any) => {
-      if (s.name) rawSet.add(s.name.trim());
+      if (s && s.name && typeof s.name === 'string' && s.name.trim()) {
+        rawSet.add(s.name.trim());
+      }
     });
 
     const fallbackList =
@@ -430,11 +432,11 @@ export function CategoryCatalogScreen({
       SUBCATEGORY_MAP[activeCategoryTag.toUpperCase().replace(/_/g, '-')] ||
       [];
     const knownSubcategories = fallbackList.filter((fallback) =>
-      Array.from(rawSet).some((sub) => sub.toLowerCase() === fallback.toLowerCase())
+      Boolean(fallback) && Array.from(rawSet).some((sub) => Boolean(sub) && String(sub).toLowerCase() === String(fallback).toLowerCase())
     );
     const remainingSubcategories = Array.from(rawSet)
-      .filter((sub) => !knownSubcategories.some((known) => known.toLowerCase() === sub.toLowerCase()))
-      .sort((a, b) => a.localeCompare(b));
+      .filter((sub) => Boolean(sub) && !knownSubcategories.some((known) => String(known).toLowerCase() === String(sub).toLowerCase()))
+      .sort((a, b) => String(a || '').localeCompare(String(b || '')));
 
     const orderedSubcategories = rawSet.size > 0
       ? [...knownSubcategories, ...remainingSubcategories]
@@ -525,11 +527,11 @@ export function CategoryCatalogScreen({
   const filteredProducts = useMemo(() => {
     let list = products;
 
-    if (selectedSubcategory !== 'ALL') {
-      const targetSub = selectedSubcategory.toLowerCase().trim();
+    if (selectedSubcategory && selectedSubcategory !== 'ALL') {
+      const targetSub = String(selectedSubcategory || '').toLowerCase().trim();
       list = list.filter((p) => {
-        const itemSub = (p.subcategory || '').toLowerCase().trim();
-        const itemName = (p.name || '').toLowerCase().trim();
+        const itemSub = String(p.subcategory || '').toLowerCase().trim();
+        const itemName = String(p.name || '').toLowerCase().trim();
         return (
           itemSub === targetSub ||
           itemSub.includes(targetSub) ||
@@ -539,19 +541,19 @@ export function CategoryCatalogScreen({
       });
     }
 
-    if (selectedServiceFilter !== 'ALL') {
+    if (selectedServiceFilter && selectedServiceFilter !== 'ALL') {
       list = list.filter((p) =>
-        p.services.some((s) => s.serviceCode === selectedServiceFilter)
+        (p.services || []).some((s) => s.serviceCode === selectedServiceFilter)
       );
     }
 
-    if (searchQuery.trim().length > 0) {
-      const q = searchQuery.toLowerCase().trim();
+    if (searchQuery && searchQuery.trim().length > 0) {
+      const q = String(searchQuery).toLowerCase().trim();
       list = list.filter(
         (p) =>
-          p.name.toLowerCase().includes(q) ||
-          p.subcategory.toLowerCase().includes(q) ||
-          p.services.some((s) => s.displayName.toLowerCase().includes(q))
+          String(p.name || '').toLowerCase().includes(q) ||
+          String(p.subcategory || '').toLowerCase().includes(q) ||
+          (p.services || []).some((s) => String(s.displayName || '').toLowerCase().includes(q))
       );
     }
 
@@ -819,7 +821,7 @@ export function CategoryCatalogScreen({
             const subcategoryKey = `${activeCategoryTag}-${sub}`;
             const currentCatObj = categoriesList.find((c) => c.tag === activeCategoryTag);
             const matchedSubObj = (dynamicCatalog?.subcategories || catalog?.subcategories || []).find(
-              (s: any) => s.categoryTag === activeCategoryTag && s.name.toLowerCase() === sub.toLowerCase()
+              (s: any) => s && s.categoryTag === activeCategoryTag && String(s.name || '').toLowerCase() === String(sub || '').toLowerCase()
             );
             const subPhotoUrl = isAll
               ? getCategoryImageUrl(activeCategoryTag, currentCatObj?.imageUrl)
@@ -1116,7 +1118,7 @@ export function CategoryCatalogScreen({
                             hitSlop={4}
                             accessibilityRole="radio"
                             accessibilityState={{ selected: isChosen }}
-                            accessibilityLabel={`Choose ${srv.displayName} for ${cloth.name}, ₹${srv.price} per ${srv.unit.toLowerCase()}`}
+                            accessibilityLabel={`Choose ${srv.displayName} for ${cloth.name}, ₹${srv.price} per ${String(srv.unit || 'pc').toLowerCase()}`}
                           >
                             <Text
                               style={[
@@ -1802,7 +1804,7 @@ const styles = StyleSheet.create({
   resetFilterBtn: {
     paddingHorizontal: 16,
     paddingVertical: 8,
-    backgroundColor: '#FF6B0B',
+    backgroundColor: '#059669',
     borderRadius: 8,
   },
   resetFilterBtnText: {
@@ -1846,7 +1848,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: '#FF6B0B',
+    backgroundColor: '#059669',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1876,11 +1878,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: '#FF6B0B',
+    backgroundColor: '#059669',
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: 12,
-    shadowColor: '#FF6B0B',
+    shadowColor: '#059669',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.35,
     shadowRadius: 4,
