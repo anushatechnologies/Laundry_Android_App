@@ -205,7 +205,7 @@ export function WishlistScreen({ onBook, onExploreServices }: WishlistScreenProp
     return (
       <View style={styles.emptyContainer}>
         <View style={styles.emptyIconWrap}>
-          <MaterialCommunityIcons name="heart-outline" size={56} color="#FF7A00" />
+          <MaterialCommunityIcons name="heart-outline" size={56} color="#16A34A" />
         </View>
         <Text style={styles.emptyTitle}>Your Wishlist is Empty</Text>
         <Text style={styles.emptySubtitle}>
@@ -220,7 +220,7 @@ export function WishlistScreen({ onBook, onExploreServices }: WishlistScreenProp
           }}
         >
           <LinearGradient
-            colors={['#FF7A00', '#FF5A00']}
+            colors={['#16A34A', '#10B981']}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
             style={styles.exploreBtnGradient}
@@ -250,8 +250,8 @@ export function WishlistScreen({ onBook, onExploreServices }: WishlistScreenProp
           <RefreshControl
             refreshing={refreshing}
             onRefresh={handleRefresh}
-            colors={['#2563EB', '#F97316']}
-            tintColor="#2563EB"
+            colors={['#0F766E', '#16A34A']}
+            tintColor="#0F766E"
           />
         }
       >
@@ -497,7 +497,7 @@ const styles = StyleSheet.create({
   exploreBtn: {
     borderRadius: 14,
     overflow: 'hidden',
-    shadowColor: '#FF7A00',
+    shadowColor: '#16A34A',
     shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.25,
     shadowRadius: 6,
@@ -610,7 +610,7 @@ const styles = StyleSheet.create({
   category: {
     fontSize: 11,
     fontWeight: '800',
-    color: '#FF7A00',
+    color: '#0F766E',
     textTransform: 'uppercase',
     letterSpacing: 0.6,
   },

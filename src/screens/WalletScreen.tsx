@@ -140,7 +140,7 @@ export function WalletScreen({ onBack, onNavigateReferral, onSignIn }: WalletScr
           </View>
         )}
         <View style={styles.guestContainer}>
-          <MaterialCommunityIcons name="wallet-outline" size={72} color="#F97316" />
+          <MaterialCommunityIcons name="wallet-outline" size={72} color="#16A34A" />
           <Text style={styles.guestTitle}>Sign in to Access Your Wallet</Text>
           <Text style={styles.guestSubtitle}>
             Enjoy instant ₹100 referral bonuses, seamless 1-tap checkout, and lightning-fast refunds.
@@ -175,7 +175,7 @@ export function WalletScreen({ onBack, onNavigateReferral, onSignIn }: WalletScr
         )}
         <Text style={styles.navTitle}>LaundryFresh Wallet</Text>
         <Pressable onPress={() => void fetchWallet(true)} hitSlop={12} style={styles.backBtn}>
-          <MaterialCommunityIcons name="refresh" size={22} color="#F97316" />
+          <MaterialCommunityIcons name="refresh" size={22} color="#16A34A" />
         </Pressable>
       </View>
 
@@ -186,7 +186,7 @@ export function WalletScreen({ onBack, onNavigateReferral, onSignIn }: WalletScr
           <RefreshControl
             refreshing={refreshing}
             onRefresh={() => void fetchWallet(true)}
-            colors={['#F97316']}
+            colors={['#16A34A']}
           />
         }
       >
@@ -199,7 +199,7 @@ export function WalletScreen({ onBack, onNavigateReferral, onSignIn }: WalletScr
         >
           <View style={styles.balanceTopRow}>
             <View style={styles.walletBadge}>
-              <MaterialCommunityIcons name="wallet" size={16} color="#F97316" />
+              <MaterialCommunityIcons name="wallet" size={16} color="#16A34A" />
               <Text style={styles.walletBadgeText}>WALLET BALANCE</Text>
             </View>
             <View style={styles.securityBadge}>
@@ -238,7 +238,7 @@ export function WalletScreen({ onBack, onNavigateReferral, onSignIn }: WalletScr
         {/* Top-up Form */}
         <View style={styles.sectionCard}>
           <View style={styles.sectionHeader}>
-            <MaterialCommunityIcons name="plus-circle-outline" size={20} color="#F97316" />
+            <MaterialCommunityIcons name="plus-circle-outline" size={20} color="#16A34A" />
             <Text style={styles.sectionTitle}>Add Money via Razorpay</Text>
           </View>
 
@@ -308,7 +308,7 @@ export function WalletScreen({ onBack, onNavigateReferral, onSignIn }: WalletScr
             >
               <View style={styles.referralBannerLeft}>
                 <View style={styles.giftIconWrap}>
-                  <MaterialCommunityIcons name="gift-outline" size={24} color="#F97316" />
+                  <MaterialCommunityIcons name="gift-outline" size={24} color="#16A34A" />
                 </View>
                 <View style={{ flex: 1 }}>
                   <Text style={styles.referralBannerTitle}>Invite Friends, Get ₹100</Text>
@@ -343,7 +343,7 @@ export function WalletScreen({ onBack, onNavigateReferral, onSignIn }: WalletScr
           </View>
 
           {loading && !data ? (
-            <ActivityIndicator color="#F97316" style={{ marginVertical: 24 }} />
+            <ActivityIndicator color="#16A34A" style={{ marginVertical: 24 }} />
           ) : transactions.length === 0 ? (
             <View style={styles.emptyTransactions}>
               <MaterialCommunityIcons name="receipt" size={48} color="#D1D5DB" />
@@ -491,7 +491,7 @@ const styles = StyleSheet.create({
   walletBadgeText: {
     fontSize: 11,
     fontWeight: '800',
-    color: '#F97316',
+    color: '#16A34A',
     letterSpacing: 0.8,
   },
   securityBadge: {
@@ -518,7 +518,7 @@ const styles = StyleSheet.create({
   currencySymbol: {
     fontSize: 28,
     fontWeight: '800',
-    color: '#F97316',
+    color: '#16A34A',
     marginTop: 6,
     marginRight: 4,
   },
@@ -585,8 +585,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   chipActive: {
-    backgroundColor: 'rgba(249, 115, 22, 0.1)',
-    borderColor: '#F97316',
+    backgroundColor: '#F0FDF4',
+    borderColor: '#16A34A',
   },
   chipText: {
     fontSize: 13,
@@ -594,7 +594,7 @@ const styles = StyleSheet.create({
     color: '#374151',
   },
   chipTextActive: {
-    color: '#EA580C',
+    color: '#166534',
     fontWeight: '800',
   },
   inputContainer: {
@@ -624,11 +624,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#F97316',
+    backgroundColor: '#16A34A',
     borderRadius: 14,
     paddingVertical: 14,
     gap: 8,
-    shadowColor: '#F97316',
+    shadowColor: '#16A34A',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.25,
     shadowRadius: 8,
@@ -682,7 +682,7 @@ const styles = StyleSheet.create({
   referralBannerTitle: {
     fontSize: 14,
     fontWeight: '800',
-    color: '#F97316',
+    color: '#16A34A',
     marginBottom: 2,
   },
   referralBannerSubtitle: {
@@ -837,7 +837,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   primaryBtn: {
-    backgroundColor: '#F97316',
+    backgroundColor: '#16A34A',
     paddingHorizontal: 24,
     paddingVertical: 14,
     borderRadius: 14,

@@ -221,7 +221,7 @@ export function ProductDetailScreen({
         {/* SERVICE SELECTION SECTION */}
         <View style={styles.sectionWrap}>
           <View style={styles.sectionHeader}>
-            <MaterialCommunityIcons name="tag-outline" size={18} color="#FF7A00" />
+            <MaterialCommunityIcons name="tag-outline" size={18} color="#16A34A" />
             <Text style={styles.sectionTitle}>Select Treatment & Service</Text>
           </View>
           <Text style={styles.sectionSubtitle}>
@@ -289,7 +289,7 @@ export function ProductDetailScreen({
         {/* SPECIAL CARE PREFERENCES */}
         <View style={styles.sectionWrap}>
           <View style={styles.sectionHeader}>
-            <MaterialCommunityIcons name="tune-variant" size={18} color="#FF7A00" />
+            <MaterialCommunityIcons name="tune-variant" size={18} color="#16A34A" />
             <Text style={styles.sectionTitle}>Custom Finishing (Optional)</Text>
           </View>
 
@@ -332,7 +332,7 @@ export function ProductDetailScreen({
                 <MaterialCommunityIcons
                   name={opt === 'HANGER' ? 'hanger' : 'package-variant-closed'}
                   size={14}
-                  color={packingOption === opt ? '#FF7A00' : '#64748B'}
+                  color={packingOption === opt ? '#16A34A' : '#64748B'}
                   style={{ marginRight: 6 }}
                 />
                 <Text
@@ -545,7 +545,7 @@ const styles = StyleSheet.create({
     right: 12,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#EA580C',
+    backgroundColor: '#0F766E',
     paddingHorizontal: 10,
     paddingVertical: 5,
     borderRadius: 10,
@@ -625,8 +625,8 @@ const styles = StyleSheet.create({
     borderColor: '#E2E8F0',
   },
   serviceCardSelected: {
-    backgroundColor: '#FFF7ED',
-    borderColor: '#FF7A00',
+    backgroundColor: '#F0FDF4',
+    borderColor: '#16A34A',
   },
   serviceCardLeft: {
     flexDirection: 'row',
@@ -644,13 +644,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   radioIndicatorSelected: {
-    borderColor: '#FF7A00',
+    borderColor: '#16A34A',
   },
   radioDot: {
     width: 10,
     height: 10,
     borderRadius: 5,
-    backgroundColor: '#FF7A00',
+    backgroundColor: '#16A34A',
   },
   serviceInfoCol: {
     flex: 1,
@@ -698,7 +698,7 @@ const styles = StyleSheet.create({
     color: '#0F172A',
   },
   servicePriceSelected: {
-    color: '#EA580C',
+    color: '#16A34A',
   },
   serviceUnit: {
     fontSize: 11,
@@ -728,8 +728,8 @@ const styles = StyleSheet.create({
     borderColor: '#E2E8F0',
   },
   optionPillActive: {
-    backgroundColor: '#FFF7ED',
-    borderColor: '#FF7A00',
+    backgroundColor: '#F0FDF4',
+    borderColor: '#16A34A',
   },
   optionPillText: {
     fontSize: 12,
@@ -737,7 +737,7 @@ const styles = StyleSheet.create({
     color: '#475569',
   },
   optionPillTextActive: {
-    color: '#EA580C',
+    color: '#166534',
     fontWeight: '700',
   },
   notesInput: {

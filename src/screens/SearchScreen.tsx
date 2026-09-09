@@ -340,7 +340,7 @@ export function SearchScreen({ onBook, onBack, onSelectProduct }: SearchScreenPr
               </Pressable>
               <View style={styles.searchBarDivider} />
               <Pressable onPress={() => handleSelectKeyword('Steam Press')} hitSlop={8}>
-                <MaterialCommunityIcons name="qrcode-scan" size={16} color="#FF7A00" />
+                <MaterialCommunityIcons name="qrcode-scan" size={16} color="#0F766E" />
               </Pressable>
             </View>
           )}

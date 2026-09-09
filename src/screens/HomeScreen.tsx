@@ -351,7 +351,7 @@ export function HomeScreen({
     if (slug.includes('charak') || slug.includes('silk')) return '#9333EA';
     if (slug.includes('starch')) return '#06B6D4';
     if (slug.includes('spa') || slug.includes('shoe')) return '#059669';
-    if (slug.includes('express')) return '#EA580C';
+    if (slug.includes('express')) return '#0F766E';
     return '#64748B';
   };
 
@@ -680,10 +680,10 @@ export function HomeScreen({
         title: 'Express 24h Emergency',
         shortTitle: 'Express 24h',
         tat: '12-24h Rapid',
-        tatBg: '#FFEDD5',
-        tatColor: '#EA580C',
+        tatBg: '#DCFCE7',
+        tatColor: '#166534',
         badge: 'Emergency Care',
-        accent: '#EA580C',
+        accent: '#16A34A',
         imageUrl: sExpress?.imageUrl || 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/services/delivery_van_driver.jpg',
         fallbackUrl: 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/services/delivery_van_driver.jpg',
         priceText: sExpress ? formatPricing(sExpress) : 'From ₹120/kg',
@@ -745,7 +745,7 @@ export function HomeScreen({
         label: 'Kids & Baby',
         imageUrl: 'https://images.unsplash.com/photo-1515488042361-ee00e0ddd4e4?auto=format&fit=crop&w=300&q=80',
         count: getCount('KIDS', '24 Items'),
-        accent: '#EA580C',
+        accent: '#10B981',
       },
       {
         id: 'cat-4',
@@ -999,10 +999,13 @@ export function HomeScreen({
           accessibilityRole="button"
           accessibilityLabel="Search services and clothes"
         >
-          <MaterialCommunityIcons name="magnify" size={20} color="#0F766E" />
+          <MaterialCommunityIcons name="magnify" size={22} color="#0F766E" />
           <Text style={styles.headerSearchPlaceholder}>
             Search for "Dry Clean", "Ironing", "Shirts"…
           </Text>
+          <View style={styles.headerSearchBadge}>
+            <MaterialCommunityIcons name="tune-variant" size={14} color="#0F766E" />
+          </View>
         </Pressable>
       </View>
 
@@ -1467,7 +1470,7 @@ const styles = StyleSheet.create({
   service4PriceText: {
     fontSize: 10.5,
     fontWeight: '900',
-    color: '#EA580C',
+    color: '#16A34A',
     textAlign: 'center',
     marginBottom: 6,
   },
@@ -1917,12 +1920,12 @@ const styles = StyleSheet.create({
     backgroundColor: '#0F766E',
     paddingHorizontal: 16,
     paddingTop: 8,
-    paddingBottom: 14,
+    paddingBottom: 16,
     borderBottomLeftRadius: 24,
     borderBottomRightRadius: 24,
     shadowColor: '#000000',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.12,
+    shadowOpacity: 0.14,
     shadowRadius: 16,
     elevation: 6,
   },
@@ -1930,22 +1933,35 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#FFFFFF',
-    borderRadius: 22,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    marginTop: 10,
+    borderRadius: 24,
+    paddingHorizontal: 16,
+    paddingVertical: 11,
+    marginTop: 12,
+    borderWidth: 1.5,
+    borderColor: '#E6FFFA',
     shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 6,
-    elevation: 3,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.12,
+    shadowRadius: 8,
+    elevation: 4,
+    width: '100%',
   },
   headerSearchPlaceholder: {
     fontSize: 13,
-    color: '#64748B',
+    color: '#334155',
     marginLeft: 8,
-    fontWeight: '500',
+    fontWeight: '600',
     flex: 1,
+  },
+  headerSearchBadge: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: '#F0FDFA',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#CCFBF1',
   },
   navMainRow: {
     flexDirection: 'row',
@@ -2562,7 +2578,7 @@ const styles = StyleSheet.create({
   bagReviewBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F97316',
+    backgroundColor: '#16A34A',
     paddingVertical: 8,
     paddingHorizontal: 14,
     borderRadius: 12,
@@ -2773,11 +2789,11 @@ const styles = StyleSheet.create({
     color: '#111827',
   },
   quickAddBtn: {
-    backgroundColor: '#FF7A00',
+    backgroundColor: '#16A34A',
     paddingHorizontal: 12,
     paddingVertical: 5,
     borderRadius: 12,
-    shadowColor: '#FF7A00',
+    shadowColor: '#16A34A',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,
     shadowRadius: 6,
@@ -2856,17 +2872,17 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   luxuryServiceBadge: {
-    backgroundColor: '#FFF7ED',
+    backgroundColor: '#F0FDF4',
     borderRadius: 4,
     paddingHorizontal: 4,
     paddingVertical: 2,
     borderWidth: 1,
-    borderColor: '#FED7AA',
+    borderColor: '#DCFCE7',
   },
   luxuryServiceBadgeText: {
     fontSize: 7.5,
     fontWeight: '800',
-    color: '#EA580C',
+    color: '#16A34A',
     letterSpacing: 0.2,
   },
   luxuryServiceTatPill: {
@@ -2888,13 +2904,13 @@ const styles = StyleSheet.create({
     height: 60,
     borderRadius: 30,
     overflow: 'hidden',
-    backgroundColor: '#FFF7ED',
+    backgroundColor: '#F0FDF4',
     borderWidth: 2,
-    borderColor: '#FED7AA',
+    borderColor: '#DCFCE7',
     alignItems: 'center',
     justifyContent: 'center',
     marginVertical: 4,
-    shadowColor: '#EA580C',
+    shadowColor: '#16A34A',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.12,
     shadowRadius: 4,
@@ -2935,13 +2951,13 @@ const styles = StyleSheet.create({
   luxuryServicePriceText: {
     fontSize: 10.5,
     fontWeight: '900',
-    color: '#FF7A00',
+    color: '#0F766E',
   },
   luxuryServiceArrowBox: {
     width: 18,
     height: 18,
     borderRadius: 9,
-    backgroundColor: '#FF7A00',
+    backgroundColor: '#16A34A',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -3095,7 +3111,7 @@ const styles = StyleSheet.create({
   allServiceItemPrice: {
     fontSize: 12,
     fontWeight: '800',
-    color: '#FF7A00',
+    color: '#0F766E',
   },
   allServiceItemTatPill: {
     flexDirection: 'row',

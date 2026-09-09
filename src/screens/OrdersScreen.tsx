@@ -125,7 +125,7 @@ export function OrdersScreen({ onBook, onSignIn, onBrowseServices, onOpenOrderDe
     return (
       <ScrollView style={styles.root} contentContainerStyle={styles.guestContainer} showsVerticalScrollIndicator={false}>
         <View style={styles.guestIllustrationBox}>
-          <MaterialCommunityIcons name="clipboard-text-clock-outline" size={56} color="#F97316" />
+          <MaterialCommunityIcons name="clipboard-text-clock-outline" size={56} color="#16A34A" />
         </View>
 
         <Text style={styles.guestTitle}>Track Your Orders Live</Text>
@@ -147,7 +147,7 @@ export function OrdersScreen({ onBook, onSignIn, onBrowseServices, onOpenOrderDe
           </View>
 
           <View style={styles.guestBenefitRow}>
-            <MaterialCommunityIcons name="receipt" size={20} color="#F97316" />
+            <MaterialCommunityIcons name="receipt" size={20} color="#0F766E" />
             <Text style={styles.guestBenefitText}>Itemized GST invoices & secure online receipts</Text>
           </View>
 
@@ -353,7 +353,7 @@ function cleanItemDisplayName(item: any): string {
         <Card style={styles.driverCard}>
           <View style={styles.driverHeader}>
             <View style={styles.driverAvatarWrap}>
-              <MaterialCommunityIcons name={isDeliveryStage ? 'truck-delivery' : 'moped'} size={24} color="#FF7A00" />
+              <MaterialCommunityIcons name={isDeliveryStage ? 'truck-delivery' : 'moped'} size={24} color="#16A34A" />
             </View>
             <View style={{ flex: 1 }}>
               <View style={styles.driverNameRow}>
@@ -429,7 +429,7 @@ function cleanItemDisplayName(item: any): string {
                 <View key={item.id || idx} style={styles.itemRow}>
                   <View style={styles.itemThumbWrap}>
                     {isBulk ? (
-                      <MaterialCommunityIcons name="scale-bathroom" size={22} color="#FF7A00" />
+                      <MaterialCommunityIcons name="scale-bathroom" size={22} color="#16A34A" />
                     ) : (
                       <Image
                         source={{ uri: itemImageUrl }}
@@ -538,8 +538,8 @@ function cleanItemDisplayName(item: any): string {
         <RefreshControl
           refreshing={isRefreshing}
           onRefresh={handleRefresh}
-          colors={['#2563EB', '#F97316']}
-          tintColor="#2563EB"
+          colors={['#0F766E', '#16A34A']}
+          tintColor="#0F766E"
         />
       }
     >
@@ -614,9 +614,9 @@ function cleanItemDisplayName(item: any): string {
             <Pressable
               style={{
                 flexDirection: 'row', alignItems: 'center', gap: 6,
-                backgroundColor: '#F97316', borderRadius: 12,
+                backgroundColor: '#16A34A', borderRadius: 12,
                 paddingHorizontal: 16, paddingVertical: 11,
-                elevation: 3, shadowColor: '#F97316',
+                elevation: 3, shadowColor: '#16A34A',
                 shadowOffset: { width: 0, height: 2 },
                 shadowOpacity: 0.3, shadowRadius: 4,
               }}
@@ -674,7 +674,7 @@ function cleanItemDisplayName(item: any): string {
                   <MaterialCommunityIcons
                     name={ORDER_MILESTONES[milestoneIdx]?.icon as any || 'washing-machine'}
                     size={16}
-                    color="#F97316"
+                    color="#16A34A"
                   />
                   <Text style={styles.stageHighlightText} numberOfLines={1}>
                     {ORDER_MILESTONES[milestoneIdx]?.label || statusLabel(order.currentStatus)}
@@ -706,7 +706,7 @@ function cleanItemDisplayName(item: any): string {
 
                     <View style={styles.viewDetailLink}>
                       <Text style={styles.viewDetailText}>Track Live Status</Text>
-                      <MaterialCommunityIcons name="chevron-right" size={16} color="#F97316" />
+                      <MaterialCommunityIcons name="chevron-right" size={16} color="#16A34A" />
                     </View>
                   </View>
                 </View>
@@ -740,12 +740,12 @@ const styles = StyleSheet.create({
     width: 100,
     height: 100,
     borderRadius: 50,
-    backgroundColor: '#FFF7ED',
+    backgroundColor: '#F0FDF4',
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 20,
-    borderWidth: 1,
-    borderColor: '#FFEDD5',
+    borderWidth: 1.5,
+    borderColor: '#DCFCE7',
   },
   guestTitle: {
     fontSize: 22,
@@ -801,11 +801,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#F97316',
+    backgroundColor: '#16A34A',
     borderRadius: 16,
     paddingVertical: 14,
     gap: 8,
-    shadowColor: '#F97316',
+    shadowColor: '#16A34A',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.35,
     shadowRadius: 8,
@@ -953,8 +953,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#E8EAF6',
   },
   progressBarSegmentActive: {
-    backgroundColor: '#FF6B35',
-    shadowColor: '#FF6B35',
+    backgroundColor: '#16A34A',
+    shadowColor: '#16A34A',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.4,
     shadowRadius: 3,
@@ -972,17 +972,17 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    backgroundColor: '#FFF4E6',
+    backgroundColor: '#F0FDF4',
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#FFE0B2',
+    borderColor: '#DCFCE7',
   },
   stageHighlightText: {
     fontSize: 13,
     fontWeight: '800',
-    color: '#FF6B35',
+    color: '#15803D',
     flex: 1,
     letterSpacing: -0.2,
   },
@@ -1010,17 +1010,17 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 3,
-    backgroundColor: '#FFF4E6',
+    backgroundColor: '#F0FDF4',
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: '#FFE0B2',
+    borderColor: '#DCFCE7',
   },
   viewDetailText: {
     fontSize: 12,
     fontWeight: '800',
-    color: '#FF6B35',
+    color: '#15803D',
     letterSpacing: 0.2,
   },
   backBtn: {
@@ -1122,8 +1122,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#10B981',
   },
   milestoneDotCurrent: {
-    backgroundColor: '#FF6B35',
-    shadowColor: '#FF6B35',
+    backgroundColor: '#16A34A',
+    shadowColor: '#16A34A',
     shadowOpacity: 0.5,
   },
   milestoneDotPending: {
@@ -1150,7 +1150,7 @@ const styles = StyleSheet.create({
     color: '#1C0B18',
   },
   milestoneLabelCurrent: {
-    color: '#F97316',
+    color: '#16A34A',
     fontWeight: '900',
   },
   milestoneLabelPending: {
@@ -1166,20 +1166,20 @@ const styles = StyleSheet.create({
     width: 6,
     height: 6,
     borderRadius: 3,
-    backgroundColor: '#F97316',
+    backgroundColor: '#16A34A',
   },
   livePulseText: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#F97316',
+    color: '#16A34A',
   },
   driverCard: {
     backgroundColor: '#FFFFFF',
     padding: 18,
     borderRadius: 20,
     borderWidth: 2,
-    borderColor: '#FFE0B2',
-    shadowColor: '#FF6B35',
+    borderColor: '#DCFCE7',
+    shadowColor: '#16A34A',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.15,
     shadowRadius: 12,
@@ -1195,12 +1195,12 @@ const styles = StyleSheet.create({
     width: 52,
     height: 52,
     borderRadius: 26,
-    backgroundColor: '#FFF4E6',
+    backgroundColor: '#F0FDF4',
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 2,
-    borderColor: '#FFB74D',
-    shadowColor: '#FF6B35',
+    borderColor: '#86EFAC',
+    shadowColor: '#16A34A',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.2,
     shadowRadius: 5,
@@ -1233,7 +1233,7 @@ const styles = StyleSheet.create({
   driverRoleSubtext: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#FF7A00',
+    color: '#0F766E',
     marginTop: 2,
   },
   driverVehicleText: {
@@ -1469,7 +1469,7 @@ const styles = StyleSheet.create({
   billGrandValue: {
     fontSize: 17,
     fontWeight: '900',
-    color: '#FF7A00',
+    color: '#0F766E',
   },
   billCard: {
     backgroundColor: '#FFFFFF',

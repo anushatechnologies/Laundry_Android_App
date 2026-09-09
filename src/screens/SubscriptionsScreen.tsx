@@ -246,15 +246,15 @@ export function SubscriptionsScreen({ onBook, onSignIn }: SubscriptionsScreenPro
         <RefreshControl
           refreshing={refreshing}
           onRefresh={handleRefresh}
-          colors={['#2563EB', '#F97316']}
-          tintColor="#2563EB"
+          colors={['#0F766E', '#16A34A']}
+          tintColor="#0F766E"
         />
       }
     >
       <View style={{ flexDirection: 'row', gap: 12, marginBottom: 16 }}>
         {(['purchased', 'plans'] as const).map((value) => (
           <Pressable key={value} onPress={() => setTab(value)} accessibilityRole="tab" accessibilityState={{ selected: tab === value }}
-            style={{ flex: 1, padding: 14, borderRadius: 12, backgroundColor: tab === value ? '#FF7A00' : '#FFFFFF' }}>
+            style={{ flex: 1, padding: 14, borderRadius: 12, backgroundColor: tab === value ? '#16A34A' : '#FFFFFF' }}>
             <Text style={{ textAlign: 'center', fontWeight: '700', color: tab === value ? '#FFFFFF' : '#111827' }}>
               {value === 'purchased' ? 'Purchased Plans' : 'Browse Plans'}
             </Text>
@@ -265,7 +265,7 @@ export function SubscriptionsScreen({ onBook, onSignIn }: SubscriptionsScreenPro
         <View style={styles.heroHeader}>
           <Text style={styles.heroTitle}>Your Purchased Subscriptions</Text>
           {!session ? <Pressable onPress={onSignIn}><Text style={styles.heroTagText}>Sign in to view your subscriptions</Text></Pressable> : <>
-            {loadingMemberships && <ActivityIndicator color="#FF7A00" />}
+            {loadingMemberships && <ActivityIndicator color="#16A34A" />}
             {!!membershipError && <Text accessibilityRole="alert">{membershipError}</Text>}
             {!loadingMemberships && !membershipError && memberships.length === 0 && <>
               <Text style={styles.heroSubtitle}>No purchased subscriptions found for this account.</Text>
@@ -294,7 +294,7 @@ export function SubscriptionsScreen({ onBook, onSignIn }: SubscriptionsScreenPro
       {/* Hero Banner Header */}
       <View style={styles.heroHeader}>
         <View style={styles.heroTag}>
-          <MaterialCommunityIcons name="crown" size={14} color="#FF7A00" />
+          <MaterialCommunityIcons name="crown" size={14} color="#16A34A" />
           <Text style={styles.heroTagText}>LAUNDRYPASS MEMBERSHIP</Text>
         </View>
         <Text style={styles.heroTitle}>Smart Monthly Laundry Plans</Text>
@@ -367,7 +367,7 @@ export function SubscriptionsScreen({ onBook, onSignIn }: SubscriptionsScreenPro
                 ) : null}
                 {plan.freePickupDelivery ? (
                   <View style={styles.quotaPill}>
-                    <MaterialCommunityIcons name="moped" size={13} color="#FF7A00" />
+                    <MaterialCommunityIcons name="moped" size={13} color="#16A34A" />
                     <Text style={styles.quotaPillText}>Free Pickups</Text>
                   </View>
                 ) : null}
@@ -394,7 +394,7 @@ export function SubscriptionsScreen({ onBook, onSignIn }: SubscriptionsScreenPro
                 onPress={() => void handleSubscribe(plan)}
               >
                 <LinearGradient
-                  colors={plan.popular ? ['#FF7A00', '#FF5A00'] : ['#2563EB', '#1E40AF']}
+                  colors={plan.popular ? ['#16A34A', '#10B981'] : ['#0F766E', '#115E59']}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 1 }}
                   style={styles.subscribeBtnGradient}
@@ -454,7 +454,7 @@ const styles = StyleSheet.create({
   heroTagText: {
     fontSize: 11,
     fontWeight: '800',
-    color: '#FF7A00',
+    color: '#16A34A',
     letterSpacing: 0.5,
   },
   heroTitle: {
@@ -510,7 +510,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   popularCardBorder: {
-    borderColor: '#FF7A00',
+    borderColor: '#16A34A',
   },
   selectedPlanCard: {
     backgroundColor: '#FFFFFF',
@@ -520,16 +520,16 @@ const styles = StyleSheet.create({
     top: 0,
     left: 0,
     right: 0,
-    backgroundColor: '#FFF7ED',
+    backgroundColor: '#F0FDF4',
     paddingVertical: 5,
     alignItems: 'center',
     borderBottomWidth: 1,
-    borderBottomColor: '#FFEDD5',
+    borderBottomColor: '#DCFCE7',
   },
   popularRibbonText: {
     fontSize: 10.5,
     fontWeight: '800',
-    color: '#FF7A00',
+    color: '#166534',
     letterSpacing: 0.5,
   },
   planHeader: {
@@ -612,7 +612,7 @@ const styles = StyleSheet.create({
   subscribeBtnWrap: {
     borderRadius: 16,
     overflow: 'hidden',
-    shadowColor: '#FF7A00',
+    shadowColor: '#16A34A',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.25,
     shadowRadius: 10,

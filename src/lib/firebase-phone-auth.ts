@@ -36,6 +36,8 @@ export async function requestFirebasePhoneOtp(phone: string) {
   pendingConfirmation = null;
 
   const auth = getAuth();
+  // Ensure app verification is active for real SMS delivery
+  auth.settings.appVerificationDisabledForTesting = false;
 
   try {
     console.log('[Firebase Phone Auth] Requesting native SMS verification for +91' + normalized);
@@ -45,10 +47,10 @@ export async function requestFirebasePhoneOtp(phone: string) {
     const code = String(error?.code || '');
     console.warn('[Firebase Phone Auth] Initial dispatch error code:', code, error);
 
-    // If Play Integrity / SafetyNet failed on this sideloaded APK, retry with testing mode
+    // If Play Integrity verification failed on this sideloaded APK, check if it's a test number
     if (code.includes('missing-client-identifier') || code.includes('app-not-authorized')) {
       try {
-        console.log('[Firebase Phone Auth] Retrying with appVerificationDisabledForTesting = true...');
+        console.log('[Firebase Phone Auth] Testing fallback with appVerificationDisabledForTesting = true...');
         auth.settings.appVerificationDisabledForTesting = true;
         pendingConfirmation = await signInWithPhoneNumber(auth, `+91${normalized}`);
         console.log('[Firebase Phone Auth] Verification code sent in testing mode!');
@@ -56,7 +58,20 @@ export async function requestFirebasePhoneOtp(phone: string) {
       } catch (retryErr: any) {
         console.error('[Firebase Phone Auth] Testing retry error:', retryErr);
         pendingConfirmation = null;
-        throw new Error(friendlyFirebaseError(retryErr?.code ? retryErr : error));
+        // Reset flag
+        auth.settings.appVerificationDisabledForTesting = false;
+        throw new Error(
+          'Firebase SMS verification failed for real mobile numbers.\n\n' +
+          'MAIN ISSUE:\n' +
+          'Google requires your Android app SHA-256 fingerprint in Firebase Console to allow real SMS.\n\n' +
+          'QUICK FIX (1 MINUTE):\n' +
+          '1. Open Firebase Console -> Project Settings -> General\n' +
+          '2. Under "Your apps", select com.anusha.laundry\n' +
+          '3. Click "Add fingerprint" and paste SHA-256:\n' +
+          '   FA:C6:17:45:DC:09:03:78:6F:B9:ED:E6:2A:96:2B:39:9F:73:48:F0:BB:6F:89:9B:83:32:66:75:91:03:3B:9C\n' +
+          '4. Enable "Play Integrity API" in Google Cloud Console.\n\n' +
+          'For instant testing, enter your Firebase Console test phone number.'
+        );
       }
     }
 

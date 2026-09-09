@@ -120,8 +120,8 @@ const CATEGORY_METAS: Record<string, {
     name: 'Daily Wash & Steam Press (KG)',
     shortName: 'Bulk KG',
     icon: 'scale',
-    iconBg: '#FFF7ED',
-    iconColor: '#EA580C',
+    iconBg: '#F0FDF4',
+    iconColor: '#16A34A',
     tagline: 'Bulk Everyday Laundry by Weight',
     bannerImage: 'https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/banners/banner-bulk.jpg',
   },
@@ -217,9 +217,9 @@ const ALL_CARE_SERVICES = [
     title: 'Express 24h Emergency',
     shortTitle: 'Express 24h',
     tat: '12-24h Rapid',
-    tatBg: '#FFEDD5',
-    tatColor: '#EA580C',
-    accent: '#EA580C',
+    tatBg: '#DCFCE7',
+    tatColor: '#166534',
+    accent: '#16A34A',
     imageUrl: 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/services/delivery_van_driver.jpg',
     priceText: 'From ₹120/kg',
     serviceCode: 'EXPRESS',
@@ -548,8 +548,8 @@ export function ServicesScreen({ onBook, onOpenBulkLaundry }: ServicesScreenProp
             <RefreshControl
               refreshing={refreshing}
               onRefresh={handleRefresh}
-              colors={['#2563EB', '#F97316']}
-              tintColor="#2563EB"
+              colors={['#0F766E', '#16A34A']}
+              tintColor="#0F766E"
             />
           }
         >

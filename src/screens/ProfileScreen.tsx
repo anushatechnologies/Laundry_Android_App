@@ -257,8 +257,8 @@ export function ProfileScreen({
         <RefreshControl
           refreshing={refreshing}
           onRefresh={handleRefresh}
-          colors={['#2563EB', '#F97316']}
-          tintColor="#2563EB"
+          colors={['#0F766E', '#16A34A']}
+          tintColor="#0F766E"
         />
       }
     >
@@ -293,7 +293,7 @@ export function ProfileScreen({
               setIsEditModalOpen(true);
             }}
           >
-            <MaterialCommunityIcons name="pencil-outline" size={14} color="#F97316" />
+            <MaterialCommunityIcons name="pencil-outline" size={14} color="#16A34A" />
             <Text style={styles.editProfileBtnText}>Edit Profile</Text>
           </Pressable>
         </View>
@@ -378,8 +378,8 @@ export function ProfileScreen({
           style={styles.menuRow}
           onPress={session ? onViewAddresses : onSignIn}
         >
-          <View style={[styles.menuIconBox, { backgroundColor: '#FFF7ED' }]}>
-            <MaterialCommunityIcons name="map-marker-outline" size={20} color="#F97316" />
+          <View style={[styles.menuIconBox, { backgroundColor: '#F0FDF4' }]}>
+            <MaterialCommunityIcons name="map-marker-outline" size={20} color="#16A34A" />
           </View>
           <View style={styles.menuText}>
             <Text style={styles.menuTitle}>Saved Addresses</Text>
@@ -772,28 +772,28 @@ export function ProfileScreen({
                   </Text>
 
                   <View style={styles.policyPoint}>
-                    <MaterialCommunityIcons name="alert-circle" size={16} color="#F97316" />
+                    <MaterialCommunityIcons name="alert-circle" size={16} color="#0F766E" />
                     <Text style={styles.policyPointText}>
                       Pre-existing damage, stains, or defects not reported at pickup
                     </Text>
                   </View>
 
                   <View style={styles.policyPoint}>
-                    <MaterialCommunityIcons name="alert-circle" size={16} color="#F97316" />
+                    <MaterialCommunityIcons name="alert-circle" size={16} color="#0F766E" />
                     <Text style={styles.policyPointText}>
                       Damage due to natural wear and tear or poor garment quality
                     </Text>
                   </View>
 
                   <View style={styles.policyPoint}>
-                    <MaterialCommunityIcons name="alert-circle" size={16} color="#F97316" />
+                    <MaterialCommunityIcons name="alert-circle" size={16} color="#0F766E" />
                     <Text style={styles.policyPointText}>
                       Items with "dry clean only" tags washed against our advice
                     </Text>
                   </View>
 
                   <View style={styles.policyPoint}>
-                    <MaterialCommunityIcons name="alert-circle" size={16} color="#F97316" />
+                    <MaterialCommunityIcons name="alert-circle" size={16} color="#0F766E" />
                     <Text style={styles.policyPointText}>
                       Ornamental buttons, sequins, or embellishments (noted during inspection)
                     </Text>
@@ -947,28 +947,28 @@ export function ProfileScreen({
                   <Text style={styles.policySectionTitle}>6. Customer Responsibilities</Text>
 
                   <View style={styles.policyPoint}>
-                    <MaterialCommunityIcons name="alert-circle" size={16} color="#F97316" />
+                    <MaterialCommunityIcons name="alert-circle" size={16} color="#0F766E" />
                     <Text style={styles.policyPointText}>
                       Empty all pockets before handing over garments. LaundryFresh is not responsible for items left in pockets.
                     </Text>
                   </View>
 
                   <View style={styles.policyPoint}>
-                    <MaterialCommunityIcons name="alert-circle" size={16} color="#F97316" />
+                    <MaterialCommunityIcons name="alert-circle" size={16} color="#0F766E" />
                     <Text style={styles.policyPointText}>
                       Inform us of any special care requirements, stains, or fabric sensitivities at pickup.
                     </Text>
                   </View>
 
                   <View style={styles.policyPoint}>
-                    <MaterialCommunityIcons name="alert-circle" size={16} color="#F97316" />
+                    <MaterialCommunityIcons name="alert-circle" size={16} color="#0F766E" />
                     <Text style={styles.policyPointText}>
                       Do not send items that are heavily soiled with chemicals, paint, or hazardous substances.
                     </Text>
                   </View>
 
                   <View style={styles.policyPoint}>
-                    <MaterialCommunityIcons name="alert-circle" size={16} color="#F97316" />
+                    <MaterialCommunityIcons name="alert-circle" size={16} color="#0F766E" />
                     <Text style={styles.policyPointText}>
                       Provide accurate contact information and delivery address to avoid delays.
                     </Text>
@@ -1516,11 +1516,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#F97316',
+    backgroundColor: '#16A34A',
     borderRadius: 14,
     paddingVertical: 12,
     gap: 8,
-    shadowColor: '#F97316',
+    shadowColor: '#16A34A',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.35,
     shadowRadius: 4,
@@ -1560,7 +1560,7 @@ const styles = StyleSheet.create({
   phone: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#F97316',
+    color: '#0F766E',
     marginTop: 2,
   },
   email: {
@@ -1578,16 +1578,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#FFF7ED',
+    backgroundColor: '#F0FDF4',
     borderWidth: 1,
-    borderColor: '#FFEDD5',
+    borderColor: '#DCFCE7',
     borderRadius: 12,
     paddingVertical: 8,
     marginTop: 14,
     gap: 6,
   },
   editProfileBtnText: {
-    color: '#F97316',
+    color: '#16A34A',
     fontSize: 12,
     fontWeight: '800',
   },
@@ -1765,7 +1765,7 @@ const styles = StyleSheet.create({
     flex: 2,
     paddingVertical: 12,
     borderRadius: 12,
-    backgroundColor: '#F97316',
+    backgroundColor: '#16A34A',
     alignItems: 'center',
   },
   saveBtnText: {

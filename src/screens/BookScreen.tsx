@@ -1032,7 +1032,7 @@ export function BookScreen({
                     <MaterialCommunityIcons
                       name={isFreeDelivery ? 'truck-check' : 'truck-delivery'}
                       size={20}
-                      color={isFreeDelivery ? '#16A34A' : '#FF7A00'}
+                      color={isFreeDelivery ? '#16A34A' : '#0F766E'}
                     />
                   </View>
                   <View style={{ flex: 1 }}>
@@ -1077,7 +1077,7 @@ export function BookScreen({
                   >
                     <View style={styles.bbCouponLeft}>
                       <View style={styles.bbCouponIconCircle}>
-                        <MaterialCommunityIcons name="ticket-percent" size={22} color="#FF7A00" />
+                        <MaterialCommunityIcons name="ticket-percent" size={22} color="#16A34A" />
                       </View>
                       <View style={{ flex: 1 }}>
                         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
@@ -1095,7 +1095,7 @@ export function BookScreen({
                     </View>
                     <View style={styles.bbCouponApplyAction}>
                       <Text style={styles.bbCouponApplyActionText}>View All</Text>
-                      <MaterialCommunityIcons name="chevron-right" size={18} color="#FF7A00" />
+                      <MaterialCommunityIcons name="chevron-right" size={18} color="#16A34A" />
                     </View>
                   </Pressable>
                 ) : (
@@ -1847,7 +1847,7 @@ export function BookScreen({
                 >
                   <View style={styles.bbCouponLeft}>
                     <View style={styles.bbCouponIconCircle}>
-                      <MaterialCommunityIcons name="ticket-percent" size={22} color="#FF7A00" />
+                      <MaterialCommunityIcons name="ticket-percent" size={22} color="#16A34A" />
                     </View>
                     <View style={{ flex: 1 }}>
                       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
@@ -1865,7 +1865,7 @@ export function BookScreen({
                   </View>
                   <View style={styles.bbCouponApplyAction}>
                     <Text style={styles.bbCouponApplyActionText}>View All</Text>
-                    <MaterialCommunityIcons name="chevron-right" size={18} color="#FF7A00" />
+                    <MaterialCommunityIcons name="chevron-right" size={18} color="#16A34A" />
                   </View>
                 </Pressable>
               ) : (
@@ -2362,8 +2362,8 @@ export function BookScreen({
                       {/* Code badge + Action button */}
                       <View style={styles.bbTicketTopRow}>
                         <View style={styles.bbCodeBadge}>
-                          <MaterialCommunityIcons name="ticket-percent-outline" size={14} color="#FF7A00" />
-                          <Text style={styles.bbCodeBadgeText}>{coupon.code}</Text>
+                          <MaterialCommunityIcons name="ticket-percent-outline" size={14} color="#16A34A" />
+                          <Text style={styles.bbTicketCodeText}>{coupon.code}</Text>
                         </View>
 
                         {isCurrent ? (
@@ -2633,7 +2633,7 @@ const styles = StyleSheet.create({
   },
   progressBarFill: {
     height: '100%',
-    backgroundColor: '#FF7A00',
+    backgroundColor: '#16A34A',
     borderRadius: 3,
   },
   billCard: {
@@ -3724,11 +3724,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: '#FF7A00',
+    backgroundColor: '#16A34A',
     borderRadius: 12,
     paddingHorizontal: 12,
     paddingVertical: 8,
-    shadowColor: '#FF7A00',
+    shadowColor: '#16A34A',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,
     shadowRadius: 4,
@@ -3842,7 +3842,7 @@ const styles = StyleSheet.create({
   bbCouponApplyActionText: {
     fontSize: 13,
     fontWeight: '800',
-    color: '#FF7A00',
+    color: '#16A34A',
   },
   bbCouponAppliedCard: {
     flexDirection: 'row',
@@ -3988,7 +3988,7 @@ const styles = StyleSheet.create({
     color: '#0F172A',
   },
   bbInputApplyBtn: {
-    backgroundColor: '#FF7A00',
+    backgroundColor: '#16A34A',
     height: '100%',
     paddingHorizontal: 20,
     alignItems: 'center',
@@ -4083,29 +4083,29 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
-    backgroundColor: '#FFF7ED',
+    backgroundColor: '#F0FDF4',
     borderWidth: 1,
-    borderColor: '#FED7AA',
+    borderColor: '#86EFAC',
     borderStyle: 'dashed',
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 8,
   },
-  bbCodeBadgeText: {
+  bbTicketCodeText: {
     fontSize: 13,
     fontWeight: '900',
-    color: '#FF7A00',
+    color: '#16A34A',
     letterSpacing: 0.6,
   },
   bbTicketApplyBtn: {
-    backgroundColor: '#FF7A00',
+    backgroundColor: '#16A34A',
     paddingHorizontal: 16,
     paddingVertical: 7,
     borderRadius: 8,
     minWidth: 76,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#FF7A00',
+    shadowColor: '#16A34A',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,
     shadowRadius: 3,
