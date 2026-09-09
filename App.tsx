@@ -390,10 +390,12 @@ function AuthenticatedApp() {
   const [loginReason, setLoginReason] = useState<LoginReason>('ACCOUNT');
   const [resumeCheckout, setResumeCheckout] = useState(false);
   const [selectedOrderId, setSelectedOrderId] = useState('');
+  const [cartStage, setCartStage] = useState<'BAG' | 'DETAILS' | 'REVIEW' | 'SUCCESS'>('BAG');
   const iosEdgeSwipeStartX = useRef<number | null>(null);
   const handledNotificationResponseIds = useRef(new Set<string>());
 
   const navigateTo = useCallback((nextRoute: AppRoute) => {
+    setCartStage('BAG');
     setNavigation((current) => {
       if (current.route === nextRoute) return current;
       return { route: nextRoute, history: [...current.history, current.route] };
@@ -408,6 +410,7 @@ function AuthenticatedApp() {
   }, []);
 
   const resetRoute = useCallback((nextRoute: AppRoute) => {
+    setCartStage('BAG');
     setNavigation({ route: nextRoute, history: [] });
   }, []);
 
@@ -626,8 +629,11 @@ function AuthenticatedApp() {
     // fall through to screen rendering below which handles AUTH route
   }
 
-  // Show bottom navigation bar on all 5 primary discovery tabs including CART (Bag)
-  const showBottomNav = ['HOME', 'SERVICES', 'CART', 'ORDERS', 'PROFILE'].includes(route);
+  // Show bottom navigation bar on primary discovery tabs.
+  // During CART checkout stages (DETAILS or REVIEW), hide the tab bar so checkout footer is full-width and not cramped
+  const showBottomNav =
+    ['HOME', 'SERVICES', 'CART', 'ORDERS', 'PROFILE'].includes(route) &&
+    (route !== 'CART' || cartStage === 'BAG');
 
   let screen: ReactNode;
   if (route === 'HOME') {
@@ -758,6 +764,7 @@ function AuthenticatedApp() {
         resumeCheckout={resumeCheckout}
         onCheckoutResumed={() => setResumeCheckout(false)}
         hasBottomTabBar={showBottomNav}
+        onStageChange={setCartStage}
       />
     );
   } else if (route === 'ORDERS') {

@@ -29,7 +29,7 @@ import type { Coupon, CustomerAddress, CustomerSubscription, DeliveryFeeCalculat
 import type { RazorpayResult } from '@/lib/payments';
 import type { CustomerLocation } from '@/services/location/types';
 
-type BookingStage = 'BAG' | 'DETAILS' | 'REVIEW' | 'SUCCESS';
+export type BookingStage = 'BAG' | 'DETAILS' | 'REVIEW' | 'SUCCESS';
 type AddressDraft = Omit<CustomerAddress, 'id'>;
 
 function newAddressDraft(name: string, phone: string): AddressDraft {
@@ -56,6 +56,7 @@ interface BookScreenProps {
   resumeCheckout?: boolean;
   onCheckoutResumed?: () => void;
   hasBottomTabBar?: boolean;
+  onStageChange?: (stage: BookingStage) => void;
 }
 
 const DEFAULT_COUPONS: Coupon[] = [
@@ -133,6 +134,7 @@ export function BookScreen({
   resumeCheckout = false,
   onCheckoutResumed,
   hasBottomTabBar = false,
+  onStageChange,
 }: BookScreenProps) {
   const insets = useSafeAreaInsets();
   const {
@@ -155,6 +157,10 @@ export function BookScreen({
   } = useApp();
 
   const [stage, setStage] = useState<BookingStage>('BAG');
+
+  useEffect(() => {
+    onStageChange?.(stage);
+  }, [stage, onStageChange]);
   const [selectedAddressId, setSelectedAddressId] = useState('');
   const [addingAddress, setAddingAddress] = useState(false);
   const [draft, setDraft] = useState<AddressDraft>(() => newAddressDraft(session?.user.name || '', session?.user.phone || ''));
@@ -783,6 +789,14 @@ export function BookScreen({
       }
     } catch (error: any) {
       console.warn('[Checkout] Order placement or payment error:', error);
+      if (finalPayable === 0 || !(error as any)?.parsedPayment) {
+        Alert.alert(
+          'Booking Notice',
+          error?.message || 'Unable to confirm your booking. Please try again or contact support.',
+          [{ text: 'OK' }]
+        );
+        return;
+      }
       const parsed = parsePaymentError(error);
       setPaymentErrorInfo(parsed);
       setPaymentRetryModalVisible(true);
@@ -2190,7 +2204,13 @@ export function BookScreen({
           already appears in the empty state above, so a second footer only creates
           an empty white strip. */}
       {!(stage === 'BAG' && cart.length === 0) && (
-      <View style={[styles.stickyFooter, hasBottomTabBar && { bottom: Platform.OS === 'ios' ? 76 : 66 }]}>
+      <View
+        style={[
+          styles.stickyFooter,
+          { paddingBottom: Math.max(insets.bottom, 16) },
+          hasBottomTabBar && { bottom: Platform.OS === 'ios' ? 76 : 66, paddingBottom: 14 },
+        ]}
+      >
         {stage === 'BAG' && cart.length === 0 ? (
           <Pressable
             style={({ pressed }) => [styles.footerFullExploreBtn, pressed && { opacity: 0.9 }]}
@@ -2245,16 +2265,16 @@ export function BookScreen({
               size={16}
               color="#FFFFFF"
             />
-            <Text style={styles.footerPrimaryBtnText}>
+            <Text style={styles.footerPrimaryBtnText} numberOfLines={1}>
               {isCheckingOut
                 ? 'Scheduling Pickup...'
                 : finalPayable === 0
-                ? 'Confirm Order (₹0 • 100% Covered)'
+                ? 'Confirm Free Order'
                 : walletDeduction > 0
-                ? `Pay Remaining ${money(finalPayable)} & Book`
+                ? `Pay ${money(finalPayable)} & Book`
                 : paymentMethod === 'COD'
-                ? 'Confirm & Place Order (COD)'
-                : `Pay ${money(finalPayable)} & Place Order`}
+                ? 'Confirm Order (COD)'
+                : `Pay ${money(finalPayable)} & Book`}
             </Text>
             <MaterialCommunityIcons name="arrow-right" size={18} color="#FFFFFF" />
           </Pressable>
