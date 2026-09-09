@@ -482,8 +482,8 @@ export function AppProvider({ children }: PropsWithChildren) {
         return { order, paymentOutcome: 'COD' };
       }
 
-      // WALLET or Fully Paid with Wallet Balance: Confirm order and empty cart immediately
-      if (input.paymentMethod === 'WALLET' || (order as any).paymentStatus === 'PAID') {
+      // WALLET, SUBSCRIPTION, or Fully Paid: Confirm order and empty cart immediately
+      if (input.paymentMethod === 'WALLET' || input.paymentMethod === 'SUBSCRIPTION' || (order as any).paymentStatus === 'PAID') {
         setOrders((current) => [order, ...current.filter((candidate) => candidate.id !== order.id)]);
         setCart([]);
         return { order, paymentOutcome: 'PAID' };

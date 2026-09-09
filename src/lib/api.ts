@@ -435,6 +435,8 @@ export function createOrderPayload(session: AuthSession, cart: CartItem[], input
     useWallet: input.useWallet ?? false,
     customerSubscriptionId: input.customerSubscriptionId || undefined,
     subscriptionKgUsed: input.subscriptionKgUsed || undefined,
+    subscriptionDiscount: input.subscriptionDiscount || undefined,
+    walletDeduction: input.walletDeduction || undefined,
     notes: input.notes || undefined,
   };
 }

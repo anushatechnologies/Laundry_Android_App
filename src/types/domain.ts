@@ -2,7 +2,7 @@ export type PricingModel = 'PER_KG' | 'PER_ITEM';
 
 export type ExpressTier = 'REGULAR' | 'EXPRESS_24H' | 'SAME_DAY';
 
-export type PaymentMethod = 'ONLINE_RAZORPAY' | 'COD' | 'WALLET';
+export type PaymentMethod = 'ONLINE_RAZORPAY' | 'COD' | 'WALLET' | 'SUBSCRIPTION';
 
 export type PaymentStatus = 'PENDING' | 'PAID' | 'FAILED' | 'REFUNDED';
 
@@ -334,6 +334,11 @@ export interface Order {
   itemTotal: number;
   discountAmount: number;
   couponCode?: string;
+  customerSubscriptionId?: string;
+  subscriptionPlanName?: string;
+  subscriptionKgUsed?: number;
+  subscriptionDiscount?: number;
+  walletDeduction?: number;
   pickupDeliveryFee: number;
   expressFee: number;
   taxAmount: number;
@@ -406,6 +411,8 @@ export interface CheckoutInput {
   useWallet?: boolean;
   customerSubscriptionId?: string;
   subscriptionKgUsed?: number;
+  subscriptionDiscount?: number;
+  walletDeduction?: number;
   onLaunchOnlinePayment?: (paymentOrder: RazorpayPaymentOrder) => Promise<{
     razorpay_order_id: string;
     razorpay_payment_id: string;

@@ -504,10 +504,11 @@ export function BookScreen({
     ? 0
     : (liveDeliveryCalc?.deliveryFee ?? (cartSummary.itemTotal < 499 ? standardDeliveryFee : 0));
 
-  // Subscription Weight Quota Calculation:
-  const orderWeightKg = cartSummary.totalKg > 0
-    ? cartSummary.totalKg
-    : Math.max(1, Number((cartSummary.itemCount * 0.25).toFixed(1)));
+  // Subscription Weight Quota Calculation (Bulk KG + Garments estimated weight):
+  const bulkKg = cartSummary.totalKg;
+  const pieceCount = cart.filter((item) => item.pricingModel !== 'PER_KG').reduce((sum, item) => sum + item.quantity, 0);
+  const pieceKg = Number((pieceCount * 0.25).toFixed(1));
+  const orderWeightKg = bulkKg > 0 ? Number((bulkKg + pieceKg).toFixed(1)) : Math.max(1, pieceKg);
 
   const subKgRemaining = (useSubscription && activeSubscription) ? (activeSubscription.remainingKg ?? 0) : 0;
   const subKgUsed = Math.min(subKgRemaining, orderWeightKg);
@@ -729,18 +730,27 @@ export function BookScreen({
     try {
       setIsRetryingOrder(true);
       const isZeroPayable = finalPayable === 0;
-      const isFullWalletPayment = isZeroPayable || (useWallet && walletBalance >= preWalletTotal);
+      const isSubscriptionPaid = isZeroPayable && subQuotaDiscount > 0;
+      const isFullWalletPayment = isZeroPayable ? (!isSubscriptionPaid) : (useWallet && walletBalance >= preWalletTotal);
+      const effectivePaymentMethod: PaymentMethod = isSubscriptionPaid
+        ? 'SUBSCRIPTION'
+        : isFullWalletPayment
+        ? 'WALLET'
+        : effectiveMethod;
+
       const result = await checkout({
         address: selectedAddress,
         slot: selectedSlot,
         expressTier,
-        paymentMethod: isFullWalletPayment ? 'WALLET' : effectiveMethod,
+        paymentMethod: effectivePaymentMethod,
         useWallet: useWallet && walletBalance > 0,
         customerSubscriptionId: (useSubscription && activeSubscription) ? activeSubscription.id : undefined,
         subscriptionKgUsed: (useSubscription && activeSubscription && subKgUsed > 0) ? subKgUsed : undefined,
+        subscriptionDiscount: (useSubscription && activeSubscription && subQuotaDiscount > 0) ? subQuotaDiscount : undefined,
+        walletDeduction: walletDeduction > 0 ? walletDeduction : undefined,
         couponCode: couponApplied ? couponCode : undefined,
         notes: notes.trim() || undefined,
-        onLaunchOnlinePayment: !isFullWalletPayment && effectiveMethod === 'ONLINE_RAZORPAY' ? handleLaunchOnlinePayment : undefined,
+        onLaunchOnlinePayment: !isZeroPayable && !isFullWalletPayment && effectiveMethod === 'ONLINE_RAZORPAY' ? handleLaunchOnlinePayment : undefined,
       });
 
       // Background refresh of wallet & subscription usage
