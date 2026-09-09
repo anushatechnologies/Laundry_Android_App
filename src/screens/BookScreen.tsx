@@ -1235,25 +1235,6 @@ export function BookScreen({
                 <Text style={styles.assuranceText}>Standard 24H-48H delivery • 12H Express available at next step</Text>
               </View>
             </View>
-
-            {/* Direct In-Content Proceed CTA for easy one-tap access */}
-            {cart.length > 0 && (
-              <Pressable
-                style={({ pressed }) => [styles.inContentProceedBtn, pressed && { opacity: 0.9, transform: [{ scale: 0.99 }] }]}
-                onPress={continueToDetails}
-              >
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.inContentProceedBtnTitle}>Proceed to Pickup & Slots</Text>
-                  <Text style={styles.inContentProceedBtnSub}>
-                    {finalPayable === 0 ? 'Total Due: ₹0' : `Payable: ${money(finalPayable)}`}
-                    {isFreeDelivery ? ' • 🎉 Free Delivery' : ''}
-                  </Text>
-                </View>
-                <View style={styles.inContentProceedBtnIconWrap}>
-                  <MaterialCommunityIcons name="arrow-right" size={22} color="#FFFFFF" />
-                </View>
-              </Pressable>
-            )}
           </View>
         )}
 

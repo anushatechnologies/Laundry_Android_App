@@ -354,7 +354,7 @@ function AuthenticatedApp() {
       });
 
       // Swiggy / Zomato instant location auto-population on launch
-      if (res.locationGranted && res.gpsCoords) {
+      if (res.gpsCoords) {
         try {
           const loc = await resolveCustomerLocationCoordinates(
             res.gpsCoords.latitude,

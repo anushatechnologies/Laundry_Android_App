@@ -107,7 +107,7 @@ export function ReferralScreen({ onUseReward, onSignIn, onNavigateWallet, onBack
       if (id !== requestId.current) return;
       setData(summary);
       setInviteCode('');
-      const bonusCredited = summary?.friendBonus ?? adminConfig?.friendReward ?? 50;
+      const bonusCredited = summary?.friendBonus ?? adminConfig?.friendReward ?? 25;
       Alert.alert(
         'Code Applied! 🎉',
         `Referral code successfully applied. Your welcome bonus of ₹${bonusCredited} has been credited to your LaundryFresh Wallet!`,
@@ -119,8 +119,8 @@ export function ReferralScreen({ onUseReward, onSignIn, onNavigateWallet, onBack
     }
   };
 
-  const referrerReward = data?.rewardAmount ?? adminConfig?.referrerReward ?? 100;
-  const friendBonus = data?.friendBonus ?? adminConfig?.friendReward ?? 50;
+  const referrerReward = data?.rewardAmount ?? adminConfig?.referrerReward ?? 50;
+  const friendBonus = data?.friendBonus ?? adminConfig?.friendReward ?? 25;
 
   const getShareMessage = () => {
     const code = data?.code || 'LAUNDRY';

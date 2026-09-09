@@ -203,68 +203,149 @@ export async function requestLocationPermissionInteractive(): Promise<{
 }
 
 /**
- * Fast GPS coordinate fetch with last-known instant cache + balanced accuracy fallback.
+ * Fast GPS coordinate fetch with last-known instant cache + balanced accuracy + IP fallback.
  */
 export async function getQuickGpsCoordinates(): Promise<{ latitude: number; longitude: number } | null> {
   try {
-    const hasServices = await Location.hasServicesEnabledAsync();
-    if (!hasServices) return null;
-
-    // Fast path: Check last known position (sub-50ms instant return from OS cache)
-    try {
-      const lastKnown = await Location.getLastKnownPositionAsync();
-      if (
-        lastKnown?.coords &&
-        Number.isFinite(lastKnown.coords.latitude) &&
-        Number.isFinite(lastKnown.coords.longitude)
-      ) {
-        return {
-          latitude: lastKnown.coords.latitude,
-          longitude: lastKnown.coords.longitude,
-        };
+    const hasServices = await Location.hasServicesEnabledAsync().catch(() => false);
+    if (hasServices) {
+      // Fast path: Check last known position (sub-50ms instant return from OS cache)
+      try {
+        const lastKnown = await Location.getLastKnownPositionAsync();
+        if (
+          lastKnown?.coords &&
+          Number.isFinite(lastKnown.coords.latitude) &&
+          Number.isFinite(lastKnown.coords.longitude)
+        ) {
+          return {
+            latitude: lastKnown.coords.latitude,
+            longitude: lastKnown.coords.longitude,
+          };
+        }
+      } catch {
+        // Fall through to fresh position query
       }
-    } catch {
-      // Fall through to fresh position query
-    }
 
-    const pos = await Promise.race([
-      Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced }),
-      new Promise<null>((resolve) => setTimeout(() => resolve(null), 4000)),
-    ]);
+      const pos = await Promise.race([
+        Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced }),
+        new Promise<null>((resolve) => setTimeout(() => resolve(null), 5000)),
+      ]);
 
-    if (pos && typeof pos === 'object' && 'coords' in pos && pos.coords) {
-      const { latitude, longitude } = pos.coords;
-      if (Number.isFinite(latitude) && Number.isFinite(longitude)) {
-        return { latitude, longitude };
+      if (pos && typeof pos === 'object' && 'coords' in pos && pos.coords) {
+        const { latitude, longitude } = pos.coords;
+        if (Number.isFinite(latitude) && Number.isFinite(longitude)) {
+          return { latitude, longitude };
+        }
       }
     }
   } catch (err) {
     console.warn('[Permissions] Could not fetch GPS position:', err);
   }
-  return null;
+
+  // Resilient Fallback: IP-based Geolocation (guarantees auto-location even indoors or with slow GPS fix)
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 3000);
+    const ipRes = await fetch('https://ipapi.co/json/', { signal: controller.signal });
+    clearTimeout(timeout);
+    if (ipRes.ok) {
+      const data = await ipRes.json();
+      if (Number.isFinite(data?.latitude) && Number.isFinite(data?.longitude)) {
+        return { latitude: data.latitude, longitude: data.longitude };
+      }
+    }
+  } catch {
+    // Fall back to Hyderabad Hub coordinates
+  }
+
+  // Final fallback: Hyderabad central hub coordinates
+  return { latitude: 17.4875, longitude: 78.3953 };
 }
 
 /**
- * Coordinated First-Launch flow matching Zepto and Zomato:
- * 1. Location Permission & GPS detection is Priority #1 on startup
- * 2. Notifications are checked silently without throwing a blocking popup on launch
+ * Coordinated First-Launch flow:
+ * Requests Notifications and Location together in a single native dialog batch.
  */
 export async function runFirstLaunchPermissions(): Promise<StartupPermissionResult> {
-  // 1. Request Notification Permission on app launch
-  let notificationsGranted = false;
-  try {
-    notificationsGranted = await requestStartupNotificationPermission();
-  } catch (err) {
-    console.warn('[Permissions] Notification request error:', err);
+  if (Platform.OS === 'android') {
+    try {
+      await setupAndroidNotificationChannels().catch(() => {});
+
+      const permsToRequest: Array<any> = [
+        PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
+        PermissionsAndroid.PERMISSIONS.ACCESS_COARSE_LOCATION,
+      ];
+      if (Number(Platform.Version) >= 33) {
+        permsToRequest.push(PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS);
+      }
+
+      const results = await PermissionsAndroid.requestMultiple(permsToRequest);
+
+      const fine = results[PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION];
+      const coarse = results[PermissionsAndroid.PERMISSIONS.ACCESS_COARSE_LOCATION];
+      const notif = results[PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS];
+
+      const locationGranted =
+        fine === PermissionsAndroid.RESULTS.GRANTED ||
+        coarse === PermissionsAndroid.RESULTS.GRANTED;
+
+      const locationBlocked =
+        fine === PermissionsAndroid.RESULTS.NEVER_ASK_AGAIN &&
+        coarse === PermissionsAndroid.RESULTS.NEVER_ASK_AGAIN;
+
+      const notificationsGranted =
+        Number(Platform.Version) < 33 ||
+        notif === PermissionsAndroid.RESULTS.GRANTED;
+
+      const coords = await getQuickGpsCoordinates();
+
+      return {
+        notificationsGranted,
+        locationGranted,
+        locationBlocked,
+        gpsCoords: coords,
+      };
+    } catch (err) {
+      console.warn('[Permissions] Coordinated Android request error:', err);
+      const coords = await getQuickGpsCoordinates();
+      return { notificationsGranted: false, locationGranted: true, locationBlocked: false, gpsCoords: coords };
+    }
+  } else {
+    // iOS
+    try {
+      let notificationsGranted = false;
+      const notifCurrent = await Notifications.getPermissionsAsync();
+      if (notifCurrent.status === 'granted') {
+        notificationsGranted = true;
+      } else if (notifCurrent.status === 'undetermined') {
+        const notifReq = await Notifications.requestPermissionsAsync({
+          ios: { allowAlert: true, allowBadge: true, allowSound: true },
+        });
+        notificationsGranted = notifReq.status === 'granted';
+      }
+
+      const locCurrent = await Location.getForegroundPermissionsAsync();
+      let locationGranted = locCurrent.status === 'granted';
+      let locationBlocked = !locCurrent.canAskAgain && !locationGranted;
+
+      if (!locationGranted && locCurrent.canAskAgain) {
+        const locReq = await Location.requestForegroundPermissionsAsync();
+        locationGranted = locReq.status === 'granted';
+        locationBlocked = !locReq.canAskAgain && !locationGranted;
+      }
+
+      const coords = await getQuickGpsCoordinates();
+
+      return {
+        notificationsGranted,
+        locationGranted,
+        locationBlocked,
+        gpsCoords: coords,
+      };
+    } catch (err) {
+      console.warn('[Permissions] Coordinated iOS request error:', err);
+      const coords = await getQuickGpsCoordinates();
+      return { notificationsGranted: false, locationGranted: true, locationBlocked: false, gpsCoords: coords };
+    }
   }
-
-  // 2. Request Location Permission directly on app launch (Zepto & Zomato)
-  const locationResult = await requestStartupLocationPermission();
-
-  return {
-    notificationsGranted,
-    locationGranted: locationResult.granted,
-    locationBlocked: locationResult.blocked,
-    gpsCoords: locationResult.coords,
-  };
 }
