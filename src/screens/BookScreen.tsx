@@ -16,6 +16,7 @@ import {
   View,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useApp } from '@/context/AppContext';
 import { api } from '@/lib/api';
 import { payWithRazorpay, parsePaymentError, type ParsedPaymentError } from '@/lib/payments';
@@ -133,6 +134,7 @@ export function BookScreen({
   onCheckoutResumed,
   hasBottomTabBar = false,
 }: BookScreenProps) {
+  const insets = useSafeAreaInsets();
   const {
     session,
     catalog,
@@ -210,8 +212,8 @@ export function BookScreen({
   const [isRetryingOrder, setIsRetryingOrder] = useState(false);
 
   const activeCouponsList = useMemo(() => {
-    if (availableCoupons && availableCoupons.length > 0) {
-      return availableCoupons.filter((c) => c.isActive);
+    if (Array.isArray(availableCoupons) && availableCoupons.length > 0) {
+      return availableCoupons.filter((c) => c && c.isActive);
     }
     return DEFAULT_COUPONS;
   }, [availableCoupons]);
@@ -219,12 +221,16 @@ export function BookScreen({
   useEffect(() => {
     if (session?.user?.id) {
       api.getWallet()
-        .then((w) => setWalletBalance(w.wallet?.balance ?? 0))
+        .then((w) => setWalletBalance(w?.wallet?.balance ?? 0))
         .catch(() => undefined);
       api.getCustomerSubscriptions(session.user.id)
         .then((subs) => {
-          const active = subs.find((s) => s.isActive || s.status === 'ACTIVE');
-          setActiveSubscription(active || null);
+          if (Array.isArray(subs)) {
+            const active = subs.find((s) => s && (s.isActive || s.status === 'ACTIVE'));
+            setActiveSubscription(active || null);
+          } else {
+            setActiveSubscription(null);
+          }
         })
         .catch(() => undefined);
     } else {
@@ -234,8 +240,10 @@ export function BookScreen({
 
 
   const pickupDates = useMemo(() => Array.from({ length: 7 }, (_, index) => localDateString(index)), []);
-  const selectedAddress = addresses.find((a) => a.id === selectedAddressId) || addresses.find((a) => a.isDefault) || addresses[0];
-  const selectedSlot = slots.find((s) => s.id === selectedSlotId && s.isAvailable && !s.isPast);
+  const safeAddresses = Array.isArray(addresses) ? addresses : [];
+  const selectedAddress = safeAddresses.find((a) => a && a.id === selectedAddressId) || safeAddresses.find((a) => a && a.isDefault) || safeAddresses[0];
+  const safeSlots = Array.isArray(slots) ? slots : [];
+  const selectedSlot = safeSlots.find((s) => s && s.id === selectedSlotId && s.isAvailable && !s.isPast);
 
   // Validate serviceability when an address is selected or pre-filled
   useEffect(() => {
@@ -412,7 +420,7 @@ export function BookScreen({
       .then((res) => { if (res) setPricingSettings(res); })
       .catch(() => undefined);
     api.getCoupons()
-      .then((items) => { if (items && items.length) setAvailableCoupons(items); })
+      .then((items) => { if (Array.isArray(items) && items.length) setAvailableCoupons(items); })
       .catch(() => undefined);
   }, []);
 
@@ -492,9 +500,10 @@ export function BookScreen({
     useSubscription &&
     activeSubscription &&
     (activeSubscription.freePickupDelivery ||
-      activeSubscription.features?.some(
-        (f) => f.toLowerCase().includes('free pickup') || f.toLowerCase().includes('zero delivery')
-      ))
+      (Array.isArray(activeSubscription.features) &&
+        activeSubscription.features.some(
+          (f) => typeof f === 'string' && (f.toLowerCase().includes('free pickup') || f.toLowerCase().includes('zero delivery'))
+        )))
   );
 
   const freeDeliveryThreshold = liveDeliveryCalc?.freeDeliveryThreshold ?? selectedAddressZone?.minFreeOrderValue ?? pricingSettings?.freeDeliveryThreshold ?? 499;
@@ -505,16 +514,17 @@ export function BookScreen({
     : (liveDeliveryCalc?.deliveryFee ?? (cartSummary.itemTotal < 499 ? standardDeliveryFee : 0));
 
   // Subscription Weight Quota Calculation (Bulk KG + Garments estimated weight):
-  const bulkKg = cartSummary.totalKg;
-  const pieceCount = cart.filter((item) => item.pricingModel !== 'PER_KG').reduce((sum, item) => sum + item.quantity, 0);
+  const bulkKg = Number(cartSummary?.totalKg || 0);
+  const safeCart = Array.isArray(cart) ? cart : [];
+  const pieceCount = safeCart.filter((item) => item && item.pricingModel !== 'PER_KG').reduce((sum, item) => sum + (Number(item?.quantity) || 0), 0);
   const pieceKg = Number((pieceCount * 0.25).toFixed(1));
   const orderWeightKg = bulkKg > 0 ? Number((bulkKg + pieceKg).toFixed(1)) : Math.max(1, pieceKg);
 
-  const subKgRemaining = (useSubscription && activeSubscription) ? (activeSubscription.remainingKg ?? 0) : 0;
+  const subKgRemaining = (useSubscription && activeSubscription) ? (Number(activeSubscription.remainingKg) || 0) : 0;
   const subKgUsed = Math.min(subKgRemaining, orderWeightKg);
   const subQuotaFraction = orderWeightKg > 0 ? Math.min(1, subKgUsed / orderWeightKg) : 0;
   const subQuotaDiscount = (useSubscription && activeSubscription && subKgRemaining > 0)
-    ? Math.min(cartSummary.itemTotal, Number((cartSummary.itemTotal * subQuotaFraction).toFixed(2)))
+    ? Math.min(cartSummary?.itemTotal || 0, Number(((cartSummary?.itemTotal || 0) * subQuotaFraction).toFixed(2)))
     : 0;
 
   const expressFeeFromSettings = liveDeliveryCalc?.expressDeliveryFee ?? pricingSettings?.expressDeliveryFee ?? 80;
@@ -571,7 +581,7 @@ export function BookScreen({
     setCouponErrorInline('');
 
     try {
-      const isFirstOrder = !orders.some((o) => o.currentStatus !== 'CANCELLED');
+      const isFirstOrder = !(Array.isArray(orders) && orders.some((o) => o && o.currentStatus !== 'CANCELLED'));
       const res = await api.applyCoupon(cleanCode, preCouponTotal, isFirstOrder);
       if (!res.isValid) {
         setCouponApplied(false);
@@ -615,7 +625,7 @@ export function BookScreen({
   useEffect(() => {
     if (!couponApplied || !couponCode || !pricingSettings) return;
 
-    const isFirstOrder = !orders.some((o) => o.currentStatus !== 'CANCELLED');
+    const isFirstOrder = !(Array.isArray(orders) && orders.some((o) => o && o.currentStatus !== 'CANCELLED'));
     api.applyCoupon(couponCode, preCouponTotal, isFirstOrder)
       .then((res) => {
         if (res.isValid) {
@@ -635,8 +645,9 @@ export function BookScreen({
     getSlots(slotDate)
       .then((items) => {
         if (!active) return;
-        setSlots(items);
-        const firstAvailable = items.find((s) => s.isAvailable && !s.isPast);
+        const safeItems = Array.isArray(items) ? items : [];
+        setSlots(safeItems);
+        const firstAvailable = safeItems.find((s) => s && s.isAvailable && !s.isPast);
         if (firstAvailable) setSelectedSlotId(firstAvailable.id);
       })
       .catch(() => undefined)
@@ -755,10 +766,12 @@ export function BookScreen({
 
       // Background refresh of wallet & subscription usage
       if (session?.user?.id) {
-        api.getWallet().then((w) => setWalletBalance(w.wallet?.balance ?? 0)).catch(() => undefined);
+        api.getWallet().then((w) => setWalletBalance(w?.wallet?.balance ?? 0)).catch(() => undefined);
         api.getCustomerSubscriptions(session.user.id).then((subs) => {
-          const active = subs.find((s) => s.isActive || s.status === 'ACTIVE');
-          setActiveSubscription(active || null);
+          if (Array.isArray(subs)) {
+            const active = subs.find((s) => s && (s.isActive || s.status === 'ACTIVE'));
+            setActiveSubscription(active || null);
+          }
         }).catch(() => undefined);
       }
 
@@ -959,18 +972,19 @@ export function BookScreen({
               </View>
             ) : (
               <View style={styles.cartItemsStack}>
-                {cart.map((item) => {
-                  const isBulk = item.pricingModel === 'PER_KG' || item.clothId === 'bulk' || item.id.startsWith('bulk');
+                {safeCart.map((item) => {
+                  const itemId = typeof item.id === 'string' ? item.id : String(item.id || '');
+                  const isBulk = item.pricingModel === 'PER_KG' || item.clothId === 'bulk' || itemId.startsWith('bulk');
                   // Robust cloth ID extraction
                   let rawClothId = item.clothId;
                   if (!rawClothId) {
-                    if (item.id.includes('-srv-')) {
-                      rawClothId = item.id.split('-srv-')[0];
-                    } else if (item.id.startsWith('cloth-')) {
-                      const parts = item.id.split('-');
+                    if (itemId.includes('-srv-')) {
+                      rawClothId = itemId.split('-srv-')[0];
+                    } else if (itemId.startsWith('cloth-')) {
+                      const parts = itemId.split('-');
                       rawClothId = `${parts[0]}-${parts[1]}`;
                     } else {
-                      rawClothId = item.id;
+                      rawClothId = itemId;
                     }
                   }
                   const imageUrl = getGarmentImageUrl(rawClothId || 'cloth-shirt', item.imageUrl, item.categoryName, item.serviceName);
@@ -2343,10 +2357,10 @@ export function BookScreen({
               showsVerticalScrollIndicator={false}
               keyboardShouldPersistTaps="handled"
             >
-              {activeCouponsList.map((coupon) => {
+              {(Array.isArray(activeCouponsList) ? activeCouponsList : []).map((coupon) => {
                 const isCurrent = couponApplied && couponCode === coupon.code;
                 const minVal = Number(coupon.minOrderValue || 0);
-                const isFirstOrder = !orders.some((o) => o.currentStatus !== 'CANCELLED');
+                const isFirstOrder = !(Array.isArray(orders) && orders.some((o) => o && o.currentStatus !== 'CANCELLED'));
                 const isFirstOrderOk = !coupon.firstOrderOnly || isFirstOrder;
                 const isMinOrderOk = Number(preCouponTotal || 0) >= minVal;
                 const isEligible = Boolean(isFirstOrderOk && isMinOrderOk);
@@ -2476,118 +2490,133 @@ export function BookScreen({
             {/* Sheet Handle */}
             <View style={styles.payRetryHandle} />
 
-            {/* Icon & Title */}
-            <View style={styles.payRetryHeader}>
-              <View
-                style={[
-                  styles.payRetryIconCircle,
-                  paymentErrorInfo.isCancelled
-                    ? { backgroundColor: '#FFF7ED', borderColor: '#FED7AA' }
-                    : { backgroundColor: '#FEF2F2', borderColor: '#FECACA' },
-                ]}
-              >
-                <MaterialCommunityIcons
-                  name={paymentErrorInfo.isCancelled ? 'credit-card-refresh-outline' : 'alert-circle-outline'}
-                  size={36}
-                  color={paymentErrorInfo.isCancelled ? '#EA580C' : '#DC2626'}
-                />
-              </View>
-
-              <Text style={styles.payRetryTitle}>
-                {paymentErrorInfo.title || (paymentErrorInfo.isCancelled ? 'Payment Not Completed' : 'Payment Failed')}
-              </Text>
-
-              <Text style={styles.payRetrySubtitle}>
-                {paymentErrorInfo.message}
-              </Text>
-            </View>
-
-            {/* Order Snapshot Card */}
-            <View style={styles.payRetryOrderCard}>
-              <View style={styles.payRetryOrderRow}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                  <MaterialCommunityIcons name="shopping-outline" size={18} color="#64748B" />
-                  <Text style={styles.payRetryOrderLabel}>Total Order Amount</Text>
+            <ScrollView
+              bounces={false}
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={[styles.payRetryScrollContent, { paddingBottom: Math.max(insets.bottom, 24) }]}
+            >
+              {/* Icon & Title */}
+              <View style={styles.payRetryHeader}>
+                <View
+                  style={[
+                    styles.payRetryIconCircle,
+                    paymentErrorInfo.isCancelled
+                      ? { backgroundColor: '#FFF7ED', borderColor: '#FED7AA' }
+                      : { backgroundColor: '#FEF2F2', borderColor: '#FECACA' },
+                  ]}
+                >
+                  <MaterialCommunityIcons
+                    name={paymentErrorInfo.isCancelled ? 'credit-card-refresh-outline' : 'alert-circle-outline'}
+                    size={30}
+                    color={paymentErrorInfo.isCancelled ? '#EA580C' : '#DC2626'}
+                  />
                 </View>
-                <Text style={styles.payRetryOrderAmount}>{money(finalPayable)}</Text>
+
+                <Text style={styles.payRetryTitle}>
+                  {paymentErrorInfo.title || (paymentErrorInfo.isCancelled ? 'Payment Not Completed' : 'Payment Failed')}
+                </Text>
+
+                <Text style={styles.payRetrySubtitle}>
+                  {paymentErrorInfo.message || 'You went back before completing the online payment.'}
+                </Text>
               </View>
 
-              <View style={styles.payRetryOrderDivider} />
-
-              <View style={styles.payRetryOrderRow}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                  <MaterialCommunityIcons name="clock-outline" size={18} color="#64748B" />
-                  <Text style={styles.payRetryOrderSublabel}>Pickup Slot</Text>
+              {/* Order Snapshot Card */}
+              <View style={styles.payRetryOrderCard}>
+                <View style={styles.payRetryOrderRow}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                    <MaterialCommunityIcons name="shopping-outline" size={18} color="#64748B" />
+                    <Text style={styles.payRetryOrderLabel}>Total Order Amount</Text>
+                  </View>
+                  <Text style={styles.payRetryOrderAmount}>{money(finalPayable)}</Text>
                 </View>
-                <Text style={styles.payRetryOrderSubval}>
-                  {shortDate(slotDate)} • {selectedSlot?.startTime && selectedSlot?.endTime ? `${selectedSlot.startTime} - ${selectedSlot.endTime}` : 'Flexible Collection Window'}
-                </Text>
-              </View>
 
-              <View style={styles.payRetrySafePill}>
-                <MaterialCommunityIcons name="shield-check" size={15} color="#16A34A" />
-                <Text style={styles.payRetrySafeText}>
-                  Your laundry bag items are completely safe.
-                </Text>
-              </View>
-            </View>
+                <View style={styles.payRetryOrderDivider} />
 
-            {/* Action Buttons */}
-            <View style={styles.payRetryActions}>
-              {/* Option 1: Retry Online Payment */}
-              <Pressable
-                style={({ pressed }) => [
-                  styles.payRetryPrimaryBtn,
-                  pressed && { opacity: 0.9 },
-                  isRetryingOrder && { opacity: 0.6 },
-                ]}
-                disabled={isRetryingOrder}
-                onPress={() => {
-                  setPaymentRetryModalVisible(false);
-                  setTimeout(() => {
-                    placeOrder('ONLINE_RAZORPAY');
-                  }, 250);
-                }}
-              >
-                <MaterialCommunityIcons name="refresh" size={20} color="#FFFFFF" />
-                <Text style={styles.payRetryPrimaryBtnText}>
-                  {isRetryingOrder ? 'Processing...' : 'Retry Online Payment'}
-                </Text>
-              </Pressable>
-
-              {/* Option 2: Pay via Cash on Delivery (COD) */}
-              <Pressable
-                style={({ pressed }) => [
-                  styles.payRetryCodBtn,
-                  pressed && { opacity: 0.9 },
-                  isRetryingOrder && { opacity: 0.6 },
-                ]}
-                disabled={isRetryingOrder}
-                onPress={() => {
-                  setPaymentRetryModalVisible(false);
-                  setTimeout(() => {
-                    placeOrder('COD');
-                  }, 250);
-                }}
-              >
-                <MaterialCommunityIcons name="cash-multiple" size={22} color="#16A34A" />
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.payRetryCodBtnTitle}>Pay on Delivery (COD / UPI)</Text>
-                  <Text style={styles.payRetryCodBtnSub}>Confirm pickup now, pay pilot at doorstep</Text>
+                <View style={styles.payRetryOrderRow}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                    <MaterialCommunityIcons name="clock-outline" size={18} color="#64748B" />
+                    <Text style={styles.payRetryOrderSublabel}>Pickup Slot</Text>
+                  </View>
+                  <Text style={styles.payRetryOrderSubval}>
+                    {shortDate(slotDate)} • {selectedSlot?.startTime && selectedSlot?.endTime ? `${selectedSlot.startTime} - ${selectedSlot.endTime}` : 'Flexible Collection Window'}
+                  </Text>
                 </View>
-                <MaterialCommunityIcons name="chevron-right" size={20} color="#16A34A" />
-              </Pressable>
 
-              {/* Option 3: Cancel / Change Payment Method */}
-              <Pressable
-                style={styles.payRetryCancelBtn}
-                onPress={() => setPaymentRetryModalVisible(false)}
-              >
-                <Text style={styles.payRetryCancelBtnText}>
-                  Change Payment Method / Review Bag
-                </Text>
-              </Pressable>
-            </View>
+                <View style={styles.payRetrySafePill}>
+                  <MaterialCommunityIcons name="shield-check" size={15} color="#16A34A" />
+                  <Text style={styles.payRetrySafeText}>
+                    Your laundry bag items are completely safe.
+                  </Text>
+                </View>
+              </View>
+
+              {/* Action Buttons */}
+              <View style={styles.payRetryActions}>
+                {/* Option 1: Retry Online Payment */}
+                <Pressable
+                  style={({ pressed }) => [
+                    styles.payRetryPrimaryBtn,
+                    pressed && { opacity: 0.9, transform: [{ scale: 0.99 }] },
+                    isRetryingOrder && { opacity: 0.6 },
+                  ]}
+                  disabled={isRetryingOrder}
+                  onPress={() => {
+                    setPaymentRetryModalVisible(false);
+                    setTimeout(() => {
+                      placeOrder('ONLINE_RAZORPAY');
+                    }, 250);
+                  }}
+                >
+                  <MaterialCommunityIcons name="refresh" size={20} color="#FFFFFF" />
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.payRetryPrimaryBtnText}>
+                      {isRetryingOrder ? 'Processing...' : `Retry Online Payment (${money(finalPayable)})`}
+                    </Text>
+                    <Text style={styles.payRetryPrimaryBtnSub}>Instant UPI, GPay, PhonePe, Cards & NetBanking</Text>
+                  </View>
+                  <MaterialCommunityIcons name="arrow-right" size={18} color="#FFFFFF" />
+                </Pressable>
+
+                {/* Option 2: Pay via Cash on Delivery (COD) */}
+                <Pressable
+                  style={({ pressed }) => [
+                    styles.payRetryCodBtn,
+                    pressed && { opacity: 0.9, transform: [{ scale: 0.99 }] },
+                    isRetryingOrder && { opacity: 0.6 },
+                  ]}
+                  disabled={isRetryingOrder}
+                  onPress={() => {
+                    setPaymentRetryModalVisible(false);
+                    setTimeout(() => {
+                      placeOrder('COD');
+                    }, 250);
+                  }}
+                >
+                  <View style={styles.payRetryCodIconCircle}>
+                    <MaterialCommunityIcons name="cash-multiple" size={20} color="#16A34A" />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.payRetryCodBtnTitle}>Pay on Delivery (COD / UPI)</Text>
+                    <Text style={styles.payRetryCodBtnSub}>Confirm pickup now • Pay pilot at doorstep</Text>
+                  </View>
+                  <MaterialCommunityIcons name="chevron-right" size={20} color="#16A34A" />
+                </Pressable>
+
+                {/* Option 3: Cancel / Change Payment Method */}
+                <Pressable
+                  style={({ pressed }) => [
+                    styles.payRetryCancelBtn,
+                    pressed && { opacity: 0.8 },
+                  ]}
+                  onPress={() => setPaymentRetryModalVisible(false)}
+                >
+                  <Text style={styles.payRetryCancelBtnText}>
+                    Change Payment Method / Review Bag
+                  </Text>
+                </Pressable>
+              </View>
+            </ScrollView>
           </View>
         </View>
       </Modal>
@@ -4323,51 +4352,55 @@ const styles = StyleSheet.create({
   },
   payRetrySheet: {
     backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    paddingHorizontal: 20,
-    paddingTop: 12,
-    paddingBottom: Platform.OS === 'ios' ? 36 : 24,
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    paddingHorizontal: 18,
+    paddingTop: 10,
+    paddingBottom: 0,
+    maxHeight: '90%',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: -4 },
-    shadowOpacity: 0.12,
+    shadowOpacity: 0.14,
     shadowRadius: 16,
     elevation: 20,
   },
+  payRetryScrollContent: {
+    paddingBottom: 24,
+  },
   payRetryHandle: {
-    width: 40,
+    width: 44,
     height: 4,
     borderRadius: 2,
     backgroundColor: '#CBD5E1',
     alignSelf: 'center',
-    marginBottom: 16,
+    marginBottom: 12,
   },
   payRetryHeader: {
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: 14,
   },
   payRetryIconCircle: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
+    width: 52,
+    height: 52,
+    borderRadius: 26,
     borderWidth: 2,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 12,
+    marginBottom: 10,
   },
   payRetryTitle: {
-    fontSize: 19,
+    fontSize: 18,
     fontWeight: '900',
     color: '#0F172A',
     textAlign: 'center',
     letterSpacing: -0.3,
   },
   payRetrySubtitle: {
-    fontSize: 13,
+    fontSize: 12.5,
     color: '#64748B',
     textAlign: 'center',
-    lineHeight: 19,
-    marginTop: 6,
+    lineHeight: 18,
+    marginTop: 4,
     paddingHorizontal: 10,
   },
   payRetryOrderCard: {
@@ -4375,8 +4408,8 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     borderWidth: 1,
     borderColor: '#E2E8F0',
-    padding: 14,
-    marginBottom: 16,
+    padding: 12,
+    marginBottom: 14,
   },
   payRetryOrderRow: {
     flexDirection: 'row',
@@ -4396,7 +4429,7 @@ const styles = StyleSheet.create({
   payRetryOrderDivider: {
     height: 1,
     backgroundColor: '#E2E8F0',
-    marginVertical: 10,
+    marginVertical: 8,
   },
   payRetryOrderSublabel: {
     fontSize: 12,
@@ -4416,7 +4449,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 8,
-    marginTop: 10,
+    marginTop: 8,
   },
   payRetrySafeText: {
     fontSize: 11,
@@ -4425,16 +4458,17 @@ const styles = StyleSheet.create({
   },
   payRetryActions: {
     gap: 10,
+    marginTop: 2,
   },
   payRetryPrimaryBtn: {
-    backgroundColor: '#EA580C',
+    backgroundColor: '#059669',
     borderRadius: 14,
     paddingVertical: 14,
+    paddingHorizontal: 16,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    shadowColor: '#EA580C',
+    gap: 12,
+    shadowColor: '#059669',
     shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.25,
     shadowRadius: 6,
@@ -4442,9 +4476,15 @@ const styles = StyleSheet.create({
   },
   payRetryPrimaryBtnText: {
     color: '#FFFFFF',
-    fontSize: 15,
+    fontSize: 14.5,
     fontWeight: '800',
-    letterSpacing: 0.2,
+    letterSpacing: 0.1,
+  },
+  payRetryPrimaryBtnSub: {
+    color: 'rgba(255, 255, 255, 0.85)',
+    fontSize: 11,
+    fontWeight: '500',
+    marginTop: 1,
   },
   payRetryCodBtn: {
     backgroundColor: '#F0FDF4',
@@ -4457,24 +4497,39 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 12,
   },
+  payRetryCodIconCircle: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#DCFCE7',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   payRetryCodBtnTitle: {
-    fontSize: 14,
+    fontSize: 13.5,
     fontWeight: '800',
     color: '#166534',
   },
   payRetryCodBtnSub: {
     fontSize: 11,
     color: '#15803D',
-    marginTop: 2,
+    marginTop: 1,
   },
   payRetryCancelBtn: {
-    paddingVertical: 10,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    backgroundColor: '#F8FAFC',
     alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 4,
   },
   payRetryCancelBtnText: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#64748B',
+    color: '#475569',
   },
 
   // VIP Membership Perks Card

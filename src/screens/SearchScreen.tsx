@@ -23,14 +23,21 @@ interface SearchScreenProps {
   onBook: () => void;
   onBack?: () => void;
   onSelectProduct?: (product: ProductItem) => void;
+  initialQuery?: string;
+  onQueryChange?: (query: string) => void;
 }
 
 const RECENT_SEARCHES_KEY = '@laundryfresh_recent_searches';
 
-export function SearchScreen({ onBook, onBack, onSelectProduct }: SearchScreenProps) {
+export function SearchScreen({ onBook, onBack, onSelectProduct, initialQuery = '', onQueryChange }: SearchScreenProps) {
   const insets = useSafeAreaInsets();
   const { cart, cartSummary, addCartItem, setCartQuantity, removeFromCart, catalog } = useApp();
-  const [query, setQuery] = useState('');
+  const [query, setQueryState] = useState(initialQuery);
+
+  const setQuery = (newQuery: string) => {
+    setQueryState(newQuery);
+    onQueryChange?.(newQuery);
+  };
   const [recentSearches, setRecentSearches] = useState<string[]>([]);
   const [searching, setSearching] = useState(false);
   const [searchResults, setSearchResults] = useState<any[]>([]);
@@ -330,7 +337,18 @@ export function SearchScreen({ onBook, onBack, onSelectProduct }: SearchScreenPr
       {/* Top Search Input Bar */}
       <View style={[styles.header, { paddingTop: Math.max(insets.top, 12) + 6 }]}>
         {onBack ? (
-          <Pressable onPress={onBack} hitSlop={12} style={styles.headerBackBtn} accessibilityLabel="Back">
+          <Pressable
+            onPress={() => {
+              if (query.trim()) {
+                setQuery('');
+              } else {
+                onBack();
+              }
+            }}
+            hitSlop={12}
+            style={styles.headerBackBtn}
+            accessibilityLabel="Back"
+          >
             <MaterialCommunityIcons name="arrow-left" size={24} color="#0F172A" />
           </Pressable>
         ) : null}
@@ -346,7 +364,7 @@ export function SearchScreen({ onBook, onBack, onSelectProduct }: SearchScreenPr
               saveSearchTerm(query);
               performSearch(query);
             }}
-            autoFocus
+            autoFocus={!initialQuery}
             clearButtonMode="always"
           />
           {query ? (
@@ -369,7 +387,7 @@ export function SearchScreen({ onBook, onBack, onSelectProduct }: SearchScreenPr
 
       <ScrollView
         style={styles.scrollArea}
-        contentContainerStyle={[styles.content, cartSummary.itemCount > 0 && { paddingBottom: 110 }]}
+        contentContainerStyle={[styles.content, { paddingBottom: Math.max(insets.bottom, 16) + 24 }]}
         showsVerticalScrollIndicator={false}
       >
         {/* If Query is Empty: Show Recent & Trending Searches */}
@@ -626,30 +644,6 @@ export function SearchScreen({ onBook, onBack, onSelectProduct }: SearchScreenPr
           </View>
         )}
       </ScrollView>
-
-      {/* Luxury Floating Bottom Bag Bar (Guaranteed above Android navigation bar) */}
-      {cartSummary.itemCount > 0 && (
-        <Pressable
-          style={({ pressed }) => [
-            styles.floatingBagBar,
-            { bottom: Math.max(insets.bottom, 16) + 12 },
-            pressed ? { opacity: 0.92, transform: [{ scale: 0.98 }] } : null,
-          ]}
-          onPress={onBook}
-        >
-          <View style={styles.bagInfo}>
-            <Text style={styles.bagCountText}>
-              🛍️ {cartSummary.itemCount} Item{cartSummary.itemCount === 1 ? '' : 's'} in Laundry Bag
-            </Text>
-            <Text style={styles.bagTotalText}>Total: {money(cartSummary.itemTotal)}</Text>
-          </View>
-
-          <View style={styles.bagReviewBtn}>
-            <Text style={styles.bagReviewBtnText}>View Cart</Text>
-            <MaterialCommunityIcons name="arrow-right" size={16} color="#FFFFFF" />
-          </View>
-        </Pressable>
-      )}
     </View>
   );
 }

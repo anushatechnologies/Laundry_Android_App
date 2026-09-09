@@ -971,7 +971,7 @@ export function CategoryCatalogScreen({
           contentContainerStyle={[
             styles.productsScrollContent,
             {
-              paddingBottom: cartSummary.itemCount > 0 ? Math.max(insets.bottom, 16) + 84 : 28,
+              paddingBottom: Math.max(insets.bottom, 16) + 24,
             },
           ]}
           refreshControl={
@@ -1192,40 +1192,6 @@ export function CategoryCatalogScreen({
             })}
           </View>
         </ScrollView>
-      )}
-
-      {/* 7. Bottom Sticky Bag Bar (100% Solid, High-contrast, Guaranteed above Android safe area) */}
-      {cartSummary.itemCount > 0 && (
-        <View style={[styles.stickyCartBarWrap, { paddingBottom: Math.max(insets.bottom, 12) }]}>
-          <Pressable
-            style={({ pressed }) => [styles.cartBarPressable, pressed ? styles.pressedBtn : null]}
-            onPress={handleCartClick}
-            accessibilityRole="button"
-            accessibilityLabel={`View bag with ${cartSummary.itemCount} items, total ${String.fromCharCode(0x20B9)}${cartSummary.itemTotal}`}
-          >
-            <View style={styles.stickyCartBar}>
-              <View style={styles.cartBarLeft}>
-                <View style={styles.cartBarIconBadge}>
-                  <MaterialCommunityIcons name="shopping" size={18} color="#FFFFFF" />
-                </View>
-                <View style={styles.cartBarInfo}>
-                  <Text style={styles.cartBarTotalText}>
-                    <Text style={styles.cartBarCountText}>
-                      {cartSummary.itemCount} {cartSummary.itemCount === 1 ? 'item' : 'items'}
-                    </Text>
-                    <Text style={styles.cartBarDotText}> • </Text>
-                    <Text style={styles.cartBarPriceText}>₹{cartSummary.itemTotal}</Text>
-                  </Text>
-                </View>
-              </View>
-
-              <View style={styles.cartBarRightBtn}>
-                <Text style={styles.cartBarActionText}>View Bag</Text>
-                <MaterialCommunityIcons name="arrow-right" size={16} color="#FFFFFF" />
-              </View>
-            </View>
-          </Pressable>
-        </View>
       )}
     </View>
   );

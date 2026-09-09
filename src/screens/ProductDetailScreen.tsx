@@ -435,20 +435,6 @@ export function ProductDetailScreen({
             </Animated.View>
           </View>
         </View>
-
-        {/* Shortcut to Cart if items exist */}
-        {cartSummary.itemCount > 0 && (
-          <Pressable
-            style={styles.viewCartShortcut}
-            onPress={onViewCart}
-            hitSlop={6}
-            accessibilityRole="button"
-          >
-            <Text style={styles.viewCartShortcutText}>
-              🛍️ {cartSummary.itemCount} items in Bag (₹{cartSummary.itemTotal}) • View Bag ➔
-            </Text>
-          </Pressable>
-        )}
       </View>
     </View>
   );

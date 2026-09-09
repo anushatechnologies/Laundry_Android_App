@@ -379,6 +379,7 @@ function AuthenticatedApp() {
   const [onboardingStage, setOnboardingStage] = useState<OnboardingStage>('LANDING');
   const [showLocationModal, setShowLocationModal] = useState(false);
   const [couponCode, setCouponCode] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategoryInfo, setSelectedCategoryInfo] = useState<{
     tag: string;
     title: string;
@@ -837,8 +838,13 @@ function AuthenticatedApp() {
   } else if (route === 'SEARCH') {
     screen = (
       <SearchScreen
+        initialQuery={searchQuery}
+        onQueryChange={setSearchQuery}
         onBook={startBooking}
-        onBack={() => goBack(detailBackRoute.SEARCH)}
+        onBack={() => {
+          setSearchQuery('');
+          goBack(detailBackRoute.SEARCH);
+        }}
         onSelectProduct={(product) => {
           setSelectedProductForDetail(product);
           navigateTo('PRODUCT_DETAIL');
