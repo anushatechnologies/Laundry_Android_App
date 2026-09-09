@@ -1071,7 +1071,7 @@ export function HomeScreen({
 
         {/* OUR SERVICES SECTION REMOVED - Using All Services grid instead */}
 
-        {/* 2. BROWSE BY CATEGORY (4 PER ROW) */}
+        {/* 2. BROWSE BY CATEGORY (STRICTLY 4 PER ROW, 2 ROWS = 8 CATEGORIES) */}
         <View style={styles.categoriesSection}>
           <View style={styles.sectionHeaderRow}>
             <View>
@@ -1080,8 +1080,50 @@ export function HomeScreen({
             </View>
           </View>
 
-          <View style={styles.homeCategory4Grid}>
-            {categories.map((cat) => {
+          {/* Row 1: Exactly 4 Category Items */}
+          <View style={styles.homeGridRow4}>
+            {categories.slice(0, 4).map((cat) => {
+              const photoUrl = catImgErrors[cat.slug]
+                ? getCategoryImageUrl(cat.tag)
+                : (cat.imageUrl || getCategoryImageUrl(cat.tag));
+              return (
+                <Pressable
+                  key={cat.slug}
+                  style={({ pressed }) => [
+                    styles.homeCategory4Col,
+                    pressed && styles.categoryItemPressed,
+                  ]}
+                  onPress={() => {
+                    if (cat.tag === 'BULK' || cat.slug === 'bulk-laundry' || cat.slug === 'express-services') {
+                      if (onOpenBulkLaundry) onOpenBulkLaundry();
+                      return;
+                    }
+                    if (onSelectCategory) {
+                      onSelectCategory(cat.tag, cat.label);
+                    }
+                  }}
+                >
+                  <View style={[styles.homeCatCircleWrap, { borderColor: cat.accent }]}>
+                    <Image
+                      source={{ uri: photoUrl }}
+                      style={styles.homeCatCircleImg}
+                      resizeMode="cover"
+                      onError={() => setCatImgErrors((prev) => ({ ...prev, [cat.slug]: true }))}
+                    />
+                    {/* Item Count Badge at Bottom */}
+                    <View style={[styles.homeCatCountBadge, { backgroundColor: cat.accent }]}>
+                      <Text style={styles.homeCatCountText}>{cat.count}</Text>
+                    </View>
+                  </View>
+                  <Text style={styles.homeCatTitle} numberOfLines={2}>{cat.label}</Text>
+                </Pressable>
+              );
+            })}
+          </View>
+
+          {/* Row 2: Exactly 4 Category Items */}
+          <View style={styles.homeGridRow4}>
+            {categories.slice(4, 8).map((cat) => {
               const photoUrl = catImgErrors[cat.slug]
                 ? getCategoryImageUrl(cat.tag)
                 : (cat.imageUrl || getCategoryImageUrl(cat.tag));
@@ -1121,7 +1163,7 @@ export function HomeScreen({
           </View>
         </View>
 
-        {/* 2.5 ALL SERVICES & CARE (TWO ROWS, 4 SERVICES PER ROW = 8 SERVICES) */}
+        {/* 2.5 ALL SERVICES & CARE (TWO ROWS, EXACTLY 4 SERVICES PER ROW = 8 SERVICES) */}
         <View style={styles.servicesSection}>
           <View style={styles.sectionHeaderRow}>
             <View>
@@ -1140,9 +1182,43 @@ export function HomeScreen({
             </Pressable>
           </View>
 
-          {/* 8 Specialized Services (4 Rounded Items Per Row, 2 Rows = 8 Services) */}
-          <View style={styles.homeCategory4Grid}>
-            {allServicesList.map((svc) => (
+          {/* Row 1: First 4 Services */}
+          <View style={styles.homeGridRow4}>
+            {allServicesList.slice(0, 4).map((svc) => (
+              <Pressable
+                key={svc.id}
+                style={({ pressed }) => [
+                  styles.homeCategory4Col,
+                  pressed && styles.categoryItemPressed,
+                ]}
+                onPress={() => handleServicePress(svc)}
+                accessibilityRole="button"
+                accessibilityLabel={svc.title}
+              >
+                <View style={[styles.homeCatCircleWrap, { borderColor: svc.accent || '#16A34A' }]}>
+                  <Image
+                    source={{ uri: serviceImgErrors[svc.id] ? svc.fallbackUrl : svc.imageUrl }}
+                    style={styles.homeCatCircleImg}
+                    resizeMode="cover"
+                    onError={() => setServiceImgErrors((prev) => ({ ...prev, [svc.id]: true }))}
+                  />
+                  {/* Turnaround Badge Top-Right */}
+                  <View style={styles.serviceTatCircleBadge}>
+                    <Text style={styles.serviceTatCircleBadgeText}>{svc.tat}</Text>
+                  </View>
+                  {/* Price Tag Bottom */}
+                  <View style={[styles.homeCatCountBadge, { backgroundColor: svc.accent || '#16A34A' }]}>
+                    <Text style={styles.homeCatCountText}>{svc.priceText}</Text>
+                  </View>
+                </View>
+                <Text style={styles.homeCatTitle} numberOfLines={2}>{svc.shortTitle || svc.title}</Text>
+              </Pressable>
+            ))}
+          </View>
+
+          {/* Row 2: Next 4 Services */}
+          <View style={styles.homeGridRow4}>
+            {allServicesList.slice(4, 8).map((svc) => (
               <Pressable
                 key={svc.id}
                 style={({ pressed }) => [
@@ -1402,25 +1478,17 @@ const styles = StyleSheet.create({
     marginTop: 3,
   },
 
-  // Browse Categories & Services: 4 per row, 100% Full Rounded Circles
-  homeCategory4Grid: {
+  // Browse Categories & Services: Strictly 4 per row, 100% Full Rounded Circles
+  homeGridRow4: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'flex-start',
-    marginTop: 10,
-    paddingHorizontal: 0,
+    justifyContent: 'space-between',
+    paddingHorizontal: 12,
+    marginBottom: 16,
     width: '100%',
   },
   homeCategory4Col: {
-    width: '25%',
-    minWidth: '25%',
-    maxWidth: '25%',
-    flexBasis: '25%',
-    flexShrink: 0,
-    flexGrow: 0,
+    width: '23.5%',
     alignItems: 'center',
-    marginBottom: 16,
-    paddingHorizontal: 2,
   },
   homeCatCircleWrap: {
     width: 66,

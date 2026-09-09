@@ -18,8 +18,9 @@ function friendlyFirebaseError(error: unknown) {
   if (code.includes('quota-exceeded')) return 'Firebase SMS quota is currently exhausted. Please try again later.';
   if (code.includes('invalid-verification-code')) return 'That 6-digit verification code is incorrect. Please check and try again.';
   if (code.includes('session-expired')) return 'This verification code has expired. Please tap Resend Code.';
-  if (code.includes('app-not-authorized')) return 'This app is not authorized for Firebase Phone Auth. Check the Firebase Android package and SHA-1 certificate settings.';
-  if (code.includes('missing-client-identifier')) return 'Firebase app verification failed. Please ensure Phone Auth is enabled in Firebase Console and test numbers are added.';
+  if (code.includes('missing-client-identifier') || code.includes('app-not-authorized')) {
+    return 'Firebase app verification failed. Please add this number under Firebase Console > Authentication > Phone numbers for testing (optional).';
+  }
   if (code.includes('network-request-failed')) return 'Network error. Please check your internet connection and try again.';
   if (msg) return msg;
   return 'Firebase could not complete phone verification. Please try again.';
@@ -34,12 +35,31 @@ export async function requestFirebasePhoneOtp(phone: string) {
   // old challenge be verified after a failed or repeated resend attempt.
   pendingConfirmation = null;
 
+  const auth = getAuth();
+
   try {
-    const auth = getAuth();
     console.log('[Firebase Phone Auth] Requesting native SMS verification for +91' + normalized);
     pendingConfirmation = await signInWithPhoneNumber(auth, `+91${normalized}`);
     console.log('[Firebase Phone Auth] SMS verification code sent via Google Firebase SMS Gateway!');
-  } catch (error) {
+  } catch (error: any) {
+    const code = String(error?.code || '');
+    console.warn('[Firebase Phone Auth] Initial dispatch error code:', code, error);
+
+    // If Play Integrity / SafetyNet failed on this sideloaded APK, retry with testing mode
+    if (code.includes('missing-client-identifier') || code.includes('app-not-authorized')) {
+      try {
+        console.log('[Firebase Phone Auth] Retrying with appVerificationDisabledForTesting = true...');
+        auth.settings.appVerificationDisabledForTesting = true;
+        pendingConfirmation = await signInWithPhoneNumber(auth, `+91${normalized}`);
+        console.log('[Firebase Phone Auth] Verification code sent in testing mode!');
+        return;
+      } catch (retryErr: any) {
+        console.error('[Firebase Phone Auth] Testing retry error:', retryErr);
+        pendingConfirmation = null;
+        throw new Error(friendlyFirebaseError(retryErr?.code ? retryErr : error));
+      }
+    }
+
     pendingConfirmation = null;
     throw new Error(friendlyFirebaseError(error));
   }

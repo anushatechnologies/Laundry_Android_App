@@ -559,14 +559,14 @@ export function ServicesScreen({ onBook, onOpenBulkLaundry }: ServicesScreenProp
             <Text style={styles.overviewSub}>Tap category to view specialized garments</Text>
           </View>
 
-          <View style={styles.circleGridContainer}>
-            {categoriesList.map((cat) => (
+          {/* Row 1: 4 Categories */}
+          <View style={styles.circleGridRow4}>
+            {categoriesList.slice(0, 4).map((cat) => (
               <Pressable
                 key={cat.id}
                 style={({ pressed }) => [styles.circleCatCol, pressed && styles.circleCatPressed]}
                 onPress={() => handleOpenCategory(cat.id)}
               >
-                {/* Full Rounded Circular Image with matching Accent Border */}
                 <View style={[styles.circleAvatarWrapper, { borderColor: cat.iconColor || '#0F766E' }]}>
                   <Image
                     source={{
@@ -578,13 +578,40 @@ export function ServicesScreen({ onBook, onOpenBulkLaundry }: ServicesScreenProp
                     resizeMode="cover"
                     onError={() => setImgErrors((prev) => ({ ...prev, [cat.id]: true }))}
                   />
-                  {/* Item count pill badge at bottom */}
                   <View style={[styles.circlePillBadge, { backgroundColor: cat.iconColor || '#0F766E' }]}>
                     <Text style={styles.circlePillText}>{cat.itemCount} Items</Text>
                   </View>
                 </View>
+                <Text style={styles.circleCatTitle} numberOfLines={2}>
+                  {cat.shortName || cat.name}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
 
-                {/* Category Name */}
+          {/* Row 2: 4 Categories */}
+          <View style={styles.circleGridRow4}>
+            {categoriesList.slice(4, 8).map((cat) => (
+              <Pressable
+                key={cat.id}
+                style={({ pressed }) => [styles.circleCatCol, pressed && styles.circleCatPressed]}
+                onPress={() => handleOpenCategory(cat.id)}
+              >
+                <View style={[styles.circleAvatarWrapper, { borderColor: cat.iconColor || '#0F766E' }]}>
+                  <Image
+                    source={{
+                      uri: imgErrors[cat.id]
+                        ? (CATEGORY_DEFAULT_PHOTOS[cat.id] || 'https://images.unsplash.com/photo-1507679799987-c73779587ccf?auto=format&fit=crop&w=400&q=80')
+                        : cat.bannerImage
+                    }}
+                    style={styles.circleAvatarImg}
+                    resizeMode="cover"
+                    onError={() => setImgErrors((prev) => ({ ...prev, [cat.id]: true }))}
+                  />
+                  <View style={[styles.circlePillBadge, { backgroundColor: cat.iconColor || '#0F766E' }]}>
+                    <Text style={styles.circlePillText}>{cat.itemCount} Items</Text>
+                  </View>
+                </View>
                 <Text style={styles.circleCatTitle} numberOfLines={2}>
                   {cat.shortName || cat.name}
                 </Text>
@@ -598,8 +625,9 @@ export function ServicesScreen({ onBook, onOpenBulkLaundry }: ServicesScreenProp
             <Text style={styles.overviewSub}>8 specialized treatments for every fabric</Text>
           </View>
 
-          <View style={styles.circleGridContainer}>
-            {ALL_CARE_SERVICES.map((svc) => (
+          {/* Row 1: 4 Services */}
+          <View style={styles.circleGridRow4}>
+            {ALL_CARE_SERVICES.slice(0, 4).map((svc) => (
               <Pressable
                 key={svc.id}
                 style={({ pressed }) => [styles.circleCatCol, pressed && styles.circleCatPressed]}
@@ -612,14 +640,11 @@ export function ServicesScreen({ onBook, onOpenBulkLaundry }: ServicesScreenProp
                   setViewMode('SPLIT_VIEW');
                 }}
               >
-                {/* 1. Turnaround Time Pill Badge at TOP */}
                 <View style={[styles.serviceTopTatBadge, { backgroundColor: svc.tatBg || '#F0FDFA' }]}>
                   <Text style={[styles.serviceTopTatText, { color: svc.tatColor || svc.accent || '#0F766E' }]}>
                     {svc.tat}
                   </Text>
                 </View>
-
-                {/* 2. 100% Full Rounded Circular Avatar */}
                 <View style={[styles.serviceCircleWrap, { borderColor: svc.accent || '#0F766E' }]}>
                   <Image
                     source={{ uri: svc.imageUrl }}
@@ -627,18 +652,50 @@ export function ServicesScreen({ onBook, onOpenBulkLaundry }: ServicesScreenProp
                     resizeMode="cover"
                   />
                 </View>
-
-                {/* 3. Title */}
                 <Text style={styles.serviceTitleText} numberOfLines={1}>
                   {svc.shortTitle || svc.title}
                 </Text>
-
-                {/* 4. Price */}
                 <Text style={[styles.servicePriceText, { color: svc.accent || '#059669' }]}>
                   {svc.priceText}
                 </Text>
+                <View style={[styles.serviceBottomBar, { backgroundColor: svc.accent || '#0F766E' }]} />
+              </Pressable>
+            ))}
+          </View>
 
-                {/* 5. Colored Accent Underline Bar */}
+          {/* Row 2: 4 Services */}
+          <View style={styles.circleGridRow4}>
+            {ALL_CARE_SERVICES.slice(4, 8).map((svc) => (
+              <Pressable
+                key={svc.id}
+                style={({ pressed }) => [styles.circleCatCol, pressed && styles.circleCatPressed]}
+                onPress={() => {
+                  if (svc.serviceCode === 'BULK_LAUNDRY' || svc.id === 'bulk-laundry') {
+                    if (onOpenBulkLaundry) onOpenBulkLaundry();
+                    return;
+                  }
+                  setSearchQuery(svc.shortTitle || svc.title);
+                  setViewMode('SPLIT_VIEW');
+                }}
+              >
+                <View style={[styles.serviceTopTatBadge, { backgroundColor: svc.tatBg || '#F0FDFA' }]}>
+                  <Text style={[styles.serviceTopTatText, { color: svc.tatColor || svc.accent || '#0F766E' }]}>
+                    {svc.tat}
+                  </Text>
+                </View>
+                <View style={[styles.serviceCircleWrap, { borderColor: svc.accent || '#0F766E' }]}>
+                  <Image
+                    source={{ uri: svc.imageUrl }}
+                    style={styles.serviceCircleImg}
+                    resizeMode="cover"
+                  />
+                </View>
+                <Text style={styles.serviceTitleText} numberOfLines={1}>
+                  {svc.shortTitle || svc.title}
+                </Text>
+                <Text style={[styles.servicePriceText, { color: svc.accent || '#059669' }]}>
+                  {svc.priceText}
+                </Text>
                 <View style={[styles.serviceBottomBar, { backgroundColor: svc.accent || '#0F766E' }]} />
               </Pressable>
             ))}
@@ -825,6 +882,13 @@ export function ServicesScreen({ onBook, onOpenBulkLaundry }: ServicesScreenProp
 }
 
 const styles = StyleSheet.create({
+  circleGridRow4: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingHorizontal: 12,
+    marginBottom: 16,
+    width: '100%',
+  },
   circleGridContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -834,15 +898,8 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   circleCatCol: {
-    width: '25%',
-    minWidth: '25%',
-    maxWidth: '25%',
-    flexBasis: '25%',
-    flexShrink: 0,
-    flexGrow: 0,
+    width: '23.5%',
     alignItems: 'center',
-    marginBottom: 16,
-    paddingHorizontal: 2,
   },
   circleCatPressed: {
     transform: [{ scale: 0.94 }],
