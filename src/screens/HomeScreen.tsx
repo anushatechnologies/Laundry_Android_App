@@ -990,23 +990,25 @@ export function HomeScreen({
         </View>
 
         {/* Full-width Pill Search Bar below Location (Image 1 reference) */}
-        <Pressable
-          style={({ pressed }) => [
-            styles.headerSearchBar,
-            pressed && { opacity: 0.95, transform: [{ scale: 0.99 }] },
-          ]}
-          onPress={onOpenSearch}
-          accessibilityRole="button"
-          accessibilityLabel="Search services and clothes"
-        >
-          <MaterialCommunityIcons name="magnify" size={22} color="#0F766E" />
-          <Text style={styles.headerSearchPlaceholder}>
-            Search for "Dry Clean", "Ironing", "Shirts"…
-          </Text>
-          <View style={styles.headerSearchBadge}>
-            <MaterialCommunityIcons name="tune-variant" size={14} color="#0F766E" />
-          </View>
-        </Pressable>
+        <View style={styles.headerSearchWrapper}>
+          <Pressable
+            style={({ pressed }) => [
+              styles.headerSearchBar,
+              pressed && { opacity: 0.95, transform: [{ scale: 0.99 }] },
+            ]}
+            onPress={onOpenSearch}
+            accessibilityRole="button"
+            accessibilityLabel="Search services and clothes"
+          >
+            <MaterialCommunityIcons name="magnify" size={22} color="#0F766E" />
+            <Text style={styles.headerSearchPlaceholder} numberOfLines={1} ellipsizeMode="tail">
+              Search for "Dry Clean", "Ironing", "Shirts"…
+            </Text>
+            <View style={styles.headerSearchBadge}>
+              <MaterialCommunityIcons name="tune-variant" size={14} color="#0F766E" />
+            </View>
+          </Pressable>
+        </View>
       </View>
 
       {/* 2. SCROLLABLE PAGE BODY */}
@@ -1929,14 +1931,18 @@ const styles = StyleSheet.create({
     shadowRadius: 16,
     elevation: 6,
   },
+  headerSearchWrapper: {
+    width: '100%',
+    marginTop: 12,
+  },
   headerSearchBar: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#FFFFFF',
     borderRadius: 24,
     paddingHorizontal: 16,
-    paddingVertical: 11,
-    marginTop: 12,
+    height: 48,
+    width: '100%',
     borderWidth: 1.5,
     borderColor: '#E6FFFA',
     shadowColor: '#000000',
@@ -1944,19 +1950,20 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.12,
     shadowRadius: 8,
     elevation: 4,
-    width: '100%',
   },
   headerSearchPlaceholder: {
     fontSize: 13,
     color: '#334155',
     marginLeft: 8,
+    marginRight: 6,
     fontWeight: '600',
     flex: 1,
+    flexGrow: 1,
   },
   headerSearchBadge: {
-    width: 26,
-    height: 26,
-    borderRadius: 13,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
     backgroundColor: '#F0FDFA',
     alignItems: 'center',
     justifyContent: 'center',

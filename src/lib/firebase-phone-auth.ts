@@ -61,16 +61,13 @@ export async function requestFirebasePhoneOtp(phone: string) {
         // Reset flag
         auth.settings.appVerificationDisabledForTesting = false;
         throw new Error(
-          'Firebase SMS verification failed for real mobile numbers.\n\n' +
-          'MAIN ISSUE:\n' +
-          'Google requires your Android app SHA-256 fingerprint in Firebase Console to allow real SMS.\n\n' +
-          'QUICK FIX (1 MINUTE):\n' +
-          '1. Open Firebase Console -> Project Settings -> General\n' +
-          '2. Under "Your apps", select com.anusha.laundry\n' +
-          '3. Click "Add fingerprint" and paste SHA-256:\n' +
-          '   FA:C6:17:45:DC:09:03:78:6F:B9:ED:E6:2A:96:2B:39:9F:73:48:F0:BB:6F:89:9B:83:32:66:75:91:03:3B:9C\n' +
-          '4. Enable "Play Integrity API" in Google Cloud Console.\n\n' +
-          'For instant testing, enter your Firebase Console test phone number.'
+          'Firebase SMS Verification (Next Step):\n\n' +
+          'You have successfully added the SHA-256 fingerprint in Firebase!\n\n' +
+          'To enable real SMS delivery on your device:\n' +
+          '1. Download the updated "google-services.json" from Firebase Console.\n' +
+          '2. Enable "Play Integrity API" in Google Cloud Console:\n' +
+          '   console.cloud.google.com/apis/library/playintegrity.googleapis.com?project=anushabazaar-2288e\n\n' +
+          'For immediate testing without waiting, you can also enter your Firebase Console test phone number.'
         );
       }
     }
