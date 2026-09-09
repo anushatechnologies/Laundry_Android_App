@@ -1933,6 +1933,7 @@ const styles = StyleSheet.create({
   },
   headerSearchWrapper: {
     width: '100%',
+    alignSelf: 'stretch',
     marginTop: 12,
   },
   headerSearchBar: {
@@ -1943,6 +1944,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     height: 48,
     width: '100%',
+    minWidth: '100%',
+    alignSelf: 'stretch',
     borderWidth: 1.5,
     borderColor: '#E6FFFA',
     shadowColor: '#000000',
@@ -1957,6 +1960,7 @@ const styles = StyleSheet.create({
     marginLeft: 8,
     marginRight: 6,
     fontWeight: '600',
+    minWidth: 140,
     flex: 1,
     flexGrow: 1,
   },
