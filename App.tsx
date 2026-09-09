@@ -724,7 +724,21 @@ function AuthenticatedApp() {
       />
     );
   } else if (route === 'SERVICES') {
-    screen = <ServicesScreen onBook={startBooking} onOpenBulkLaundry={() => navigateTo('BULK_LAUNDRY')} />;
+    screen = (
+      <CategoryCatalogScreen
+        categoryTag={selectedCategoryInfo.tag || 'MENS'}
+        categoryTitle={selectedCategoryInfo.title || "Men's Wear"}
+        initialServiceFilter={selectedCategoryInfo.serviceCode || 'ALL'}
+        initialServiceName={selectedCategoryInfo.serviceName || 'All Services'}
+        onBack={() => navigateTo('HOME')}
+        onOpenCart={() => navigateTo('CART')}
+        onOpenBulkLaundry={() => navigateTo('BULK_LAUNDRY')}
+        onSelectProduct={(product) => {
+          setSelectedProductForDetail(product);
+          navigateTo('PRODUCT_DETAIL');
+        }}
+      />
+    );
   } else if (route === 'CART') {
     screen = (
       <BookScreen

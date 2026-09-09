@@ -1140,48 +1140,58 @@ export function HomeScreen({
             </Pressable>
           </View>
 
-          {/* 8 Specialized Services (4 per row, Full Rounded Circles matching Categories) */}
-          <View style={styles.homeCategory4Grid}>
+          {/* 8 Specialized Services (2 Columns, Modern Service Treatment Cards) */}
+          <View style={styles.serviceCardGrid}>
             {allServicesList.map((svc) => (
               <Pressable
                 key={svc.id}
                 style={({ pressed }) => [
-                  styles.homeCategory4Col,
-                  pressed && styles.categoryItemPressed,
+                  styles.serviceCardItem,
+                  pressed && styles.serviceCardItemPressed,
                 ]}
                 onPress={() => handleServicePress(svc)}
                 accessibilityRole="button"
                 accessibilityLabel={svc.title}
               >
-                {/* 1. Turnaround Time Pill Badge at TOP */}
-                <View style={[styles.serviceTopTatBadge, { backgroundColor: svc.tatBg || '#F0FDFA' }]}>
-                  <Text style={[styles.serviceTopTatText, { color: svc.tatColor || svc.accent || '#0F766E' }]}>
-                    {svc.tat}
-                  </Text>
-                </View>
-
-                {/* 2. 100% Full Rounded Circular Avatar */}
-                <View style={[styles.serviceCircleWrap, { borderColor: svc.accent || '#0F766E' }]}>
+                {/* 1. Image Banner with Overlaid Badges */}
+                <View style={styles.serviceCardImageWrap}>
                   <Image
                     source={{ uri: serviceImgErrors[svc.id] ? svc.fallbackUrl : svc.imageUrl }}
-                    style={styles.serviceCircleImg}
+                    style={styles.serviceCardImage}
                     resizeMode="cover"
                     onError={() => setServiceImgErrors((prev) => ({ ...prev, [svc.id]: true }))}
                   />
+                  {/* TAT Badge top-left */}
+                  <View style={styles.serviceCardTatBadge}>
+                    <MaterialCommunityIcons name="lightning-bolt" size={10} color="#16A34A" />
+                    <Text style={styles.serviceCardTatText}>{svc.tat}</Text>
+                  </View>
+                  {/* Feature badge top-right */}
+                  {svc.badge ? (
+                    <View style={styles.serviceCardFeatureBadge}>
+                      <Text style={styles.serviceCardFeatureText}>{svc.badge}</Text>
+                    </View>
+                  ) : null}
                 </View>
 
-                {/* 3. Service Title */}
-                <Text style={styles.serviceTitleText} numberOfLines={1}>
-                  {svc.shortTitle || svc.title}
-                </Text>
-
-                {/* 4. Price */}
-                <Text style={[styles.servicePriceText, { color: svc.accent || '#059669' }]}>
-                  {svc.priceText}
-                </Text>
-
-                {/* 5. Colored Accent Underline Bar */}
-                <View style={[styles.serviceBottomBar, { backgroundColor: svc.accent || '#0F766E' }]} />
+                {/* 2. Service Info */}
+                <View style={styles.serviceCardBody}>
+                  <Text style={styles.serviceCardTitle} numberOfLines={1}>
+                    {svc.shortTitle || svc.title}
+                  </Text>
+                  <Text style={styles.serviceCardDesc} numberOfLines={1}>
+                    {svc.description}
+                  </Text>
+                  <View style={styles.serviceCardBottomRow}>
+                    <Text style={styles.serviceCardPriceText}>
+                      {svc.priceText}
+                    </Text>
+                    <View style={styles.serviceCardExploreBtn}>
+                      <Text style={styles.serviceCardExploreText}>Book</Text>
+                      <MaterialCommunityIcons name="arrow-right" size={11} color="#166534" />
+                    </View>
+                  </View>
+                </View>
               </Pressable>
             ))}
           </View>
@@ -1542,6 +1552,114 @@ const styles = StyleSheet.create({
     borderRadius: 2,
     marginTop: 3,
     alignSelf: 'center',
+  },
+
+  // 2-Column Modern Service Treatment Cards
+  serviceCardGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    marginTop: 10,
+  },
+  serviceCardItem: {
+    width: '48.5%',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    marginBottom: 12,
+    overflow: 'hidden',
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  serviceCardItemPressed: {
+    transform: [{ scale: 0.98 }],
+    opacity: 0.9,
+  },
+  serviceCardImageWrap: {
+    height: 84,
+    width: '100%',
+    position: 'relative',
+    backgroundColor: '#F1F5F9',
+  },
+  serviceCardImage: {
+    width: '100%',
+    height: '100%',
+  },
+  serviceCardTatBadge: {
+    position: 'absolute',
+    top: 6,
+    left: 6,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.94)',
+    paddingHorizontal: 6,
+    paddingVertical: 2.5,
+    borderRadius: 6,
+    gap: 2,
+    borderWidth: 0.5,
+    borderColor: '#E2E8F0',
+  },
+  serviceCardTatText: {
+    fontSize: 9.5,
+    fontWeight: '800',
+    color: '#0F172A',
+  },
+  serviceCardFeatureBadge: {
+    position: 'absolute',
+    top: 6,
+    right: 6,
+    backgroundColor: '#16A34A',
+    paddingHorizontal: 6,
+    paddingVertical: 2.5,
+    borderRadius: 6,
+  },
+  serviceCardFeatureText: {
+    fontSize: 8.5,
+    fontWeight: '800',
+    color: '#FFFFFF',
+  },
+  serviceCardBody: {
+    padding: 10,
+  },
+  serviceCardTitle: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#0F172A',
+    marginBottom: 2,
+  },
+  serviceCardDesc: {
+    fontSize: 10.5,
+    color: '#64748B',
+    marginBottom: 8,
+    lineHeight: 14,
+  },
+  serviceCardBottomRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  serviceCardPriceText: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#16A34A',
+  },
+  serviceCardExploreBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+    backgroundColor: '#DCFCE7',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+  },
+  serviceCardExploreText: {
+    fontSize: 10.5,
+    fontWeight: '800',
+    color: '#166534',
   },
 
   // Refer & Earn Banner on Home
