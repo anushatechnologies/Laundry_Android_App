@@ -998,28 +998,21 @@ export function HomeScreen({
           </View>
         </View>
 
-        {/* Full-width Pill Search Bar below Location (Image 1 reference) */}
-        <View style={styles.searchBarRow}>
-          <Pressable
-            style={({ pressed }) => [
-              styles.headerSearchBar,
-              pressed && { opacity: 0.95 },
-            ]}
-            onPress={onOpenSearch}
-            accessibilityRole="button"
-            accessibilityLabel="Search services and clothes"
-          >
-            <View style={styles.headerSearchLeftGroup}>
-              <MaterialCommunityIcons name="magnify" size={20} color="#0F766E" />
-              <Text style={styles.headerSearchPlaceholder} numberOfLines={1}>
-                Search for "Dry Clean", "Ironing", "Shirts"…
-              </Text>
-            </View>
-            <View style={styles.headerSearchBadge}>
-              <MaterialCommunityIcons name="tune-variant" size={14} color="#0F766E" />
-            </View>
-          </Pressable>
-        </View>
+        {/* Full-width Pill Search Bar below Location */}
+        <Pressable
+          style={({ pressed }) => [
+            styles.headerSearchBar,
+            pressed && { opacity: 0.95 },
+          ]}
+          onPress={onOpenSearch}
+          accessibilityRole="button"
+          accessibilityLabel="Search services and clothes"
+        >
+          <MaterialCommunityIcons name="magnify" size={22} color="#0F766E" style={styles.headerSearchIcon} />
+          <Text style={styles.headerSearchPlaceholder} numberOfLines={1}>
+            Search 70+ clothes, fabrics & services...
+          </Text>
+        </Pressable>
       </View>
 
       {/* 2. SCROLLABLE PAGE BODY */}
@@ -1942,52 +1935,32 @@ const styles = StyleSheet.create({
     shadowRadius: 10,
     elevation: 4,
   },
-  searchBarRow: {
-    width: '100%',
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 10,
-    marginBottom: 4,
-  },
   headerSearchBar: {
-    flex: 1,
+    width: '100%',
+    height: 48,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
     backgroundColor: '#FFFFFF',
     borderRadius: 24,
-    paddingHorizontal: 14,
-    height: 48,
-    borderWidth: 1.5,
-    borderColor: '#CCFBF1',
+    paddingHorizontal: 16,
+    marginTop: 10,
+    marginBottom: 4,
     shadowColor: '#000000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
+    shadowOpacity: 0.12,
     shadowRadius: 6,
-    elevation: 3,
+    elevation: 4,
+    borderWidth: 1.5,
+    borderColor: '#CCFBF1',
   },
-  headerSearchLeftGroup: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-    marginRight: 8,
-    gap: 8,
+  headerSearchIcon: {
+    marginRight: 10,
   },
   headerSearchPlaceholder: {
     flex: 1,
     fontSize: 13.5,
     color: '#64748B',
     fontWeight: '500',
-  },
-  headerSearchBadge: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#F0FDFA',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: '#CCFBF1',
   },
   navMainRow: {
     flexDirection: 'row',
