@@ -83,7 +83,52 @@ export function SearchScreen({ onBook, onBack, onSelectProduct }: SearchScreenPr
     }
   };
 
-  // Perform search with backend API
+  const allItems = useMemo(() => {
+    if (catalog?.clothTypes && Array.isArray(catalog.clothTypes) && catalog.clothTypes.length > 0) {
+      return catalog.clothTypes.map((cloth) => {
+        const prices = Array.isArray(catalog.priceMatrix)
+          ? catalog.priceMatrix.filter((p) => p && p.clothTypeId === cloth.id && p.isActive)
+          : [];
+        const primaryPrice = prices[0];
+        const clothName = String(cloth.name || 'Garment');
+        const categoryTag = String(cloth.categoryTag || 'MENS');
+        const srvName = String(primaryPrice?.serviceName || 'Standard Care');
+        const tat = `${primaryPrice?.turnaroundHours || 24}H Care`;
+        const price = Number(primaryPrice?.price || 0);
+
+        return {
+          id: String(cloth.id || `cloth-${Math.random()}`),
+          name: clothName,
+          serviceName: srvName,
+          tat,
+          price,
+          unit: 'pc',
+          imageUrl: getGarmentImageUrl(cloth.id, cloth.imageUrl || (cloth as any).image, categoryTag),
+          category: categoryTag,
+        };
+      });
+    }
+
+    return [];
+  }, [catalog]);
+
+  // Fallback local search across loaded catalog
+  const performLocalSearch = useCallback((searchQuery: string) => {
+    const q = searchQuery.toLowerCase().trim();
+    if (!q) {
+      setSearchResults([]);
+      return;
+    }
+    const results = allItems.filter((item) => {
+      const name = String(item.name || '').toLowerCase();
+      const srv = String(item.serviceName || '').toLowerCase();
+      const cat = String(item.category || '').toLowerCase();
+      return name.includes(q) || srv.includes(q) || cat.includes(q);
+    });
+    setSearchResults(results);
+  }, [allItems]);
+
+  // Perform search with backend API, fallback immediately to local catalog
   const performSearch = useCallback(async (searchQuery: string) => {
     const trimmed = searchQuery.trim();
     if (!trimmed || trimmed.length < 2) {
@@ -99,44 +144,30 @@ export function SearchScreen({ onBook, onBack, onSelectProduct }: SearchScreenPr
       );
       const data = await response.json();
       
-      if (data.success) {
-        setSearchResults(data.data.results || []);
+      if (data.success && Array.isArray(data.data?.results) && data.data.results.length > 0) {
+        setSearchResults(data.data.results);
         setSuggestions(data.data.suggestions || []);
       } else {
-        setSearchResults([]);
-        setSuggestions([]);
+        performLocalSearch(trimmed);
       }
     } catch (error) {
-      console.error('[Search] Search failed:', error);
-      // Fallback to local search
+      console.warn('[Search] Remote search unavailable, using instant local catalog:', error);
       performLocalSearch(trimmed);
     } finally {
       setSearching(false);
     }
-  }, []);
-
-  // Fallback local search
-  const performLocalSearch = (searchQuery: string) => {
-    const q = searchQuery.toLowerCase().trim();
-    const results = allItems.filter((item) => {
-      const name = String(item.name || '').toLowerCase();
-      const srv = String(item.serviceName || '').toLowerCase();
-      const cat = String(item.category || '').toLowerCase();
-      return name.includes(q) || srv.includes(q) || cat.includes(q);
-    });
-    setSearchResults(results);
-  };
+  }, [performLocalSearch]);
 
   // Debounced search
   useEffect(() => {
     const timer = setTimeout(() => {
       if (query.trim()) {
-        performSearch(query);
+        void performSearch(query);
       } else {
         setSearchResults([]);
         setSuggestions([]);
       }
-    }, 300); // 300ms debounce
+    }, 250); // 250ms fast debounce
 
     return () => clearTimeout(timer);
   }, [query, performSearch]);
@@ -165,56 +196,45 @@ export function SearchScreen({ onBook, onBack, onSelectProduct }: SearchScreenPr
     }
   };
 
-  const allItems = useMemo(() => {
-    if (catalog?.clothTypes && Array.isArray(catalog.clothTypes) && catalog.clothTypes.length > 0) {
-      return catalog.clothTypes.map((cloth) => {
-        const prices = Array.isArray(catalog.priceMatrix)
-          ? catalog.priceMatrix.filter((p) => p && p.clothTypeId === cloth.id && p.isActive)
-          : [];
-        const primaryPrice = prices[0];
-        const clothName = String(cloth.name || 'Garment');
-        const categoryTag = String(cloth.categoryTag || 'MENS');
-        const srvName = String(primaryPrice?.serviceName || 'Standard Service');
-        const tat = `${primaryPrice?.turnaroundHours || 24}H Care`;
-        const price = Number(primaryPrice?.price || 0);
-
-        return {
-          id: String(cloth.id || `cloth-${Math.random()}`),
-          name: clothName,
-          serviceName: srvName,
-          tat,
-          price,
-          unit: 'pc',
-          imageUrl: getGarmentImageUrl(cloth.id, cloth.imageUrl || cloth.image, categoryTag),
-          category: categoryTag,
-        };
-      });
-    }
-
-    return [];
-  }, [catalog]);
-
-  // Use searchResults from API or fallback to local filtering
+  // Guaranteed search results from API or catalog
   const displayResults = useMemo(() => {
-    if (query.trim().length < 2) return [];
+    const q = query.trim().toLowerCase();
+    if (q.length < 2) return [];
     
-    // If we have backend results, map them to display format
     if (searchResults.length > 0) {
       return searchResults.map((item) => ({
-        id: item.id,
+        id: String(item.id),
         name: item.name,
-        serviceName: item.serviceName,
-        tat: `${item.turnaroundHours || 24}H`,
-        price: item.price,
-        unit: item.unit || 'pc',
-        imageUrl: item.imageUrl || getGarmentImageUrl(item.id, '', item.categoryTag),
-        category: item.categoryTag,
+        serviceName: item.serviceName || 'Standard Care',
+        tat: item.tat || (item.turnaroundHours ? `${item.turnaroundHours}H Care` : '24H Care'),
+        price: Number(item.price || 0),
+        unit: item.unit || 'Piece',
+        imageUrl: item.imageUrl || getGarmentImageUrl(item.id, '', item.categoryTag || item.category),
+        category: item.categoryTag || item.category,
         relevance: item.relevance,
       }));
     }
-    
-    return [];
-  }, [searchResults, query]);
+
+    // Direct fallback from allItems if searchResults is empty
+    return allItems
+      .filter((item) => {
+        const name = String(item.name || '').toLowerCase();
+        const srv = String(item.serviceName || '').toLowerCase();
+        const cat = String(item.category || '').toLowerCase();
+        return name.includes(q) || srv.includes(q) || cat.includes(q);
+      })
+      .map((item) => ({
+        id: String(item.id),
+        name: item.name,
+        serviceName: item.serviceName || 'Standard Care',
+        tat: item.tat || '24H Care',
+        price: Number(item.price || 0),
+        unit: item.unit || 'Piece',
+        imageUrl: item.imageUrl || getGarmentImageUrl(item.id, '', item.category),
+        category: item.category,
+        relevance: 1,
+      }));
+  }, [searchResults, query, allItems]);
 
   const handleOpenProductDetail = (item: any) => {
     if (!onSelectProduct) return;
@@ -308,7 +328,7 @@ export function SearchScreen({ onBook, onBack, onSelectProduct }: SearchScreenPr
   return (
     <View style={styles.root}>
       {/* Top Search Input Bar */}
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingTop: Math.max(insets.top, 12) + 6 }]}>
         {onBack ? (
           <Pressable onPress={onBack} hitSlop={12} style={styles.headerBackBtn} accessibilityLabel="Back">
             <MaterialCommunityIcons name="arrow-left" size={24} color="#0F172A" />
@@ -660,10 +680,17 @@ const styles = StyleSheet.create({
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F1F5F9',
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1.5,
+    borderColor: '#CBD5E1',
     borderRadius: 14,
     paddingHorizontal: 12,
     height: 48,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.06,
+    shadowRadius: 3,
+    elevation: 2,
   },
   searchIcon: {
     marginRight: 8,
@@ -672,7 +699,7 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 14,
     color: '#0F172A',
-    fontWeight: '500',
+    fontWeight: '600',
   },
   searchRightIcons: {
     flexDirection: 'row',
