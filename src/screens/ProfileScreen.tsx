@@ -63,7 +63,7 @@ export function ProfileScreen({
   const [walletBalance, setWalletBalance] = useState<number>(0);
   const [checkingUpdate, setCheckingUpdate] = useState(false);
 
-  const currentAppVersion = Constants.expoConfig?.version || '1.0.16';
+  const currentAppVersion = Constants.expoConfig?.version || '1.0.30';
   const currentAppCode = Constants.expoConfig?.android?.versionCode || 16;
 
   const handleCheckUpdates = async () => {
@@ -120,7 +120,7 @@ export function ProfileScreen({
             {
               text: 'Download APK',
               onPress: () => {
-                void Linking.openURL('https://anjanilaundry.s3.ap-south-2.amazonaws.com/releases/LaundryFresh-v1.0.16-release.apk');
+                void Linking.openURL('https://laundry.anushatechnologies.com/api/app-release/latest.apk');
               },
             },
           ]
@@ -135,7 +135,7 @@ export function ProfileScreen({
           {
             text: 'Download APK',
             onPress: () => {
-              void Linking.openURL('https://anjanilaundry.s3.ap-south-2.amazonaws.com/releases/LaundryFresh-v1.0.16-release.apk');
+              void Linking.openURL('https://laundry.anushatechnologies.com/api/app-release/latest.apk');
             },
           },
         ]

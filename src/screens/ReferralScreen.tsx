@@ -18,6 +18,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useApp } from '@/context/AppContext';
 import { api } from '@/lib/api';
+import { API_BASE_URL } from '@/lib/config';
 import type { ReferralFriend, ReferralSummary } from '@/types/domain';
 
 interface ReferralScreenProps {
@@ -38,8 +39,24 @@ export function ReferralScreen({ onUseReward, onSignIn, onNavigateWallet, onBack
   const [error, setError] = useState('');
   const [inviteCode, setInviteCode] = useState('');
   const [copied, setCopied] = useState(false);
+  const [adminConfig, setAdminConfig] = useState<{ referrerReward: number; friendReward: number } | null>(null);
 
   const requestId = useRef(0);
+
+  useEffect(() => {
+    // Dynamically fetch referral reward configuration from admin panel
+    fetch(`${API_BASE_URL}/referrals/config`)
+      .then((r) => r.json())
+      .then((res) => {
+        if (res && res.success) {
+          setAdminConfig({
+            referrerReward: res.referrerReward,
+            friendReward: res.friendReward,
+          });
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   const load = useCallback(async (isRefresh = false) => {
     const id = ++requestId.current;
@@ -90,7 +107,7 @@ export function ReferralScreen({ onUseReward, onSignIn, onNavigateWallet, onBack
       if (id !== requestId.current) return;
       setData(summary);
       setInviteCode('');
-      const bonusCredited = summary?.friendBonus ?? 25;
+      const bonusCredited = summary?.friendBonus ?? adminConfig?.friendReward ?? 50;
       Alert.alert(
         'Code Applied! 🎉',
         `Referral code successfully applied. Your welcome bonus of ₹${bonusCredited} has been credited to your LaundryFresh Wallet!`,
@@ -102,16 +119,13 @@ export function ReferralScreen({ onUseReward, onSignIn, onNavigateWallet, onBack
     }
   };
 
-  const referrerReward = data?.rewardAmount ?? 50;
-  const friendBonus = data?.friendBonus ?? 25;
+  const referrerReward = data?.rewardAmount ?? adminConfig?.referrerReward ?? 100;
+  const friendBonus = data?.friendBonus ?? adminConfig?.friendReward ?? 50;
 
   const getShareMessage = () => {
     const code = data?.code || 'LAUNDRY';
     const bonus = friendBonus;
-    const baseDownloadUrl = data?.shareUrl || 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/releases/LaundryFresh-v1.0.16-release.apk';
-    const referralLink = baseDownloadUrl.includes('?')
-      ? `${baseDownloadUrl}&ref=${encodeURIComponent(code)}`
-      : `${baseDownloadUrl}?ref=${encodeURIComponent(code)}`;
+    const referralLink = `https://laundry.anushatechnologies.com/api/referrals/click/${encodeURIComponent(code)}`;
 
     return (
       `Use my invite code *${code}* on LaundryFresh to get ₹${bonus} welcome cash in your wallet for premium laundry & dry cleaning! Download now: ${referralLink}`

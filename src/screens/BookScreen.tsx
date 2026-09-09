@@ -54,6 +54,7 @@ interface BookScreenProps {
   onBrowseServices: () => void;
   resumeCheckout?: boolean;
   onCheckoutResumed?: () => void;
+  hasBottomTabBar?: boolean;
 }
 
 const DEFAULT_COUPONS: Coupon[] = [
@@ -130,6 +131,7 @@ export function BookScreen({
   onBrowseServices,
   resumeCheckout = false,
   onCheckoutResumed,
+  hasBottomTabBar = false,
 }: BookScreenProps) {
   const {
     session,
@@ -872,7 +874,7 @@ export function BookScreen({
         {/* 2. MAIN BODY ACCORDING TO ACTIVE STAGE */}
         <ScrollView
           style={styles.scrollArea}
-          contentContainerStyle={styles.scrollContent}
+          contentContainerStyle={[styles.scrollContent, hasBottomTabBar && { paddingBottom: 190 }]}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
@@ -1233,6 +1235,25 @@ export function BookScreen({
                 <Text style={styles.assuranceText}>Standard 24H-48H delivery • 12H Express available at next step</Text>
               </View>
             </View>
+
+            {/* Direct In-Content Proceed CTA for easy one-tap access */}
+            {cart.length > 0 && (
+              <Pressable
+                style={({ pressed }) => [styles.inContentProceedBtn, pressed && { opacity: 0.9, transform: [{ scale: 0.99 }] }]}
+                onPress={continueToDetails}
+              >
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.inContentProceedBtnTitle}>Proceed to Pickup & Slots</Text>
+                  <Text style={styles.inContentProceedBtnSub}>
+                    {finalPayable === 0 ? 'Total Due: ₹0' : `Payable: ${money(finalPayable)}`}
+                    {isFreeDelivery ? ' • 🎉 Free Delivery' : ''}
+                  </Text>
+                </View>
+                <View style={styles.inContentProceedBtnIconWrap}>
+                  <MaterialCommunityIcons name="arrow-right" size={22} color="#FFFFFF" />
+                </View>
+              </Pressable>
+            )}
           </View>
         )}
 
@@ -2164,7 +2185,7 @@ export function BookScreen({
           already appears in the empty state above, so a second footer only creates
           an empty white strip. */}
       {!(stage === 'BAG' && cart.length === 0) && (
-      <View style={styles.stickyFooter}>
+      <View style={[styles.stickyFooter, hasBottomTabBar && { bottom: Platform.OS === 'ios' ? 76 : 66 }]}>
         {stage === 'BAG' && cart.length === 0 ? (
           <Pressable
             style={({ pressed }) => [styles.footerFullExploreBtn, pressed && { opacity: 0.9 }]}
@@ -4607,5 +4628,44 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     color: '#1D4ED8',
     letterSpacing: 0.4,
+  },
+
+  // In-Content Bag Proceed CTA
+  inContentProceedBtn: {
+    backgroundColor: '#16A34A',
+    borderRadius: 18,
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    marginTop: 14,
+    marginBottom: 6,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    shadowColor: '#16A34A',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.35,
+    shadowRadius: 10,
+    elevation: 5,
+  },
+  inContentProceedBtnTitle: {
+    fontSize: 16,
+    fontWeight: '900',
+    color: '#FFFFFF',
+    letterSpacing: -0.2,
+  },
+  inContentProceedBtnSub: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: 'rgba(255, 255, 255, 0.92)',
+    marginTop: 2,
+  },
+  inContentProceedBtnIconWrap: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: 'rgba(255, 255, 255, 0.22)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: 12,
   },
 });

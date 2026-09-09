@@ -9,7 +9,7 @@
     "scheme": "laundryfresh",
     "newArchEnabled": true,
     "android": {
-      "package": "com.anusha.laundry",
+      "package": "com.laundry",
       "googleServicesFile": "./google-services.json",
       "versionCode": 30,
       "adaptiveIcon": {

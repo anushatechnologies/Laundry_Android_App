@@ -87,9 +87,9 @@ android {
     buildToolsVersion rootProject.ext.buildToolsVersion
     compileSdk rootProject.ext.compileSdkVersion
 
-    namespace 'com.anusha.laundry'
+    namespace 'com.laundry'
     defaultConfig {
-        applicationId 'com.anusha.laundry'
+        applicationId 'com.laundry'
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 30

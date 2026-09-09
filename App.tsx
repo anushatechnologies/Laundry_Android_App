@@ -625,6 +625,9 @@ function AuthenticatedApp() {
     // fall through to screen rendering below which handles AUTH route
   }
 
+  // Show bottom navigation bar on all 5 primary discovery tabs including CART (Bag)
+  const showBottomNav = ['HOME', 'SERVICES', 'CART', 'ORDERS', 'PROFILE'].includes(route);
+
   let screen: ReactNode;
   if (route === 'HOME') {
     screen = (
@@ -753,6 +756,7 @@ function AuthenticatedApp() {
         }}
         resumeCheckout={resumeCheckout}
         onCheckoutResumed={() => setResumeCheckout(false)}
+        hasBottomTabBar={showBottomNav}
       />
     );
   } else if (route === 'ORDERS') {
@@ -898,9 +902,6 @@ function AuthenticatedApp() {
       </DetailShell>
     );
   }
-
-  // Show bottom navigation bar on all 5 primary discovery tabs including CART (Bag)
-  const showBottomNav = ['HOME', 'SERVICES', 'CART', 'ORDERS', 'PROFILE'].includes(route);
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>

@@ -1,4 +1,4 @@
-package com.anusha.laundry
+package com.laundry
 import expo.modules.splashscreen.SplashScreenManager
 
 import android.os.Build

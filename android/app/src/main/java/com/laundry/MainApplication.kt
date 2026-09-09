@@ -1,4 +1,4 @@
-package com.anusha.laundry
+package com.laundry
 
 import android.app.Application
 import android.content.res.Configuration
