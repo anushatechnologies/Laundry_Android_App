@@ -218,7 +218,7 @@ function cleanItemDisplayName(item: any): string {
     };
 
     const handleDownloadInvoice = () => {
-      const invoiceUrl = `${API_BASE_URL}/orders/${selectedOrder.id}/invoice`;
+      const invoiceUrl = `${API_BASE_URL}/orders/${selectedOrder.id}/invoice?print=true`;
       void Linking.openURL(invoiceUrl).catch(() => {
         void Linking.openURL(`${API_BASE_URL}/invoices/${selectedOrder.id}/pdf`);
       });
@@ -692,7 +692,7 @@ function cleanItemDisplayName(item: any): string {
                       style={({ pressed }) => [styles.cardInvoiceBtn, pressed && { opacity: 0.8 }]}
                       onPress={(e) => {
                         e.stopPropagation?.();
-                        const invoiceUrl = `${API_BASE_URL}/orders/${order.id}/invoice`;
+                        const invoiceUrl = `${API_BASE_URL}/orders/${order.id}/invoice?print=true`;
                         void Linking.openURL(invoiceUrl).catch(() => {
                           void Linking.openURL(`${API_BASE_URL}/invoices/${order.id}/pdf`);
                         });

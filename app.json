@@ -2,7 +2,7 @@
   "expo": {
     "name": "LaundryFresh",
     "slug": "laundryfresh-customer",
-    "version": "1.0.27",
+    "version": "1.0.30",
     "icon": "./assets/brand-logo.png",
     "orientation": "portrait",
     "userInterfaceStyle": "light",
@@ -11,7 +11,7 @@
     "android": {
       "package": "com.anusha.laundry",
       "googleServicesFile": "./google-services.json",
-      "versionCode": 27,
+      "versionCode": 30,
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#FFFFFF"

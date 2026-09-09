@@ -313,6 +313,15 @@ export function HomeScreen({
     return 'Good Evening';
   }, []);
   const customerFirstName = session?.user?.name ? session.user.name.split(' ')[0] : 'Guest';
+  const [detectingTimeout, setDetectingTimeout] = useState(false);
+
+  useEffect(() => {
+    if (locationStatus === 'detecting') {
+      const timer = setTimeout(() => setDetectingTimeout(true), 3500);
+      return () => clearTimeout(timer);
+    }
+    setDetectingTimeout(false);
+  }, [locationStatus]);
 
   // Helper: Map backend service icon/emoji to MaterialCommunityIcons
   const getServiceIcon = (service: ServiceMaster): string => {
@@ -947,7 +956,7 @@ export function HomeScreen({
                 />
                 <Text style={styles.locationChipText} numberOfLines={1}>
                   {userLocation?.tag ? `${userLocation.tag} • ` : ''}
-                  {userLocation?.areaName || userLocation?.city || (locationStatus === 'detecting' ? 'Detecting…' : 'Select Location')}
+                  {userLocation?.areaName || userLocation?.city || (locationStatus === 'detecting' && !detectingTimeout ? 'Locating…' : 'Select Location')}
                   {userLocation?.pincode ? ` - ${userLocation.pincode}` : ''}
                 </Text>
                 <MaterialCommunityIcons name="chevron-down" size={12} color="#FCD34D" />
@@ -990,20 +999,22 @@ export function HomeScreen({
         </View>
 
         {/* Full-width Pill Search Bar below Location (Image 1 reference) */}
-        <View style={styles.headerSearchWrapper}>
+        <View style={styles.searchBarRow}>
           <Pressable
             style={({ pressed }) => [
               styles.headerSearchBar,
-              pressed && { opacity: 0.95, transform: [{ scale: 0.99 }] },
+              pressed && { opacity: 0.95 },
             ]}
             onPress={onOpenSearch}
             accessibilityRole="button"
             accessibilityLabel="Search services and clothes"
           >
-            <MaterialCommunityIcons name="magnify" size={22} color="#0F766E" />
-            <Text style={styles.headerSearchPlaceholder} numberOfLines={1} ellipsizeMode="tail">
-              Search for "Dry Clean", "Ironing", "Shirts"…
-            </Text>
+            <View style={styles.headerSearchLeftGroup}>
+              <MaterialCommunityIcons name="magnify" size={20} color="#0F766E" />
+              <Text style={styles.headerSearchPlaceholder} numberOfLines={1}>
+                Search for "Dry Clean", "Ironing", "Shirts"…
+              </Text>
+            </View>
             <View style={styles.headerSearchBadge}>
               <MaterialCommunityIcons name="tune-variant" size={14} color="#0F766E" />
             </View>
@@ -1920,54 +1931,57 @@ const styles = StyleSheet.create({
   },
   stickyHeader: {
     backgroundColor: '#0F766E',
-    paddingHorizontal: 16,
-    paddingTop: 8,
-    paddingBottom: 16,
-    borderBottomLeftRadius: 24,
-    borderBottomRightRadius: 24,
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.14,
-    shadowRadius: 16,
-    elevation: 6,
-  },
-  headerSearchWrapper: {
-    width: '100%',
-    alignSelf: 'stretch',
-    marginTop: 12,
-  },
-  headerSearchBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 24,
-    paddingHorizontal: 16,
-    height: 48,
-    width: '100%',
-    minWidth: '100%',
-    alignSelf: 'stretch',
-    borderWidth: 1.5,
-    borderColor: '#E6FFFA',
+    paddingHorizontal: 14,
+    paddingTop: 4,
+    paddingBottom: 10,
+    borderBottomLeftRadius: 18,
+    borderBottomRightRadius: 18,
     shadowColor: '#000000',
     shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.12,
-    shadowRadius: 8,
+    shadowRadius: 10,
     elevation: 4,
   },
-  headerSearchPlaceholder: {
-    fontSize: 13,
-    color: '#334155',
-    marginLeft: 8,
-    marginRight: 6,
-    fontWeight: '600',
-    minWidth: 140,
+  searchBarRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    width: '100%',
+    marginTop: 8,
+  },
+  headerSearchBar: {
     flex: 1,
-    flexGrow: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    paddingHorizontal: 12,
+    height: 42,
+    borderWidth: 1,
+    borderColor: '#CCFBF1',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  headerSearchLeftGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    marginRight: 8,
+  },
+  headerSearchPlaceholder: {
+    flex: 1,
+    fontSize: 13,
+    color: '#64748B',
+    marginLeft: 8,
+    fontWeight: '500',
   },
   headerSearchBadge: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
+    width: 26,
+    height: 26,
+    borderRadius: 13,
     backgroundColor: '#F0FDFA',
     alignItems: 'center',
     justifyContent: 'center',

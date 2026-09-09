@@ -32,13 +32,6 @@ export async function requestStartupNotificationPermission(): Promise<boolean> {
           return true;
         }
 
-        const askedBefore = await AsyncStorage.getItem(NOTIF_PERMISSION_ASKED_KEY);
-        if (askedBefore) {
-          // Already prompted on a previous session; respect user's choice
-          return false;
-        }
-
-        await AsyncStorage.setItem(NOTIF_PERMISSION_ASKED_KEY, 'true');
         const result = await PermissionsAndroid.request(
           PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS
         );
@@ -257,25 +250,15 @@ export async function getQuickGpsCoordinates(): Promise<{ latitude: number; long
  * 2. Notifications are checked silently without throwing a blocking popup on launch
  */
 export async function runFirstLaunchPermissions(): Promise<StartupPermissionResult> {
+  // 1. Request Notification Permission on app launch
   let notificationsGranted = false;
   try {
-    if (Platform.OS === 'android') {
-      if (Platform.Version >= 33) {
-        notificationsGranted = await PermissionsAndroid.check(
-          PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS
-        );
-      } else {
-        notificationsGranted = true;
-      }
-    } else {
-      const current = await Notifications.getPermissionsAsync();
-      notificationsGranted = current.status === 'granted';
-    }
-  } catch {
-    // Non-blocking silent check
+    notificationsGranted = await requestStartupNotificationPermission();
+  } catch (err) {
+    console.warn('[Permissions] Notification request error:', err);
   }
 
-  // Priority #1: Request Location Permission directly on app launch (Zepto & Zomato)
+  // 2. Request Location Permission directly on app launch (Zepto & Zomato)
   const locationResult = await requestStartupLocationPermission();
 
   return {

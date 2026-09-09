@@ -13,7 +13,7 @@ import type {
 
 /** Refresh a cached location only after this amount of time when a caller opts in. */
 export const LOCATION_STALE_TIME = 5 * 60 * 1000;
-const LOCATION_TIMEOUT_MS = 15 * 1000;
+const LOCATION_TIMEOUT_MS = 4 * 1000;
 
 let activeGpsRequest: Promise<LocationRefreshResult> | null = null;
 
@@ -117,7 +117,7 @@ async function getCurrentPositionWithTimeout(): Promise<Location.LocationObject>
       reject(new Error('Location request timed out.'));
     }, LOCATION_TIMEOUT_MS);
 
-    void Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High })
+    void Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced })
       .then((position) => {
         if (settled) return;
         settled = true;
