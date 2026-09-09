@@ -53,6 +53,7 @@ interface BookScreenProps {
   deliveryLocation?: CustomerLocation | null;
   onRequireSignIn: () => void;
   onBrowseServices: () => void;
+  onBack?: () => void;
   resumeCheckout?: boolean;
   onCheckoutResumed?: () => void;
   hasBottomTabBar?: boolean;
@@ -131,6 +132,7 @@ export function BookScreen({
   deliveryLocation = null,
   onRequireSignIn,
   onBrowseServices,
+  onBack,
   resumeCheckout = false,
   onCheckoutResumed,
   hasBottomTabBar = false,
@@ -870,6 +872,27 @@ export function BookScreen({
       <View style={styles.root}>
         {/* 1. TOP STEP PROGRESS INDICATOR */}
         <View style={styles.stepHeader}>
+          <View style={styles.stepHeaderTopRow}>
+            <Pressable
+              style={styles.stepBackBtn}
+              onPress={() => {
+                if (stage === 'REVIEW') setStage('DETAILS');
+                else if (stage === 'DETAILS') setStage('BAG');
+                else if (onBack) onBack();
+                else onBrowseServices();
+              }}
+              hitSlop={12}
+              accessibilityRole="button"
+              accessibilityLabel="Back"
+            >
+              <MaterialCommunityIcons name="arrow-left" size={22} color="#0F172A" />
+            </Pressable>
+            <Text style={styles.stepHeaderMainTitle}>
+              {stage === 'BAG' ? 'My Bag' : stage === 'DETAILS' ? 'Schedule Pickup' : 'Review & Pay'}
+            </Text>
+            <View style={{ width: 34 }} />
+          </View>
+
           <View style={styles.stepsRow}>
             <Pressable
               style={[styles.stepDot, stage === 'BAG' ? styles.stepDotActive : styles.stepDotCompleted]}
@@ -1196,7 +1219,24 @@ export function BookScreen({
                   <Text style={styles.billLineVal}>{money(cartSummary.itemTotal)}</Text>
                 </View>
 
-                {/* 2. Pickup & Delivery fee */}
+                {/* 2. Subscription Quota Applied */}
+                {subQuotaDiscount > 0 && (
+                  <View style={styles.billLine}>
+                    <View style={{ flex: 1, paddingRight: 8 }}>
+                      <Text style={[styles.billLineLabel, { color: '#059669', fontWeight: '700' }]}>
+                        💎 Subscription Quota ({subKgUsed} KG)
+                      </Text>
+                      <Text style={[styles.billLineSubtext, { color: '#047857' }]}>
+                        Covered by {activeSubscription?.planName || 'Active Membership'}
+                      </Text>
+                    </View>
+                    <Text style={[styles.billLineVal, { color: '#059669', fontWeight: '800' }]}>
+                      -{money(subQuotaDiscount)}
+                    </Text>
+                  </View>
+                )}
+
+                {/* 3. Pickup & Delivery fee */}
                 <View style={styles.billLine}>
                   <View style={{ flex: 1, paddingRight: 8 }}>
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
@@ -1223,7 +1263,7 @@ export function BookScreen({
                   )}
                 </View>
 
-                {/* 3. Coupon Discount */}
+                {/* 4. Coupon Discount */}
                 {couponDiscount > 0 && (
                   <View style={styles.billLine}>
                     <View>
@@ -1234,7 +1274,7 @@ export function BookScreen({
                   </View>
                 )}
 
-                {/* 4. GST */}
+                {/* 5. GST */}
                 <View style={styles.billLine}>
                   <View>
                     <Text style={styles.billLineLabel}>
@@ -1246,6 +1286,23 @@ export function BookScreen({
                     {!isGstEnabled || taxPercentage === 0 ? '₹0 (0%)' : money(gstCharge)}
                   </Text>
                 </View>
+
+                {/* 6. Wallet Deduction */}
+                {walletDeduction > 0 && (
+                  <View style={styles.billLine}>
+                    <View style={{ flex: 1, paddingRight: 8 }}>
+                      <Text style={[styles.billLineLabel, { color: '#16A34A', fontWeight: '700' }]}>
+                        LaundryFresh Wallet Used
+                      </Text>
+                      <Text style={[styles.billLineSubtext, { color: '#15803D' }]}>
+                        Paid from wallet balance
+                      </Text>
+                    </View>
+                    <Text style={[styles.billLineVal, { color: '#16A34A', fontWeight: '800' }]}>
+                      -₹{walletDeduction.toFixed(2)}
+                    </Text>
+                  </View>
+                )}
 
                 <View style={styles.billDivider} />
 
@@ -2208,7 +2265,7 @@ export function BookScreen({
         style={[
           styles.stickyFooter,
           { paddingBottom: Math.max(insets.bottom, 16) },
-          hasBottomTabBar && { bottom: Platform.OS === 'ios' ? 76 : 66, paddingBottom: 14 },
+          hasBottomTabBar && { bottom: Platform.OS === 'ios' ? 88 : 82, paddingBottom: 14 },
         ]}
       >
         {stage === 'BAG' && cart.length === 0 ? (
@@ -2227,19 +2284,26 @@ export function BookScreen({
                 {finalPayable === 0 ? 'Total Due' : walletDeduction > 0 ? 'Payable Now' : 'Final Amount'}
               </Text>
               <Text style={styles.footerPriceVal}>{money(finalPayable)}</Text>
-              {stage !== 'BAG' && (
-                <Text style={[styles.footerPriceSub, isFreeDelivery && { color: '#16A34A' }]}>
-                  {subHasFreeDelivery
-                    ? '💎 Member Free Delivery'
-                    : isFreeDelivery
-                    ? '🎉 Free delivery'
-                    : `Incl. ${money(deliveryFee)} delivery`}
+              {subQuotaDiscount > 0 && finalPayable === 0 ? (
+                <Text style={[styles.footerPriceSub, { color: '#16A34A' }]}>
+                  💎 100% Covered by Plan
+                </Text>
+              ) : isFreeDelivery ? (
+                <Text style={[styles.footerPriceSub, { color: '#16A34A' }]}>
+                  {subHasFreeDelivery ? '💎 Member Free Delivery' : '🎉 Free delivery'}
+                </Text>
+              ) : (
+                <Text style={styles.footerPriceSub}>
+                  Incl. {money(deliveryFee)} delivery
                 </Text>
               )}
             </View>
 
             {stage === 'BAG' && (
-              <Pressable style={styles.footerPrimaryBtn} onPress={continueToDetails}>
+              <Pressable
+                style={({ pressed }) => [styles.footerPrimaryBtn, pressed && { opacity: 0.92 }]}
+                onPress={continueToDetails}
+              >
                 <Text style={styles.footerPrimaryBtnText}>Proceed to Pickup & Slots</Text>
                 <MaterialCommunityIcons name="arrow-right" size={18} color="#FFFFFF" />
               </Pressable>
@@ -2789,11 +2853,31 @@ const styles = StyleSheet.create({
   },
   stepHeader: {
     backgroundColor: '#FFFFFF',
-    paddingHorizontal: 24,
-    paddingTop: 14,
+    paddingHorizontal: 20,
+    paddingTop: 10,
     paddingBottom: 10,
     borderBottomWidth: 1,
     borderColor: '#F3E8DF',
+  },
+  stepHeaderTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 10,
+    paddingHorizontal: 4,
+  },
+  stepBackBtn: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: '#F1F5F9',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  stepHeaderMainTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#0F172A',
   },
   stepsRow: {
     flexDirection: 'row',
@@ -2859,7 +2943,7 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingHorizontal: 16,
     paddingTop: 0,  // No top padding - stage header provides spacing
-    paddingBottom: 110,
+    paddingBottom: 130,
   },
   stageWrap: {
     gap: 14,

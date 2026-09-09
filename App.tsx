@@ -630,10 +630,10 @@ function AuthenticatedApp() {
   }
 
   // Show bottom navigation bar on primary discovery tabs.
-  // During CART checkout stages (DETAILS or REVIEW), hide the tab bar so checkout footer is full-width and not cramped
+  // When inside CART and cart has items, hide the floating tab bar so the checkout dock sits cleanly at the bottom without any overlapping tabs!
   const showBottomNav =
     ['HOME', 'SERVICES', 'CART', 'ORDERS', 'PROFILE'].includes(route) &&
-    (route !== 'CART' || cartStage === 'BAG');
+    (route !== 'CART' || cartSummary.itemCount === 0);
 
   let screen: ReactNode;
   if (route === 'HOME') {
@@ -761,6 +761,7 @@ function AuthenticatedApp() {
           setSelectedCategoryInfo({ tag: 'ALL', title: 'All Items', serviceCode: 'ALL', serviceName: 'All Services' });
           navigateTo('SERVICES');
         }}
+        onBack={() => navigateTo('HOME')}
         resumeCheckout={resumeCheckout}
         onCheckoutResumed={() => setResumeCheckout(false)}
         hasBottomTabBar={showBottomNav}
