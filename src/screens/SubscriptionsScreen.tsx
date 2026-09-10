@@ -14,6 +14,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useApp } from '@/context/AppContext';
+import { useTheme } from '@/context/ThemeContext';
 import { api } from '@/lib/api';
 import { payWithRazorpay } from '@/lib/payments';
 import type { CustomerSubscription, SubscriptionPlan } from '@/types/domain';
@@ -127,6 +128,7 @@ function paymentFailureCopy(error: unknown): { title: string; message: string } 
 }
 
 export function SubscriptionsScreen({ onBook, onSignIn }: SubscriptionsScreenProps) {
+    const { colors } = useTheme();
   const insets = useSafeAreaInsets();
   const { session } = useApp();
   const [purchasing, setPurchasing] = useState(false);
@@ -239,7 +241,7 @@ export function SubscriptionsScreen({ onBook, onSignIn }: SubscriptionsScreenPro
 
   return (
     <ScrollView
-      style={styles.root}
+      style={[styles.root, { backgroundColor: colors.background }]}
       contentContainerStyle={[styles.content, { paddingBottom: Math.max(insets.bottom, 20) + 30 }]}
       showsVerticalScrollIndicator={false}
       refreshControl={

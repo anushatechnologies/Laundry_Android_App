@@ -17,6 +17,7 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useApp } from '@/context/AppContext';
+import { useTheme } from '@/context/ThemeContext';
 import { api } from '@/lib/api';
 import { API_BASE_URL } from '@/lib/config';
 import type { ReferralFriend, ReferralSummary } from '@/types/domain';
@@ -29,6 +30,7 @@ interface ReferralScreenProps {
 }
 
 export function ReferralScreen({ onUseReward, onSignIn, onNavigateWallet, onBack }: ReferralScreenProps) {
+  const { colors } = useTheme();
   const { session } = useApp();
   const customerId = session?.user.id;
 
@@ -173,7 +175,7 @@ export function ReferralScreen({ onUseReward, onSignIn, onNavigateWallet, onBack
 
   if (!customerId) {
     return (
-      <View style={styles.root}>
+      <View style={[styles.root, { backgroundColor: colors.background }]}>
         {onBack && (
           <View style={styles.navBar}>
             <Pressable onPress={onBack} hitSlop={12} style={styles.backBtn}>
@@ -205,7 +207,7 @@ export function ReferralScreen({ onUseReward, onSignIn, onNavigateWallet, onBack
   const friends: ReferralFriend[] = data?.friends ?? [];
 
   return (
-    <View style={styles.root}>
+    <View style={[styles.root, { backgroundColor: colors.background }]}>
       {/* Top Header */}
       <View style={styles.navBar}>
         {onBack ? (

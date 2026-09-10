@@ -8,6 +8,7 @@ import {
   useWindowDimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useTheme } from '@/context/ThemeContext';
 
 const LANDING_DELAY_MS = 2500;
 
@@ -17,6 +18,7 @@ interface WelcomeScreenProps {
 
 /** A deliberately quiet first-launch landing screen before location selection. */
 export function WelcomeScreen({ onContinue }: WelcomeScreenProps) {
+  const { colors } = useTheme();
   const { height } = useWindowDimensions();
   const contentOpacity = useRef(new Animated.Value(0)).current;
   const contentScale = useRef(new Animated.Value(0.94)).current;
@@ -80,7 +82,7 @@ export function WelcomeScreen({ onContinue }: WelcomeScreenProps) {
   }, [contentOpacity, contentScale, contentTranslateY, height, onContinue]);
 
   return (
-    <SafeAreaView style={styles.root} edges={['top', 'bottom', 'left', 'right']}>
+    <SafeAreaView style={[styles.root, { backgroundColor: colors.background }]} edges={['top', 'bottom', 'left', 'right']}>
       <StatusBar barStyle="dark-content" backgroundColor="#FFF8F1" />
       <View pointerEvents="none" style={[styles.orb, styles.orbTop]} />
       <View pointerEvents="none" style={[styles.orb, styles.orbBottom]} />

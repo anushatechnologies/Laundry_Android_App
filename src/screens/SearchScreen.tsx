@@ -14,6 +14,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useApp } from '@/context/AppContext';
+import { useTheme } from '@/context/ThemeContext';
 import { COLORS, money } from '@/ui/theme';
 import { getGarmentImageUrl } from '@/lib/garment-photos';
 import { api } from '@/lib/api';
@@ -30,6 +31,7 @@ interface SearchScreenProps {
 const RECENT_SEARCHES_KEY = '@laundryfresh_recent_searches';
 
 export function SearchScreen({ onBook, onBack, onSelectProduct, initialQuery = '', onQueryChange }: SearchScreenProps) {
+    const { colors } = useTheme();
   const insets = useSafeAreaInsets();
   const { cart, cartSummary, addCartItem, setCartQuantity, removeFromCart, catalog } = useApp();
   const [query, setQueryState] = useState(initialQuery);
@@ -333,7 +335,7 @@ export function SearchScreen({ onBook, onBack, onSelectProduct, initialQuery = '
   };
 
   return (
-    <View style={styles.root}>
+    <View style={[styles.root, { backgroundColor: colors.background }]}>
       {/* Top Search Input Bar */}
       <View style={[styles.header, { paddingTop: Math.max(insets.top, 12) + 6 }]}>
         {onBack ? (

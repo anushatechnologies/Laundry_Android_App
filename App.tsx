@@ -7,6 +7,7 @@ import * as Notifications from 'expo-notifications';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { Appbar, PaperProvider } from 'react-native-paper';
 import { AppProvider, useApp } from '@/context/AppContext';
+import { ThemeProvider, useTheme } from '@/context/ThemeContext';
 import { AddressesScreen } from '@/screens/AddressesScreen';
 import { AuthScreen } from '@/screens/AuthScreen';
 import { BookScreen } from '@/screens/BookScreen';
@@ -39,7 +40,7 @@ import { useCustomerLocation } from '@/services/location/useCustomerLocation';
 import { resolveCustomerLocationCoordinates } from '@/services/location/locationService';
 import { LocationSelectorModal } from '@/components/location/LocationSelectorModal';
 import type { CustomerLocation } from '@/services/location/types';
-import { APP_THEME, COLORS } from '@/ui/theme';
+import { createAppTheme, COLORS, CONTROL_SIZES } from '@/ui/theme';
 import './global.css';
 
 type MainTab = 'HOME' | 'SERVICES' | 'CART' | 'ORDERS' | 'PROFILE';
@@ -287,7 +288,17 @@ function DetailShell({ title, onBack, children }: { title: string; onBack: () =>
 }
 
 function AuthenticatedApp() {
-  const { ready, session, hasCompletedOnboarding, completeOnboarding, cartSummary, orders } = useApp();
+  const {
+    ready,
+    session,
+    hasCompletedOnboarding,
+    completeOnboarding,
+    cartSummary,
+    orders,
+    pendingNavAction,
+    clearPendingNavAction,
+  } = useApp();
+  const { colors } = useTheme();
   const [navigation, setNavigation] = useState<NavigationState>({ route: 'HOME', history: [] });
   const [permissionsState, setPermissionsState] = useState<{
     completed: boolean;
@@ -433,15 +444,18 @@ function AuthenticatedApp() {
     handledNotificationResponseIds.current.add(requestId);
 
     const data = response.notification.request.content.data as Record<string, any> | undefined;
+    const screenStr = String(data?.screen || '').toUpperCase();
+    const typeStr = String(data?.type || '').toUpperCase();
+
     if (data?.orderId) {
       openOrderDetail(String(data.orderId));
-    } else if (data?.screen === 'OFFERS') {
-      navigateTo('OFFERS');
-    } else if (data?.screen === 'CHAT') {
+    } else if (screenStr === 'CHAT' || screenStr === 'LIVE_CHAT' || typeStr === 'CHAT') {
       navigateTo('LIVE_CHAT');
-    } else if (data?.screen === 'NOTIFICATIONS') {
+    } else if (screenStr === 'OFFERS') {
+      navigateTo('OFFERS');
+    } else if (screenStr === 'NOTIFICATIONS') {
       navigateTo('NOTIFICATIONS');
-    } else if (data?.screen === 'HOME') {
+    } else if (screenStr === 'HOME') {
       resetRoute('HOME');
     } else {
       navigateTo('ORDERS');
@@ -451,12 +465,33 @@ function AuthenticatedApp() {
   useEffect(() => {
     // Handles a tap both while the app is running and when a Firebase push
     // launched it from a closed state.
-    const lastResponse = Notifications.getLastNotificationResponse();
+    const lastResponse = Notifications.getLastNotificationResponse?.();
     if (lastResponse) handleNotificationResponse(lastResponse);
+
+    Notifications.getLastNotificationResponseAsync?.().then((asyncResponse) => {
+      if (asyncResponse) handleNotificationResponse(asyncResponse);
+    }).catch(() => {});
 
     const subscription = Notifications.addNotificationResponseReceivedListener(handleNotificationResponse);
     return () => subscription.remove();
   }, [handleNotificationResponse]);
+
+  // Handle push notification navigation requests queued in AppContext
+  useEffect(() => {
+    if (pendingNavAction) {
+      if (pendingNavAction.screen === 'CHAT') {
+        navigateTo('LIVE_CHAT');
+      } else if (pendingNavAction.screen === 'ORDER_DETAIL' && pendingNavAction.orderId) {
+        openOrderDetail(pendingNavAction.orderId);
+      } else if (pendingNavAction.screen === 'OFFERS') {
+        if (pendingNavAction.couponCode) setCouponCode(pendingNavAction.couponCode);
+        navigateTo('OFFERS');
+      } else if (pendingNavAction.screen === 'NOTIFICATIONS') {
+        navigateTo('NOTIFICATIONS');
+      }
+      clearPendingNavAction();
+    }
+  }, [pendingNavAction, navigateTo, openOrderDetail, clearPendingNavAction]);
 
   const startBooking = (code?: string) => {
     if (code) setCouponCode(code);
@@ -701,6 +736,7 @@ function AuthenticatedApp() {
         onBack={() => goBack('HOME')}
         onOpenCart={() => navigateTo('CART')}
         onOpenBulkLaundry={() => navigateTo('BULK_LAUNDRY')}
+        hasBottomTabBar={showBottomNav}
         onSelectProduct={(product) => {
           setSelectedProductForDetail(product);
           navigateTo('PRODUCT_DETAIL');
@@ -743,6 +779,7 @@ function AuthenticatedApp() {
         onBack={() => navigateTo('HOME')}
         onOpenCart={() => navigateTo('CART')}
         onOpenBulkLaundry={() => navigateTo('BULK_LAUNDRY')}
+        hasBottomTabBar={showBottomNav}
         onSelectProduct={(product) => {
           setSelectedProductForDetail(product);
           navigateTo('PRODUCT_DETAIL');
@@ -918,7 +955,7 @@ function AuthenticatedApp() {
   }
 
   return (
-    <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]} edges={['top', 'left', 'right']}>
       <View style={styles.screen} {...iosBackSwipe.panHandlers}>
         <AppErrorBoundary fallbackRoute={() => resetRoute('HOME')}>
           {screen}
@@ -927,7 +964,7 @@ function AuthenticatedApp() {
       {showBottomNav ? (
         <View style={styles.customTabBarContainer} pointerEvents="box-none">
           {/* MAIN FLOATING PILL TAB BAR (All 5 Discovery Tabs) */}
-          <View style={styles.customTabBar}>
+          <View style={[styles.customTabBar, { backgroundColor: colors.surface, borderColor: colors.border }]}>
             {tabs.map((tab) => {
               const isActive = route === tab.key;
               const isCartTab = tab.key === 'CART';
@@ -938,7 +975,7 @@ function AuthenticatedApp() {
               return (
                 <Pressable
                   key={tab.key}
-                  style={[styles.tabItem, isActive && styles.tabItemActive]}
+                  style={[styles.tabItem, isActive && { backgroundColor: colors.primarySoft }]}
                   onPress={() => {
                     if (tab.key === 'SERVICES') {
                       setSelectedCategoryInfo({ tag: 'ALL', title: 'All Items', serviceCode: 'ALL', serviceName: 'All Services' });
@@ -959,7 +996,7 @@ function AuthenticatedApp() {
                       <MaterialCommunityIcons
                         name={(isActive ? tab.focusedIcon : tab.unfocusedIcon) as any}
                         size={22}
-                        color={isActive ? '#0F766E' : '#94A3B8'}
+                        color={isActive ? colors.primary : colors.textCaption}
                       />
                     </Animated.View>
                     {isCartTab && cartSummary.itemCount > 0 && (
@@ -971,7 +1008,7 @@ function AuthenticatedApp() {
                     )}
                     {hasOrdersBadge && <View style={styles.tabDotBadge} />}
                   </View>
-                  <Text style={[styles.tabLabel, isActive && styles.tabLabelActive]}>
+                  <Text style={[styles.tabLabel, { color: isActive ? colors.primary : colors.textCaption }]}>
                     {tab.title}
                   </Text>
                 </Pressable>
@@ -999,15 +1036,25 @@ function AuthenticatedApp() {
   );
 }
 
+function ThemedApp() {
+  const { resolvedMode } = useTheme();
+
+  return (
+    <PaperProvider theme={createAppTheme(resolvedMode).theme}>
+      <AppProvider>
+        <StatusBar style={resolvedMode === 'dark' ? 'light' : 'dark'} />
+        <AuthenticatedApp />
+      </AppProvider>
+    </PaperProvider>
+  );
+}
+
 export default function App() {
   return (
     <SafeAreaProvider>
-      <PaperProvider theme={APP_THEME}>
-        <AppProvider>
-          <StatusBar style="dark" />
-          <AuthenticatedApp />
-        </AppProvider>
-      </PaperProvider>
+      <ThemeProvider>
+        <ThemedApp />
+      </ThemeProvider>
     </SafeAreaProvider>
   );
 }
@@ -1029,6 +1076,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 255, 255, 0.98)',
     marginHorizontal: 16,
     borderRadius: 24,
+    minHeight: CONTROL_SIZES.tabBar,
     paddingVertical: 8,
     paddingHorizontal: 6,
     justifyContent: 'space-around',
@@ -1045,6 +1093,7 @@ const styles = StyleSheet.create({
   tabItem: {
     flex: 1,
     alignItems: 'center',
+    minHeight: 56,
     paddingVertical: 6,
     borderRadius: 16,
   },

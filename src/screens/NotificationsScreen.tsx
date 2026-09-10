@@ -10,6 +10,7 @@ import {
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useApp } from '@/context/AppContext';
+import { useTheme } from '@/context/ThemeContext';
 import { InAppNotification } from '@/types/domain';
 
 interface NotificationsScreenProps {
@@ -92,6 +93,7 @@ function formatNotificationItem(n: InAppNotification): NotificationItem {
 
 export function NotificationsScreen({ onOpenOrder, onOpenOffers }: NotificationsScreenProps) {
   const insets = useSafeAreaInsets();
+  const { colors } = useTheme();
   const {
     inAppNotifications,
     unreadNotificationCount,
@@ -203,7 +205,7 @@ export function NotificationsScreen({ onOpenOrder, onOpenOffers }: Notifications
   };
 
   return (
-    <View style={[styles.root, { paddingTop: insets.top }]}>
+    <View style={[styles.root, { paddingTop: insets.top, backgroundColor: colors.background }]}>
       {/* Top Header */}
       <View style={styles.header}>
         <View style={styles.headerTitleRow}>

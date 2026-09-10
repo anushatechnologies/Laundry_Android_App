@@ -358,6 +358,10 @@ export const api = {
     request<{ success: boolean; message: string }>(`/chat/rooms/${encodeURIComponent(roomId)}/close`, {
       method: 'PUT',
     }, true),
+  clearChatMessages: (roomId: string) =>
+    request<{ success: boolean; message: string }>(`/chat/rooms/${encodeURIComponent(roomId)}/messages`, {
+      method: 'DELETE',
+    }, true),
 
   // Notification Feed APIs
   getNotifications: () =>

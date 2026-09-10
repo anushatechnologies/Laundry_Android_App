@@ -1,3 +1,4 @@
+import { useTheme } from '@/context/ThemeContext';
 import React, { useState } from 'react';
 import {
   Alert,
@@ -59,6 +60,7 @@ const GIFT_THEMES: GiftCardTheme[] = [
 const CARD_AMOUNTS = [500, 1000, 2500, 5000];
 
 export function GiftCardsScreen() {
+    const { colors } = useTheme();
   const [selectedTheme, setSelectedTheme] = useState<GiftCardTheme>(GIFT_THEMES[0] || GIFT_THEMES[0]!);
   const [selectedAmount, setSelectedAmount] = useState(1000);
   const [recipientName, setRecipientName] = useState('');
@@ -94,7 +96,7 @@ export function GiftCardsScreen() {
   };
 
   return (
-    <ScrollView style={styles.root} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+    <ScrollView style={[styles.root, { backgroundColor: colors.background }]} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
       {/* 1. VOUCHER REDEEM BOX */}
       <Card style={styles.redeemCard}>
         <Text style={styles.redeemTitle}>Have a Gift Card Voucher?</Text>

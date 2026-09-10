@@ -17,7 +17,9 @@ import {
   type TextInputProps,
 } from 'react-native-paper';
 import type { OrderStatus } from '@/types/domain';
+import { useTheme } from '@/context/ThemeContext';
 import { COLORS, RADIUS, statusLabel, statusTone } from '@/ui/theme';
+import { CONTROL_SIZES, SCREEN_LAYOUT } from '@/ui/theme';
 
 type IconName = ComponentProps<typeof MaterialCommunityIcons>['name'];
 
@@ -42,11 +44,12 @@ type AppInputProps = Omit<TextInputProps, 'style'> & {
 
 /** Material Design 3 button with the existing app's small API. */
 export function AppButton({ title, onPress, variant = 'primary', loading, disabled, compact, icon, style }: AppButtonProps) {
+  const { colors } = useTheme();
   const config = {
-    primary: { mode: 'contained' as const, buttonColor: COLORS.plum, textColor: COLORS.white },
-    secondary: { mode: 'contained-tonal' as const, buttonColor: COLORS.blush, textColor: COLORS.plumDark },
-    outline: { mode: 'outlined' as const, buttonColor: undefined, textColor: COLORS.plum },
-    danger: { mode: 'contained' as const, buttonColor: COLORS.danger, textColor: COLORS.white },
+    primary: { mode: 'contained' as const, buttonColor: colors.primary, textColor: colors.white },
+    secondary: { mode: 'contained-tonal' as const, buttonColor: colors.blush, textColor: colors.primary },
+    outline: { mode: 'outlined' as const, buttonColor: undefined, textColor: colors.primary },
+    danger: { mode: 'contained' as const, buttonColor: colors.danger, textColor: colors.white },
   }[variant];
 
   return (
@@ -61,6 +64,8 @@ export function AppButton({ title, onPress, variant = 'primary', loading, disabl
       style={[styles.button, compact && styles.compactButton, style]}
       contentStyle={[styles.buttonContent, compact && styles.compactContent]}
       labelStyle={[styles.buttonText, compact && styles.compactLabel]}
+      accessibilityLabel={title}
+      accessibilityRole="button"
     >
       {title}
     </Button>
@@ -69,28 +74,35 @@ export function AppButton({ title, onPress, variant = 'primary', loading, disabl
 
 /** Surface uses Paper elevation while preserving the familiar Card API used by every screen. */
 export function Card({ children, style }: PropsWithChildren<{ style?: StyleProp<ViewStyle> }>) {
-  return <Surface elevation={1} style={[styles.card, style]}>{children}</Surface>;
+  const { colors } = useTheme();
+  return <Surface elevation={1} style={[styles.card, { backgroundColor: colors.surface }, style]}>{children}</Surface>;
+}
+
+export function ScreenSection({ children, style }: PropsWithChildren<{ style?: StyleProp<ViewStyle> }>) {
+  return <View style={[styles.screenSection, style]}>{children}</View>;
 }
 
 export function SectionTitle({ title, action }: { title: string; action?: ReactNode }) {
+  const { colors } = useTheme();
   return (
     <View className="flex-row items-center justify-between" style={styles.sectionTitle}>
-      <Text style={styles.sectionHeading}>{title}</Text>
+      <Text style={[styles.sectionHeading, { color: colors.textHeading }]}>{title}</Text>
       {action}
     </View>
   );
 }
 
 export function AppInput({ label, containerStyle, style, ...props }: AppInputProps) {
+  const { colors } = useTheme();
   return (
     <View style={containerStyle}>
       <TextInput
         mode="outlined"
         label={label}
-        placeholderTextColor={COLORS.muted}
-        outlineColor={COLORS.line}
-        activeOutlineColor={COLORS.plum}
-        textColor={COLORS.ink}
+        placeholderTextColor={colors.muted}
+        outlineColor={colors.line}
+        activeOutlineColor={colors.primary}
+        textColor={colors.ink}
         outlineStyle={styles.inputOutline}
         style={[styles.input, style as unknown as StyleProp<TextStyle>]}
         contentStyle={[styles.inputContent, style as unknown as StyleProp<TextStyle>]}
@@ -101,14 +113,15 @@ export function AppInput({ label, containerStyle, style, ...props }: AppInputPro
 }
 
 export function Chip({ label, active, onPress }: { label: string; active?: boolean; onPress?: () => void }) {
+  const { colors } = useTheme();
   return (
     <PaperChip
       mode="outlined"
       selected={active}
       showSelectedCheck={false}
       onPress={onPress}
-      style={[styles.chip, active && styles.chipActive]}
-      textStyle={[styles.chipText, active && styles.chipTextActive]}
+      style={[styles.chip, { borderColor: colors.line }, active && { backgroundColor: colors.primary, borderColor: colors.primary }]}
+      textStyle={[styles.chipText, { color: active ? colors.white : colors.textBody }]}
     >
       {label}
     </PaperChip>
@@ -116,23 +129,25 @@ export function Chip({ label, active, onPress }: { label: string; active?: boole
 }
 
 export function QuantityControl({ value, min = 1, onChange }: { value: number; min?: number; onChange: (value: number) => void }) {
+  const { colors } = useTheme();
   return (
     <View style={styles.quantity}>
-      <IconButton icon="minus" size={17} iconColor={COLORS.plum} onPress={() => onChange(Math.max(min, value - 1))} />
-      <Text style={styles.quantityValue}>{value}</Text>
-      <IconButton icon="plus" size={17} iconColor={COLORS.plum} onPress={() => onChange(value + 1)} />
+      <IconButton icon="minus" size={17} iconColor={colors.primary} onPress={() => onChange(Math.max(min, value - 1))} />
+      <Text style={[styles.quantityValue, { color: colors.textHeading }]}>{value}</Text>
+      <IconButton icon="plus" size={17} iconColor={colors.primary} onPress={() => onChange(value + 1)} />
     </View>
   );
 }
 
 export function EmptyState({ icon, title, detail, action }: { icon: IconName; title: string; detail: string; action?: ReactNode }) {
+  const { colors } = useTheme();
   return (
     <Card style={styles.empty}>
       <View style={styles.emptyIcon}>
-        <MaterialCommunityIcons name={icon} color={COLORS.plum} size={28} />
+        <MaterialCommunityIcons name={icon} color={colors.primary} size={28} />
       </View>
-      <Text style={styles.emptyTitle}>{title}</Text>
-      <Text style={styles.emptyDetail}>{detail}</Text>
+      <Text style={[styles.emptyTitle, { color: colors.textHeading }]}>{title}</Text>
+      <Text style={[styles.emptyDetail, { color: colors.textCaption }]}>{detail}</Text>
       {action ? <View style={styles.emptyAction}>{action}</View> : null}
     </Card>
   );
@@ -150,7 +165,8 @@ function statusIcon(status: OrderStatus | string | undefined): IconName {
 
 /** A semantic status indicator: every tone is paired with a readable label and icon. */
 export function StatusPill({ status }: { status: OrderStatus | string | undefined }) {
-  const tone = statusTone(status);
+  const { colors } = useTheme();
+  const tone = statusTone(status, colors);
   const label = statusLabel(status);
 
   return (
@@ -166,10 +182,10 @@ export function StatusPill({ status }: { status: OrderStatus | string | undefine
 }
 
 const styles = StyleSheet.create({
-  button: { borderRadius: RADIUS.control },
-  compactButton: { borderRadius: RADIUS.control },
-  buttonContent: { minHeight: 52, paddingHorizontal: 10 },
-  compactContent: { minHeight: 44, paddingHorizontal: 2 },
+  button: { borderRadius: RADIUS.control, minHeight: CONTROL_SIZES.button },
+  compactButton: { borderRadius: RADIUS.control, minHeight: CONTROL_SIZES.compactButton },
+  buttonContent: { minHeight: CONTROL_SIZES.button, paddingHorizontal: 10 },
+  compactContent: { minHeight: CONTROL_SIZES.compactButton, paddingHorizontal: 2 },
   buttonText: { fontSize: 14, fontWeight: '800', letterSpacing: 0.1 },
   compactLabel: { fontSize: 12 },
   card: {
@@ -187,7 +203,7 @@ const styles = StyleSheet.create({
   sectionHeading: { color: COLORS.plumDark, fontSize: 17, fontWeight: '800' },
   input: { backgroundColor: COLORS.white },
   inputOutline: { borderRadius: RADIUS.control },
-  inputContent: { minHeight: 52, fontSize: 15 },
+  inputContent: { minHeight: CONTROL_SIZES.input, fontSize: 15 },
   chip: { borderColor: COLORS.line, backgroundColor: COLORS.white },
   chipActive: { borderColor: COLORS.plum, backgroundColor: COLORS.blush },
   chipText: { color: COLORS.muted, fontSize: 12, fontWeight: '700' },
@@ -201,4 +217,5 @@ const styles = StyleSheet.create({
   emptyAction: { marginTop: 16, alignSelf: 'stretch' },
   statusPill: { flexDirection: 'row', alignItems: 'center', gap: 5, borderRadius: 99, paddingHorizontal: 9, paddingVertical: 7, maxWidth: '100%' },
   statusText: { flexShrink: 1, fontSize: 10, fontWeight: '900' },
+  screenSection: { marginBottom: SCREEN_LAYOUT.sectionGap },
 });

@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useApp } from '@/context/AppContext';
+import { useTheme } from '@/context/ThemeContext';
 import { BannerCarousel } from '@/components/BannerCarousel';
 import { PromotionsSection } from '@/components/PromotionsSection';
 import { AppButton, Card, StatusPill } from '@/ui/components';
@@ -73,6 +74,7 @@ export function HomeScreen({
   onViewSubscriptions,
   onViewReferral,
 }: HomeScreenProps) {
+    const { colors } = useTheme();
   const {
     session,
     orders,
@@ -920,7 +922,7 @@ export function HomeScreen({
   };
 
   return (
-    <View style={styles.outerWrap}>
+    <View style={[styles.outerWrap, { backgroundColor: colors.background }]}>
       {/* TOP NAVIGATION BAR */}
       <View style={styles.stickyHeader}>
         <View style={styles.navMainRow}>
@@ -1017,15 +1019,15 @@ export function HomeScreen({
 
       {/* 2. SCROLLABLE PAGE BODY */}
       <ScrollView
-        style={styles.root}
+        style={[styles.root, { backgroundColor: colors.background }]}
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
             onRefresh={handleRefresh}
-            colors={['#0F766E', '#10B981']}
-            tintColor="#0F766E"
+            colors={[colors.primary, colors.success]}
+            tintColor={colors.primary}
           />
         }
       >

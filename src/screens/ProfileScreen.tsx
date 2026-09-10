@@ -17,6 +17,7 @@ import {
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useApp } from '@/context/AppContext';
+import { useTheme, type ThemeMode } from '@/context/ThemeContext';
 import { Card, SectionTitle } from '@/ui/components';
 import { COLORS } from '@/ui/theme';
 import { api } from '@/lib/api';
@@ -52,7 +53,18 @@ export function ProfileScreen({
   onViewLiveChat,
   onViewSubscriptions,
 }: ProfileScreenProps) {
-  const { session, addresses, orders, wishlist, signOut, updateUserProfile, refreshAccountData } = useApp();
+  const {
+    session,
+    addresses,
+    orders,
+    wishlist,
+    walletBalance,
+    refreshWallet,
+    signOut,
+    updateUserProfile,
+    refreshAccountData,
+  } = useApp();
+  const { mode, resolvedMode, colors, setMode } = useTheme();
 
   // Edit Profile Modal State
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -60,7 +72,6 @@ export function ProfileScreen({
   const [editEmail, setEditEmail] = useState(session?.user.email || '');
   const [savingProfile, setSavingProfile] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
-  const [walletBalance, setWalletBalance] = useState<number>(0);
   const [checkingUpdate, setCheckingUpdate] = useState(false);
 
   const currentAppVersion = Constants.expoConfig?.version || '1.0.30';
@@ -147,27 +158,25 @@ export function ProfileScreen({
 
   useEffect(() => {
     if (session?.user?.id) {
-      api.getWallet()
-        .then((w) => setWalletBalance(w.wallet?.balance ?? 0))
-        .catch(() => undefined);
+      void refreshWallet();
     }
-  }, [session?.user?.id]);
+  }, [session?.user?.id, refreshWallet]);
 
   // Pull-to-refresh handler
   const handleRefresh = useCallback(async () => {
-    if (!session?.user.id) return;
+    if (!session?.user?.id) return;
     setRefreshing(true);
     try {
       await Promise.all([
         refreshAccountData(),
-        api.getWallet().then((w) => setWalletBalance(w.wallet?.balance ?? 0)).catch(() => undefined),
+        refreshWallet(),
       ]);
     } catch (error) {
       console.error('[ProfileScreen] Refresh error:', error);
     } finally {
       setRefreshing(false);
     }
-  }, [session?.user.id, refreshAccountData]);
+  }, [session?.user?.id, refreshAccountData, refreshWallet]);
 
   // Policies Modal State
   const [activePolicyModal, setActivePolicyModal] = useState<'REFUND' | 'TERMS' | 'PRIVACY' | null>(null);
@@ -250,15 +259,15 @@ export function ProfileScreen({
 
   return (
     <ScrollView
-      style={styles.root}
+      style={[styles.root, { backgroundColor: colors.background }]}
       contentContainerStyle={styles.content}
       showsVerticalScrollIndicator={false}
       refreshControl={
         <RefreshControl
           refreshing={refreshing}
           onRefresh={handleRefresh}
-          colors={['#0F766E', '#16A34A']}
-          tintColor="#0F766E"
+          colors={[colors.primary, colors.success]}
+          tintColor={colors.primary}
         />
       }
     >
@@ -324,7 +333,58 @@ export function ProfileScreen({
         </View>
       )}
 
-      {/* 2. STATS ROW */}
+      {/* 2. APPEARANCE */}
+      <View style={styles.appearanceSection}>
+        <View style={styles.appearanceTitleRow}>
+          <View style={styles.appearanceTitleGroup}>
+            <MaterialCommunityIcons name="palette-outline" size={18} color={colors.primary} />
+            <Text style={[styles.appearanceSectionTitle, { color: colors.textHeading }]}>Appearance</Text>
+          </View>
+          <View style={[styles.currentThemeBadge, { backgroundColor: colors.primarySoft }]}>
+            <Text style={[styles.currentThemeBadgeText, { color: colors.primary }]}>
+              {mode === 'system' ? 'AUTO' : mode.toUpperCase()}
+            </Text>
+          </View>
+        </View>
+        <View style={[styles.appearanceCard, { backgroundColor: colors.surface, borderColor: colors.primary }]}>
+          <View style={styles.appearanceHeader}>
+            <View style={[styles.appearanceIcon, { backgroundColor: colors.primarySoft }]}>
+              <MaterialCommunityIcons name="theme-light-dark" size={20} color={colors.primaryLight} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.appearanceTitle, { color: colors.textHeading }]}>App Theme</Text>
+              <Text style={[styles.appearanceSubtitle, { color: colors.textCaption }]}> 
+                {mode === 'system' ? `System · Currently ${resolvedMode === 'dark' ? 'Dark' : 'Light'}` : `${mode === 'dark' ? 'Dark' : 'Light'} mode enabled`}
+              </Text>
+            </View>
+          </View>
+          <View style={[styles.themeModeRow, { backgroundColor: colors.section }]}>
+            {([
+              { key: 'system', label: 'System', icon: 'theme-light-dark' },
+              { key: 'light', label: 'Light', icon: 'white-balance-sunny' },
+              { key: 'dark', label: 'Dark', icon: 'moon-waning-crescent' },
+            ] as const).map((option) => {
+              const selected = mode === option.key;
+              return (
+                <Pressable
+                  key={option.key}
+                  style={[styles.themeModeOption, selected && { backgroundColor: colors.primary }]}
+                  onPress={() => void setMode(option.key as ThemeMode)}
+                  accessibilityRole="radio"
+                  accessibilityState={{ selected }}
+                  accessibilityLabel={`${option.label} theme`}
+                >
+                  <MaterialCommunityIcons name={option.icon as any} size={16} color={selected ? colors.white : colors.textCaption} />
+                  <Text style={[styles.themeModeLabel, { color: selected ? colors.white : colors.textBody }]}>{option.label}</Text>
+                  {selected && <MaterialCommunityIcons name="check-circle" size={14} color={colors.white} />}
+                </Pressable>
+              );
+            })}
+          </View>
+        </View>
+      </View>
+
+      {/* 3. STATS ROW */}
       <View style={styles.statRow}>
         <Pressable
           style={styles.statCard}
@@ -441,7 +501,9 @@ export function ProfileScreen({
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
               <Text style={styles.menuTitle}>LaundryFresh Wallet</Text>
               <View style={{ backgroundColor: '#DCFCE7', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}>
-                <Text style={{ color: '#16A34A', fontSize: 10, fontWeight: '800' }}>₹100 REWARDS</Text>
+                <Text style={{ color: '#16A34A', fontSize: 10, fontWeight: '800' }}>
+                  {session && walletBalance > 0 ? `₹${walletBalance.toFixed(0)} BALANCE` : '₹100 REWARDS'}
+                </Text>
               </View>
             </View>
             <Text style={styles.menuSubtitle}>Instant refunds, top-ups & referral cash</Text>
@@ -1457,6 +1519,79 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: 12,  // Small top spacing so content doesn't start at edge
     paddingBottom: 40,
+  },
+  appearanceSection: {
+    marginBottom: 16,
+  },
+  appearanceSectionTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+  },
+  appearanceTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  appearanceTitleGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 7,
+  },
+  currentThemeBadge: {
+    borderRadius: 999,
+    paddingHorizontal: 9,
+    paddingVertical: 4,
+  },
+  currentThemeBadgeText: {
+    fontSize: 10,
+    fontWeight: '900',
+    letterSpacing: 0.6,
+  },
+  appearanceCard: {
+    borderRadius: 18,
+    borderWidth: 1,
+    padding: 14,
+  },
+  appearanceHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginBottom: 14,
+  },
+  appearanceIcon: {
+    width: 38,
+    height: 38,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  appearanceTitle: {
+    fontSize: 15,
+    fontWeight: '800',
+  },
+  appearanceSubtitle: {
+    fontSize: 12,
+    marginTop: 2,
+  },
+  themeModeRow: {
+    flexDirection: 'row',
+    borderRadius: 12,
+    padding: 4,
+    gap: 4,
+  },
+  themeModeOption: {
+    flex: 1,
+    minHeight: 40,
+    borderRadius: 9,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 5,
+  },
+  themeModeLabel: {
+    fontSize: 12,
+    fontWeight: '800',
   },
   profileHeaderCard: {
     backgroundColor: '#FFFFFF',

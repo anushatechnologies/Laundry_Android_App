@@ -2,6 +2,7 @@ import { useState, useCallback } from 'react';
 import { Alert, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useApp } from '@/context/AppContext';
+import { useTheme } from '@/context/ThemeContext';
 import { getCurrentCustomerLocation } from '@/services/location/locationService';
 import { PickupLocationCard, type PickupLocationState } from '@/ui/PickupLocationCard';
 import { AppButton, AppInput, Card, Chip, EmptyState, SectionTitle } from '@/ui/components';
@@ -30,6 +31,7 @@ function initialDraft(name: string, phone: string): AddressDraft {
 }
 
 export function AddressesScreen({ onBook, onSignIn }: AddressesScreenProps) {
+    const { colors } = useTheme();
   const { session, addresses, saveAddress, deleteAddress, validatePincode, refreshAccountData } = useApp();
   const [creating, setCreating] = useState(addresses.length === 0);
   const [draft, setDraft] = useState<AddressDraft>(() => initialDraft(session?.user.name || '', session?.user.phone || ''));
@@ -56,7 +58,7 @@ export function AddressesScreen({ onBook, onSignIn }: AddressesScreenProps) {
   // --- GUEST VIEW (If not logged in) ---
   if (!session) {
     return (
-      <ScrollView style={styles.root} contentContainerStyle={styles.guestContainer} showsVerticalScrollIndicator={false}>
+      <ScrollView style={[styles.root, { backgroundColor: colors.background }]} contentContainerStyle={styles.guestContainer} showsVerticalScrollIndicator={false}>
         <View style={styles.guestIllustrationBox}>
           <MaterialCommunityIcons name="map-marker-radius-outline" size={54} color="#F97316" />
         </View>
@@ -182,7 +184,7 @@ export function AddressesScreen({ onBook, onSignIn }: AddressesScreenProps) {
 
   return (
     <ScrollView
-      style={styles.root}
+      style={[styles.root, { backgroundColor: colors.background }]}
       contentContainerStyle={styles.content}
       showsVerticalScrollIndicator={false}
       refreshControl={

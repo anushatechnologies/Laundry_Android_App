@@ -18,6 +18,7 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useApp } from '@/context/AppContext';
+import { useTheme } from '@/context/ThemeContext';
 import { api } from '@/lib/api';
 import { payRazorpayCustom } from '@/lib/payments';
 import type { WalletData, WalletTransaction } from '@/types/domain';
@@ -31,7 +32,8 @@ interface WalletScreenProps {
 const QUICK_AMOUNTS = [100, 200, 500, 1000];
 
 export function WalletScreen({ onBack, onNavigateReferral, onSignIn }: WalletScreenProps) {
-  const { session } = useApp();
+  const { colors } = useTheme();
+  const { session, refreshWallet } = useApp();
   const customerId = session?.user.id;
 
   const [data, setData] = useState<WalletData | null>(null);
@@ -53,13 +55,14 @@ export function WalletScreen({ onBack, onNavigateReferral, onSignIn }: WalletScr
     try {
       const res = await api.getWallet();
       setData(res);
+      void refreshWallet();
     } catch (err: any) {
       console.warn('[WalletScreen] Failed to load wallet:', err?.message);
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [customerId]);
+  }, [customerId, refreshWallet]);
 
   useEffect(() => {
     void fetchWallet();
@@ -129,7 +132,7 @@ export function WalletScreen({ onBack, onNavigateReferral, onSignIn }: WalletScr
 
   if (!customerId) {
     return (
-      <View style={styles.root}>
+      <View style={[styles.root, { backgroundColor: colors.background }]}>
         {onBack && (
           <View style={styles.navBar}>
             <Pressable onPress={onBack} hitSlop={12} style={styles.backBtn}>
@@ -155,7 +158,7 @@ export function WalletScreen({ onBack, onNavigateReferral, onSignIn }: WalletScr
     );
   }
 
-  const balance = data?.wallet?.balance ?? 0;
+  const balance = Number((data as any)?.balance ?? (data as any)?.wallet?.balance ?? 0);
   const transactions = (data?.transactions ?? []).filter((tx) => {
     if (filterType === 'CREDIT') return tx.type === 'CREDIT';
     if (filterType === 'DEBIT') return tx.type === 'DEBIT';
@@ -163,7 +166,7 @@ export function WalletScreen({ onBack, onNavigateReferral, onSignIn }: WalletScr
   });
 
   return (
-    <View style={styles.root}>
+    <View style={[styles.root, { backgroundColor: colors.background }]}>
       {/* Navigation Header */}
       <View style={styles.navBar}>
         {onBack ? (

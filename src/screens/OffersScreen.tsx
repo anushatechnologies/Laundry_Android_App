@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { ActivityIndicator, Badge, Divider } from 'react-native-paper';
 import { useApp } from '@/context/AppContext';
+import { useTheme } from '@/context/ThemeContext';
 import { api } from '@/lib/api';
 import { AppButton, AppInput, Card, EmptyState, SectionTitle } from '@/ui/components';
 import { COLORS, money, shortDate } from '@/ui/theme';
@@ -9,6 +10,7 @@ import type { Coupon } from '@/types/domain';
 
 export function OffersScreen({ onUseCoupon }: { onUseCoupon: (code: string) => void }) {
   const { cartSummary, orders } = useApp();
+  const { colors } = useTheme();
   const [coupons, setCoupons] = useState<Coupon[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -74,7 +76,7 @@ export function OffersScreen({ onUseCoupon }: { onUseCoupon: (code: string) => v
 
   return (
     <ScrollView
-      style={styles.root}
+      style={[styles.root, { backgroundColor: colors.background }]}
       contentContainerStyle={styles.content}
       showsVerticalScrollIndicator={false}
       keyboardShouldPersistTaps="handled"

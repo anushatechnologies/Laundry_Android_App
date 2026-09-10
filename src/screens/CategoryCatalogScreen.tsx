@@ -14,6 +14,7 @@ import {
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useApp } from '@/context/AppContext';
+import { useTheme } from '@/context/ThemeContext';
 import { api } from '@/lib/api';
 import { getGarmentImageUrl } from '@/lib/garment-photos';
 import { getCategoryImageUrl, getSubcategoryImageUrl } from '@/lib/category-photos';
@@ -29,6 +30,7 @@ interface CategoryCatalogScreenProps {
   onOpenCart?: () => void;
   onOpenBulkLaundry?: () => void;
   onSelectProduct?: (product: ProductItem) => void;
+  hasBottomTabBar?: boolean;
 }
 
 type CatalogServiceCode = 'PRESS' | 'WASH_FOLD' | 'WASH_IRON' | 'DRY_CLEAN' | 'SHOE_SPA' | 'SAREE_POLISH' | 'STARCH' | 'EXPRESS' | 'OTHER';
@@ -217,8 +219,10 @@ export function CategoryCatalogScreen({
   onOpenCart,
   onOpenBulkLaundry,
   onSelectProduct,
+  hasBottomTabBar = false,
 }: CategoryCatalogScreenProps) {
   const insets = useSafeAreaInsets();
+  const { colors } = useTheme();
   const { width: windowWidth } = useWindowDimensions();
   const { catalog, cart, cartSummary, addCartItem, setCartQuantity, removeFromCart, wishlist, toggleWishlist } = useApp();
   const initialCategoryTag = normalizeCategoryTag(categoryTag);
@@ -673,7 +677,7 @@ export function CategoryCatalogScreen({
     : Math.floor((windowWidth - SCREEN_PADDING * 2 - GRID_GAP) / 2);
 
   return (
-    <View style={styles.root}>
+    <View style={[styles.root, { backgroundColor: colors.background }]}>
       {/* 1. TOP APP BAR (Compact 52px height, count badge, search toggle and cart shortcut) */}
       <View style={styles.topBar}>
         <Pressable
@@ -701,7 +705,7 @@ export function CategoryCatalogScreen({
           </Text>
         </View>
 
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
           <Pressable
             style={[styles.headerActionBtn, (isSearchOpen || searchQuery.length > 0) && styles.headerActionBtnActive]}
             onPress={() => setIsSearchOpen((prev) => !prev)}
@@ -710,7 +714,7 @@ export function CategoryCatalogScreen({
           >
             <MaterialCommunityIcons
               name={isSearchOpen || searchQuery.length > 0 ? 'close' : 'magnify'}
-              size={20}
+              size={22}
               color={isSearchOpen || searchQuery.length > 0 ? '#16A34A' : '#0F172A'}
             />
           </Pressable>
@@ -721,7 +725,7 @@ export function CategoryCatalogScreen({
             hitSlop={8}
             accessibilityLabel={`Shopping bag, ${cartSummary.itemCount} items`}
           >
-            <MaterialCommunityIcons name="shopping-outline" size={20} color="#0F172A" />
+            <MaterialCommunityIcons name="shopping-outline" size={23} color="#166534" />
             {cartSummary.itemCount > 0 && (
               <View style={styles.cartBadge}>
                 <Text style={styles.cartBadgeText}>
@@ -971,7 +975,7 @@ export function CategoryCatalogScreen({
           contentContainerStyle={[
             styles.productsScrollContent,
             {
-              paddingBottom: Math.max(insets.bottom, 16) + 24,
+              paddingBottom: Math.max(insets.bottom, 16) + (cartSummary.itemCount > 0 ? 92 : 24),
             },
           ]}
           refreshControl={
@@ -1193,6 +1197,45 @@ export function CategoryCatalogScreen({
           </View>
         </ScrollView>
       )}
+
+      {cartSummary.itemCount > 0 && (
+        <View
+          style={[
+            styles.stickyCartBarWrap,
+            { paddingBottom: Math.max(insets.bottom, 8) },
+            hasBottomTabBar && styles.stickyCartBarWrapAboveTabs,
+          ]}
+        >
+          <Pressable
+            style={styles.cartBarPressable}
+            onPress={handleCartClick}
+            accessibilityRole="button"
+            accessibilityLabel={`View laundry bag with ${cartSummary.itemCount} items`}
+          >
+            <View style={styles.stickyCartBar}>
+              <View style={styles.cartBarLeft}>
+                <View style={styles.cartBarIconBadge}>
+                  <MaterialCommunityIcons name="shopping" size={18} color="#FFFFFF" />
+                </View>
+                <View style={styles.cartBarInfo}>
+                  <View style={styles.cartBarTotalText}>
+                    <Text style={styles.cartBarCountText}>
+                      {cartSummary.itemCount} {cartSummary.itemCount === 1 ? 'item' : 'items'}
+                    </Text>
+                    <Text style={styles.cartBarDotText}> · </Text>
+                    <Text style={styles.cartBarPriceText}>₹{cartSummary.itemTotal}</Text>
+                  </View>
+                  <Text style={styles.cartBarCountText}>Ready to review your bag</Text>
+                </View>
+              </View>
+              <View style={styles.cartBarRightBtn}>
+                <Text style={styles.cartBarActionText}>View Bag</Text>
+                <MaterialCommunityIcons name="arrow-right" size={17} color="#FFFFFF" />
+              </View>
+            </View>
+          </Pressable>
+        </View>
+      )}
     </View>
   );
 }
@@ -1253,9 +1296,9 @@ const styles = StyleSheet.create({
     marginTop: 1,
   },
   headerActionBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 12,
+    width: 42,
+    height: 42,
+    borderRadius: 14,
     backgroundColor: '#F8FAFC',
     borderWidth: 1,
     borderColor: '#E2E8F0',
@@ -1267,33 +1310,43 @@ const styles = StyleSheet.create({
     borderColor: '#FED7AA',
   },
   cartBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 12,
-    backgroundColor: '#F8FAFC',
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    backgroundColor: '#F0FDF4',
+    borderWidth: 1.5,
+    borderColor: '#BBF7D0',
     alignItems: 'center',
     justifyContent: 'center',
     position: 'relative',
+    shadowColor: '#16A34A',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
   },
   cartBadge: {
     position: 'absolute',
-    top: -3,
-    right: -3,
-    backgroundColor: '#FF6B0B',
-    minWidth: 17,
-    height: 17,
-    borderRadius: 8.5,
+    top: -4,
+    right: -4,
+    backgroundColor: '#EA580C',
+    minWidth: 20,
+    height: 20,
+    borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 3,
-    borderWidth: 1.5,
+    paddingHorizontal: 4,
+    borderWidth: 2,
     borderColor: '#FFFFFF',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 2,
+    elevation: 3,
   },
   cartBadgeText: {
     color: '#FFFFFF',
-    fontSize: 9,
+    fontSize: 10.5,
     fontWeight: '900',
   },
 
@@ -1790,6 +1843,9 @@ const styles = StyleSheet.create({
     paddingTop: 8,
     borderTopWidth: 1,
     borderTopColor: '#E2E8F0',
+  },
+  stickyCartBarWrapAboveTabs: {
+    paddingBottom: 88,
   },
   cartBarPressable: {
     width: '100%',

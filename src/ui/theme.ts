@@ -68,6 +68,39 @@ export const COLORS = {
   indigoSoft: '#CCFBF1',
 } as const;
 
+export type ThemePalette = { [Key in keyof typeof COLORS]: string };
+
+function createDarkPalette(): ThemePalette {
+  return {
+    ...COLORS,
+    background: '#081A18',
+    surface: '#102623',
+    section: '#17332F',
+    border: '#28514A',
+    borderDark: '#3B6A61',
+    textHeading: '#F0FDFA',
+    textBody: '#C5E5DE',
+    textCaption: '#91B5AE',
+    primarySoft: '#153B36',
+    orangeSoft: '#123D31',
+    successSoft: '#123D31',
+    warningSoft: '#3A2C10',
+    dangerSoft: '#3B171B',
+    cream: '#081A18',
+    creamDark: '#17332F',
+    blush: '#153B36',
+    ink: '#F0FDFA',
+    inkLight: '#C5E5DE',
+    muted: '#91B5AE',
+    line: '#28514A',
+    lineDark: '#3B6A61',
+    white: '#F0FDFA',
+    goldLight: '#3A2C10',
+    blueSoft: '#153B36',
+    indigoSoft: '#153B36',
+  };
+}
+
 export const GRADIENTS = {
   primaryCta: ['#10B981', '#059669'] as [string, string],
   primaryBlue: ['#0F766E', '#115E59'] as [string, string],
@@ -95,6 +128,21 @@ export const SPACING = {
   lg: 24,
   xl: 32,
   xxl: 40,
+} as const;
+
+export const CONTROL_SIZES = {
+  button: 52,
+  compactButton: 44,
+  iconButton: 44,
+  input: 52,
+  tabBar: 82,
+} as const;
+
+export const SCREEN_LAYOUT = {
+  horizontalPadding: 16,
+  sectionGap: 16,
+  cardGap: 12,
+  bottomContentPadding: 24,
 } as const;
 
 export const RADIUS = {
@@ -146,48 +194,59 @@ export const SHADOWS = {
   },
 } as const;
 
-export const APP_THEME: MD3Theme = {
-  ...MD3LightTheme,
-  roundness: RADIUS.button,
-  colors: {
-    ...MD3LightTheme.colors,
-    primary: COLORS.primary,
-    onPrimary: COLORS.white,
-    primaryContainer: COLORS.primarySoft,
-    onPrimaryContainer: COLORS.primaryDark,
-    secondary: COLORS.orange,
-    onSecondary: COLORS.white,
-    secondaryContainer: COLORS.orangeSoft,
-    onSecondaryContainer: COLORS.orangeDark,
-    tertiary: COLORS.success,
-    onTertiary: COLORS.white,
-    tertiaryContainer: COLORS.successSoft,
-    onTertiaryContainer: COLORS.successDark,
-    error: COLORS.danger,
-    onError: COLORS.white,
-    errorContainer: COLORS.dangerSoft,
-    onErrorContainer: COLORS.danger,
-    background: COLORS.background,
-    onBackground: COLORS.textHeading,
-    surface: COLORS.surface,
-    onSurface: COLORS.textHeading,
-    surfaceVariant: COLORS.section,
-    onSurfaceVariant: COLORS.textCaption,
-    outline: COLORS.border,
-    outlineVariant: COLORS.borderDark,
-    inverseSurface: COLORS.darkSurface,
-    inverseOnSurface: COLORS.white,
-    inversePrimary: COLORS.orange,
-    elevation: {
-      ...MD3LightTheme.colors.elevation,
-      level1: COLORS.surface,
-      level2: COLORS.surface,
-      level3: COLORS.section,
-      level4: COLORS.section,
-      level5: COLORS.section,
-    },
-  },
-};
+export function createAppTheme(mode: 'light' | 'dark') {
+  const palette = mode === 'dark' ? createDarkPalette() : COLORS;
+  const baseTheme = mode === 'dark' ? MD3LightTheme : MD3LightTheme;
+
+  return {
+    palette,
+    theme: {
+      ...baseTheme,
+      roundness: RADIUS.button,
+      dark: mode === 'dark',
+      colors: {
+        ...baseTheme.colors,
+        primary: palette.primary,
+        onPrimary: palette.white,
+        primaryContainer: palette.primarySoft,
+        onPrimaryContainer: palette.primaryLight,
+        secondary: palette.orange,
+        onSecondary: palette.white,
+        secondaryContainer: palette.orangeSoft,
+        onSecondaryContainer: palette.orange,
+        tertiary: palette.success,
+        onTertiary: palette.white,
+        tertiaryContainer: palette.successSoft,
+        onTertiaryContainer: palette.successDark,
+        error: palette.danger,
+        onError: palette.white,
+        errorContainer: palette.dangerSoft,
+        onErrorContainer: palette.danger,
+        background: palette.background,
+        onBackground: palette.textHeading,
+        surface: palette.surface,
+        onSurface: palette.textHeading,
+        surfaceVariant: palette.section,
+        onSurfaceVariant: palette.textCaption,
+        outline: palette.border,
+        outlineVariant: palette.borderDark,
+        inverseSurface: palette.textHeading,
+        inverseOnSurface: palette.background,
+        inversePrimary: palette.primaryLight,
+        elevation: {
+          ...baseTheme.colors.elevation,
+          level1: palette.surface,
+          level2: palette.surface,
+          level3: palette.section,
+          level4: palette.section,
+          level5: palette.section,
+        },
+      },
+    } as MD3Theme,
+  };
+}
+
+export const APP_THEME: MD3Theme = createAppTheme('light').theme;
 
 export function money(value: number | undefined) {
   const amount = Number(value || 0);
@@ -204,20 +263,20 @@ export function statusLabel(status: string | undefined) {
     .replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 
-export function statusTone(status: OrderStatus | string | undefined) {
+export function statusTone(status: OrderStatus | string | undefined, palette: ThemePalette = COLORS) {
   if (status === 'DELIVERED' || status === 'COMPLETED') {
-    return { backgroundColor: COLORS.successSoft, color: COLORS.success, borderColor: '#BBF7D0' };
+    return { backgroundColor: palette.successSoft, color: palette.success, borderColor: palette.borderDark };
   }
   if (status === 'CANCELLED') {
-    return { backgroundColor: COLORS.dangerSoft, color: COLORS.danger, borderColor: '#FECACA' };
+    return { backgroundColor: palette.dangerSoft, color: palette.danger, borderColor: palette.borderDark };
   }
   if (status === 'OUT_FOR_DELIVERY' || status === 'PICKUP_ASSIGNED' || status === 'DELIVERY_ASSIGNED') {
-    return { backgroundColor: COLORS.primarySoft, color: COLORS.primary, borderColor: '#99F6E4' };
+    return { backgroundColor: palette.primarySoft, color: palette.primaryLight, borderColor: palette.borderDark };
   }
   if (status === 'WASHING_AND_IRONING' || status === 'IN_PROGRESS' || status === 'AT_WORKSHOP') {
-    return { backgroundColor: COLORS.indigoSoft, color: COLORS.indigo, borderColor: '#A7F3D0' };
+    return { backgroundColor: palette.indigoSoft, color: palette.indigo, borderColor: palette.borderDark };
   }
-  return { backgroundColor: COLORS.warningSoft, color: COLORS.warning, borderColor: '#FDE68A' };
+  return { backgroundColor: palette.warningSoft, color: palette.warning, borderColor: palette.borderDark };
 }
 
 export function shortDate(value: string | undefined) {

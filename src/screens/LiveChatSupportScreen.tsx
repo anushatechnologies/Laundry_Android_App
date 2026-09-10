@@ -19,6 +19,7 @@ import { COLORS } from '@/ui/theme';
 import { useChatSocket } from '@/lib/chatSocket';
 import { api } from '@/lib/api';
 import { useApp } from '@/context/AppContext';
+import { useTheme } from '@/context/ThemeContext';
 
 interface ChatMessage {
   id: string;
@@ -46,14 +47,46 @@ interface LiveChatSupportScreenProps {
 
 export function LiveChatSupportScreen({ onBack }: LiveChatSupportScreenProps = {}) {
   const { session } = useApp();
+  const { colors } = useTheme();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputText, setInputText] = useState('');
   const [roomId, setRoomId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [clearing, setClearing] = useState(false);
   const [agentOnline, setAgentOnline] = useState(true);
   const flatListRef = useRef<FlatList>(null);
 
   const customerId = session?.user?.id;
+
+  const handleClearChat = () => {
+    if (!roomId) {
+      setMessages([]);
+      return;
+    }
+    Alert.alert(
+      'Clear Conversation',
+      'Are you sure you want to clear all messages in this chat? This cannot be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Clear All',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              setClearing(true);
+              await api.clearChatMessages(roomId);
+              setMessages([]);
+            } catch (err: any) {
+              console.error('Error clearing messages:', err);
+              Alert.alert('Error', err?.message || 'Could not clear chat messages. Please try again.');
+            } finally {
+              setClearing(false);
+            }
+          },
+        },
+      ]
+    );
+  };
 
   // HTTP polling mode - no WebSocket needed
   const connectionStatus = { connected: true, reconnecting: false };
@@ -257,7 +290,7 @@ export function LiveChatSupportScreen({ onBack }: LiveChatSupportScreenProps = {
 
   return (
     <KeyboardAvoidingView
-      style={styles.root}
+      style={[styles.root, { backgroundColor: colors.background }]}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 25}
     >
@@ -287,6 +320,20 @@ export function LiveChatSupportScreen({ onBack }: LiveChatSupportScreenProps = {
             </Text>
           </View>
         </View>
+
+        <Pressable
+          style={styles.clearChatBtn}
+          onPress={handleClearChat}
+          disabled={clearing}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          accessibilityLabel="Clear chat messages"
+        >
+          {clearing ? (
+            <ActivityIndicator size="small" color="#EF4444" />
+          ) : (
+            <MaterialCommunityIcons name="trash-can-outline" size={20} color="#EF4444" />
+          )}
+        </Pressable>
 
         <Pressable
           style={styles.whatsAppEscalateBtn}
@@ -325,6 +372,17 @@ export function LiveChatSupportScreen({ onBack }: LiveChatSupportScreenProps = {
           );
         }}
         ListFooterComponent={null}
+        ListEmptyComponent={
+          !loading ? (
+            <View style={styles.emptyContainer}>
+              <MaterialCommunityIcons name="chat-processing-outline" size={48} color="#D1D5DB" />
+              <Text style={styles.emptyTitle}>Chat with Care Support</Text>
+              <Text style={styles.emptySubtitle}>
+                Send a message or select a prompt below. Our team is here to help!
+              </Text>
+            </View>
+          ) : null
+        }
       />
 
       {/* 3. QUICK CHIPS */}
@@ -473,6 +531,14 @@ const styles = StyleSheet.create({
     color: '#EF4444',
     fontWeight: '700',
   },
+  clearChatBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#FEE2E2',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   whatsAppEscalateBtn: {
     width: 36,
     height: 36,
@@ -480,6 +546,25 @@ const styles = StyleSheet.create({
     backgroundColor: '#16A34A',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  emptyContainer: {
+    paddingVertical: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 24,
+  },
+  emptyTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#374151',
+    marginTop: 12,
+  },
+  emptySubtitle: {
+    fontSize: 13,
+    color: '#6B7280',
+    textAlign: 'center',
+    marginTop: 6,
+    lineHeight: 18,
   },
   messageList: {
     paddingHorizontal: 16,

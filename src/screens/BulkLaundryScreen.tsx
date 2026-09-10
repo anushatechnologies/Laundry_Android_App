@@ -12,6 +12,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useApp } from '@/context/AppContext';
+import { useTheme } from '@/context/ThemeContext';
 
 interface BulkLaundryScreenProps {
   onBack: () => void;
@@ -72,6 +73,7 @@ export function BulkLaundryScreen({
   onViewCart,
   onBook,
 }: BulkLaundryScreenProps) {
+    const { colors } = useTheme();
   const insets = useSafeAreaInsets();
   const { cart, cartSummary, addCartItem } = useApp();
 
@@ -222,7 +224,7 @@ export function BulkLaundryScreen({
   };
 
   return (
-    <View style={styles.root}>
+    <View style={[styles.root, { backgroundColor: colors.background }]}>
       {/* 1. TOP HEADER BAR */}
       <View style={[styles.topBar, { paddingTop: Math.max(insets.top, 12) + 4 }]}>
         <Pressable
@@ -610,33 +612,45 @@ const styles = StyleSheet.create({
     marginRight: 12,
   },
   cartBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#F1F5F9',
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    backgroundColor: '#F0FDF4',
+    borderWidth: 1.5,
+    borderColor: '#BBF7D0',
     alignItems: 'center',
     justifyContent: 'center',
     marginLeft: 8,
     position: 'relative',
+    shadowColor: '#16A34A',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
   },
   cartBadge: {
     position: 'absolute',
-    top: 3,
-    right: 3,
-    backgroundColor: '#FF6B0B',
+    top: -4,
+    right: -4,
+    backgroundColor: '#EA580C',
     borderRadius: 10,
-    minWidth: 18,
-    height: 18,
+    minWidth: 20,
+    height: 20,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 4,
-    borderWidth: 1.5,
+    borderWidth: 2,
     borderColor: '#FFFFFF',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 2,
+    elevation: 3,
   },
   cartBadgeText: {
     color: '#FFFFFF',
-    fontSize: 9,
-    fontWeight: '800',
+    fontSize: 10.5,
+    fontWeight: '900',
   },
   pressedBtn: {
     opacity: 0.88,

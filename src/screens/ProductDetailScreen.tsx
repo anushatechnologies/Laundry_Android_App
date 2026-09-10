@@ -14,6 +14,7 @@ import {
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useApp } from '@/context/AppContext';
+import { useTheme } from '@/context/ThemeContext';
 import { getGarmentImageUrl } from '@/lib/garment-photos';
 import type { ProductItem, ServicePriceOption } from '@/types/domain';
 
@@ -31,6 +32,7 @@ export function ProductDetailScreen({
   onViewCart,
 }: ProductDetailScreenProps) {
   const insets = useSafeAreaInsets();
+  const { colors } = useTheme();
   const { cart, cartSummary, addCartItem, setCartQuantity, removeFromCart, wishlist, toggleWishlist } = useApp();
 
   // Find initial service or default to first
@@ -134,7 +136,7 @@ export function ProductDetailScreen({
   };
 
   return (
-    <View style={styles.root}>
+    <View style={[styles.root, { backgroundColor: colors.background }]}>
       {/* 1. TOP APP BAR */}
       <View style={styles.header}>
         <Pressable

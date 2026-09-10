@@ -12,6 +12,7 @@ import {
 import Constants from 'expo-constants';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useApp } from '@/context/AppContext';
+import { useTheme } from '@/context/ThemeContext';
 import { Card } from '@/ui/components';
 import {
   type DeliveryInstructions,
@@ -26,6 +27,7 @@ interface SettingsScreenProps {
 
 export function SettingsScreen({ onSignIn }: SettingsScreenProps) {
   const { session, preferences, updatePreferences, updateUserProfile, deleteAccount, signOut } = useApp();
+  const { colors } = useTheme();
 
   // Edit Name & Email Modal
   const [editingProfile, setEditingProfile] = useState(false);
@@ -100,7 +102,7 @@ export function SettingsScreen({ onSignIn }: SettingsScreenProps) {
   };
 
   return (
-    <ScrollView style={styles.root} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+    <ScrollView style={[styles.root, { backgroundColor: colors.background }]} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
       {/* 1. ACCOUNT PROFILE CARD */}
       {session ? (
         <Card style={styles.profileCard}>

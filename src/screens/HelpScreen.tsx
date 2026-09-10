@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Card } from '@/ui/components';
+import { useTheme } from '@/context/ThemeContext';
 import { COLORS } from '@/ui/theme';
 
 interface FAQItem {
@@ -59,6 +60,7 @@ const FAQS: FAQItem[] = [
 ];
 
 export function HelpScreen() {
+  const { colors } = useTheme();
   const [activeCategory, setActiveCategory] = useState<'ALL' | 'PICKUP' | 'PRICING' | 'CARE' | 'GUARANTEE'>('ALL');
   const [expandedFaqId, setExpandedFaqId] = useState<string | null>('f1');
   const [issueText, setIssueText] = useState('');
@@ -99,7 +101,7 @@ export function HelpScreen() {
   };
 
   return (
-    <ScrollView style={styles.root} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+    <ScrollView style={[styles.root, { backgroundColor: colors.background }]} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
       {/* 1. TOP CONTACT CARDS */}
       <View style={styles.contactGrid}>
         <Pressable style={styles.contactTileWhatsApp} onPress={openWhatsApp}>

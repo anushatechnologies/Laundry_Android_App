@@ -18,6 +18,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useApp } from '@/context/AppContext';
+import { useTheme } from '@/context/ThemeContext';
 import { api } from '@/lib/api';
 
 const brandLogo = require('../../assets/brand-logo.png');
@@ -36,6 +37,7 @@ function normalisePhone(value: string) {
 }
 
 export function AuthScreen({ reason = 'ACCOUNT', onBack }: AuthScreenProps) {
+    const { colors } = useTheme();
   const { signIn, requestOtp, saveAddress } = useApp();
 
   const [mode, setMode] = useState<AuthMode>('LOGIN');
@@ -344,7 +346,7 @@ export function AuthScreen({ reason = 'ACCOUNT', onBack }: AuthScreenProps) {
   const tabWidth = Math.max(120, (switcherWidth - 8) / 2);
 
   return (
-    <View style={styles.root}>
+    <View style={[styles.root, { backgroundColor: colors.background }]}>
       {/* Premium Fresh Green Ambient Header */}
       <LinearGradient
         colors={['#DCFCE7', '#E8F5E9', '#F0FDF4']}

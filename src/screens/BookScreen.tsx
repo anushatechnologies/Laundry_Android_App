@@ -18,6 +18,7 @@ import {
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useApp } from '@/context/AppContext';
+import { useTheme } from '@/context/ThemeContext';
 import { api } from '@/lib/api';
 import { payWithRazorpay, parsePaymentError, type ParsedPaymentError } from '@/lib/payments';
 import { getCurrentCustomerLocation } from '@/services/location/locationService';
@@ -138,6 +139,7 @@ export function BookScreen({
   hasBottomTabBar = false,
   onStageChange,
 }: BookScreenProps) {
+    const { colors } = useTheme();
   const insets = useSafeAreaInsets();
   const {
     session,
@@ -146,6 +148,8 @@ export function BookScreen({
     cartSummary,
     addresses,
     orders,
+    walletBalance,
+    refreshWallet,
     addCartItem,
     addGarmentToCart,
     addBulkToCart,
@@ -181,7 +185,6 @@ export function BookScreen({
   const [expressTier, setExpressTier] = useState<ExpressTier>('REGULAR');
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('ONLINE_RAZORPAY');
   const [useWallet, setUseWallet] = useState(true);
-  const [walletBalance, setWalletBalance] = useState(0);
   const [activeSubscription, setActiveSubscription] = useState<CustomerSubscription | null>(null);
   const [useSubscription, setUseSubscription] = useState(true);
   const [couponCode, setCouponCode] = useState(initialCouponCode || '');
@@ -228,9 +231,7 @@ export function BookScreen({
 
   useEffect(() => {
     if (session?.user?.id) {
-      api.getWallet()
-        .then((w) => setWalletBalance(w?.wallet?.balance ?? 0))
-        .catch(() => undefined);
+      void refreshWallet();
       api.getCustomerSubscriptions(session.user.id)
         .then((subs) => {
           if (Array.isArray(subs)) {
@@ -774,7 +775,7 @@ export function BookScreen({
 
       // Background refresh of wallet & subscription usage
       if (session?.user?.id) {
-        api.getWallet().then((w) => setWalletBalance(w?.wallet?.balance ?? 0)).catch(() => undefined);
+        void refreshWallet();
         api.getCustomerSubscriptions(session.user.id).then((subs) => {
           if (Array.isArray(subs)) {
             const active = subs.find((s) => s && (s.isActive || s.status === 'ACTIVE'));
@@ -810,7 +811,7 @@ export function BookScreen({
   // --- STAGE 4: SUCCESS ---
   if (stage === 'SUCCESS') {
     return (
-      <ScrollView style={styles.root} contentContainerStyle={styles.successContainer} showsVerticalScrollIndicator={false}>
+      <ScrollView style={[styles.root, { backgroundColor: colors.background }]} contentContainerStyle={styles.successContainer} showsVerticalScrollIndicator={false}>
         <View style={styles.successIconBox}>
           <MaterialCommunityIcons name="check-decagram" size={64} color="#16A34A" />
         </View>
@@ -869,7 +870,7 @@ export function BookScreen({
       style={{ flex: 1 }}
       keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
     >
-      <View style={styles.root}>
+      <View style={[styles.root, { backgroundColor: colors.background }]}>
         {/* 1. TOP STEP PROGRESS INDICATOR */}
         <View style={styles.stepHeader}>
           <View style={styles.stepHeaderTopRow}>
@@ -1330,6 +1331,25 @@ export function BookScreen({
                 <Text style={styles.assuranceText}>Standard 24H-48H delivery • 12H Express available at next step</Text>
               </View>
             </View>
+
+            {/* In-Content Bag Proceed CTA */}
+            {cart.length > 0 && (
+              <TouchableOpacity
+                style={styles.inContentProceedBtn}
+                onPress={continueToDetails}
+                activeOpacity={0.88}
+                accessibilityRole="button"
+                accessibilityLabel="Proceed to Pickup and Slots"
+              >
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.inContentProceedBtnTitle}>Proceed to Pickup & Slots</Text>
+                  <Text style={styles.inContentProceedBtnSub}>Select convenient pickup date & time →</Text>
+                </View>
+                <View style={styles.inContentProceedBtnIconWrap}>
+                  <MaterialCommunityIcons name="arrow-right" size={22} color="#FFFFFF" />
+                </View>
+              </TouchableOpacity>
+            )}
           </View>
         )}
 
@@ -2242,7 +2262,7 @@ export function BookScreen({
 
               <View style={styles.billDivider} />
 
-              {/* Grand Total Row */}
+            {/* Grand Total Row */}
               <View style={styles.billFinalRow}>
                 <View>
                   <Text style={styles.billGrandLabel}>Total Payable</Text>
@@ -2280,21 +2300,21 @@ export function BookScreen({
         ) : (
           <>
             <View style={styles.footerPriceCol}>
-              <Text style={styles.footerPriceLabel}>
+              <Text style={styles.footerPriceLabel} numberOfLines={1}>
                 {finalPayable === 0 ? 'Total Due' : walletDeduction > 0 ? 'Payable Now' : 'Final Amount'}
               </Text>
-              <Text style={styles.footerPriceVal}>{money(finalPayable)}</Text>
+              <Text style={styles.footerPriceVal} numberOfLines={1}>{money(finalPayable)}</Text>
               {subQuotaDiscount > 0 && finalPayable === 0 ? (
-                <Text style={[styles.footerPriceSub, { color: '#16A34A' }]}>
-                  💎 100% Covered by Plan
+                <Text style={[styles.footerPriceSub, { color: '#16A34A' }]} numberOfLines={1}>
+                  💎 Plan Covered
                 </Text>
               ) : isFreeDelivery ? (
-                <Text style={[styles.footerPriceSub, { color: '#16A34A' }]}>
-                  {subHasFreeDelivery ? '💎 Member Free Delivery' : '🎉 Free delivery'}
+                <Text style={[styles.footerPriceSub, { color: '#16A34A' }]} numberOfLines={1}>
+                  {subHasFreeDelivery ? '💎 Member Free' : '🎉 Free Delivery'}
                 </Text>
               ) : (
-                <Text style={styles.footerPriceSub}>
-                  Incl. {money(deliveryFee)} delivery
+                <Text style={styles.footerPriceSub} numberOfLines={1}>
+                  Incl. {money(deliveryFee)}
                 </Text>
               )}
             </View>
@@ -2304,7 +2324,7 @@ export function BookScreen({
                 style={({ pressed }) => [styles.footerPrimaryBtn, pressed && { opacity: 0.92 }]}
                 onPress={continueToDetails}
               >
-                <Text style={styles.footerPrimaryBtnText}>Proceed to Pickup & Slots</Text>
+                <Text style={styles.footerPrimaryBtnText} numberOfLines={1}>Proceed to Slots</Text>
                 <MaterialCommunityIcons name="arrow-right" size={18} color="#FFFFFF" />
               </Pressable>
             )}
@@ -2313,7 +2333,7 @@ export function BookScreen({
 
         {stage === 'DETAILS' && (
           <Pressable style={styles.footerPrimaryBtn} onPress={continueToReview}>
-            <Text style={styles.footerPrimaryBtnText}>Review & Pay</Text>
+            <Text style={styles.footerPrimaryBtnText} numberOfLines={1}>Review & Pay</Text>
             <MaterialCommunityIcons name="arrow-right" size={18} color="#FFFFFF" />
           </Pressable>
         )}
@@ -3760,12 +3780,11 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderTopWidth: 1,
     borderColor: '#F3E8DF',
-    paddingHorizontal: 20,
-    paddingTop: 14,
+    paddingHorizontal: 16,
+    paddingTop: 12,
     paddingBottom: Platform.OS === 'ios' ? 30 : 16,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: -3 },
     shadowOpacity: 0.08,
@@ -3774,30 +3793,36 @@ const styles = StyleSheet.create({
   },
   footerPriceCol: {
     justifyContent: 'center',
+    flexShrink: 0,
+    maxWidth: 125,
+    marginRight: 10,
   },
   footerPriceLabel: {
     fontSize: 11,
     color: '#8A7A84',
+    fontWeight: '600',
   },
   footerPriceVal: {
-    fontSize: 18,
+    fontSize: 19,
     fontWeight: '900',
     color: '#1C0B18',
   },
   footerPriceSub: {
     fontSize: 10,
-    fontWeight: '700',
+    fontWeight: '800',
     color: '#EA580C',
     marginTop: 1,
   },
   footerPrimaryBtn: {
+    flex: 1,
+    height: 48,
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     backgroundColor: '#16A34A',
-    paddingVertical: 14,
-    paddingHorizontal: 22,
+    paddingHorizontal: 12,
     borderRadius: 16,
-    gap: 8,
+    gap: 6,
     shadowColor: '#16A34A',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
@@ -3806,7 +3831,7 @@ const styles = StyleSheet.create({
   },
   footerPrimaryBtnText: {
     fontSize: 14,
-    fontWeight: '800',
+    fontWeight: '900',
     color: '#FFFFFF',
   },
   successContainer: {

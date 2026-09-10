@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useApp } from '@/context/AppContext';
+import { useTheme } from '@/context/ThemeContext';
 import { money } from '@/ui/theme';
 import { getGarmentImageUrl } from '@/lib/garment-photos';
 import { CATEGORY_DEFAULT_PHOTOS } from '@/lib/category-photos';
@@ -227,6 +228,7 @@ const ALL_CARE_SERVICES = [
 ];
 
 export function ServicesScreen({ onBook, onOpenBulkLaundry }: ServicesScreenProps) {
+  const { colors } = useTheme();
   const {
     catalog,
     cart,
@@ -464,7 +466,7 @@ export function ServicesScreen({ onBook, onOpenBulkLaundry }: ServicesScreenProp
   }
 
   return (
-    <View style={styles.root}>
+    <View style={[styles.root, { backgroundColor: colors.background }]}>
       {/* 🔝 1. TOP STICKY HEADER WITH SEARCH */}
       <View style={styles.header}>
         <View style={styles.headerTopRow}>

@@ -15,10 +15,11 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 import { useApp } from '@/context/AppContext';
+import { useTheme } from '@/context/ThemeContext';
 import { Card } from '@/ui/components';
 import { COLORS, dateTime, money, shortDate, statusLabel, statusTone } from '@/ui/theme';
 import { getGarmentImageUrl } from '@/lib/garment-photos';
-import { API_BASE_URL } from '@/lib/config';
+import { downloadInvoicePdf } from '@/lib/invoice';
 import type { Order, TrackingOrder } from '@/types/domain';
 
 function cleanItemDisplayName(item: any): string {
@@ -96,6 +97,7 @@ export function OrderDetailScreen({
   onHelp,
 }: OrderDetailScreenProps) {
   const { orders, trackOrder, addCartItem } = useApp();
+  const { colors } = useTheme();
   const [order, setOrder] = useState<Order | null>(() => orders.find((o) => o.id === orderId) || null);
   const [tracking, setTracking] = useState<TrackingOrder | null>(null);
   const [loading, setLoading] = useState(false);
@@ -153,10 +155,7 @@ export function OrderDetailScreen({
 
   const handleDownloadInvoice = () => {
     if (!order?.id) return;
-    const invoiceUrl = `${API_BASE_URL}/orders/${order.id}/invoice?print=true`;
-    void Linking.openURL(invoiceUrl).catch(() => {
-      setShowInvoiceModal(true);
-    });
+    void downloadInvoicePdf(order.id).catch(() => setShowInvoiceModal(true));
   };
 
   const openWhatsAppSupport = () => {
@@ -177,15 +176,15 @@ export function OrderDetailScreen({
     );
   }
 
-  const tone = statusTone(order.currentStatus);
+  const tone = statusTone(order.currentStatus, colors);
 
   return (
-    <ScrollView style={styles.root} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+    <ScrollView style={[styles.root, { backgroundColor: colors.background }]} contentContainerStyle={[styles.content, { paddingBottom: 180 }]} showsVerticalScrollIndicator={false}>
       {/* 1. TOP HEADER STATUS BANNER */}
       <Card style={styles.headerCard}>
         <View style={styles.headerTopRow}>
-          <View>
-            <Text style={styles.orderIdText}>Order #{order.id}</Text>
+          <View style={{ flex: 1, minWidth: 0, paddingRight: 10 }}>
+            <Text style={styles.orderIdText} numberOfLines={1} ellipsizeMode="middle">Order #{order.id}</Text>
             <Text style={styles.orderPlacedText}>Placed on {dateTime(order.createdAt)}</Text>
           </View>
           <View style={[styles.statusBadge, { backgroundColor: tone.backgroundColor }]}>
@@ -610,10 +609,11 @@ export function OrderDetailScreen({
                 ]}
                 onPress={() => {
                   setShowInvoiceModal(false);
-                  const invoiceUrl = `${API_BASE_URL}/orders/${order?.id}/invoice?print=true`;
-                  void Linking.openURL(invoiceUrl).catch(() => {
-                    void Linking.openURL(`${API_BASE_URL}/invoices/${order?.id}/pdf`);
-                  });
+                  if (order?.id) {
+                    void downloadInvoicePdf(order.id).catch(() => {
+                      setShowInvoiceModal(true);
+                    });
+                  }
                 }}
               >
                 <MaterialCommunityIcons name="download" size={18} color="#FFFFFF" />

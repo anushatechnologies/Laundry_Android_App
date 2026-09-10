@@ -2,11 +2,13 @@ import { useCallback, useEffect, useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { ActivityIndicator, Divider } from 'react-native-paper';
 import { api } from '@/lib/api';
+import { useTheme } from '@/context/ThemeContext';
 import { AppButton, Card, EmptyState, SectionTitle } from '@/ui/components';
 import { COLORS, money } from '@/ui/theme';
 import type { BulkPricingFeed } from '@/types/domain';
 
 export function PricingScreen({ onBook }: { onBook: () => void }) {
+  const { colors } = useTheme();
   const [feed, setFeed] = useState<BulkPricingFeed | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -34,7 +36,7 @@ export function PricingScreen({ onBook }: { onBook: () => void }) {
   }
 
   return (
-    <ScrollView style={styles.root} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+    <ScrollView style={[styles.root, { backgroundColor: colors.background }]} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
       <Text style={styles.subtitle}>Clear package slabs for your bag. Your final total is confirmed after weighing and checkout.</Text>
 
       <Card style={styles.noteCard}>

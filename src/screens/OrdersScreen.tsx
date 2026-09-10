@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   Image,
   Linking,
   Pressable,
@@ -11,11 +12,13 @@ import {
   View,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useApp } from '@/context/AppContext';
+import { useTheme } from '@/context/ThemeContext';
 import { AppButton, Card } from '@/ui/components';
 import { COLORS, dateTime, money, shortDate, statusLabel, statusTone } from '@/ui/theme';
 import { getGarmentImageUrl } from '@/lib/garment-photos';
-import { API_BASE_URL } from '@/lib/config';
+import { downloadInvoicePdf } from '@/lib/invoice';
 import type { Order, TrackingOrder } from '@/types/domain';
 
 interface OrdersScreenProps {
@@ -72,6 +75,11 @@ function milestoneIndexForStatus(status: string): number {
 
 export function OrdersScreen({ onBook, onSignIn, onBrowseServices, onOpenOrderDetail }: OrdersScreenProps) {
   const { session, orders, refreshOrders, isRefreshing, trackOrder } = useApp();
+  const { colors } = useTheme();
+  const insets = useSafeAreaInsets();
+  // The floating tab bar is absolutely positioned over the scroll view.
+  // Keep enough room for its pill, shadow, and Android gesture area.
+  const scrollBottomClearance = Math.max(insets.bottom, 12) + 196;
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [tracking, setTracking] = useState<TrackingOrder | null>(null);
   const [loadingTracking, setLoadingTracking] = useState(false);
@@ -123,7 +131,11 @@ export function OrdersScreen({ onBook, onSignIn, onBrowseServices, onOpenOrderDe
   // --- GUEST VIEW (If not logged in) ---
   if (!session) {
     return (
-      <ScrollView style={styles.root} contentContainerStyle={styles.guestContainer} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        style={[styles.root, { backgroundColor: colors.background }]}
+        contentContainerStyle={[styles.guestContainer, { paddingBottom: scrollBottomClearance }]}
+        showsVerticalScrollIndicator={false}
+      >
         <View style={styles.guestIllustrationBox}>
           <MaterialCommunityIcons name="clipboard-text-clock-outline" size={56} color="#16A34A" />
         </View>
@@ -218,9 +230,8 @@ function cleanItemDisplayName(item: any): string {
     };
 
     const handleDownloadInvoice = () => {
-      const invoiceUrl = `${API_BASE_URL}/orders/${selectedOrder.id}/invoice?print=true`;
-      void Linking.openURL(invoiceUrl).catch(() => {
-        void Linking.openURL(`${API_BASE_URL}/invoices/${selectedOrder.id}/pdf`);
+      void downloadInvoicePdf(selectedOrder.id).catch(() => {
+        Alert.alert('Invoice unavailable', 'Please try downloading the invoice again in a moment.');
       });
     };
 
@@ -232,7 +243,11 @@ function cleanItemDisplayName(item: any): string {
     const grandTotal = (selectedOrder as any).pricing?.finalTotal || selectedOrder.totalAmount || (garmentsSubtotal + deliveryFee + expressFee + taxAmount - discountAmount);
 
     return (
-      <ScrollView style={styles.root} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        style={[styles.root, { backgroundColor: colors.background }]}
+        contentContainerStyle={[styles.content, { paddingBottom: scrollBottomClearance }]}
+        showsVerticalScrollIndicator={false}
+      >
         {/* Top Navigation Row */}
         <Pressable style={styles.backBtn} onPress={() => setSelectedOrder(null)}>
           <MaterialCommunityIcons name="arrow-left" size={20} color={COLORS.plumDark} />
@@ -242,12 +257,12 @@ function cleanItemDisplayName(item: any): string {
         {/* Order Header Summary */}
         <Card style={styles.orderHeaderCard}>
           <View style={styles.orderHeaderTop}>
-            <View>
-              <Text style={styles.orderIdText}>Order #{selectedOrder.id}</Text>
+            <View style={{ flex: 1, minWidth: 0, paddingRight: 10 }}>
+              <Text style={styles.orderIdText} numberOfLines={1} ellipsizeMode="middle">Order #{selectedOrder.id}</Text>
               <Text style={styles.orderPlacedTime}>Placed on {dateTime(selectedOrder.createdAt)}</Text>
             </View>
-            <View style={[styles.statusBadge, { backgroundColor: statusTone(selectedOrder.currentStatus).backgroundColor }]}>
-              <Text style={[styles.statusBadgeText, { color: statusTone(selectedOrder.currentStatus).color }]}>
+              <View style={[styles.statusBadge, { backgroundColor: statusTone(selectedOrder.currentStatus, colors).backgroundColor }]}>
+                <Text style={[styles.statusBadgeText, { color: statusTone(selectedOrder.currentStatus, colors).color }]}>
                 {statusLabel(selectedOrder.currentStatus)}
               </Text>
             </View>
@@ -531,9 +546,10 @@ function cleanItemDisplayName(item: any): string {
   // --- ALL ORDERS LIST VIEW (Authenticated) ---
   return (
     <ScrollView
-      style={styles.root}
-      contentContainerStyle={styles.content}
+      style={[styles.root, { backgroundColor: colors.background }]}
+      contentContainerStyle={[styles.content, { paddingBottom: scrollBottomClearance }]}
       showsVerticalScrollIndicator={false}
+      stickyHeaderIndices={[0, 1]}
       refreshControl={
         <RefreshControl
           refreshing={isRefreshing}
@@ -544,7 +560,7 @@ function cleanItemDisplayName(item: any): string {
       }
     >
       {/* Header & Title */}
-      <View style={styles.header}>
+      <View style={[styles.header, styles.stickyOrdersHeader, { backgroundColor: colors.background }]}>
         <View>
           <Text style={styles.headerTitle}>My Orders</Text>
           <Text style={styles.headerSubtitle}>Track pickups, washes, and doorstep deliveries</Text>
@@ -557,24 +573,27 @@ function cleanItemDisplayName(item: any): string {
           accessibilityLabel="Refresh orders"
         >
           {isRefreshing ? (
-            <ActivityIndicator size="small" color={COLORS.plum} />
+            <ActivityIndicator size="small" color={colors.primary} />
           ) : (
-            <MaterialCommunityIcons name="refresh" size={20} color={COLORS.plumDark} />
+            <MaterialCommunityIcons name="refresh" size={20} color={colors.primary} />
           )}
         </Pressable>
       </View>
 
       {/* Filter Tabs (All / Active / Completed) */}
-      <View style={styles.filterRow}>
+      <View style={[styles.filterRow, styles.stickyOrdersFilters, { backgroundColor: colors.background }]}>
         {(['ALL', 'ACTIVE', 'COMPLETED'] as OrderFilter[]).map((tab) => {
           const isSelected = filter === tab;
           return (
             <Pressable
               key={tab}
-              style={[styles.filterChip, isSelected && styles.filterChipActive]}
+              style={[styles.filterChip, { backgroundColor: isSelected ? colors.primary : colors.surface, borderColor: isSelected ? colors.primary : colors.border }, isSelected && styles.filterChipActive]}
               onPress={() => setFilter(tab)}
+              accessibilityRole="tab"
+              accessibilityState={{ selected: isSelected }}
+              accessibilityLabel={`Show ${tab === 'ALL' ? 'all orders' : tab === 'ACTIVE' ? 'active pickups' : 'delivered orders'}`}
             >
-              <Text style={[styles.filterChipText, isSelected && styles.filterChipTextActive]}>
+              <Text style={[styles.filterChipText, { color: isSelected ? colors.white : colors.textCaption }, isSelected && styles.filterChipTextActive]}>
                 {tab === 'ALL' ? 'All Orders' : tab === 'ACTIVE' ? 'Active Pickups' : 'Delivered'}
               </Text>
             </Pressable>
@@ -599,13 +618,15 @@ function cleanItemDisplayName(item: any): string {
               <Pressable
                 style={{
                   flexDirection: 'row', alignItems: 'center', gap: 6,
-                  backgroundColor: '#4F46E5', borderRadius: 12,
+                  backgroundColor: colors.primary, borderRadius: 12,
                   paddingHorizontal: 16, paddingVertical: 11,
-                  elevation: 3, shadowColor: '#4F46E5',
+                  elevation: 3, shadowColor: colors.primary,
                   shadowOffset: { width: 0, height: 2 },
                   shadowOpacity: 0.3, shadowRadius: 4,
                 }}
                 onPress={onBrowseServices}
+                accessibilityRole="button"
+                accessibilityLabel="Browse laundry services"
               >
                 <MaterialCommunityIcons name="hanger" size={16} color="#FFFFFF" />
                 <Text style={{ fontSize: 13, fontWeight: '700', color: '#FFFFFF' }}>Browse Services</Text>
@@ -614,13 +635,15 @@ function cleanItemDisplayName(item: any): string {
             <Pressable
               style={{
                 flexDirection: 'row', alignItems: 'center', gap: 6,
-                backgroundColor: '#16A34A', borderRadius: 12,
+                backgroundColor: colors.orange, borderRadius: 12,
                 paddingHorizontal: 16, paddingVertical: 11,
-                elevation: 3, shadowColor: '#16A34A',
+                elevation: 3, shadowColor: colors.orange,
                 shadowOffset: { width: 0, height: 2 },
                 shadowOpacity: 0.3, shadowRadius: 4,
               }}
               onPress={onBook}
+              accessibilityRole="button"
+              accessibilityLabel="Book a laundry pickup"
             >
               <MaterialCommunityIcons name="calendar-plus" size={16} color="#FFFFFF" />
               <Text style={{ fontSize: 13, fontWeight: '700', color: '#FFFFFF' }}>Book a Pickup</Text>
@@ -636,20 +659,20 @@ function cleanItemDisplayName(item: any): string {
             return (
               <Pressable
                 key={order.id}
-                style={styles.orderCard}
+                style={[styles.orderCard, { backgroundColor: colors.surface, borderColor: colors.border }]}
                 onPress={() => setSelectedOrder(order)}
                 accessibilityRole="button"
-                accessibilityLabel={`View details for Order #${order.id}`}
+                accessibilityLabel={`Order ${order.id}, ${statusLabel(order.currentStatus)}, total ${money((order as any).pricing?.finalTotal || order.totalAmount)}. Open order details.`}
               >
                 {/* Top Row: ID + Status Badge */}
                 <View style={styles.cardTopRow}>
-                  <View>
-                    <Text style={styles.cardOrderId}>Order #{order.id}</Text>
+                  <View style={{ flex: 1, minWidth: 0, paddingRight: 8 }}>
+                    <Text style={styles.cardOrderId} numberOfLines={1} ellipsizeMode="middle">Order #{order.id}</Text>
                     <Text style={styles.cardDate}>{dateTime(order.createdAt)}</Text>
                   </View>
 
-                  <View style={[styles.statusBadge, { backgroundColor: statusTone(order.currentStatus).backgroundColor }]}>
-                    <Text style={[styles.statusBadgeText, { color: statusTone(order.currentStatus).color }]}>
+                  <View style={[styles.statusBadge, { backgroundColor: statusTone(order.currentStatus, colors).backgroundColor }]}>
+                    <Text style={[styles.statusBadgeText, { color: statusTone(order.currentStatus, colors).color }]}>
                       {statusLabel(order.currentStatus)}
                     </Text>
                   </View>
@@ -662,6 +685,7 @@ function cleanItemDisplayName(item: any): string {
                       key={step}
                       style={[
                         styles.progressBarSegment,
+                        { backgroundColor: colors.section },
                         step <= milestoneIdx && styles.progressBarSegmentActive,
                         isDelivered && styles.progressBarSegmentDelivered,
                       ]}
@@ -670,21 +694,21 @@ function cleanItemDisplayName(item: any): string {
                 </View>
 
                 {/* Current Stage Highlight */}
-                <View style={styles.stageHighlightRow}>
+                <View style={[styles.stageHighlightRow, { backgroundColor: colors.primarySoft, borderColor: colors.border }]}>
                   <MaterialCommunityIcons
                     name={ORDER_MILESTONES[milestoneIdx]?.icon as any || 'washing-machine'}
                     size={16}
-                    color="#16A34A"
+                    color={colors.primaryLight}
                   />
-                  <Text style={styles.stageHighlightText} numberOfLines={1}>
+                    <Text style={[styles.stageHighlightText, { color: colors.primaryLight }]} numberOfLines={1}>
                     {ORDER_MILESTONES[milestoneIdx]?.label || statusLabel(order.currentStatus)}
                   </Text>
                 </View>
 
                 {/* Bottom Row: Total & Action Chevron */}
                 <View style={styles.cardBottomRow}>
-                  <Text style={styles.cardTotal}>
-                    Total: <Text style={styles.cardTotalBold}>{money((order as any).pricing?.finalTotal || order.totalAmount)}</Text>
+                  <Text style={[styles.cardTotal, { color: colors.textCaption }]}>
+                    Total: <Text style={[styles.cardTotalBold, { color: colors.textHeading }]}>{money((order as any).pricing?.finalTotal || order.totalAmount)}</Text>
                   </Text>
 
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
@@ -692,9 +716,8 @@ function cleanItemDisplayName(item: any): string {
                       style={({ pressed }) => [styles.cardInvoiceBtn, pressed && { opacity: 0.8 }]}
                       onPress={(e) => {
                         e.stopPropagation?.();
-                        const invoiceUrl = `${API_BASE_URL}/orders/${order.id}/invoice?print=true`;
-                        void Linking.openURL(invoiceUrl).catch(() => {
-                          void Linking.openURL(`${API_BASE_URL}/invoices/${order.id}/pdf`);
+                        void downloadInvoicePdf(order.id).catch(() => {
+                          Alert.alert('Invoice unavailable', 'Please try downloading the invoice again in a moment.');
                         });
                       }}
                       hitSlop={8}
@@ -839,6 +862,11 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
   },
+  stickyOrdersHeader: {
+    paddingTop: 12,
+    paddingBottom: 8,
+    zIndex: 2,
+  },
   headerTitle: {
     fontSize: 24,
     fontWeight: '900',
@@ -863,6 +891,10 @@ const styles = StyleSheet.create({
   filterRow: {
     flexDirection: 'row',
     gap: 8,
+  },
+  stickyOrdersFilters: {
+    paddingBottom: 12,
+    zIndex: 2,
   },
   filterChip: {
     flex: 1,
@@ -910,7 +942,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.08,
     shadowRadius: 12,
     elevation: 3,
-    gap: 14,
+    gap: 16,
   },
   cardTopRow: {
     flexDirection: 'row',
@@ -992,7 +1024,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderTopWidth: 1,
     borderTopColor: '#F0F2F8',
-    paddingTop: 12,
+    paddingTop: 14,
     marginTop: 2,
   },
   cardTotal: {

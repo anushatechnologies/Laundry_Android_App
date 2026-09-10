@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Card } from '@/ui/components';
+import { useTheme } from '@/context/ThemeContext';
 import { COLORS } from '@/ui/theme';
 
 interface RatingScreenProps {
@@ -31,6 +32,7 @@ const COMPLIMENT_TAGS = [
 const TIP_OPTIONS = [0, 20, 50, 100];
 
 export function RatingScreen({ orderId = 'ORD-1042', onComplete }: RatingScreenProps) {
+  const { colors } = useTheme();
   const [stars, setStars] = useState(5);
   const [selectedTags, setSelectedTags] = useState<string[]>(['c1', 'c2']);
   const [selectedTip, setSelectedTip] = useState(20);
@@ -79,7 +81,7 @@ export function RatingScreen({ orderId = 'ORD-1042', onComplete }: RatingScreenP
       keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
     >
       <ScrollView
-        style={styles.root}
+        style={[styles.root, { backgroundColor: colors.background }]}
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"

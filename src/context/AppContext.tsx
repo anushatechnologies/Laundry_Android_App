@@ -40,6 +40,7 @@ import {
   type PincodeCheck,
   type PickupSlot,
   type TrackingOrder,
+  type WalletData,
 } from '@/types/domain';
 
 interface CartSummary {
@@ -83,6 +84,9 @@ interface AppContextValue {
   refreshCatalog: () => Promise<void>;
   refreshOrders: () => Promise<void>;
   refreshAccountData: () => Promise<void>;
+  wallet: WalletData | null;
+  walletBalance: number;
+  refreshWallet: () => Promise<void>;
   addCartItem: (item: CartItem) => void;
   addGarmentToCart: (clothId: string, serviceId: string) => void;
   addBulkToCart: (serviceId: string, quantityKg: number) => number;
@@ -118,6 +122,8 @@ export function AppProvider({ children }: PropsWithChildren) {
   const [wishlist, setWishlist] = useState<string[]>([]);
   const [addresses, setAddresses] = useState<CustomerAddress[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
+  const [wallet, setWallet] = useState<WalletData | null>(null);
+  const [walletBalance, setWalletBalance] = useState<number>(0);
   const [preferences, setPreferences] = useState<CustomerPreferences>(DEFAULT_CUSTOMER_PREFERENCES);
   const [inAppNotifications, setInAppNotifications] = useState<InAppNotification[]>([]);
   const [unreadNotificationCount, setUnreadNotificationCount] = useState<number>(0);
@@ -149,18 +155,45 @@ export function AppProvider({ children }: PropsWithChildren) {
     }
   }, []);
 
+  const refreshWallet = useCallback(async () => {
+    if (!session?.user?.id) {
+      setWallet(null);
+      setWalletBalance(0);
+      return;
+    }
+    try {
+      const res = await api.getWallet();
+      if (res) {
+        setWallet(res);
+        const bal = Number(res.balance ?? (res as any).wallet?.balance ?? 0);
+        setWalletBalance(bal);
+      }
+    } catch (err) {
+      console.warn('[AppContext] refreshWallet error:', err);
+    }
+  }, [session?.user?.id]);
+
   const refreshAccountData = useCallback(async () => {
     if (!session?.user.id) return;
     setIsRefreshing(true);
     try {
-      const [nextOrders, nextAddresses, nextWishlist, nextPreferences] = await Promise.all([
+      const [nextOrders, nextAddresses, nextWishlist, nextPreferences, nextWallet] = await Promise.all([
         api.getOrders(session.user.id),
         api.getAddresses(session.user.id),
         api.getWishlist(session.user.id).catch(() => []),
         api.getPreferences(session.user.id).catch(() => null),
+        api.getWallet().catch((err) => {
+          console.warn('[AppContext] getWallet error:', err);
+          return null;
+        }),
       ]);
       setOrders(nextOrders);
       setAddresses(nextAddresses);
+      if (nextWallet) {
+        setWallet(nextWallet);
+        const bal = Number(nextWallet.balance ?? (nextWallet as any).wallet?.balance ?? 0);
+        setWalletBalance(bal);
+      }
       if (nextPreferences) {
         setPreferences(nextPreferences);
         void writePreferences(nextPreferences, session.user.id);
@@ -188,6 +221,16 @@ export function AppProvider({ children }: PropsWithChildren) {
     void (async () => {
       try {
         const storedSession = await readSession().catch(() => null);
+        if (storedSession) {
+          configureApiSession(storedSession, async (next) => {
+            setSession(next);
+            if (next) {
+              await writeSession(next);
+            } else {
+              await clearSession();
+            }
+          });
+        }
         const [storedCart, storedWishlist, storedPreferences, onboardingComplete] = await Promise.all([
           readCart(storedSession?.user?.id).catch(() => []),
           readWishlist(storedSession?.user?.id).catch(() => []),
@@ -316,6 +359,8 @@ export function AppProvider({ children }: PropsWithChildren) {
     setSession(null);
     setOrders([]);
     setAddresses([]);
+    setWallet(null);
+    setWalletBalance(0);
     setInAppNotifications([]);
     setUnreadNotificationCount(0);
     setCart([]); // BigBasket pattern: clear active memory cart so next user never sees prior user's items
@@ -618,6 +663,17 @@ export function AppProvider({ children }: PropsWithChildren) {
 
   // Listen for push notifications in foreground and notification response (taps)
   useEffect(() => {
+    // Capture cold-start notification tap if app was completely closed
+    Notifications.getLastNotificationResponseAsync().then((response) => {
+      if (response) {
+        const action = parseNotificationAction(response);
+        if (action) {
+          console.log('[Push Cold Start] Notification tap detected:', action);
+          setPendingNavAction(action);
+        }
+      }
+    }).catch(() => {});
+
     const receivedSub = Notifications.addNotificationReceivedListener(() => {
       // Whenever any push notification arrives, auto-refresh the in-app feed
       void fetchNotifications();
@@ -626,6 +682,7 @@ export function AppProvider({ children }: PropsWithChildren) {
     const responseSub = Notifications.addNotificationResponseReceivedListener((response) => {
       const action = parseNotificationAction(response);
       if (action) {
+        console.log('[Push Foreground/Background] Notification tap detected:', action);
         setPendingNavAction(action);
       }
     });
@@ -729,6 +786,9 @@ export function AppProvider({ children }: PropsWithChildren) {
     isInWishlist,
     addresses,
     orders,
+    wallet,
+    walletBalance,
+    refreshWallet,
     preferences,
     isRefreshing,
     isCheckingOut,
@@ -758,7 +818,7 @@ export function AppProvider({ children }: PropsWithChildren) {
   }), [
     ready, session, hasCompletedOnboarding, catalog, cart, cartSummary, wishlist, inAppNotifications, unreadNotificationCount,
     fetchNotifications, markNotificationRead, markAllNotificationsRead, deleteNotificationItem, pendingNavAction, clearPendingNavAction,
-    toggleWishlist, isInWishlist, addresses, orders, preferences, isRefreshing, isCheckingOut, catalogError,
+    toggleWishlist, isInWishlist, addresses, orders, wallet, walletBalance, refreshWallet, preferences, isRefreshing, isCheckingOut, catalogError,
     requestOtp, signIn, signOut, completeOnboarding, refreshCatalog, refreshOrders, refreshAccountData, addCartItem, addGarmentToCart, addBulkToCart,
     setCartQuantity, removeFromCart, updateUserProfile, updatePreferences, deleteAccount, getSlots, validatePincode, reverseGeocode, saveAddress, deleteAddress,
     trackOrder, checkout,

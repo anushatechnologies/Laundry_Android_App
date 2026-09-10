@@ -126,6 +126,7 @@ export type NotificationNavAction = {
   screen: 'ORDER_DETAIL' | 'OFFERS' | 'CHAT' | 'NOTIFICATIONS' | 'HOME';
   orderId?: string;
   couponCode?: string;
+  roomId?: string;
 };
 
 export function parseNotificationAction(response: Notifications.NotificationResponse): NotificationNavAction | null {
@@ -138,8 +139,10 @@ export function parseNotificationAction(response: Notifications.NotificationResp
   if (data.screen === 'OFFERS') {
     return { screen: 'OFFERS', couponCode: data.couponCode ? String(data.couponCode) : undefined };
   }
-  if (data.screen === 'CHAT') {
-    return { screen: 'CHAT' };
+  const screenStr = String(data.screen || '').toUpperCase();
+  const typeStr = String(data.type || '').toUpperCase();
+  if (screenStr === 'CHAT' || screenStr === 'LIVE_CHAT' || typeStr === 'CHAT') {
+    return { screen: 'CHAT', roomId: data.roomId ? String(data.roomId) : undefined };
   }
   if (data.screen === 'NOTIFICATIONS') {
     return { screen: 'NOTIFICATIONS' };

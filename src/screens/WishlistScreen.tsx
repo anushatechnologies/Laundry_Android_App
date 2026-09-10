@@ -12,6 +12,7 @@ import {
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useApp } from '@/context/AppContext';
+import { useTheme } from '@/context/ThemeContext';
 import { getGarmentImageUrl } from '@/lib/garment-photos';
 
 interface WishlistScreenProps {
@@ -20,6 +21,7 @@ interface WishlistScreenProps {
 }
 
 export function WishlistScreen({ onBook, onExploreServices }: WishlistScreenProps) {
+  const { colors } = useTheme();
   const {
     wishlist,
     toggleWishlist,
@@ -234,7 +236,7 @@ export function WishlistScreen({ onBook, onExploreServices }: WishlistScreenProp
   }
 
   return (
-    <View style={styles.root}>
+    <View style={[styles.root, { backgroundColor: colors.background }]}>
       {/* Dynamic Toast Feedback */}
       {notification && (
         <View style={styles.toastBanner}>
