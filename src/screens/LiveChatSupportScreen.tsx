@@ -45,22 +45,7 @@ const QUICK_PROMPTS = [
 const CHAT_ROOM_KEY = (id?: string) => `@laundryfresh_chat_room_${id || 'anon'}`;
 const CHAT_MSGS_KEY = (id?: string) => `@laundryfresh_chat_msgs_${id || 'anon'}`;
 
-const getSmartResponse = (promptText: string): string | null => {
-  const p = promptText.toLowerCase();
-  if (p.includes('rider') || p.includes('pickup')) {
-    return "I'm checking on your pickup rider right away! 🛵 Delivery riders arrive during your scheduled 2-hour window. You can track live progress in the Orders tab or WhatsApp us for instant rider contact details.";
-  }
-  if (p.includes('re-wash') || p.includes('rewash') || p.includes('complaint')) {
-    return "Under our LaundryFresh Fabric Promise, you're 100% entitled to a complimentary re-wash! ✨ Please share your Order ID or garment name, and our team will schedule a priority pickup.";
-  }
-  if (p.includes('add more') || p.includes('more clothes') || p.includes('extra')) {
-    return "Yes, absolutely! 👍 You can hand over extra garments directly to our pickup executive upon arrival. They will count, weigh, and update your bag in real-time.";
-  }
-  if (p.includes('whatsapp') || p.includes('manager')) {
-    return "Connecting you directly to our senior Care Manager on WhatsApp right now... 💬";
-  }
-  return null;
-};
+
 
 interface LiveChatSupportScreenProps {
   onBack?: () => void;
@@ -76,7 +61,6 @@ export function LiveChatSupportScreen({ onBack }: LiveChatSupportScreenProps = {
   const [isInitializing, setIsInitializing] = useState(false);
   const [clearing, setClearing] = useState(false);
   const [agentOnline, setAgentOnline] = useState(true);
-  const [agentTyping, setAgentTyping] = useState(false);
   const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
   const flatListRef = useRef<FlatList>(null);
   const messagesRef = useRef<ChatMessage[]>([]);
@@ -287,36 +271,9 @@ export function LiveChatSupportScreen({ onBack }: LiveChatSupportScreenProps = {
       flatListRef.current?.scrollToEnd({ animated: true });
     }, 50);
 
-    // Check for instant smart response from Ramya
-    const smartReply = getSmartResponse(messageText);
-    if (smartReply) {
-      setAgentTyping(true);
-      setTimeout(() => {
-        setAgentTyping(false);
-        const agentMsg: ChatMessage = {
-          id: `agent-auto-${Date.now()}`,
-          senderId: 'agent-ramya',
-          senderType: 'AGENT',
-          message: smartReply,
-          createdAt: new Date().toISOString(),
-          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        };
-        setMessages((prev) => {
-          const withAgent = [...prev, agentMsg];
-          if (customerId) {
-            void AsyncStorage.setItem(CHAT_MSGS_KEY(customerId), JSON.stringify(withAgent));
-          }
-          return withAgent;
-        });
-
-        setTimeout(() => {
-          flatListRef.current?.scrollToEnd({ animated: true });
-        }, 50);
-
-        if (messageText.toLowerCase().includes('whatsapp') || messageText.toLowerCase().includes('manager')) {
-          void Linking.openURL('whatsapp://send?phone=+919121999999&text=Hi%20LaundryFresh%20Care%20Manager');
-        }
-      }, 900);
+    // WhatsApp quick-tap: still open WhatsApp directly if customer tapped that prompt
+    if (messageText.toLowerCase().includes('whatsapp') || messageText.toLowerCase().includes('manager')) {
+      void Linking.openURL('whatsapp://send?phone=+919121999999&text=Hi%20LaundryFresh%20Care%20Manager');
     }
 
     // Background asynchronous delivery to server (never freezes the user)
@@ -451,15 +408,7 @@ export function LiveChatSupportScreen({ onBack }: LiveChatSupportScreenProps = {
             </View>
           );
         }}
-        ListFooterComponent={
-          agentTyping ? (
-            <View style={styles.typingBox}>
-              <Text style={[styles.typingText, { color: colors.textCaption }]}>
-                RAMYA is typing...
-              </Text>
-            </View>
-          ) : null
-        }
+
         ListEmptyComponent={
           isInitializing ? (
             <View style={styles.emptyContainer}>
