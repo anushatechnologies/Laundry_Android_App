@@ -1,6 +1,6 @@
 {
   "name": "laundryfresh-mobile-customer",
-  "version": "1.0.44",
+  "version": "1.0.48",
   "private": true,
   "main": "expo/AppEntry",
   "scripts": {
