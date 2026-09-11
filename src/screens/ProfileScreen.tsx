@@ -3,6 +3,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  BackHandler,
   Keyboard,
   KeyboardAvoidingView,
   Linking,
@@ -103,6 +104,31 @@ export function ProfileScreen({
     };
   }, []);
 
+  // Policies Modal State
+  const [activePolicyModal, setActivePolicyModal] = useState<'REFUND' | 'TERMS' | 'PRIVACY' | null>(null);
+  const [policyData, setPolicyData] = useState<PolicyData | null>(null);
+
+  // Dismiss modals on Android back press
+  useEffect(() => {
+    if (!isEditModalOpen && activePolicyModal === null) return;
+
+    const handleBackPress = () => {
+      if (isEditModalOpen) {
+        Keyboard.dismiss();
+        setIsEditModalOpen(false);
+        return true;
+      }
+      if (activePolicyModal !== null) {
+        setActivePolicyModal(null);
+        return true;
+      }
+      return false;
+    };
+
+    const backSub = BackHandler.addEventListener('hardwareBackPress', handleBackPress);
+    return () => backSub.remove();
+  }, [isEditModalOpen, activePolicyModal]);
+
   const currentAppVersion = CURRENT_APP_VERSION;
   const currentAppCode = CURRENT_APP_CODE;
 
@@ -137,10 +163,6 @@ export function ProfileScreen({
       setRefreshing(false);
     }
   }, [session?.user?.id, refreshAccountData, refreshWallet]);
-
-  // Policies Modal State
-  const [activePolicyModal, setActivePolicyModal] = useState<'REFUND' | 'TERMS' | 'PRIVACY' | null>(null);
-  const [policyData, setPolicyData] = useState<PolicyData | null>(null);
 
   useEffect(() => {
     if (session?.user) {
@@ -642,7 +664,15 @@ const EMAIL_REGEX = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
       </Text>
 
       {/* --- MODAL 1: EDIT PROFILE (Name & Email) --- */}
-      <Modal visible={isEditModalOpen} transparent animationType="slide">
+      <Modal
+        visible={isEditModalOpen}
+        transparent
+        animationType="slide"
+        onRequestClose={() => {
+          Keyboard.dismiss();
+          setIsEditModalOpen(false);
+        }}
+      >
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
           style={{ flex: 1 }}
@@ -781,7 +811,12 @@ const EMAIL_REGEX = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
 
 
       {/* --- MODAL 2: POLICIES VIEWER --- */}
-      <Modal visible={activePolicyModal !== null} transparent animationType="slide">
+      <Modal
+        visible={activePolicyModal !== null}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setActivePolicyModal(null)}
+      >
         <View style={styles.modalOverlay}>
           <View style={[styles.modalCard, { backgroundColor: cardBg }]}>
             <View style={[styles.modalHeader, { borderBottomColor: dividerBg }]}>

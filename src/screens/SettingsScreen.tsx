@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   Alert,
+  BackHandler,
   Keyboard,
   KeyboardAvoidingView,
   Modal,
@@ -53,6 +54,27 @@ export function SettingsScreen({ onSignIn }: SettingsScreenProps) {
 
   // Privacy Policy Modal
   const [showPrivacyModal, setShowPrivacyModal] = useState(false);
+
+  // Dismiss modals on Android back press
+  useEffect(() => {
+    if (!editingProfile && !showPrivacyModal) return;
+
+    const handleBackPress = () => {
+      if (editingProfile) {
+        Keyboard.dismiss();
+        setEditingProfile(false);
+        return true;
+      }
+      if (showPrivacyModal) {
+        setShowPrivacyModal(false);
+        return true;
+      }
+      return false;
+    };
+
+    const backSub = BackHandler.addEventListener('hardwareBackPress', handleBackPress);
+    return () => backSub.remove();
+  }, [editingProfile, showPrivacyModal]);
 
   const EMAIL_REGEX = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
 
@@ -344,7 +366,15 @@ export function SettingsScreen({ onSignIn }: SettingsScreenProps) {
       </Pressable>
 
       {/* Edit Profile Modal */}
-      <Modal visible={editingProfile} transparent animationType="slide">
+      <Modal
+        visible={editingProfile}
+        transparent
+        animationType="slide"
+        onRequestClose={() => {
+          Keyboard.dismiss();
+          setEditingProfile(false);
+        }}
+      >
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
           style={{ flex: 1 }}
@@ -430,7 +460,12 @@ export function SettingsScreen({ onSignIn }: SettingsScreenProps) {
       </Modal>
 
       {/* Privacy Policy Modal */}
-      <Modal visible={showPrivacyModal} transparent animationType="slide">
+      <Modal
+        visible={showPrivacyModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowPrivacyModal(false)}
+      >
         <View style={styles.modalOverlay}>
           <View style={[styles.modalSheet, isDark && { backgroundColor: colors.surface }]}>
             <View style={styles.modalHeader}>

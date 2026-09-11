@@ -1,6 +1,7 @@
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
-import { Linking } from 'react-native';
+import * as FileSystem from 'expo-file-system/legacy';
+import { Alert, Linking, Platform } from 'react-native';
 import { API_BASE_URL } from '@/lib/config';
 
 export function getInvoiceUrl(orderId: string, print = false): string {
@@ -52,16 +53,62 @@ export async function shareInvoicePdf(orderId: string): Promise<void> {
   });
 }
 
-export async function downloadInvoicePdf(orderId: string): Promise<void> {
-  const uri = await generateInvoicePdfUri(orderId);
+export async function downloadInvoicePdf(orderId: string): Promise<{ success: boolean; uri?: string }> {
+  const tempUri = await generateInvoicePdfUri(orderId);
+  const cleanId = orderId.replace(/[^a-zA-Z0-9_-]/g, '');
+  const fileName = `LaundryFresh_Invoice_${cleanId}.pdf`;
 
-  if (await Sharing.isAvailableAsync()) {
-    await Sharing.shareAsync(uri, {
-      mimeType: 'application/pdf',
-      dialogTitle: 'Save LaundryFresh Invoice PDF',
-      UTI: 'com.adobe.pdf',
-    });
-  } else {
-    await viewInvoiceOnline(orderId);
+  if (Platform.OS === 'android') {
+    try {
+      // Use Android StorageAccessFramework to save directly to user's chosen folder (Downloads / Documents)
+      const permissions = await FileSystem.StorageAccessFramework.requestDirectoryPermissionsAsync();
+      if (permissions.granted) {
+        const base64 = await FileSystem.readAsStringAsync(tempUri, {
+          encoding: FileSystem.EncodingType.Base64,
+        });
+
+        const createdUri = await FileSystem.StorageAccessFramework.createFileAsync(
+          permissions.directoryUri,
+          fileName,
+          'application/pdf'
+        );
+
+        await FileSystem.writeAsStringAsync(createdUri, base64, {
+          encoding: FileSystem.EncodingType.Base64,
+        });
+
+        Alert.alert(
+          'Invoice Downloaded! 📄',
+          `Tax invoice for Order #${cleanId} has been saved successfully to your device.\n\nFile: ${fileName}`,
+          [{ text: 'OK' }]
+        );
+        return { success: true, uri: createdUri };
+      }
+    } catch (safError: any) {
+      console.warn('[Invoice] StorageAccessFramework error, using document fallback:', safError);
+    }
+  }
+
+  // Fallback for iOS or if permission was cancelled: copy to local documents directory
+  try {
+    const docDir = FileSystem.documentDirectory || FileSystem.cacheDirectory;
+    const targetFile = `${docDir}${fileName}`;
+    await FileSystem.copyAsync({ from: tempUri, to: targetFile }).catch(() => {});
+
+    if (await Sharing.isAvailableAsync()) {
+      await Sharing.shareAsync(targetFile || tempUri, {
+        mimeType: 'application/pdf',
+        dialogTitle: 'Save Invoice PDF to Device',
+        UTI: 'com.adobe.pdf',
+      });
+    } else {
+      await viewInvoiceOnline(orderId);
+    }
+
+    return { success: true, uri: targetFile || tempUri };
+  } catch (err: any) {
+    console.error('[Invoice] Download error:', err);
+    throw err;
   }
 }
+

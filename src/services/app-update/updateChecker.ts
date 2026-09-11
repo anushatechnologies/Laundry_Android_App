@@ -15,8 +15,8 @@ export interface AppReleaseInfo {
   createdAt?: string;
 }
 
-export const CURRENT_APP_VERSION = Constants.expoConfig?.version || '1.0.42';
-export const CURRENT_APP_CODE = Constants.expoConfig?.android?.versionCode || 42;
+export const CURRENT_APP_VERSION = Constants.expoConfig?.version || '1.0.44';
+export const CURRENT_APP_CODE = Constants.expoConfig?.android?.versionCode || 44;
 
 /**
  * Checks backend/AWS for the latest published APK release.

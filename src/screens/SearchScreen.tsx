@@ -431,10 +431,10 @@ export function SearchScreen({ onBook, onBack, onSelectProduct, initialQuery = '
           </Pressable>
         ) : null}
         <View style={[styles.searchBar, onBack ? { flex: 1 } : null, isDark && { backgroundColor: colors.section, borderColor: colors.border }]}>
-          <MaterialCommunityIcons name="magnify" size={20} color="#059669" style={styles.searchIcon} />
+          <MaterialCommunityIcons name="magnify" size={22} color="#059669" style={styles.searchIcon} />
           <TextInput
             style={[styles.searchInput, isDark && { color: colors.textHeading }]}
-            placeholder="Search 70+ clothes, fabrics & services..."
+            placeholder="Search clothes, fabrics & services..."
             placeholderTextColor="#94A3B8"
             value={query}
             onChangeText={setQuery}
@@ -451,17 +451,7 @@ export function SearchScreen({ onBook, onBack, onSelectProduct, initialQuery = '
             <Pressable onPress={() => setQuery('')} hitSlop={10}>
               <MaterialCommunityIcons name="close-circle" size={18} color="#94A3B8" />
             </Pressable>
-          ) : (
-            <View style={styles.searchRightIcons}>
-              <Pressable onPress={() => handleSelectKeyword('Dry Cleaning')} hitSlop={8}>
-                <MaterialCommunityIcons name="microphone-outline" size={18} color="#059669" />
-              </Pressable>
-              <View style={styles.searchBarDivider} />
-              <Pressable onPress={() => handleSelectKeyword('Steam Press')} hitSlop={8}>
-                <MaterialCommunityIcons name="qrcode-scan" size={16} color="#059669" />
-              </Pressable>
-            </View>
-          )}
+          ) : null}
         </View>
       </View>
 
@@ -469,6 +459,8 @@ export function SearchScreen({ onBook, onBack, onSelectProduct, initialQuery = '
         style={styles.scrollArea}
         contentContainerStyle={[styles.content, { paddingBottom: Math.max(insets.bottom, 16) + 130 }]}
         showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
       >
         {/* If Query is Empty: Show Recent & Trending Searches */}
         {!query.trim() ? (
@@ -477,9 +469,12 @@ export function SearchScreen({ onBook, onBack, onSelectProduct, initialQuery = '
             {recentSearches.length > 0 && (
               <View style={styles.section}>
                 <View style={styles.sectionHeaderRow}>
-                  <Text style={[styles.sectionTitle, isDark && { color: colors.textHeading }]}>Recent Searches</Text>
+                  <View style={styles.sectionTitleRow}>
+                    <MaterialCommunityIcons name="history" size={16} color={isDark ? colors.textCaption : '#64748B'} />
+                    <Text style={[styles.sectionTitle, isDark && { color: colors.textHeading }]}>Recent Searches</Text>
+                  </View>
                   <Pressable onPress={() => void clearRecentSearches()} hitSlop={8}>
-                    <Text style={styles.clearText}>Clear</Text>
+                    <Text style={styles.clearText}>Clear All</Text>
                   </Pressable>
                 </View>
 
@@ -487,10 +482,14 @@ export function SearchScreen({ onBook, onBack, onSelectProduct, initialQuery = '
                   {recentSearches.map((term, idx) => (
                     <Pressable
                       key={idx}
-                      style={[styles.recentChip, isDark && { backgroundColor: colors.section, borderColor: colors.border }]}
+                      style={({ pressed }) => [
+                        styles.recentChip,
+                        isDark && { backgroundColor: colors.section, borderColor: colors.border },
+                        pressed && { opacity: 0.75, transform: [{ scale: 0.98 }] },
+                      ]}
                       onPress={() => handleSelectKeyword(term)}
                     >
-                      <MaterialCommunityIcons name="history" size={14} color={isDark ? colors.textCaption : '#8A7A84'} />
+                      <MaterialCommunityIcons name="clock-outline" size={13} color={isDark ? colors.textCaption : '#94A3B8'} />
                       <Text style={[styles.recentChipText, isDark && { color: colors.textBody }]}>{term}</Text>
                     </Pressable>
                   ))}
@@ -500,22 +499,29 @@ export function SearchScreen({ onBook, onBack, onSelectProduct, initialQuery = '
 
             {/* Popular Services */}
             <View style={styles.section}>
-              <Text style={[styles.sectionTitle, isDark && { color: colors.textHeading }]}>Popular Services</Text>
+              <View style={styles.sectionTitleRow}>
+                <MaterialCommunityIcons name="star-shooting-outline" size={16} color="#059669" />
+                <Text style={[styles.sectionTitle, isDark && { color: colors.textHeading }]}>Popular Services</Text>
+              </View>
               <View style={styles.chipsRow}>
                 {[
-                  { label: 'Steam Press', icon: 'iron', color: '#2563EB', bg: '#EFF6FF' },
-                  { label: 'Dry Cleaning', icon: 'hanger', color: '#7C3AED', bg: '#FAF5FF' },
-                  { label: 'Wash & Fold', icon: 'washing-machine', color: '#16A34A', bg: '#F0FDF4' },
-                  { label: 'Saree Charak', icon: 'sparkles', color: '#D97706', bg: '#FEF3C7' },
-                  { label: 'Shoe Spa', icon: 'shoe-sneaker', color: '#DB2777', bg: '#FDF2F8' },
+                  { label: 'Steam Press', icon: 'iron', iconColor: '#059669' },
+                  { label: 'Dry Cleaning', icon: 'hanger', iconColor: '#0D9488' },
+                  { label: 'Wash & Fold', icon: 'washing-machine', iconColor: '#0284C7' },
+                  { label: 'Saree Charak', icon: 'sparkles', iconColor: '#D97706' },
+                  { label: 'Shoe Spa', icon: 'shoe-sneaker', iconColor: '#9333EA' },
                 ].map((item, idx) => (
                   <Pressable
                     key={idx}
-                    style={[styles.trendingChip, { backgroundColor: item.bg, borderColor: item.bg }]}
+                    style={({ pressed }) => [
+                      styles.serviceChip,
+                      isDark && { backgroundColor: colors.section, borderColor: colors.border },
+                      pressed && { opacity: 0.75, transform: [{ scale: 0.98 }] },
+                    ]}
                     onPress={() => handleSelectKeyword(item.label)}
                   >
-                    <MaterialCommunityIcons name={item.icon as any} size={14} color={item.color} />
-                    <Text style={[styles.trendingChipText, { color: item.color }]}>{item.label}</Text>
+                    <MaterialCommunityIcons name={item.icon as any} size={15} color={item.iconColor} />
+                    <Text style={[styles.serviceChipText, isDark && { color: colors.textHeading }]}>{item.label}</Text>
                   </Pressable>
                 ))}
               </View>
@@ -524,14 +530,19 @@ export function SearchScreen({ onBook, onBack, onSelectProduct, initialQuery = '
             {/* Trending This Week */}
             {trendingSearches.length > 0 && (
               <View style={styles.section}>
-                <View style={styles.sectionHeaderRow}>
-                  <Text style={[styles.sectionTitle, isDark && { color: colors.textHeading }]}>🔥 Trending This Week</Text>
+                <View style={styles.sectionTitleRow}>
+                  <MaterialCommunityIcons name="fire" size={17} color="#EA580C" />
+                  <Text style={[styles.sectionTitle, isDark && { color: colors.textHeading }]}>Trending Searches</Text>
                 </View>
                 <View style={styles.chipsRow}>
                   {trendingSearches.map((trend, idx) => (
                     <Pressable
                       key={idx}
-                      style={[styles.trendingBadge, isDark && { backgroundColor: colors.section, borderColor: colors.border }]}
+                      style={({ pressed }) => [
+                        styles.trendingBadge,
+                        isDark && { backgroundColor: colors.section, borderColor: colors.border },
+                        pressed && { opacity: 0.75, transform: [{ scale: 0.98 }] },
+                      ]}
                       onPress={() => handleSelectKeyword(trend.text)}
                     >
                       <Text style={styles.trendingEmoji}>{trend.emoji}</Text>
@@ -546,16 +557,23 @@ export function SearchScreen({ onBook, onBack, onSelectProduct, initialQuery = '
             {/* Popular Searches */}
             {popularSearches.length > 0 && (
               <View style={styles.section}>
-                <Text style={[styles.sectionTitle, isDark && { color: colors.textHeading }]}>Most Searched</Text>
+                <View style={styles.sectionTitleRow}>
+                  <MaterialCommunityIcons name="trending-up" size={16} color="#059669" />
+                  <Text style={[styles.sectionTitle, isDark && { color: colors.textHeading }]}>Most Searched Items</Text>
+                </View>
                 <View style={styles.chipsRow}>
                   {popularSearches.map((popular, idx) => (
                     <Pressable
                       key={idx}
-                      style={styles.popularChip}
+                      style={({ pressed }) => [
+                        styles.popularChip,
+                        isDark && { backgroundColor: colors.section, borderColor: colors.border },
+                        pressed && { opacity: 0.75, transform: [{ scale: 0.98 }] },
+                      ]}
                       onPress={() => handleSelectKeyword(popular.text)}
                     >
-                      <MaterialCommunityIcons name="trending-up" size={12} color="#16A34A" />
-                      <Text style={styles.popularChipText}>{popular.text}</Text>
+                      <MaterialCommunityIcons name="trending-up" size={13} color="#059669" />
+                      <Text style={[styles.popularChipText, isDark && { color: colors.textHeading }]}>{popular.text}</Text>
                     </Pressable>
                   ))}
                 </View>
@@ -564,18 +582,25 @@ export function SearchScreen({ onBook, onBack, onSelectProduct, initialQuery = '
 
             {/* Popular Fabrics */}
             <View style={styles.section}>
-              <Text style={[styles.sectionTitle, isDark && { color: colors.textHeading }]}>Popular Fabrics</Text>
+              <View style={styles.sectionTitleRow}>
+                <MaterialCommunityIcons name="tag-multiple-outline" size={15} color="#64748B" />
+                <Text style={[styles.sectionTitle, isDark && { color: colors.textHeading }]}>Popular Fabrics & Textures</Text>
+              </View>
               <View style={styles.chipsRow}>
                 {[
                   'Pure Silk', 'Cotton Handloom', 'Woolen & Pashmina', 'Denim', 'Linen', 'Chiffon & Georgette', 'Velvet'
                 ].map((fabric, idx) => (
                   <Pressable
                     key={idx}
-                    style={[styles.fabricChip, isDark && { backgroundColor: colors.section, borderColor: colors.border }]}
+                    style={({ pressed }) => [
+                      styles.fabricChip,
+                      isDark && { backgroundColor: colors.section, borderColor: colors.border },
+                      pressed && { opacity: 0.75, transform: [{ scale: 0.98 }] },
+                    ]}
                     onPress={() => handleSelectKeyword(fabric)}
                   >
-                    <MaterialCommunityIcons name="tag-outline" size={13} color={isDark ? colors.textCaption : '#64748B'} />
-                    <Text style={[styles.fabricChipText, isDark && { color: colors.textCaption }]}>{fabric}</Text>
+                    <MaterialCommunityIcons name="tag-outline" size={13} color={isDark ? '#10B981' : '#059669'} />
+                    <Text style={[styles.fabricChipText, isDark && { color: colors.textBody }]}>{fabric}</Text>
                   </Pressable>
                 ))}
               </View>
@@ -792,15 +817,20 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
   },
+  sectionTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
   sectionTitle: {
     fontSize: 14,
-    fontWeight: '700',
+    fontWeight: '800',
     color: '#0F172A',
-    letterSpacing: 0.2,
+    letterSpacing: 0.1,
   },
   clearText: {
     fontSize: 12,
-    fontWeight: '600',
+    fontWeight: '700',
     color: '#EF4444',
   },
   chipsRow: {
@@ -811,7 +841,7 @@ const styles = StyleSheet.create({
   recentChip: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 5,
+    gap: 6,
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
     borderColor: '#E2E8F0',
@@ -822,7 +852,28 @@ const styles = StyleSheet.create({
   recentChipText: {
     fontSize: 12.5,
     color: '#334155',
-    fontWeight: '500',
+    fontWeight: '600',
+  },
+  serviceChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1.2,
+    borderColor: '#E2E8F0',
+    borderRadius: 20,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  serviceChipText: {
+    fontSize: 12.5,
+    fontWeight: '700',
+    color: '#0F172A',
   },
   trendingChip: {
     flexDirection: 'row',
@@ -851,7 +902,7 @@ const styles = StyleSheet.create({
   fabricChipText: {
     fontSize: 12.5,
     color: '#475569',
-    fontWeight: '500',
+    fontWeight: '600',
   },
   promiseCard: {
     flexDirection: 'row',
@@ -954,40 +1005,41 @@ const styles = StyleSheet.create({
   trendingBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 6,
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
     borderColor: '#E2E8F0',
     borderRadius: 20,
     paddingHorizontal: 12,
-    paddingVertical: 8,
+    paddingVertical: 7,
     shadowColor: '#000000',
     shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
+    shadowOpacity: 0.04,
     shadowRadius: 2,
     elevation: 1,
   },
   trendingEmoji: {
-    fontSize: 15,
+    fontSize: 14,
   },
   trendingBadgeText: {
     fontSize: 12.5,
-    fontWeight: '600',
-    color: '#1E293B',
+    fontWeight: '700',
+    color: '#0F172A',
   },
   trendingGrowth: {
     fontSize: 11,
-    fontWeight: '700',
-    color: '#16A34A',
-    backgroundColor: '#DCFCE7',
+    fontWeight: '800',
+    color: '#059669',
+    backgroundColor: '#ECFDF5',
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 6,
+    overflow: 'hidden',
   },
   popularChip: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 5,
+    gap: 6,
     backgroundColor: '#F0FDF4',
     borderWidth: 1,
     borderColor: '#BBF7D0',
@@ -997,8 +1049,8 @@ const styles = StyleSheet.create({
   },
   popularChipText: {
     fontSize: 12.5,
-    fontWeight: '600',
-    color: '#166534',
+    fontWeight: '700',
+    color: '#15803D',
   },
   resultsGrid: {
     gap: 10,

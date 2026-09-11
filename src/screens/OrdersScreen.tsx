@@ -334,7 +334,10 @@ function cleanItemDisplayName(item: any): string {
               <Pressable
                 style={({ pressed }) => [
                   styles.headerInvoiceViewBtn,
-                  isDark && styles.headerInvoiceViewBtnDark,
+                  {
+                    backgroundColor: isDark ? '#064E3B' : '#FFFFFF',
+                    borderColor: isDark ? '#10B981' : '#059669',
+                  },
                   pressed && { opacity: 0.8 },
                 ]}
                 onPress={() => handleViewInvoice(selectedOrder.id)}
@@ -342,14 +345,17 @@ function cleanItemDisplayName(item: any): string {
                 accessibilityRole="button"
                 accessibilityLabel="View Tax Invoice"
               >
-                <MaterialCommunityIcons name="eye-outline" size={13} color={isDark ? '#86EFAC' : '#15803D'} />
-                <Text style={[styles.headerInvoiceViewBtnText, isDark && { color: '#86EFAC' }]}>View</Text>
+                <MaterialCommunityIcons name="eye-outline" size={13} color={isDark ? '#86EFAC' : '#059669'} />
+                <Text style={[styles.headerInvoiceViewBtnText, { color: isDark ? '#86EFAC' : '#059669' }]}>View</Text>
               </Pressable>
 
               <Pressable
                 style={({ pressed }) => [
                   styles.headerInvoiceBadge,
-                  pressed && { opacity: 0.8 },
+                  {
+                    backgroundColor: isDark ? '#10B981' : '#059669',
+                  },
+                  pressed && { opacity: 0.85, transform: [{ scale: 0.98 }] },
                 ]}
                 onPress={() => setInvoiceOptionsOrder(selectedOrder)}
                 hitSlop={6}
@@ -357,7 +363,7 @@ function cleanItemDisplayName(item: any): string {
                 accessibilityLabel="Invoice download and share options"
               >
                 <MaterialCommunityIcons name="download" size={13} color="#FFFFFF" />
-                <Text style={styles.headerInvoiceBadgeText}>PDF</Text>
+                <Text style={[styles.headerInvoiceBadgeText, { color: '#FFFFFF' }]}>PDF</Text>
               </Pressable>
             </View>
           </View>
@@ -607,15 +613,18 @@ function cleanItemDisplayName(item: any): string {
                 <Pressable
                   style={({ pressed }) => [
                     styles.billInvoiceViewBtn,
-                    isDark && styles.billInvoiceViewBtnDark,
+                    {
+                      backgroundColor: isDark ? '#064E3B' : '#FFFFFF',
+                      borderColor: isDark ? '#10B981' : '#059669',
+                    },
                     pressed && { opacity: 0.8, transform: [{ scale: 0.98 }] },
                   ]}
                   onPress={() => handleViewInvoice(selectedOrder.id)}
                   accessibilityRole="button"
                   accessibilityLabel="View Tax Invoice in app"
                 >
-                  <MaterialCommunityIcons name="eye-outline" size={15} color={isDark ? '#86EFAC' : '#15803D'} />
-                  <Text style={[styles.billInvoiceViewBtnText, isDark && { color: '#86EFAC' }]}>
+                  <MaterialCommunityIcons name="eye-outline" size={15} color={isDark ? '#86EFAC' : '#059669'} />
+                  <Text style={[styles.billInvoiceViewBtnText, { color: isDark ? '#86EFAC' : '#059669' }]}>
                     View Invoice
                   </Text>
                 </Pressable>
@@ -623,6 +632,9 @@ function cleanItemDisplayName(item: any): string {
                 <Pressable
                   style={({ pressed }) => [
                     styles.billInvoiceDownloadBtn,
+                    {
+                      backgroundColor: isDark ? '#10B981' : '#059669',
+                    },
                     pressed && { opacity: 0.85, transform: [{ scale: 0.98 }] },
                   ]}
                   onPress={() => setInvoiceOptionsOrder(selectedOrder)}
@@ -630,7 +642,7 @@ function cleanItemDisplayName(item: any): string {
                   accessibilityLabel="Invoice download and share options"
                 >
                   <MaterialCommunityIcons name="download" size={15} color="#FFFFFF" />
-                  <Text style={styles.billInvoiceDownloadBtnText}>PDF Options</Text>
+                  <Text style={[styles.billInvoiceDownloadBtnText, { color: '#FFFFFF' }]}>PDF Options</Text>
                 </Pressable>
               </View>
             </View>
