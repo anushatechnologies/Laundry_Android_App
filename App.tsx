@@ -426,6 +426,7 @@ function AuthenticatedApp() {
     serviceName?: string;
   }>({ tag: 'MENS', title: "Men's Wear", serviceCode: 'ALL', serviceName: 'All Services' });
   const [selectedProductForDetail, setSelectedProductForDetail] = useState<ProductItem | null>(null);
+  const [selectedServiceIdForDetail, setSelectedServiceIdForDetail] = useState<string | undefined>(undefined);
   const [loginReason, setLoginReason] = useState<LoginReason>('ACCOUNT');
   const [resumeCheckout, setResumeCheckout] = useState(false);
   const [selectedOrderId, setSelectedOrderId] = useState('');
@@ -765,8 +766,9 @@ function AuthenticatedApp() {
         onOpenCart={() => navigateTo('CART')}
         onOpenBulkLaundry={() => navigateTo('BULK_LAUNDRY')}
         hasBottomTabBar={showBottomNav}
-        onSelectProduct={(product) => {
+        onSelectProduct={(product, serviceId) => {
           setSelectedProductForDetail(product);
+          setSelectedServiceIdForDetail(serviceId);
           navigateTo('PRODUCT_DETAIL');
         }}
       />
@@ -775,6 +777,7 @@ function AuthenticatedApp() {
     screen = selectedProductForDetail ? (
       <ProductDetailScreen
         product={selectedProductForDetail}
+        initialServiceId={selectedServiceIdForDetail}
         onBack={() => goBack()}
         onViewCart={() => navigateTo('CART')}
       />
@@ -808,8 +811,9 @@ function AuthenticatedApp() {
         onOpenCart={() => navigateTo('CART')}
         onOpenBulkLaundry={() => navigateTo('BULK_LAUNDRY')}
         hasBottomTabBar={showBottomNav}
-        onSelectProduct={(product) => {
+        onSelectProduct={(product, serviceId) => {
           setSelectedProductForDetail(product);
+          setSelectedServiceIdForDetail(serviceId);
           navigateTo('PRODUCT_DETAIL');
         }}
       />

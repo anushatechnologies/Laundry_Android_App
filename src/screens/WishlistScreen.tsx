@@ -19,7 +19,7 @@ import type { ProductItem, ServicePriceOption } from '@/types/domain';
 interface WishlistScreenProps {
   onBook: () => void;
   onExploreServices: () => void;
-  onSelectProduct?: (product: ProductItem) => void;
+  onSelectProduct?: (product: ProductItem, serviceId?: string) => void;
 }
 
 export function WishlistScreen({ onBook, onExploreServices, onSelectProduct }: WishlistScreenProps) {
@@ -352,7 +352,7 @@ export function WishlistScreen({ onBook, onExploreServices, onSelectProduct }: W
                 {/* Left Photo - Tappable to open product details */}
                 <Pressable
                   style={[styles.imageContainer, isDark && { backgroundColor: colors.surface }]}
-                  onPress={() => onSelectProduct?.(item.productItem)}
+                  onPress={() => onSelectProduct?.(item.productItem, item.serviceId)}
                   accessibilityRole="button"
                   accessibilityLabel={`View details for ${item.name}`}
                   hitSlop={4}
@@ -380,7 +380,7 @@ export function WishlistScreen({ onBook, onExploreServices, onSelectProduct }: W
                   {/* Top Details - Tappable to open product details */}
                   <Pressable
                     style={styles.detailsTopPressable}
-                    onPress={() => onSelectProduct?.(item.productItem)}
+                    onPress={() => onSelectProduct?.(item.productItem, item.serviceId)}
                     accessibilityRole="button"
                     accessibilityLabel={`View details for ${item.name}`}
                     hitSlop={4}

@@ -33,7 +33,7 @@ interface CategoryCatalogScreenProps {
   onViewCart?: () => void;
   onOpenCart?: () => void;
   onOpenBulkLaundry?: () => void;
-  onSelectProduct?: (product: ProductItem) => void;
+  onSelectProduct?: (product: ProductItem, serviceId?: string) => void;
   hasBottomTabBar?: boolean;
 }
 
@@ -286,7 +286,7 @@ interface ProductCardProps {
   isFavorite: boolean;
   colors: any;
   isDark: boolean;
-  onSelectProduct?: (product: ProductItem) => void;
+  onSelectProduct?: (product: ProductItem, serviceId?: string) => void;
   onToggleWishlist: (clothId: string, clothName?: string) => void;
   onSelectService: (clothId: string, serviceId: string) => void;
   onAddToCart: (cloth: ProductItem, service: ServicePriceOption) => void;
@@ -339,7 +339,7 @@ const ProductCard = React.memo(function ProductCard({
       {/* PRODUCT IMAGE (Elevated 136px height, clean cover crop) */}
       <Pressable
         style={[styles.cardImageContainer, { backgroundColor: colors.section }]}
-        onPress={() => onSelectProduct?.(cloth)}
+        onPress={() => onSelectProduct?.(cloth, chosenService.serviceId)}
         accessibilityRole="button"
         accessibilityLabel={`View details for ${cloth.name}`}
       >
@@ -411,9 +411,9 @@ const ProductCard = React.memo(function ProductCard({
 
       {/* PRODUCT CARD BODY */}
       <View style={styles.cardBody}>
-        {/* Title */}
+        {/* Title & Service Count */}
         <Pressable
-          onPress={() => onSelectProduct?.(cloth)}
+          onPress={() => onSelectProduct?.(cloth, chosenService.serviceId)}
           accessibilityRole="button"
           accessibilityLabel={`View details for ${cloth.name}`}
         >
@@ -421,12 +421,32 @@ const ProductCard = React.memo(function ProductCard({
             <Text style={[styles.productCardTitle, { color: colors.textHeading }]} numberOfLines={1}>
               {cloth.name}
             </Text>
-            <MaterialCommunityIcons name="chevron-right" size={14} color={colors.textCaption} />
+            {cloth.services.length > 1 && (
+              <View
+                style={[
+                  styles.serviceCountBadge,
+                  {
+                    backgroundColor: isDark ? 'rgba(34, 197, 94, 0.15)' : '#F0FDF4',
+                    borderColor: isDark ? 'rgba(34, 197, 94, 0.3)' : '#BBF7D0',
+                  },
+                ]}
+              >
+                <Text style={[styles.serviceCountBadgeText, { color: isDark ? '#4ADE80' : '#166534' }]}>
+                  {cloth.services.length} services
+                </Text>
+              </View>
+            )}
           </View>
         </Pressable>
 
-        {/* Service Selector Mini-Pills */}
-        <View style={styles.serviceChipsWrap}>
+        {/* Service Selector Horizontal Scroll Pills with Icons and Exact Prices */}
+        <ScrollView
+          horizontal
+          nestedScrollEnabled={true}
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.serviceChipsScroll}
+          style={styles.serviceChipsScrollWrap}
+        >
           {cloth.services.map((srv) => {
             const isChosen = chosenService.serviceId === srv.serviceId;
             const label =
@@ -464,6 +484,12 @@ const ProductCard = React.memo(function ProductCard({
                   srv.unit || 'pc'
                 ).toLowerCase()}`}
               >
+                <MaterialCommunityIcons
+                  name={srv.icon as any}
+                  size={10}
+                  color={isChosen ? '#FFFFFF' : (isDark ? '#34D399' : '#166534')}
+                  style={{ marginRight: 3 }}
+                />
                 <Text
                   style={[
                     styles.serviceMiniText,
@@ -472,18 +498,32 @@ const ProductCard = React.memo(function ProductCard({
                   ]}
                   numberOfLines={1}
                 >
-                  {label}
+                  {label} ₹{srv.price}
                 </Text>
               </Pressable>
             );
           })}
-        </View>
+        </ScrollView>
 
-        {/* Selected Service Name & Confirmation */}
-        <View style={styles.selectedServiceIndicator}>
-          <Text style={[styles.selectedServiceNameText, { color: colors.textCaption }]} numberOfLines={1}>
+        {/* Selected Service Name & Confirmation Banner */}
+        <View
+          style={[
+            styles.activeServiceBanner,
+            {
+              backgroundColor: isDark ? 'rgba(22, 163, 74, 0.12)' : '#F0FDF4',
+              borderColor: isDark ? 'rgba(22, 163, 74, 0.28)' : '#DCFCE7',
+            },
+          ]}
+        >
+          <MaterialCommunityIcons name="check-circle" size={11} color="#16A34A" />
+          <Text style={[styles.activeServiceBannerText, { color: isDark ? '#4ADE80' : '#166534' }]} numberOfLines={1}>
             {chosenService.displayName}
           </Text>
+          {turnaround ? (
+            <Text style={[styles.activeServiceTatText, { color: isDark ? colors.textCaption : '#64748B' }]}>
+              • {turnaround}
+            </Text>
+          ) : null}
         </View>
 
         {/* Price & Action Row */}
@@ -507,10 +547,12 @@ const ProductCard = React.memo(function ProductCard({
         {/* Quick Link to Custom Care Options */}
         <Pressable
           style={styles.customCareLink}
-          onPress={() => onSelectProduct?.(cloth)}
+          onPress={() => onSelectProduct?.(cloth, chosenService.serviceId)}
           hitSlop={4}
         >
-          <Text style={styles.customCareLinkText}>Options & care</Text>
+          <Text style={styles.customCareLinkText}>
+            {cloth.services.length > 1 ? `View all ${cloth.services.length} services` : 'Options & custom care'}
+          </Text>
           <MaterialCommunityIcons name="arrow-right" size={11} color="#16A34A" />
         </Pressable>
       </View>
@@ -1941,39 +1983,72 @@ const styles = StyleSheet.create({
     letterSpacing: -0.2,
     flex: 1,
   },
-  serviceChipsWrap: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 4,
+  serviceCountBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+    borderWidth: 0.8,
+  },
+  serviceCountBadgeText: {
+    fontSize: 9.5,
+    fontWeight: '800',
+    letterSpacing: 0.2,
+  },
+  serviceChipsScrollWrap: {
     marginVertical: 4,
-    minHeight: 24,
+    minHeight: 28,
+  },
+  serviceChipsScroll: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingRight: 6,
   },
   serviceMiniPill: {
-    paddingHorizontal: 6,
-    paddingVertical: 2.5,
-    borderRadius: 5,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 7,
+    paddingVertical: 3.5,
+    borderRadius: 6,
     backgroundColor: '#F1F5F9',
     borderWidth: 1,
     borderColor: '#E2E8F0',
   },
   serviceMiniPillActive: {
-    backgroundColor: '#DCFCE7',
-    borderColor: '#16A34A',
+    backgroundColor: '#16A34A',
+    borderColor: '#15803D',
+    shadowColor: '#16A34A',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.22,
+    shadowRadius: 2,
+    elevation: 2,
   },
   serviceMiniText: {
-    fontSize: 9.5,
-    fontWeight: '600',
-    color: '#64748B',
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#475569',
   },
   serviceMiniTextActive: {
-    color: '#166534',
+    color: '#FFFFFF',
     fontWeight: '800',
   },
-  selectedServiceIndicator: {
+  activeServiceBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 6,
+    paddingVertical: 3,
+    borderRadius: 6,
+    borderWidth: 0.8,
     marginVertical: 2,
   },
-  selectedServiceNameText: {
+  activeServiceBannerText: {
     fontSize: 10,
+    fontWeight: '700',
+    flexShrink: 1,
+  },
+  activeServiceTatText: {
+    fontSize: 9.5,
     fontWeight: '600',
   },
   priceAndActionRow: {

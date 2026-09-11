@@ -26,7 +26,7 @@ import type { ProductItem, Catalog } from '@/types/domain';
 interface SearchScreenProps {
   onBook: () => void;
   onBack?: () => void;
-  onSelectProduct?: (product: ProductItem) => void;
+  onSelectProduct?: (product: ProductItem, serviceId?: string) => void;
   initialQuery?: string;
   onQueryChange?: (query: string) => void;
 }
@@ -433,7 +433,7 @@ export function SearchScreen({ onBook, onBack, onSelectProduct, initialQuery = '
       minPrice: minPrice > 0 ? minPrice : 20,
     };
 
-    onSelectProduct(product);
+    onSelectProduct(product, item.serviceId || services[0]?.serviceId);
   };
 
   const handleSelectKeyword = (term: string) => {
