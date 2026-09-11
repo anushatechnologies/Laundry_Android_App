@@ -200,7 +200,7 @@ export function OrderDetailScreen({
   const tone = statusTone(order.currentStatus, colors);
 
   return (
-    <ScrollView style={[styles.root, { backgroundColor: colors.background }]} contentContainerStyle={[styles.content, { paddingBottom: 180 }]} showsVerticalScrollIndicator={false}>
+    <ScrollView style={[styles.root, { backgroundColor: colors.background }]} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
       {/* 1. TOP HEADER STATUS BANNER */}
       <Card style={styles.headerCard}>
         <View style={styles.headerTopRow}>

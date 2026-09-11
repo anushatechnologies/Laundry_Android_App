@@ -194,7 +194,7 @@ export function ProductDetailScreen({
       {/* 2. SCROLLABLE CONTENT */}
       <ScrollView
         style={styles.scrollArea}
-        contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 120 }]}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + (cartSummary.itemCount > 0 ? 100 : 28) }]}
         showsVerticalScrollIndicator={false}
       >
         {/* HERO IMAGE CONTAINER */}

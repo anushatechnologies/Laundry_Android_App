@@ -26,7 +26,8 @@ import { calculateLocalDeliveryFee, PINCODE_COORDINATES } from '@/services/locat
 import { AppButton, AppInput, Card, Chip, EmptyState, SectionTitle } from '@/ui/components';
 import { COLORS, localDateString, money, shortDate } from '@/ui/theme';
 import { getGarmentImageUrl } from '@/lib/garment-photos';
-import type { Coupon, CustomerAddress, CustomerSubscription, DeliveryFeeCalculation, ExpressTier, PaymentMethod, PickupSlot, PincodeCheck, PricingSettings, RazorpayPaymentOrder } from '@/types/domain';
+import { downloadInvoicePdf } from '@/lib/invoice';
+import type { Coupon, CustomerAddress, CustomerSubscription, DeliveryFeeCalculation, ExpressTier, Order, PaymentMethod, PickupSlot, PincodeCheck, PricingSettings, RazorpayPaymentOrder } from '@/types/domain';
 import type { RazorpayResult } from '@/lib/payments';
 import type { CustomerLocation } from '@/services/location/types';
 
@@ -193,6 +194,7 @@ export function BookScreen({
   const [notes, setNotes] = useState('');
   const [message, setMessage] = useState<string | null>(null);
   const [completedOrderId, setCompletedOrderId] = useState<string | null>(null);
+  const [completedOrder, setCompletedOrder] = useState<Order | null>(null);
   const [fetchingLocation, setFetchingLocation] = useState(false);
   const [presetImgErrors, setPresetImgErrors] = useState<Record<string, boolean>>({});
   const [pricingSettings, setPricingSettings] = useState<PricingSettings | null>(catalog?.settings || null);
@@ -788,6 +790,7 @@ export function BookScreen({
 
       if (result.paymentOutcome === 'PAID' || result.paymentOutcome === 'COD') {
         setCompletedOrderId(result.order.id);
+        setCompletedOrder(result.order);
         setStage('SUCCESS');
       }
     } catch (error: any) {
@@ -860,6 +863,18 @@ export function BookScreen({
           <Text style={styles.trackOrderBtnText}>Track Order Status Live</Text>
           <MaterialCommunityIcons name="arrow-right" size={18} color="#FFFFFF" />
         </Pressable>
+
+        {completedOrderId && (
+          <Pressable
+            style={[styles.invoiceSuccessBtn, { borderColor: colors.border }]}
+            onPress={() => {
+              void downloadInvoicePdf(completedOrderId).catch(() => {});
+            }}
+          >
+            <MaterialCommunityIcons name="file-download-outline" size={18} color={COLORS.primary} />
+            <Text style={[styles.invoiceSuccessBtnText, { color: COLORS.primary }]}>Download Invoice (PDF)</Text>
+          </Pressable>
+        )}
       </ScrollView>
     );
   }
@@ -2964,7 +2979,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 20,
+    paddingHorizontal: 0,
   },
   stepDot: {
     width: 28,
@@ -3010,9 +3025,11 @@ const styles = StyleSheet.create({
     marginTop: 6,
   },
   stepLabelText: {
+    flex: 1,
     fontSize: 11,
     fontWeight: '700',
     color: '#8A7A84',
+    textAlign: 'center',
   },
   stepLabelTextActive: {
     color: '#16A34A',
@@ -3027,6 +3044,7 @@ const styles = StyleSheet.create({
     paddingBottom: 130,
   },
   stageWrap: {
+    width: '100%',
     gap: 14,
   },
   stageTitleRow: {
@@ -3562,7 +3580,8 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   slotCard: {
-    width: '48%',
+    flex: 1,
+    minWidth: 0,
     borderRadius: 14,
     padding: 12,
     borderWidth: 1,
@@ -4004,6 +4023,21 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 15,
     fontWeight: '800',
+  },
+  invoiceSuccessBtn: {
+    width: '100%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1.5,
+    borderRadius: 16,
+    paddingVertical: 14,
+    gap: 8,
+    marginTop: 12,
+  },
+  invoiceSuccessBtnText: {
+    fontSize: 15,
+    fontWeight: '700',
   },
 
   // BigBasket-Style Coupon Card (Bag & Review)
@@ -4473,6 +4507,7 @@ const styles = StyleSheet.create({
   },
   speedOptionInfo: {
     flex: 1,
+    minWidth: 0,
   },
   speedOptionTitleRow: {
     flexDirection: 'row',
@@ -4482,6 +4517,7 @@ const styles = StyleSheet.create({
     marginBottom: 3,
   },
   speedOptionName: {
+    flexShrink: 1,
     fontSize: 14,
     fontWeight: '700',
     color: '#334155',

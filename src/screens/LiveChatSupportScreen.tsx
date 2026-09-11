@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   FlatList,
   Linking,
@@ -11,12 +11,13 @@ import {
   ActivityIndicator,
   Alert,
   KeyboardAvoidingView,
+  Keyboard,
   Platform,
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { Card } from '@/ui/components';
 import { COLORS } from '@/ui/theme';
-import { useChatSocket } from '@/lib/chatSocket';
 import { api } from '@/lib/api';
 import { useApp } from '@/context/AppContext';
 import { useTheme } from '@/context/ThemeContext';
@@ -41,55 +42,63 @@ const QUICK_PROMPTS = [
   'Talk to Care Manager on WhatsApp',
 ];
 
+const CHAT_ROOM_KEY = (id?: string) => `@laundryfresh_chat_room_${id || 'anon'}`;
+const CHAT_MSGS_KEY = (id?: string) => `@laundryfresh_chat_msgs_${id || 'anon'}`;
+
+const getSmartResponse = (promptText: string): string | null => {
+  const p = promptText.toLowerCase();
+  if (p.includes('rider') || p.includes('pickup')) {
+    return "I'm checking on your pickup rider right away! 🛵 Delivery riders arrive during your scheduled 2-hour window. You can track live progress in the Orders tab or WhatsApp us for instant rider contact details.";
+  }
+  if (p.includes('re-wash') || p.includes('rewash') || p.includes('complaint')) {
+    return "Under our LaundryFresh Fabric Promise, you're 100% entitled to a complimentary re-wash! ✨ Please share your Order ID or garment name, and our team will schedule a priority pickup.";
+  }
+  if (p.includes('add more') || p.includes('more clothes') || p.includes('extra')) {
+    return "Yes, absolutely! 👍 You can hand over extra garments directly to our pickup executive upon arrival. They will count, weigh, and update your bag in real-time.";
+  }
+  if (p.includes('whatsapp') || p.includes('manager')) {
+    return "Connecting you directly to our senior Care Manager on WhatsApp right now... 💬";
+  }
+  return null;
+};
+
 interface LiveChatSupportScreenProps {
   onBack?: () => void;
 }
 
 export function LiveChatSupportScreen({ onBack }: LiveChatSupportScreenProps = {}) {
+  const insets = useSafeAreaInsets();
   const { session } = useApp();
   const { colors, isDark } = useTheme();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputText, setInputText] = useState('');
   const [roomId, setRoomId] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [isInitializing, setIsInitializing] = useState(false);
   const [clearing, setClearing] = useState(false);
   const [agentOnline, setAgentOnline] = useState(true);
+  const [agentTyping, setAgentTyping] = useState(false);
+  const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
   const flatListRef = useRef<FlatList>(null);
+  const messagesRef = useRef<ChatMessage[]>([]);
+  messagesRef.current = messages;
 
   const customerId = session?.user?.id;
 
-  const handleClearChat = () => {
-    if (!roomId) {
-      setMessages([]);
-      return;
-    }
-    Alert.alert(
-      'Clear Conversation',
-      'Are you sure you want to clear all messages in this chat? This cannot be undone.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Clear All',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              setClearing(true);
-              await api.clearChatMessages(roomId);
-              setMessages([]);
-            } catch (err: any) {
-              console.error('Error clearing messages:', err);
-              Alert.alert('Error', err?.message || 'Could not clear chat messages. Please try again.');
-            } finally {
-              setClearing(false);
-            }
-          },
-        },
-      ]
+  // Track keyboard visibility for smooth padding bottom
+  useEffect(() => {
+    const showSub = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
+      () => setIsKeyboardVisible(true)
     );
-  };
-
-  // HTTP polling mode - no WebSocket needed
-  const connectionStatus = { connected: true, reconnecting: false };
+    const hideSub = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
+      () => setIsKeyboardVisible(false)
+    );
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
 
   const normalizeMessage = (msg: any): ChatMessage => {
     const createdAt = msg.createdAt || msg.created_at || new Date().toISOString();
@@ -110,43 +119,74 @@ export function LiveChatSupportScreen({ onBack }: LiveChatSupportScreenProps = {
     };
   };
 
-  // Initialize chat room automatically in background
+  // Instant 0ms cache hydration + silent background sync (never blocks the screen)
   useEffect(() => {
     if (!customerId) return;
 
-    const initializeChat = async () => {
+    let isMounted = true;
+
+    // 1. Instant 0ms hydration from local cache
+    const hydrateLocalCache = async () => {
       try {
-        setLoading(true);
-        
-        // Silently create or get existing chat room in background
+        const [savedRoom, savedMsgs] = await Promise.all([
+          AsyncStorage.getItem(CHAT_ROOM_KEY(customerId)),
+          AsyncStorage.getItem(CHAT_MSGS_KEY(customerId)),
+        ]);
+        if (savedRoom && isMounted) {
+          setRoomId(savedRoom);
+        }
+        if (savedMsgs && isMounted) {
+          const parsed = JSON.parse(savedMsgs);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setMessages(parsed);
+          }
+        }
+      } catch (err) {
+        console.warn('[Chat] Failed to read local chat cache:', err);
+      }
+    };
+
+    void hydrateLocalCache();
+
+    // 2. Silently sync room & messages in the background without blocking the UI
+    const syncChatBackground = async () => {
+      try {
+        setIsInitializing(true);
         const roomResponse = await api.createChatRoom(customerId, 'Customer Support');
         const room = (roomResponse as any)?.data || roomResponse;
         
-        if (room && room.id) {
+        if (room && room.id && isMounted) {
           setRoomId(room.id);
+          void AsyncStorage.setItem(CHAT_ROOM_KEY(customerId), room.id);
 
-          // Load message history if room exists
           const messagesResponse = await api.getChatMessages(room.id, 50, 0);
           const rawList = Array.isArray(messagesResponse)
             ? messagesResponse
             : (messagesResponse as any)?.data || [];
           
-          if (Array.isArray(rawList)) {
-            setMessages(rawList.map(normalizeMessage));
+          if (Array.isArray(rawList) && isMounted) {
+            const formatted = rawList.map(normalizeMessage);
+            if (formatted.length > 0) {
+              setMessages(formatted);
+              void AsyncStorage.setItem(CHAT_MSGS_KEY(customerId), JSON.stringify(formatted));
+            }
           }
         }
       } catch (error) {
-        console.error('[Chat] Error initializing:', error);
-        // Don't show error to user - they can still type and send
+        console.warn('[Chat] Background sync error:', error);
       } finally {
-        setLoading(false);
+        if (isMounted) setIsInitializing(false);
       }
     };
 
-    initializeChat();
+    void syncChatBackground();
+
+    return () => {
+      isMounted = false;
+    };
   }, [customerId]);
 
-  // Poll for new messages every 3 seconds (HTTP polling instead of WebSocket)
+  // Poll for new messages every 4 seconds in the background
   useEffect(() => {
     if (!roomId) return;
 
@@ -160,76 +200,74 @@ export function LiveChatSupportScreen({ onBack }: LiveChatSupportScreenProps = {
         if (Array.isArray(rawList)) {
           const formattedMessages = rawList.map(normalizeMessage);
           
-          // Only update if messages changed to avoid unnecessary re-renders
-          if (JSON.stringify(formattedMessages) !== JSON.stringify(messages)) {
+          if (
+            formattedMessages.length !== messagesRef.current.length ||
+            JSON.stringify(formattedMessages) !== JSON.stringify(messagesRef.current)
+          ) {
             setMessages(formattedMessages);
-            // Scroll to bottom when new messages arrive
+            if (customerId) {
+              void AsyncStorage.setItem(CHAT_MSGS_KEY(customerId), JSON.stringify(formattedMessages));
+            }
             setTimeout(() => {
               flatListRef.current?.scrollToEnd({ animated: true });
             }, 100);
           }
         }
       } catch (error) {
-        console.error('Error polling messages:', error);
+        // silent polling error
       }
     };
 
-    // Initial poll
-    pollMessages();
-
-    // Poll every 3 seconds
-    const interval = setInterval(pollMessages, 3000);
-
+    const interval = setInterval(pollMessages, 4000);
     return () => clearInterval(interval);
-  }, [roomId, messages]);
+  }, [roomId, customerId]);
+
+  const handleClearChat = () => {
+    Alert.alert(
+      'Clear Conversation',
+      'Are you sure you want to clear all messages in this chat? This cannot be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Clear All',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              setClearing(true);
+              setMessages([]);
+              if (customerId) {
+                await AsyncStorage.removeItem(CHAT_MSGS_KEY(customerId));
+              }
+              if (roomId) {
+                await api.clearChatMessages(roomId).catch(() => {});
+              }
+            } catch (err: any) {
+              console.error('Error clearing messages:', err);
+            } finally {
+              setClearing(false);
+            }
+          },
+        },
+      ]
+    );
+  };
 
   const handleInputChange = (text: string) => {
     setInputText(text);
   };
 
   const sendMessage = async (text: string) => {
-    // Validation
-    if (!text.trim()) {
-      return; // Just ignore empty messages
-    }
+    if (!text.trim()) return;
     
     if (!customerId) {
-      Alert.alert('Error', 'Please sign in to send messages');
+      Alert.alert('Sign In Required', 'Please sign in to chat with our Care Support team.');
       return;
     }
 
     const messageText = text.trim();
     setInputText('');
 
-    // If no roomId yet, create one now
-    let currentRoomId = roomId;
-    if (!currentRoomId) {
-      try {
-        console.log('[Chat] Creating room for customer:', customerId);
-        const roomResponse = await api.createChatRoom(customerId, 'Customer Support');
-        console.log('[Chat] Room creation response:', roomResponse);
-        const room = (roomResponse as any)?.data || roomResponse;
-        
-        if (room && room.id) {
-          currentRoomId = room.id;
-          setRoomId(currentRoomId);
-          console.log('[Chat] Room created/retrieved:', currentRoomId);
-        } else {
-          console.error('[Chat] Room creation failed - no data in response:', roomResponse);
-          Alert.alert('Error', `Could not create chat session. Please try again.`);
-          setInputText(messageText);
-          return;
-        }
-      } catch (error: any) {
-        console.error('[Chat] Room creation exception:', error);
-        const errorMsg = error?.message || 'Network error';
-        Alert.alert('Error', `Could not create chat session: ${errorMsg}. Please check your connection.`);
-        setInputText(messageText);
-        return;
-      }
-    }
-
-    // Show message immediately (optimistic UI)
+    // Instant optimistic user message in 0ms!
     const userMsg: ChatMessage = {
       id: `temp-${Date.now()}`,
       senderId: customerId,
@@ -238,61 +276,84 @@ export function LiveChatSupportScreen({ onBack }: LiveChatSupportScreenProps = {
       createdAt: new Date().toISOString(),
       time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
     };
-    setMessages((prev) => [...prev, userMsg]);
 
-    // Send to backend - admin will see it immediately
-    try {
-      await api.saveChatMessage({
-        roomId: currentRoomId!,
-        senderId: customerId,
-        senderType: 'CUSTOMER',
-        message: messageText,
-        messageType: 'TEXT',
-      });
-      
-      // Refresh to get real message from server
-      const messagesResponse = await api.getChatMessages(currentRoomId!, 50, 0);
-      const rawList = Array.isArray(messagesResponse)
-        ? messagesResponse
-        : (messagesResponse as any)?.data || [];
-
-      if (Array.isArray(rawList)) {
-        setMessages(rawList.map(normalizeMessage));
-      }
-      
-    } catch (error: any) {
-      // Remove optimistic message and restore text on error
-      setMessages((prev) => prev.filter(msg => msg.id !== userMsg.id));
-      setInputText(messageText);
-      Alert.alert('Failed to Send', 'Please check your connection and try again.');
-      return;
+    const updated = [...messagesRef.current, userMsg];
+    setMessages(updated);
+    if (customerId) {
+      void AsyncStorage.setItem(CHAT_MSGS_KEY(customerId), JSON.stringify(updated));
     }
 
-    // Scroll to bottom
     setTimeout(() => {
       flatListRef.current?.scrollToEnd({ animated: true });
-    }, 100);
+    }, 50);
 
-    // Handle WhatsApp trigger
-    if (messageText.toLowerCase().includes('whatsapp') || messageText.toLowerCase().includes('manager')) {
-      void Linking.openURL('whatsapp://send?phone=+919121999999&text=Hi%20LaundryFresh%20Care%20Manager');
+    // Check for instant smart response from Ramya
+    const smartReply = getSmartResponse(messageText);
+    if (smartReply) {
+      setAgentTyping(true);
+      setTimeout(() => {
+        setAgentTyping(false);
+        const agentMsg: ChatMessage = {
+          id: `agent-auto-${Date.now()}`,
+          senderId: 'agent-ramya',
+          senderType: 'AGENT',
+          message: smartReply,
+          createdAt: new Date().toISOString(),
+          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        };
+        setMessages((prev) => {
+          const withAgent = [...prev, agentMsg];
+          if (customerId) {
+            void AsyncStorage.setItem(CHAT_MSGS_KEY(customerId), JSON.stringify(withAgent));
+          }
+          return withAgent;
+        });
+
+        setTimeout(() => {
+          flatListRef.current?.scrollToEnd({ animated: true });
+        }, 50);
+
+        if (messageText.toLowerCase().includes('whatsapp') || messageText.toLowerCase().includes('manager')) {
+          void Linking.openURL('whatsapp://send?phone=+919121999999&text=Hi%20LaundryFresh%20Care%20Manager');
+        }
+      }, 900);
     }
-  };
 
-  if (loading) {
-    return (
-      <View style={[styles.root, styles.centerContent]}>
-        <ActivityIndicator size="large" color={COLORS.primary} />
-        <Text style={styles.loadingText}>Connecting to support...</Text>
-      </View>
-    );
-  }
+    // Background asynchronous delivery to server (never freezes the user)
+    void (async () => {
+      try {
+        let currentRoomId = roomId;
+        if (!currentRoomId) {
+          const roomRes = await api.createChatRoom(customerId, 'Customer Support');
+          const room = (roomRes as any)?.data || roomRes;
+          if (room && room.id) {
+            const newRoomId = String(room.id);
+            currentRoomId = newRoomId;
+            setRoomId(newRoomId);
+            void AsyncStorage.setItem(CHAT_ROOM_KEY(customerId), newRoomId);
+          }
+        }
+
+        if (currentRoomId) {
+          await api.saveChatMessage({
+            roomId: currentRoomId,
+            senderId: customerId,
+            senderType: 'CUSTOMER',
+            message: messageText,
+            messageType: 'TEXT',
+          });
+        }
+      } catch (err) {
+        console.warn('[Chat] Background send message error:', err);
+      }
+    })();
+  };
 
   return (
     <KeyboardAvoidingView
       style={[styles.root, { backgroundColor: colors.background }]}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 25}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
     >
       {/* 1. AGENT STATUS & NAVIGATION HEADER */}
       <View style={[styles.agentHeader, { backgroundColor: colors.surface, borderColor: colors.border }]}>
@@ -301,6 +362,7 @@ export function LiveChatSupportScreen({ onBack }: LiveChatSupportScreenProps = {
             style={styles.backBtn}
             onPress={onBack}
             hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+            accessibilityLabel="Back"
           >
             <MaterialCommunityIcons name="arrow-left" size={24} color={colors.textHeading} />
           </Pressable>
@@ -338,6 +400,7 @@ export function LiveChatSupportScreen({ onBack }: LiveChatSupportScreenProps = {
         <Pressable
           style={styles.whatsAppEscalateBtn}
           onPress={() => Linking.openURL('whatsapp://send?phone=+919121999999')}
+          accessibilityLabel="Chat on WhatsApp"
         >
           <MaterialCommunityIcons name="whatsapp" size={18} color="#FFFFFF" />
         </Pressable>
@@ -388,9 +451,24 @@ export function LiveChatSupportScreen({ onBack }: LiveChatSupportScreenProps = {
             </View>
           );
         }}
-        ListFooterComponent={null}
+        ListFooterComponent={
+          agentTyping ? (
+            <View style={styles.typingBox}>
+              <Text style={[styles.typingText, { color: colors.textCaption }]}>
+                RAMYA is typing...
+              </Text>
+            </View>
+          ) : null
+        }
         ListEmptyComponent={
-          !loading ? (
+          isInitializing ? (
+            <View style={styles.emptyContainer}>
+              <ActivityIndicator size="small" color={COLORS.primary} />
+              <Text style={[styles.emptySubtitle, { color: colors.textCaption, marginTop: 8 }]}>
+                Connecting with Ramya...
+              </Text>
+            </View>
+          ) : (
             <View style={styles.emptyContainer}>
               <MaterialCommunityIcons name="chat-processing-outline" size={48} color={colors.border} />
               <Text style={[styles.emptyTitle, { color: colors.textHeading }]}>Chat with Care Support</Text>
@@ -398,7 +476,7 @@ export function LiveChatSupportScreen({ onBack }: LiveChatSupportScreenProps = {
                 Send a message or select a prompt below. Our team is here to help!
               </Text>
             </View>
-          ) : null
+          )
         }
       />
 
@@ -417,8 +495,17 @@ export function LiveChatSupportScreen({ onBack }: LiveChatSupportScreenProps = {
         </ScrollView>
       </View>
 
-      {/* 4. TEXT INPUT BAR */}
-      <View style={[styles.inputBar, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+      {/* 4. TEXT INPUT BAR — Elevated with safe area insets to never submerge behind Android navigation bar */}
+      <View
+        style={[
+          styles.inputBar,
+          {
+            backgroundColor: colors.surface,
+            borderColor: colors.border,
+            paddingBottom: isKeyboardVisible ? 10 : Math.max(insets.bottom, 12),
+          },
+        ]}
+      >
         <TextInput
           style={[
             styles.textInput,
@@ -434,12 +521,12 @@ export function LiveChatSupportScreen({ onBack }: LiveChatSupportScreenProps = {
             }, 250);
           }}
           onSubmitEditing={() => sendMessage(inputText)}
-          editable={!loading}
         />
         <Pressable 
           style={[styles.sendBtn, !inputText.trim() && styles.sendBtnDisabled]} 
           onPress={() => sendMessage(inputText)}
           disabled={!inputText.trim()}
+          accessibilityLabel="Send message"
         >
           <MaterialCommunityIcons name="send" size={18} color="#FFFFFF" />
         </Pressable>
@@ -453,39 +540,6 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#FCF9F7',
   },
-  adminAccessButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    backgroundColor: '#7C3AED',
-    padding: 12,
-    marginHorizontal: 16,
-    marginTop: 8,
-    marginBottom: 4,
-    borderRadius: 8,
-  },
-  adminAccessText: {
-    color: '#FFFFFF',
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  centerContent: {
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  loadingText: {
-    marginTop: 12,
-    fontSize: 14,
-    color: '#8A7A84',
-    fontWeight: '600',
-  },
-  backBtn: {
-    paddingRight: 6,
-    paddingVertical: 4,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
   agentHeader: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -495,6 +549,12 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderColor: '#F3E8DF',
     gap: 10,
+  },
+  backBtn: {
+    paddingRight: 6,
+    paddingVertical: 4,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   agentAvatarBox: {
     width: 42,
@@ -520,13 +580,14 @@ const styles = StyleSheet.create({
     backgroundColor: '#9CA3AF',
   },
   agentName: {
-    fontSize: 15,
-    fontWeight: '900',
+    fontSize: 14,
+    fontWeight: '800',
     color: '#1C0B18',
   },
   statusRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 5,
     marginTop: 2,
   },
   connectedDot: {
@@ -534,22 +595,11 @@ const styles = StyleSheet.create({
     height: 6,
     borderRadius: 3,
     backgroundColor: '#16A34A',
-    marginRight: 6,
   },
   agentStatus: {
-    fontSize: 12,
+    fontSize: 11,
+    fontWeight: '700',
     color: '#16A34A',
-    fontWeight: '700',
-  },
-  reconnectingStatus: {
-    fontSize: 12,
-    color: '#F97316',
-    fontWeight: '700',
-  },
-  disconnectedStatus: {
-    fontSize: 12,
-    color: '#EF4444',
-    fontWeight: '700',
   },
   clearChatBtn: {
     width: 36,
@@ -567,34 +617,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  emptyContainer: {
-    paddingVertical: 48,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 24,
-  },
-  emptyTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#374151',
-    marginTop: 12,
-  },
-  emptySubtitle: {
-    fontSize: 13,
-    color: '#6B7280',
-    textAlign: 'center',
-    marginTop: 6,
-    lineHeight: 18,
-  },
   messageList: {
     paddingHorizontal: 16,
-    paddingTop: 8,
-    paddingBottom: 12,
-    gap: 10,
+    paddingVertical: 16,
+    gap: 12,
   },
   bubbleWrap: {
+    width: '100%',
     flexDirection: 'row',
-    marginBottom: 6,
   },
   bubbleWrapUser: {
     justifyContent: 'flex-end',
@@ -604,38 +634,41 @@ const styles = StyleSheet.create({
   },
   bubble: {
     maxWidth: '82%',
-    padding: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
     borderRadius: 18,
-    gap: 4,
   },
   bubbleUser: {
-    backgroundColor: '#F97316',
+    backgroundColor: '#16A34A',
     borderBottomRightRadius: 4,
   },
   bubbleAgent: {
     backgroundColor: '#FFFFFF',
+    borderBottomLeftRadius: 4,
     borderWidth: 1,
     borderColor: '#F3E8DF',
-    borderBottomLeftRadius: 4,
   },
   bubbleText: {
-    fontSize: 15,
-    lineHeight: 21,
+    fontSize: 13,
+    lineHeight: 18,
   },
   bubbleTextUser: {
     color: '#FFFFFF',
-    fontWeight: '700',
+    fontWeight: '600',
   },
   bubbleTextAgent: {
     color: '#1C0B18',
+    fontWeight: '500',
   },
   bubbleFooter: {
     flexDirection: 'row',
     alignItems: 'center',
-    alignSelf: 'flex-end',
+    justifyContent: 'flex-end',
+    marginTop: 4,
   },
   bubbleTime: {
-    fontSize: 11,
+    fontSize: 10,
+    fontWeight: '600',
   },
   bubbleTimeUser: {
     color: 'rgba(255, 255, 255, 0.7)',
@@ -651,6 +684,24 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: '#8A7A84',
     fontStyle: 'italic',
+  },
+  emptyContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 48,
+    gap: 8,
+  },
+  emptyTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#1C0B18',
+    marginTop: 4,
+  },
+  emptySubtitle: {
+    fontSize: 12,
+    color: '#8A7A84',
+    textAlign: 'center',
+    maxWidth: 240,
   },
   quickPromptsRow: {
     paddingVertical: 8,
@@ -680,7 +731,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: '#FFFFFF',
     paddingHorizontal: 16,
-    paddingVertical: 10,
+    paddingTop: 10,
     borderTopWidth: 1,
     borderColor: '#F3E8DF',
     gap: 10,
