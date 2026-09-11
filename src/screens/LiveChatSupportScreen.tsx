@@ -3,7 +3,6 @@ import {
   FlatList,
   Linking,
   Pressable,
-  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -34,13 +33,6 @@ interface ChatMessage {
   time?: string;
   isRead?: boolean;
 }
-
-const QUICK_PROMPTS = [
-  'Where is my pickup rider?',
-  'I need a free re-wash request',
-  'Can I add more clothes to active bag?',
-  'Talk to Care Manager on WhatsApp',
-];
 
 const CHAT_ROOM_KEY = (id?: string) => `@laundryfresh_chat_room_${id || 'anon'}`;
 const CHAT_MSGS_KEY = (id?: string) => `@laundryfresh_chat_msgs_${id || 'anon'}`;
@@ -271,11 +263,6 @@ export function LiveChatSupportScreen({ onBack }: LiveChatSupportScreenProps = {
       flatListRef.current?.scrollToEnd({ animated: true });
     }, 50);
 
-    // WhatsApp quick-tap: still open WhatsApp directly if customer tapped that prompt
-    if (messageText.toLowerCase().includes('whatsapp') || messageText.toLowerCase().includes('manager')) {
-      void Linking.openURL('whatsapp://send?phone=+919121999999&text=Hi%20LaundryFresh%20Care%20Manager');
-    }
-
     // Background asynchronous delivery to server (never freezes the user)
     void (async () => {
       try {
@@ -429,22 +416,7 @@ export function LiveChatSupportScreen({ onBack }: LiveChatSupportScreenProps = {
         }
       />
 
-      {/* 3. QUICK CHIPS */}
-      <View style={[styles.quickPromptsRow, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.quickScroll}>
-          {QUICK_PROMPTS.map((prompt, idx) => (
-            <Pressable
-              key={idx}
-              style={[styles.promptChip, { backgroundColor: isDark ? colors.section : '#FAF5EF', borderColor: colors.border }]}
-              onPress={() => sendMessage(prompt)}
-            >
-              <Text style={[styles.promptChipText, { color: colors.textHeading }]}>{prompt}</Text>
-            </Pressable>
-          ))}
-        </ScrollView>
-      </View>
-
-      {/* 4. TEXT INPUT BAR — Elevated with safe area insets to never submerge behind Android navigation bar */}
+      {/* 3. TEXT INPUT BAR */}
       <View
         style={[
           styles.inputBar,
@@ -652,29 +624,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     maxWidth: 240,
   },
-  quickPromptsRow: {
-    paddingVertical: 8,
-    backgroundColor: '#FFFFFF',
-    borderTopWidth: 1,
-    borderColor: '#F3E8DF',
-  },
-  quickScroll: {
-    paddingHorizontal: 16,
-    gap: 8,
-  },
-  promptChip: {
-    backgroundColor: '#FAF5EF',
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-    borderWidth: 1,
-    borderColor: '#E8DED6',
-  },
-  promptChipText: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: '#1C0B18',
-  },
+
   inputBar: {
     flexDirection: 'row',
     alignItems: 'center',
