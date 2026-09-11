@@ -3,6 +3,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Keyboard,
   KeyboardAvoidingView,
   Linking,
   Modal,
@@ -85,6 +86,22 @@ export function ProfileScreen({
   const [savingProfile, setSavingProfile] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [checkingUpdate, setCheckingUpdate] = useState(false);
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
+
+  useEffect(() => {
+    const showSub = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
+      (e) => setKeyboardHeight(e.endCoordinates.height)
+    );
+    const hideSub = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
+      () => setKeyboardHeight(0)
+    );
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
 
   const currentAppVersion = CURRENT_APP_VERSION;
   const currentAppCode = CURRENT_APP_CODE;
@@ -630,12 +647,32 @@ const EMAIL_REGEX = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
           style={{ flex: 1 }}
         >
-          <View style={styles.modalOverlay}>
-            <Pressable style={StyleSheet.absoluteFill} onPress={() => !savingProfile && setIsEditModalOpen(false)} />
+          <View
+            style={[
+              styles.modalOverlay,
+              Platform.OS === 'android' && keyboardHeight > 0 && {
+                justifyContent: 'flex-end',
+                paddingBottom: keyboardHeight,
+              },
+            ]}
+          >
+            <Pressable
+              style={StyleSheet.absoluteFill}
+              onPress={() => {
+                Keyboard.dismiss();
+                if (!savingProfile) setIsEditModalOpen(false);
+              }}
+            />
             <View style={[styles.modalCard, { backgroundColor: cardBg }]}>
               <View style={[styles.modalHeader, { borderBottomColor: dividerBg }]}>
                 <Text style={[styles.modalTitle, { color: headingColor }]}>Edit Profile Details</Text>
-                <Pressable onPress={() => setIsEditModalOpen(false)} hitSlop={12}>
+                <Pressable
+                  onPress={() => {
+                    Keyboard.dismiss();
+                    setIsEditModalOpen(false);
+                  }}
+                  hitSlop={12}
+                >
                   <MaterialCommunityIcons name="close" size={22} color={headingColor} />
                 </Pressable>
               </View>

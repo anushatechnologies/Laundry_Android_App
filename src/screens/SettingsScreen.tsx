@@ -1,7 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Alert,
+  Keyboard,
+  KeyboardAvoidingView,
   Modal,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -31,6 +34,22 @@ export function SettingsScreen({ onSignIn }: SettingsScreenProps) {
   const [editingProfile, setEditingProfile] = useState(false);
   const [nameInput, setNameInput] = useState(session?.user?.name || '');
   const [emailInput, setEmailInput] = useState(session?.user?.email || '');
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
+
+  useEffect(() => {
+    const showSub = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
+      (e) => setKeyboardHeight(e.endCoordinates.height)
+    );
+    const hideSub = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
+      () => setKeyboardHeight(0)
+    );
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
 
   // Privacy Policy Modal
   const [showPrivacyModal, setShowPrivacyModal] = useState(false);
@@ -210,7 +229,7 @@ export function SettingsScreen({ onSignIn }: SettingsScreenProps) {
               }}
               accessibilityLabel="Edit Profile"
             >
-              <MaterialCommunityIcons name="pencil-outline" size={18} color="#F97316" />
+              <MaterialCommunityIcons name="pencil-outline" size={18} color="#059669" />
             </Pressable>
           </View>
         </Card>
@@ -295,9 +314,9 @@ export function SettingsScreen({ onSignIn }: SettingsScreenProps) {
             <>
               <View style={[styles.divider, isDark && { backgroundColor: colors.border }]} />
               <Pressable style={styles.menuRow} onPress={handleLogOut}>
-                <MaterialCommunityIcons name="logout" size={20} color="#F97316" />
-                <Text style={[styles.menuLabel, { color: '#F97316' }]}>Log Out from Device</Text>
-                <MaterialCommunityIcons name="chevron-right" size={20} color="#F97316" />
+                <MaterialCommunityIcons name="logout" size={20} color="#EF4444" />
+                <Text style={[styles.menuLabel, { color: '#EF4444' }]}>Log Out from Device</Text>
+                <MaterialCommunityIcons name="chevron-right" size={20} color="#EF4444" />
               </Pressable>
               
               <View style={[styles.divider, isDark && { backgroundColor: colors.border }]} />
@@ -326,56 +345,88 @@ export function SettingsScreen({ onSignIn }: SettingsScreenProps) {
 
       {/* Edit Profile Modal */}
       <Modal visible={editingProfile} transparent animationType="slide">
-        <View style={styles.modalOverlay}>
-          <View style={[styles.modalSheet, isDark && { backgroundColor: colors.surface }]}>
-            <View style={styles.modalHeader}>
-              <Text style={[styles.modalTitle, isDark && { color: colors.textHeading }]}>Edit Profile Information</Text>
-              <Pressable onPress={() => setEditingProfile(false)}>
-                <MaterialCommunityIcons name="close" size={22} color={isDark ? colors.textCaption : "#1C0B18"} />
-              </Pressable>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          style={{ flex: 1 }}
+        >
+          <View
+            style={[
+              styles.modalOverlay,
+              Platform.OS === 'android' && keyboardHeight > 0 && {
+                justifyContent: 'flex-end',
+                paddingBottom: keyboardHeight,
+              },
+            ]}
+          >
+            <Pressable
+              style={StyleSheet.absoluteFill}
+              onPress={() => {
+                Keyboard.dismiss();
+                setEditingProfile(false);
+              }}
+            />
+            <View style={[styles.modalSheet, isDark && { backgroundColor: colors.surface }]}>
+              <View style={styles.modalHeader}>
+                <Text style={[styles.modalTitle, isDark && { color: colors.textHeading }]}>Edit Profile Information</Text>
+                <Pressable
+                  onPress={() => {
+                    Keyboard.dismiss();
+                    setEditingProfile(false);
+                  }}
+                  hitSlop={10}
+                >
+                  <MaterialCommunityIcons name="close" size={22} color={isDark ? colors.textCaption : "#1C0B18"} />
+                </Pressable>
+              </View>
+
+              <ScrollView
+                keyboardShouldPersistTaps="handled"
+                showsVerticalScrollIndicator={false}
+                bounces={false}
+              >
+                <View style={styles.formGroup}>
+                  <Text style={[styles.formLabel, isDark && { color: colors.textHeading }]}>Full Name</Text>
+                  <TextInput
+                    style={[styles.formInput, isDark && { backgroundColor: colors.section, borderColor: colors.border, color: colors.textHeading }]}
+                    placeholder="Full Name"
+                    placeholderTextColor="#A1A1AA"
+                    value={nameInput}
+                    onChangeText={(val) => {
+                      // Only allow letters, spaces, dots, and hyphens
+                      const filtered = val.replace(/[^a-zA-Z\s.\-]/g, '');
+                      setNameInput(filtered);
+                    }}
+                    keyboardType="default"
+                  />
+
+                  <Text style={[styles.formLabel, { marginTop: 10 }, isDark && { color: colors.textHeading }]}>Email Address</Text>
+                  <TextInput
+                    style={[
+                      styles.formInput,
+                      isDark && { backgroundColor: colors.section, borderColor: colors.border, color: colors.textHeading },
+                      Boolean(emailInput.trim() && !EMAIL_REGEX.test(emailInput.trim().toLowerCase())) && { borderColor: '#EF4444', borderWidth: 1.5 },
+                    ]}
+                    placeholder="name@example.com"
+                    placeholderTextColor="#A1A1AA"
+                    value={emailInput}
+                    onChangeText={setEmailInput}
+                    keyboardType="email-address"
+                    autoCapitalize="none"
+                  />
+                  {Boolean(emailInput.trim() && !EMAIL_REGEX.test(emailInput.trim().toLowerCase())) && (
+                    <Text style={{ color: '#EF4444', fontSize: 11, marginTop: 4, fontWeight: '700' }}>
+                      ⚠️ Please enter a valid email format (e.g. yourname@gmail.com)
+                    </Text>
+                  )}
+                </View>
+
+                <Pressable style={styles.saveBtn} onPress={handleSaveProfile}>
+                  <Text style={styles.saveBtnText}>Save Changes</Text>
+                </Pressable>
+              </ScrollView>
             </View>
-
-            <View style={styles.formGroup}>
-              <Text style={[styles.formLabel, isDark && { color: colors.textHeading }]}>Full Name</Text>
-              <TextInput
-                style={[styles.formInput, isDark && { backgroundColor: colors.section, borderColor: colors.border, color: colors.textHeading }]}
-                placeholder="Full Name"
-                placeholderTextColor="#A1A1AA"
-                value={nameInput}
-                onChangeText={(val) => {
-                  // Only allow letters, spaces, dots, and hyphens
-                  const filtered = val.replace(/[^a-zA-Z\s.\-]/g, '');
-                  setNameInput(filtered);
-                }}
-                keyboardType="default"
-              />
-
-              <Text style={[styles.formLabel, { marginTop: 10 }, isDark && { color: colors.textHeading }]}>Email Address</Text>
-              <TextInput
-                style={[
-                  styles.formInput,
-                  isDark && { backgroundColor: colors.section, borderColor: colors.border, color: colors.textHeading },
-                  Boolean(emailInput.trim() && !EMAIL_REGEX.test(emailInput.trim().toLowerCase())) && { borderColor: '#EF4444', borderWidth: 1.5 },
-                ]}
-                placeholder="name@example.com"
-                placeholderTextColor="#A1A1AA"
-                value={emailInput}
-                onChangeText={setEmailInput}
-                keyboardType="email-address"
-                autoCapitalize="none"
-              />
-              {Boolean(emailInput.trim() && !EMAIL_REGEX.test(emailInput.trim().toLowerCase())) && (
-                <Text style={{ color: '#EF4444', fontSize: 11, marginTop: 4, fontWeight: '700' }}>
-                  ⚠️ Please enter a valid email format (e.g. yourname@gmail.com)
-                </Text>
-              )}
-            </View>
-
-            <Pressable style={styles.saveBtn} onPress={handleSaveProfile}>
-              <Text style={styles.saveBtnText}>Save Changes</Text>
-            </Pressable>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
 
       {/* Privacy Policy Modal */}
@@ -465,7 +516,7 @@ const styles = StyleSheet.create({
   },
   userEmail: {
     fontSize: 13,
-    color: '#F97316',
+    color: '#059669',
     marginTop: 2,
   },
   guestSub: {
@@ -479,7 +530,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    backgroundColor: '#F97316',
+    backgroundColor: '#059669',
     borderRadius: 12,
     paddingVertical: 10,
     marginTop: 4,
@@ -644,7 +695,7 @@ const styles = StyleSheet.create({
     color: '#1C0B18',
   },
   saveBtn: {
-    backgroundColor: '#F97316',
+    backgroundColor: '#059669',
     borderRadius: 14,
     paddingVertical: 14,
     alignItems: 'center',

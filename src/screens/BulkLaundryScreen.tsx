@@ -333,7 +333,7 @@ export function BulkLaundryScreen({
                       <MaterialCommunityIcons
                         name={srv.icon as any}
                         size={22}
-                        color={isSelected ? '#FFFFFF' : '#FF6B0B'}
+                        color={isSelected ? '#FFFFFF' : '#059669'}
                       />
                     </View>
 
@@ -343,7 +343,7 @@ export function BulkLaundryScreen({
                           style={[
                             styles.serviceOptionTitle,
                             { color: colors.textHeading, marginBottom: 2 },
-                            isSelected && { color: '#FF6B0B' },
+                            isSelected && { color: isDark ? '#34D399' : '#047857' },
                           ]}
                           numberOfLines={1}
                         >
@@ -404,7 +404,7 @@ export function BulkLaundryScreen({
                       <MaterialCommunityIcons
                         name={srv.icon as any}
                         size={20}
-                        color={isSelected ? '#FFFFFF' : '#FF6B0B'}
+                        color={isSelected ? '#FFFFFF' : '#059669'}
                       />
                     </View>
                     <View
@@ -430,7 +430,7 @@ export function BulkLaundryScreen({
                     style={[
                       styles.serviceOptionTitle,
                       { color: colors.textHeading },
-                      isSelected && { color: '#FF6B0B' },
+                      isSelected && { color: isDark ? '#34D399' : '#047857' },
                     ]}
                   >
                     {srv.name}
@@ -444,7 +444,7 @@ export function BulkLaundryScreen({
 
                   {isSelected && (
                     <View style={styles.cardCornerCheck}>
-                      <MaterialCommunityIcons name="check-circle" size={16} color="#FF6B0B" />
+                      <MaterialCommunityIcons name="check-circle" size={16} color="#059669" />
                     </View>
                   )}
                 </Pressable>
@@ -475,8 +475,8 @@ export function BulkLaundryScreen({
                     styles.presetCardRow,
                     { backgroundColor: colors.surface, borderColor: colors.border },
                     isChosen && {
-                      borderColor: '#FF6B0B',
-                      backgroundColor: isDark ? 'rgba(255, 107, 11, 0.12)' : '#FFFBF8',
+                      borderColor: '#059669',
+                      backgroundColor: isDark ? 'rgba(5, 150, 105, 0.12)' : '#F0FDF4',
                     },
                   ]}
                   onPress={() => setWeightKg(item.kg)}
@@ -493,8 +493,8 @@ export function BulkLaundryScreen({
                         {item.label}
                       </Text>
                       {item.tag && (
-                        <View style={[styles.presetTagBadge, isChosen ? { backgroundColor: '#FFF7ED' } : { backgroundColor: isDark ? colors.section : '#F1F5F9' }]}>
-                          <Text style={[styles.presetTagBadgeText, isChosen ? { color: '#FF6B0B' } : { color: colors.textCaption }]}>
+                        <View style={[styles.presetTagBadge, isChosen ? { backgroundColor: isDark ? 'rgba(5, 150, 105, 0.25)' : '#DCFCE7' } : { backgroundColor: isDark ? colors.section : '#F1F5F9' }]}>
+                          <Text style={[styles.presetTagBadgeText, isChosen ? { color: '#059669' } : { color: colors.textCaption }]}>
                             {item.tag}
                           </Text>
                         </View>
@@ -740,7 +740,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: -4,
     right: -4,
-    backgroundColor: '#EA580C',
+    backgroundColor: '#059669',
     borderRadius: 10,
     minWidth: 20,
     height: 20,
@@ -838,15 +838,15 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   activeWeightBadge: {
-    backgroundColor: '#FFF7ED',
+    backgroundColor: '#ECFDF5',
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#FFEDD5',
+    borderColor: '#A7F3D0',
   },
   activeWeightBadgeText: {
-    color: '#FF6B0B',
+    color: '#059669',
     fontSize: 12,
     fontWeight: '800',
   },
@@ -871,9 +871,9 @@ const styles = StyleSheet.create({
     elevation: 1,
   },
   serviceOptionCardSelected: {
-    borderColor: '#FF6B0B',
-    backgroundColor: '#FFFBF8',
-    shadowColor: '#FF6B0B',
+    borderColor: '#059669',
+    backgroundColor: '#F0FDF4',
+    shadowColor: '#059669',
     shadowOpacity: 0.1,
     shadowRadius: 6,
     elevation: 3,
@@ -888,12 +888,12 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: '#FFF7ED',
+    backgroundColor: '#ECFDF5',
     alignItems: 'center',
     justifyContent: 'center',
   },
   serviceIconWrapSelected: {
-    backgroundColor: '#FF6B0B',
+    backgroundColor: '#059669',
   },
   ratePill: {
     backgroundColor: '#F1F5F9',
@@ -902,7 +902,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   ratePillSelected: {
-    backgroundColor: '#FFF7ED',
+    backgroundColor: '#DCFCE7',
   },
   ratePillText: {
     fontSize: 11,
@@ -910,7 +910,7 @@ const styles = StyleSheet.create({
     color: '#475569',
   },
   ratePillTextSelected: {
-    color: '#FF6B0B',
+    color: '#059669',
     fontWeight: '800',
   },
   serviceOptionTitle: {
@@ -920,7 +920,7 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   serviceOptionTitleSelected: {
-    color: '#FF6B0B',
+    color: '#047857',
   },
   serviceOptionSubtitle: {
     fontSize: 11,
@@ -950,7 +950,7 @@ const styles = StyleSheet.create({
     width: 22,
     height: 22,
     borderRadius: 11,
-    backgroundColor: '#FF6B0B',
+    backgroundColor: '#059669',
     alignItems: 'center',
     justifyContent: 'center',
     marginLeft: 4,
@@ -980,9 +980,9 @@ const styles = StyleSheet.create({
     elevation: 1,
   },
   presetCardRowChosen: {
-    borderColor: '#FF6B0B',
-    backgroundColor: '#FFFBF8',
-    shadowColor: '#FF6B0B',
+    borderColor: '#059669',
+    backgroundColor: '#F0FDF4',
+    shadowColor: '#059669',
     shadowOpacity: 0.1,
     shadowRadius: 6,
     elevation: 3,
@@ -1029,7 +1029,7 @@ const styles = StyleSheet.create({
     color: '#0F172A',
   },
   presetPriceTotalChosen: {
-    color: '#FF6B0B',
+    color: '#059669',
   },
   presetPricePerKg: {
     fontSize: 11.5,
@@ -1047,8 +1047,8 @@ const styles = StyleSheet.create({
     marginLeft: 12,
   },
   presetRadioWrapChosen: {
-    borderColor: '#FF6B0B',
-    backgroundColor: '#FF6B0B',
+    borderColor: '#059669',
+    backgroundColor: '#059669',
   },
   presetRadioDot: {
     width: 8,
@@ -1155,7 +1155,7 @@ const styles = StyleSheet.create({
   summaryPriceValue: {
     fontSize: 22,
     fontWeight: '900',
-    color: '#FF6B0B',
+    color: '#059669',
   },
   summaryPriceRate: {
     fontSize: 11,
