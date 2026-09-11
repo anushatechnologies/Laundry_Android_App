@@ -244,6 +244,12 @@ export const api = {
   getTracking: (orderId: string) => request<TrackingOrder>(`/orders/${encodeURIComponent(orderId)}/track`),
   createOrder: (order: Record<string, unknown>) =>
     request<Order>('/orders', { method: 'POST', body: JSON.stringify(order) }, true),
+  cancelOrder: (orderId: string, payload?: { customerId?: string; reason?: string }) =>
+    request<{ success: boolean; data?: Order; order?: Order; refundAmount: number; restoredKg: number; message: string }>(
+      `/orders/${encodeURIComponent(orderId)}/cancel`,
+      { method: 'POST', body: JSON.stringify(payload || {}) },
+      true
+    ),
   createRazorpayOrder: (internalOrderId: string) =>
     request<RazorpayPaymentOrder>('/payments/create-order', { method: 'POST', body: JSON.stringify({ internalOrderId }) }, true),
   verifyRazorpayPayment: (payload: {

@@ -14,6 +14,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useApp } from '@/context/AppContext';
 import { useTheme } from '@/context/ThemeContext';
+import { api } from '@/lib/api';
 import { AppButton, Card } from '@/ui/components';
 import { COLORS, dateTime, money, shortDate, statusLabel, statusTone } from '@/ui/theme';
 import { getGarmentImageUrl } from '@/lib/garment-photos';
@@ -74,7 +75,7 @@ function milestoneIndexForStatus(status: string): number {
 }
 
 export function OrdersScreen({ onBook, onSignIn, onBrowseServices, onOpenOrderDetail }: OrdersScreenProps) {
-  const { session, orders, refreshOrders, isRefreshing, trackOrder } = useApp();
+  const { session, orders, refreshOrders, isRefreshing, trackOrder, refreshWallet } = useApp();
   const { colors, isDark } = useTheme();
   const insets = useSafeAreaInsets();
   // The floating tab bar is absolutely positioned over the scroll view.
@@ -83,9 +84,68 @@ export function OrdersScreen({ onBook, onSignIn, onBrowseServices, onOpenOrderDe
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [tracking, setTracking] = useState<TrackingOrder | null>(null);
   const [loadingTracking, setLoadingTracking] = useState(false);
+  const [cancellingOrderId, setCancellingOrderId] = useState<string | null>(null);
   const [filter, setFilter] = useState<OrderFilter>('ALL');
   const [invoiceOptionsOrder, setInvoiceOptionsOrder] = useState<Order | null>(null);
   const [viewingInvoiceOrderId, setViewingInvoiceOrderId] = useState<string | null>(null);
+
+  const handleCancelOrder = useCallback((order: Order) => {
+    if (!order) return;
+    const paidAmount = (order.paymentStatus === 'PAID' ? Number(order.totalAmount || 0) : 0) + Number(order.walletDeduction || 0);
+    const hasKg = Number(order.subscriptionKgUsed || 0) > 0;
+    
+    let promptDetails = 'Are you sure you want to cancel this order?\n';
+    if (paidAmount > 0) {
+      promptDetails += `\n• Paid amount of ₹${paidAmount.toFixed(2)} will be refunded directly to your LaundryFresh Wallet.`;
+    }
+    if (hasKg) {
+      promptDetails += `\n• ${order.subscriptionKgUsed} KG fabric quota will be restored to your active subscription.`;
+    }
+    if (paidAmount === 0 && !hasKg) {
+      promptDetails += '\n• This order will be cancelled immediately.';
+    }
+
+    Alert.alert(
+      'Cancel Order',
+      promptDetails,
+      [
+        { text: 'Keep Order', style: 'cancel' },
+        {
+          text: 'Yes, Cancel Order',
+          style: 'destructive',
+          onPress: async () => {
+            setCancellingOrderId(order.id);
+            try {
+              const res = await api.cancelOrder(order.id, {
+                customerId: session?.user?.id,
+                reason: 'Customer cancelled from app',
+              });
+              if (res && res.success) {
+                if (selectedOrder?.id === order.id) {
+                  setSelectedOrder((prev) => (prev ? { ...prev, currentStatus: 'CANCELLED', paymentStatus: (paidAmount > 0 ? 'REFUNDED' : prev.paymentStatus) as any } : null));
+                }
+                await Promise.all([
+                  refreshOrders().catch(() => undefined),
+                  refreshWallet().catch(() => undefined),
+                ]);
+                Alert.alert(
+                  'Order Cancelled',
+                  res.message || 'Your order has been cancelled and any paid balance credited to your wallet.'
+                );
+              } else {
+                Alert.alert('Unable to Cancel', (res as any)?.message || 'Could not cancel this order.');
+              }
+            } catch (err: any) {
+              Alert.alert('Cancellation Error', err?.message || 'Failed to cancel order. Please contact support.');
+            } finally {
+              setCancellingOrderId(null);
+            }
+          },
+        },
+      ],
+      { cancelable: true }
+    );
+  }, [session?.user?.id, selectedOrder?.id, refreshOrders, refreshWallet]);
 
   const handleViewInvoice = useCallback((orderId: string) => {
     setViewingInvoiceOrderId(orderId);
@@ -648,6 +708,31 @@ function cleanItemDisplayName(item: any): string {
             </View>
           </View>
         </Card>
+
+        {/* Cancel Order Action - available before pickup */}
+        {['ORDER_PLACED', 'PICKUP_ASSIGNED'].includes(selectedOrder.currentStatus) ? (
+          <View style={{ marginTop: 14, marginBottom: 20, paddingHorizontal: 4 }}>
+            <Pressable
+              style={({ pressed }) => [
+                styles.cancelOrderBtn,
+                pressed && { opacity: 0.85, transform: [{ scale: 0.99 }] },
+                cancellingOrderId === selectedOrder.id && { opacity: 0.6 },
+              ]}
+              onPress={() => handleCancelOrder(selectedOrder)}
+              disabled={cancellingOrderId === selectedOrder.id}
+              accessibilityRole="button"
+              accessibilityLabel="Cancel this order"
+            >
+              <MaterialCommunityIcons name="close-circle-outline" size={18} color="#DC2626" />
+              <Text style={styles.cancelOrderBtnText}>
+                {cancellingOrderId === selectedOrder.id ? 'Cancelling Order...' : 'Cancel Order'}
+              </Text>
+            </Pressable>
+            <Text style={[styles.cancelOrderSubtext, isDark && { color: colors.textCaption }]}>
+              Free cancellation before pickup. Any paid amount is credited to your wallet instantly.
+            </Text>
+          </View>
+        ) : null}
       </ScrollView>
 
       {/* In-App Invoice Viewer Modal */}
@@ -844,6 +929,21 @@ function cleanItemDisplayName(item: any): string {
                   </Text>
 
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                    {['ORDER_PLACED', 'PICKUP_ASSIGNED'].includes(order.currentStatus) ? (
+                      <Pressable
+                        style={({ pressed }) => [styles.cardCancelBtn, pressed && { opacity: 0.8 }]}
+                        onPress={(e) => {
+                          e.stopPropagation?.();
+                          handleCancelOrder(order);
+                        }}
+                        hitSlop={8}
+                        accessibilityLabel={`Cancel Order #${order.id}`}
+                      >
+                        <MaterialCommunityIcons name="close-circle-outline" size={14} color="#DC2626" />
+                        <Text style={styles.cardCancelBtnText}>Cancel</Text>
+                      </Pressable>
+                    ) : null}
+
                     <Pressable
                       style={({ pressed }) => [styles.cardInvoiceBtn, pressed && { opacity: 0.8 }]}
                       onPress={(e) => {
@@ -1956,5 +2056,45 @@ const styles = StyleSheet.create({
     marginTop: 4,
     paddingHorizontal: 20,
     lineHeight: 18,
+  },
+  cancelOrderBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: '#FEF2F2',
+    borderWidth: 1.5,
+    borderColor: '#FCA5A5',
+    borderRadius: 14,
+    paddingVertical: 14,
+    marginTop: 6,
+  },
+  cancelOrderBtnText: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#DC2626',
+  },
+  cancelOrderSubtext: {
+    fontSize: 11,
+    color: '#6F626A',
+    textAlign: 'center',
+    marginTop: 6,
+    lineHeight: 15,
+  },
+  cardCancelBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#FEF2F2',
+    borderWidth: 1,
+    borderColor: '#FECACA',
+    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  cardCancelBtnText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#DC2626',
   },
 });

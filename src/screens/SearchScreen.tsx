@@ -175,6 +175,7 @@ export function SearchScreen({ onBook, onBack, onSelectProduct, initialQuery = '
         prices.sort((a, b) => (Number(a.price) || 0) - (Number(b.price) || 0));
         const primaryPrice = prices.find((p) => Number(p.price) > 0) || prices[0];
         const srvName = String(primaryPrice?.serviceName || 'Steam Press');
+        const srvId = String(primaryPrice?.serviceId || 'srv-m-steam-iron');
         const tat = `${primaryPrice?.turnaroundHours || 24}H Care`;
 
         const catUpper = categoryTag.toUpperCase();
@@ -195,6 +196,7 @@ export function SearchScreen({ onBook, onBack, onSelectProduct, initialQuery = '
           id: String(cloth.id || `cloth-${Math.random()}`),
           name: clothName,
           serviceName: srvName,
+          serviceId: srvId,
           tat,
           price,
           unit: 'Piece',
@@ -335,30 +337,42 @@ export function SearchScreen({ onBook, onBack, onSelectProduct, initialQuery = '
     let services: any[] = [];
     if (matrix.length > 0) {
       services = matrix.map((pm: any) => {
-        const sName =
-          pm.serviceName ||
-          (pm.serviceCode === 'PRESS'
-            ? 'Steam Press'
-            : pm.serviceCode === 'DRY_CLEAN'
-            ? 'Dry Cleaning'
-            : 'Wash & Iron');
-        const code =
-          pm.serviceCode ||
-          (sName.toLowerCase().includes('dry')
-            ? 'DRY_CLEAN'
-            : sName.toLowerCase().includes('wash')
-            ? 'WASH_IRON'
-            : 'PRESS');
+        const sName = pm.serviceName || 'Standard Care';
+        const sLower = sName.toLowerCase();
+        let code = pm.serviceCode || '';
+        if (!code) {
+          if (sLower.includes('dry')) code = 'DRY_CLEAN';
+          else if (sLower.includes('fold') || (sLower.includes('wash') && sLower.includes('fold'))) code = 'WASH_FOLD';
+          else if (sLower.includes('wash')) code = 'WASH_IRON';
+          else if (sLower.includes('press') || sLower.includes('steam') || sLower.includes('iron')) code = 'PRESS';
+          else if (sLower.includes('starch')) code = 'STARCH';
+          else if (sLower.includes('saree') || sLower.includes('charak') || sLower.includes('polish')) code = 'SAREE_POLISH';
+          else if (sLower.includes('shoe') || sLower.includes('spa')) code = 'SHOE_SPA';
+          else if (sLower.includes('express')) code = 'EXPRESS';
+          else code = 'PRESS';
+        }
+
         const rawPrice = Number(pm.price);
         const price = rawPrice > 0 ? rawPrice : Math.max(Number(item.price) || 20, 20);
+
+        let shortLabel = 'Care';
+        if (code === 'PRESS') shortLabel = 'Press';
+        else if (code === 'DRY_CLEAN') shortLabel = 'Dry Clean';
+        else if (code === 'WASH_FOLD') shortLabel = 'Wash+Fold';
+        else if (code === 'WASH_IRON') shortLabel = 'Wash+Iron';
+        else if (code === 'STARCH') shortLabel = 'Starch';
+        else if (code === 'SAREE_POLISH') shortLabel = 'Polish';
+        else if (code === 'SHOE_SPA') shortLabel = 'Spa';
+        else if (code === 'EXPRESS') shortLabel = 'Express';
+
         return {
-          serviceId: pm.serviceId || `srv-${item.id}`,
+          serviceId: pm.serviceId || `srv-${item.id}-${code.toLowerCase()}`,
           serviceName: sName,
           displayName: sName,
-          shortLabel: code === 'PRESS' ? 'Press' : code === 'DRY_CLEAN' ? 'Dry Clean' : 'Wash+Iron',
+          shortLabel,
           serviceCode: code,
           price,
-          icon: code === 'PRESS' ? 'iron' : code === 'DRY_CLEAN' ? 'coat-rack' : 'washing-machine',
+          icon: code === 'PRESS' ? 'iron' : code === 'DRY_CLEAN' ? 'coat-rack' : code === 'SHOE_SPA' ? 'shoe-sneaker' : code === 'STARCH' ? 'sparkles' : 'washing-machine',
           unit: pm.unit || item.unit || 'Piece',
           turnaroundHours: Number(pm.turnaroundHours) || 24,
         };
@@ -710,10 +724,12 @@ export function SearchScreen({ onBook, onBack, onSelectProduct, initialQuery = '
                           <AnimatedCartButton
                             quantity={qty}
                             onAdd={() => {
+                              const srvId = item.serviceId || 'srv-m-steam-iron';
                               addCartItem({
-                                id: `${item.id}-press`,
-                                serviceId: 'srv-m-steam-iron',
+                                id: `${item.id}-${srvId}`,
+                                serviceId: srvId,
                                 clothId: item.id,
+                                clothName: item.name,
                                 serviceName: `${item.name} (${item.serviceName})`,
                                 categoryName: item.category,
                                 pricingModel: 'PER_ITEM',

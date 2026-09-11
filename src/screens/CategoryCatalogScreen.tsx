@@ -433,11 +433,19 @@ const ProductCard = React.memo(function ProductCard({
               srv.serviceCode === 'PRESS'
                 ? 'Press'
                 : srv.serviceCode === 'WASH_FOLD'
-                ? 'Wash'
+                ? 'W+Fold'
                 : srv.serviceCode === 'WASH_IRON'
                 ? 'W+Iron'
                 : srv.serviceCode === 'DRY_CLEAN'
                 ? 'DryClean'
+                : srv.serviceCode === 'STARCH'
+                ? 'Starch'
+                : srv.serviceCode === 'SAREE_POLISH'
+                ? 'Polish'
+                : srv.serviceCode === 'SHOE_SPA'
+                ? 'Spa'
+                : srv.serviceCode === 'EXPRESS'
+                ? 'Express'
                 : srv.shortLabel || 'Care';
 
             return (
@@ -469,6 +477,13 @@ const ProductCard = React.memo(function ProductCard({
               </Pressable>
             );
           })}
+        </View>
+
+        {/* Selected Service Name & Confirmation */}
+        <View style={styles.selectedServiceIndicator}>
+          <Text style={[styles.selectedServiceNameText, { color: colors.textCaption }]} numberOfLines={1}>
+            {chosenService.displayName}
+          </Text>
         </View>
 
         {/* Price & Action Row */}
@@ -1053,14 +1068,7 @@ export function CategoryCatalogScreen({
   const handleAddToCart = useCallback(
     (cloth: ProductItem, service: ServicePriceOption) => {
       const cartItemId = `${cloth.id}-${service.serviceId}`;
-      const cleanSvcName =
-        service?.serviceName && service.serviceName !== 'null' && service.serviceName !== 'undefined'
-          ? service.serviceName
-          : service?.serviceCode === 'PRESS'
-          ? 'Steam Press'
-          : service?.serviceCode === 'DRY_CLEAN'
-          ? 'Dry Clean'
-          : 'Wash & Iron';
+      const cleanSvcName = service?.displayName || service?.serviceName || 'Standard Care';
       const displayName = `${cloth.name} (${cleanSvcName})`;
       const imgUrl = getGarmentImageUrl(cloth.id, cloth.imageUrl, cloth.categoryTag, cloth.name);
 
@@ -1068,13 +1076,14 @@ export function CategoryCatalogScreen({
         id: cartItemId,
         serviceId: service.serviceId,
         serviceName: displayName,
+        clothId: cloth.id,
+        clothName: cloth.name,
         categoryName: activeCategoryTitle,
         pricingModel: service.unit === 'KG' ? 'PER_KG' : 'PER_ITEM',
         unitPrice: service.price,
         quantity: 1,
         unit: service.unit,
         subtotal: service.price,
-        clothId: cloth.id,
         imageUrl: imgUrl,
       });
     },
@@ -1959,6 +1968,13 @@ const styles = StyleSheet.create({
   serviceMiniTextActive: {
     color: '#166534',
     fontWeight: '800',
+  },
+  selectedServiceIndicator: {
+    marginVertical: 2,
+  },
+  selectedServiceNameText: {
+    fontSize: 10,
+    fontWeight: '600',
   },
   priceAndActionRow: {
     flexDirection: 'row',

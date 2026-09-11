@@ -102,7 +102,8 @@ export function WishlistScreen({ onBook, onExploreServices, onSelectProduct }: W
               else if (sName.toLowerCase().includes('press') || sName.toLowerCase().includes('steam') || sName.toLowerCase().includes('iron')) sCode = 'PRESS';
               else if (sName.toLowerCase().includes('wash') && sName.toLowerCase().includes('fold')) sCode = 'WASH_FOLD';
               else if (sName.toLowerCase().includes('wash')) sCode = 'WASH_IRON';
-              else if (sName.toLowerCase().includes('shoe')) sCode = 'SHOE_SPA';
+              else if (sName.toLowerCase().includes('starch')) sCode = 'STARCH';
+              else if (sName.toLowerCase().includes('shoe') || sName.toLowerCase().includes('spa')) sCode = 'SHOE_SPA';
               else if (sName.toLowerCase().includes('saree') || sName.toLowerCase().includes('polish')) sCode = 'SAREE_POLISH';
               else sCode = 'OTHER';
             }
@@ -110,10 +111,10 @@ export function WishlistScreen({ onBook, onExploreServices, onSelectProduct }: W
               serviceId: pm.serviceId || `srv-${id}-${sCode.toLowerCase()}`,
               serviceName: sName,
               displayName: sName,
-              shortLabel: sCode === 'PRESS' ? 'Press' : sCode === 'DRY_CLEAN' ? 'Dry Clean' : sCode === 'WASH_IRON' ? 'Wash+Iron' : sCode === 'WASH_FOLD' ? 'Wash+Fold' : sName,
+              shortLabel: sCode === 'PRESS' ? 'Press' : sCode === 'DRY_CLEAN' ? 'Dry Clean' : sCode === 'WASH_IRON' ? 'Wash+Iron' : sCode === 'WASH_FOLD' ? 'Wash+Fold' : sCode === 'STARCH' ? 'Starch' : sName,
               serviceCode: sCode as any,
               price: Number(pm.price) || 0,
-              icon: sCode === 'PRESS' ? 'iron' : sCode === 'DRY_CLEAN' ? 'coat-rack' : sCode === 'SHOE_SPA' ? 'shoe-sneaker' : 'washing-machine',
+              icon: sCode === 'PRESS' ? 'iron' : sCode === 'DRY_CLEAN' ? 'coat-rack' : sCode === 'SHOE_SPA' ? 'shoe-sneaker' : sCode === 'STARCH' ? 'sparkles' : 'washing-machine',
               unit: (pm as any).unit || 'Piece',
               turnaroundHours: Number(pm.turnaroundHours) || 24,
             };
@@ -226,13 +227,14 @@ export function WishlistScreen({ onBook, onExploreServices, onSelectProduct }: W
         id: cartItemId,
         serviceId: item.serviceId || '',
         serviceName: `${item.name} (${item.serviceType})`,
+        clothId: item.id,
+        clothName: item.name,
         categoryName: item.category,
         pricingModel: item.unit === 'kg' ? 'PER_KG' : 'PER_ITEM',
         unitPrice: item.price,
         quantity: 1,
         unit: item.unit === 'kg' ? 'KG' : 'Piece',
         subtotal: item.price,
-        clothId: item.id,
         imageUrl: item.imageUrl,
       });
     }
@@ -247,13 +249,14 @@ export function WishlistScreen({ onBook, onExploreServices, onSelectProduct }: W
           id: cartItemId,
           serviceId: item.serviceId || '',
           serviceName: `${item.name} (${item.serviceType})`,
+          clothId: item.id,
+          clothName: item.name,
           categoryName: item.category,
           pricingModel: item.unit === 'kg' ? 'PER_KG' : 'PER_ITEM',
           unitPrice: item.price,
           quantity: 1,
           unit: item.unit === 'kg' ? 'KG' : 'Piece',
           subtotal: item.price,
-          clothId: item.id,
           imageUrl: item.imageUrl,
         });
       });

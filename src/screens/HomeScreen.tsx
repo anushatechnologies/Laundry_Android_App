@@ -1183,16 +1183,6 @@ export function HomeScreen({
               <Text style={[styles.sectionHeading, { color: colors.textHeading }]}>All Services & Care</Text>
               <Text style={[styles.sectionSubheading, { color: colors.textCaption }]}>8 specialized treatments for every fabric</Text>
             </View>
-            <Pressable
-              onPress={() => setShowAllServicesModal(true)}
-              style={styles.viewAllBtn}
-              hitSlop={8}
-              accessibilityRole="button"
-              accessibilityLabel="View all service details"
-            >
-              <Text style={styles.viewAllText}>View Details</Text>
-              <MaterialCommunityIcons name="chevron-right" size={16} color="#0F766E" />
-            </Pressable>
           </View>
 
           {/* Row 1: First 4 Services */}
