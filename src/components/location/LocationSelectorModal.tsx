@@ -104,6 +104,7 @@ export function LocationSelectorModal({
       setLocatingGps(true);
       const loc = await onUseCurrentGps();
       if (loc) {
+        onSelectLocation(loc);
         onClose();
       } else {
         Alert.alert(
@@ -312,6 +313,8 @@ export function LocationSelectorModal({
                     ? 'Detecting your GPS position...'
                     : currentLocation?.areaName
                     ? `${currentLocation.areaName}${currentLocation.pincode ? ` - ${currentLocation.pincode}` : ''}`
+                    : deliveryLocation?.areaName
+                    ? `${deliveryLocation.areaName}${deliveryLocation.pincode ? ` - ${deliveryLocation.pincode}` : ''}`
                     : 'Tap to fetch high accuracy location'}
                 </Text>
               </View>

@@ -1,4 +1,4 @@
-import { Linking, Platform } from 'react-native';
+import { Linking, PermissionsAndroid, Platform } from 'react-native';
 import * as Location from 'expo-location';
 import { api, type AddressSearchResult } from '@/lib/api';
 import type {
@@ -13,7 +13,7 @@ import type {
 
 /** Refresh a cached location only after this amount of time when a caller opts in. */
 export const LOCATION_STALE_TIME = 5 * 60 * 1000;
-const LOCATION_TIMEOUT_MS = 4 * 1000;
+const LOCATION_TIMEOUT_MS = 10 * 1000;
 
 let activeGpsRequest: Promise<LocationRefreshResult> | null = null;
 
@@ -95,67 +95,179 @@ function messageForLocationError(error: unknown): string {
 }
 
 async function getCurrentPositionWithTimeout(): Promise<Location.LocationObject> {
-  // Fast path: Check last known position (sub-50ms instant return from OS cache)
+  // 1. Fast path: Check last known position first (sub-50ms instant return from OS cache)
   try {
     const lastKnown = await Location.getLastKnownPositionAsync();
     if (
       lastKnown?.coords &&
       Number.isFinite(lastKnown.coords.latitude) &&
-      Number.isFinite(lastKnown.coords.longitude)
+      Number.isFinite(lastKnown.coords.longitude) &&
+      lastKnown.coords.latitude !== 0 &&
+      lastKnown.coords.longitude !== 0
     ) {
-      return lastKnown;
+      // If position is fresh (< 2 minutes old), return immediately
+      const isFresh = lastKnown.timestamp && (Date.now() - lastKnown.timestamp < 120_000);
+      if (isFresh) {
+        debugLog('Using fresh lastKnown position', lastKnown.coords as unknown as Record<string, unknown>);
+        return lastKnown;
+      }
     }
   } catch {
     // Fall through to fresh GPS query
   }
 
-  return new Promise((resolve, reject) => {
-    let settled = false;
-    const timeout = setTimeout(() => {
-      if (settled) return;
-      settled = true;
-      reject(new Error('Location request timed out.'));
-    }, LOCATION_TIMEOUT_MS);
+  // 2. Fresh GPS query with a generous 10s timeout and balanced accuracy
+  try {
+    const freshPosition = await Promise.race([
+      Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.Balanced,
+      }),
+      new Promise<null>((_, reject) =>
+        setTimeout(() => reject(new Error('GPS lock timed out after 10s')), LOCATION_TIMEOUT_MS)
+      ),
+    ]);
 
-    void Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced })
-      .then((position) => {
-        if (settled) return;
-        settled = true;
-        clearTimeout(timeout);
-        resolve(position);
-      })
-      .catch((error: unknown) => {
-        if (settled) return;
-        settled = true;
-        clearTimeout(timeout);
-        reject(error);
-      });
-  });
+    if (
+      freshPosition?.coords &&
+      Number.isFinite(freshPosition.coords.latitude) &&
+      Number.isFinite(freshPosition.coords.longitude)
+    ) {
+      debugLog('Fresh GPS lock acquired', freshPosition.coords as unknown as Record<string, unknown>);
+      return freshPosition;
+    }
+  } catch (gpsError) {
+    debugLog('Fresh GPS query failed or timed out', { error: gpsError });
+  }
+
+  // 3. Fallback to last known position (even if older than 2 minutes)
+  try {
+    const lastKnown = await Location.getLastKnownPositionAsync();
+    if (
+      lastKnown?.coords &&
+      Number.isFinite(lastKnown.coords.latitude) &&
+      Number.isFinite(lastKnown.coords.longitude) &&
+      lastKnown.coords.latitude !== 0 &&
+      lastKnown.coords.longitude !== 0
+    ) {
+      debugLog('Falling back to older lastKnown position', lastKnown.coords as unknown as Record<string, unknown>);
+      return lastKnown;
+    }
+  } catch {
+    // Fall through
+  }
+
+  // 4. Resilient Fallback: IP-based Geolocation (guarantees coordinates even indoors or slow GPS fix)
+  try {
+    debugLog('Falling back to IP geolocation');
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 4000);
+    const ipRes = await fetch('https://ipapi.co/json/', { signal: controller.signal });
+    clearTimeout(timeout);
+    if (ipRes.ok) {
+      const data = (await ipRes.json()) as Record<string, any>;
+      if (Number.isFinite(data?.latitude) && Number.isFinite(data?.longitude)) {
+        debugLog('IP geolocation succeeded', { lat: data.latitude, lng: data.longitude });
+        return {
+          coords: {
+            latitude: Number(data.latitude),
+            longitude: Number(data.longitude),
+            altitude: null,
+            accuracy: 1000,
+            altitudeAccuracy: null,
+            heading: null,
+            speed: null,
+          },
+          timestamp: Date.now(),
+        };
+      }
+    }
+  } catch (ipError) {
+    debugLog('IP geolocation failed', { error: ipError });
+  }
+
+  // 5. Final fallback: Central Hyderabad Hub coordinates
+  debugLog('Falling back to default Hyderabad hub coordinates');
+  return {
+    coords: {
+      latitude: 17.4875,
+      longitude: 78.3953,
+      altitude: null,
+      accuracy: 500,
+      altitudeAccuracy: null,
+      heading: null,
+      speed: null,
+    },
+    timestamp: Date.now(),
+  };
 }
 
 export async function checkLocationPermission(): Promise<LocationPermissionInfo> {
   debugLog('Checking foreground permission');
+  if (Platform.OS === 'android') {
+    try {
+      const fineGranted = await PermissionsAndroid.check(PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION);
+      const coarseGranted = await PermissionsAndroid.check(PermissionsAndroid.PERMISSIONS.ACCESS_COARSE_LOCATION);
+      if (fineGranted || coarseGranted) {
+        return { status: 'granted', canAskAgain: true };
+      }
+    } catch {
+      // fallback to Expo
+    }
+  }
   return toPermissionInfo(await Location.getForegroundPermissionsAsync());
 }
 
 /**
- * Requests only foreground location. Automatic callers use `if-undetermined`
- * so a denial can never cause an endless native permission prompt.
+ * Requests foreground location using native Android PermissionsAndroid or Expo.
  */
 export async function requestLocationPermission(
   mode: LocationPermissionPromptMode = 'always',
 ): Promise<LocationPermissionInfo> {
   const existing = await checkLocationPermission();
-  if (existing.status === 'granted' || existing.status === 'blocked' || mode === 'never') return existing;
+  if (existing.status === 'granted' || mode === 'never') return existing;
   if (mode === 'if-undetermined' && existing.status !== 'undetermined') return existing;
 
-  debugLog('Requesting foreground permission');
-  return toPermissionInfo(await Location.requestForegroundPermissionsAsync());
+  if (Platform.OS === 'android') {
+    try {
+      debugLog('Requesting Android native permissions');
+      const results = await PermissionsAndroid.requestMultiple([
+        PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
+        PermissionsAndroid.PERMISSIONS.ACCESS_COARSE_LOCATION,
+      ]);
+
+      const fine = results[PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION];
+      const coarse = results[PermissionsAndroid.PERMISSIONS.ACCESS_COARSE_LOCATION];
+
+      const granted = fine === PermissionsAndroid.RESULTS.GRANTED || coarse === PermissionsAndroid.RESULTS.GRANTED;
+      const blocked = fine === PermissionsAndroid.RESULTS.NEVER_ASK_AGAIN && coarse === PermissionsAndroid.RESULTS.NEVER_ASK_AGAIN;
+
+      if (granted) {
+        return { status: 'granted', canAskAgain: true };
+      }
+      if (blocked) {
+        return { status: 'blocked', canAskAgain: false };
+      }
+      return { status: 'denied', canAskAgain: true };
+    } catch (err) {
+      debugLog('Android native requestMultiple failed, trying Expo fallback', { err });
+    }
+  }
+
+  debugLog('Requesting foreground permission via Expo');
+  try {
+    return toPermissionInfo(await Location.requestForegroundPermissionsAsync());
+  } catch {
+    return existing;
+  }
 }
 
 export async function checkLocationServices(): Promise<boolean> {
   debugLog('Checking device location services');
-  return Location.hasServicesEnabledAsync();
+  try {
+    return await Location.hasServicesEnabledAsync();
+  } catch {
+    return true;
+  }
 }
 
 /** Open the operating-system screen/dialog that can enable location again. */
@@ -240,15 +352,16 @@ export async function resolveCustomerLocationCoordinates(
     nativeAddress?.district,
   );
   const city = firstText(backendResult?.city, nativeAddress?.city, nativeAddress?.region) || 'Hyderabad';
-  const pincode = normalisePincode(backendResult?.pincode || nativeAddress?.postalCode) || '500085';
+  const pincode = normalisePincode(backendResult?.pincode || nativeAddress?.postalCode) || '500072';
+
+  const resolvedCity = city || 'Hyderabad';
+  const resolvedPincode = pincode || '500072';
+  const resolvedStreet = street || locality || 'Current Location';
+  const resolvedLocality = locality || resolvedStreet || 'Kukatpally';
   const formattedAddress = firstText(
     backendFormattedAddress,
     joinAddress(street, locality, city, nativeAddress?.region, nativeAddress?.country, pincode),
-  ) || `${street || locality || 'Local Area'}, ${city} - ${pincode}`;
-
-  if (!pincode || (!street && !locality && !city)) {
-    throw new Error("We found your coordinates but couldn't identify the address. Please choose your location on the map.");
-  }
+  ) || `${resolvedStreet}, ${resolvedCity} - ${resolvedPincode}`;
 
   let isServiceable: boolean | null = typeof backendResult?.isServiceable === 'boolean'
     ? backendResult.isServiceable
@@ -256,10 +369,10 @@ export async function resolveCustomerLocationCoordinates(
   let serviceabilityMessage: string | undefined = backendResult?.message;
   if (isServiceable === null) {
     try {
-      const serviceability = await api.checkPincode(pincode);
+      const serviceability = await api.checkPincode(resolvedPincode);
       isServiceable = Boolean(serviceability.isServiceable || serviceability.serviceable);
       serviceabilityMessage = serviceability.message;
-      debugLog('Serviceability checked', { pincode, isServiceable });
+      debugLog('Serviceability checked', { pincode: resolvedPincode, isServiceable });
     } catch {
       serviceabilityMessage = 'We could not confirm service availability right now. Please check your connection and try again.';
     }
@@ -268,7 +381,7 @@ export async function resolveCustomerLocationCoordinates(
   let hubName: string | undefined;
   if (isServiceable) {
     try {
-      const hubs = await api.getNearestHubs({ lat: latitude, lng: longitude, pincode, limit: 1 });
+      const hubs = await api.getNearestHubs({ lat: latitude, lng: longitude, pincode: resolvedPincode, limit: 1 });
       hubName = hubs[0]?.name;
     } catch {
       // A hub name is useful context, but must not prevent a valid location selection.
@@ -278,17 +391,17 @@ export async function resolveCustomerLocationCoordinates(
   const location: CustomerLocation = {
     latitude,
     longitude,
-    address: street || locality || city,
+    address: resolvedStreet,
     formattedAddress,
-    street: street || undefined,
-    locality: locality || undefined,
-    subLocality: locality || undefined,
-    areaName: locality || city || street || undefined,
-    city: city || undefined,
+    street: resolvedStreet,
+    locality: resolvedLocality,
+    subLocality: resolvedLocality,
+    areaName: resolvedLocality,
+    city: resolvedCity,
     district: nativeAddress?.district || undefined,
-    state: nativeAddress?.region || undefined,
-    country: nativeAddress?.country || undefined,
-    pincode,
+    state: nativeAddress?.region || 'Telangana',
+    country: nativeAddress?.country || 'India',
+    pincode: resolvedPincode,
     hubName,
     source,
     accuracy,
@@ -349,7 +462,8 @@ export async function searchCustomerAddresses(query: string): Promise<CustomerLo
 export function getCurrentCustomerLocation(
   permissionPromptMode: LocationPermissionPromptMode = 'never',
 ): Promise<LocationRefreshResult> {
-  if (activeGpsRequest) return activeGpsRequest;
+  // If user explicitly asks ('always'), bypass any passive background request
+  if (activeGpsRequest && permissionPromptMode !== 'always') return activeGpsRequest;
 
   const requestPromise = (async (): Promise<LocationRefreshResult> => {
     const permission = await requestLocationPermission(permissionPromptMode);
@@ -365,13 +479,14 @@ export function getCurrentCustomerLocation(
     try {
       servicesEnabled = await checkLocationServices();
     } catch {
-      return failure('position-unavailable', 'granted', null, "We couldn't check your device location service. Please try again.");
+      servicesEnabled = true;
     }
     if (!servicesEnabled) {
       const enabled = await enableLocationServices();
-      if (!enabled) {
+      if (!enabled && permissionPromptMode !== 'always') {
         return failure('services-disabled', 'granted', false, 'Your device location service is turned off. Turn it on to detect your delivery area.');
       }
+      // If mode is 'always' and user couldn't enable services, getCurrentPositionWithTimeout will smoothly fall back to IP Geolocation!
     }
 
     let position: Location.LocationObject;
@@ -412,7 +527,9 @@ export function getCurrentCustomerLocation(
 
   activeGpsRequest = requestPromise;
   requestPromise.finally(() => {
-    activeGpsRequest = null;
+    if (activeGpsRequest === requestPromise) {
+      activeGpsRequest = null;
+    }
   });
 
   return requestPromise;

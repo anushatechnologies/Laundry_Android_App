@@ -102,7 +102,10 @@ export function useCustomerLocation({ ownerId = null, refreshOnForeground }: Use
   }, [ownerId]);
 
   const refreshCurrentLocation = useCallback((permissionPromptMode: LocationPermissionPromptMode = 'never') => {
-    if (refreshPromiseRef.current) return refreshPromiseRef.current;
+    // If an explicit 'always' request is made by user tap, do not reuse passive background requests
+    if (refreshPromiseRef.current && permissionPromptMode !== 'always') {
+      return refreshPromiseRef.current;
+    }
     const ownerGeneration = ownerGenerationRef.current;
 
     setState((current) => ({ ...current, loading: true, error: null }));
@@ -148,7 +151,9 @@ export function useCustomerLocation({ ownerId = null, refreshOnForeground }: Use
         return result;
       })
       .finally(() => {
-        refreshPromiseRef.current = null;
+        if (refreshPromiseRef.current === request) {
+          refreshPromiseRef.current = null;
+        }
       });
 
     refreshPromiseRef.current = request;
