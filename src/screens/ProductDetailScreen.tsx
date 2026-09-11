@@ -13,7 +13,6 @@ import {
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useApp } from '@/context/AppContext';
-import { useToast } from '@/context/ToastContext';
 import { useTheme } from '@/context/ThemeContext';
 import { getGarmentImageUrl } from '@/lib/garment-photos';
 import { AnimatedCartButton } from '@/components/AnimatedCartButton';
@@ -34,7 +33,6 @@ export function ProductDetailScreen({
 }: ProductDetailScreenProps) {
   const insets = useSafeAreaInsets();
   const { colors, isDark } = useTheme();
-  const { toast } = useToast();
   const { cart, cartSummary, addCartItem, setCartQuantity, removeFromCart, wishlist, toggleWishlist } = useApp();
 
   const [imageFailed, setImageFailed] = useState(false);
@@ -97,15 +95,8 @@ export function ProductDetailScreen({
         turnaroundHours: srv.turnaroundHours,
         imageUrl: product.imageUrl || product.fallbackImageUrl,
       });
-
-      toast.cart(`Added ${product.name} to Bag! 🛍️`, {
-        subtitle: `${srv.displayName} • ₹${itemUnitPrice}`,
-        thumbnail: photoUrl,
-        actionLabel: 'View Bag',
-        onAction: onViewCart,
-      });
     },
-    [product, addCartItem, starchExtra, getNotes, toast, photoUrl, onViewCart]
+    [product, addCartItem, starchExtra, getNotes]
   );
 
   const handleIncrement = useCallback(
@@ -131,15 +122,7 @@ export function ProductDetailScreen({
 
   const handleToggleWishlist = useCallback(() => {
     toggleWishlist(product.id);
-    if (!isFavorite) {
-      toast.wishlist(`Saved ${product.name} to Wishlist! ❤️`);
-    } else {
-      toast.info(`Removed ${product.name} from Wishlist`, {
-        actionLabel: 'Undo',
-        onAction: () => toggleWishlist(product.id),
-      });
-    }
-  }, [product.id, product.name, isFavorite, toggleWishlist, toast]);
+  }, [product.id, toggleWishlist]);
 
   return (
     <View style={[styles.root, { backgroundColor: colors.background }]}>

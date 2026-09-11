@@ -17,7 +17,6 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useApp } from '@/context/AppContext';
-import { useToast } from '@/context/ToastContext';
 import { useTheme } from '@/context/ThemeContext';
 import { api } from '@/lib/api';
 import { getGarmentImageUrl } from '@/lib/garment-photos';
@@ -585,7 +584,6 @@ export function CategoryCatalogScreen({
   const { colors, isDark } = useTheme();
   const { width: windowWidth } = useWindowDimensions();
   const { catalog, cart, cartSummary, addCartItem, setCartQuantity, removeFromCart, wishlist, toggleWishlist } = useApp();
-  const { toast } = useToast();
   const initialCategoryTag = normalizeCategoryTag(categoryTag);
 
   // Active Category State
@@ -1079,15 +1077,8 @@ export function CategoryCatalogScreen({
         clothId: cloth.id,
         imageUrl: imgUrl,
       });
-
-      toast.cart(`Added ${cloth.name} to Bag! 🛍️`, {
-        subtitle: `${cleanSvcName} • ₹${service.price}`,
-        thumbnail: imgUrl,
-        actionLabel: 'View Bag',
-        onAction: handleCartClick,
-      });
     },
-    [activeCategoryTitle, addCartItem, toast, handleCartClick]
+    [activeCategoryTitle, addCartItem]
   );
 
   const getCartItemForProduct = useCallback(
@@ -1130,19 +1121,10 @@ export function CategoryCatalogScreen({
   );
 
   const handleToggleWishlist = useCallback(
-    (clothId: string, clothName?: string) => {
-      const isCurrentlyFav = wishlistSet.has(clothId);
+    (clothId: string) => {
       toggleWishlist(clothId);
-      if (!isCurrentlyFav) {
-        toast.wishlist(`Saved ${clothName || 'item'} to Wishlist! ❤️`);
-      } else {
-        toast.info(`Removed ${clothName || 'item'} from Wishlist`, {
-          actionLabel: 'Undo',
-          onAction: () => toggleWishlist(clothId),
-        });
-      }
     },
-    [wishlistSet, toggleWishlist, toast]
+    [toggleWishlist]
   );
 
   // Clean Header Title

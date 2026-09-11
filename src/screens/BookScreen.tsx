@@ -1702,28 +1702,58 @@ export function BookScreen({
                     style={[
                       styles.slotCard,
                       { backgroundColor: colors.surface, borderColor: colors.border },
-                      isSelected && { borderColor: '#F97316', borderWidth: 1.5, backgroundColor: 'rgba(249, 115, 22, 0.12)' },
-                      !isAvailable && { opacity: 0.5, backgroundColor: colors.section },
+                      isSelected && [
+                        styles.slotCardActive,
+                        isDark && { backgroundColor: 'rgba(22, 163, 74, 0.15)', borderColor: '#22C55E' },
+                      ],
+                      !isAvailable && [
+                        styles.slotCardDisabled,
+                        isDark && { backgroundColor: colors.section, borderColor: colors.border },
+                      ],
                     ]}
                     onPress={() => setSelectedSlotId(slot.id)}
                   >
-                    <View style={styles.slotCardTop}>
+                    <View style={styles.slotCardHeader}>
                       <MaterialCommunityIcons
-                        name="clock-time-four-outline"
-                        size={16}
-                        color={isSelected ? '#F97316' : !isAvailable ? '#D1D5DB' : colors.textHeading}
+                        name={isSelected ? 'clock-check-outline' : 'clock-outline'}
+                        size={15}
+                        color={isSelected ? '#16A34A' : !isAvailable ? (isDark ? '#64748B' : '#94A3B8') : (isDark ? colors.textCaption : '#64748B')}
                       />
+                      <Text
+                        style={[
+                          styles.slotLabel,
+                          { color: colors.textHeading },
+                          isSelected && styles.slotLabelActive,
+                          !isAvailable && styles.slotLabelDisabled,
+                        ]}
+                        numberOfLines={1}
+                        adjustsFontSizeToFit
+                        minimumFontScale={0.82}
+                      >
+                        {`${slot.startTime} - ${slot.endTime}`}
+                      </Text>
+                    </View>
+
+                    <View style={styles.slotCardBottom}>
                       {isAvailable ? (
-                        <View style={styles.slotCapBadge}>
-                          <Text style={styles.slotCapText}>{slot.maxOrders - slot.bookedOrders} slots</Text>
+                        <View style={[styles.slotCapBadge, isSelected && styles.slotCapBadgeActive]}>
+                          <View style={[styles.slotCapDot, isSelected && { backgroundColor: '#16A34A' }]} />
+                          <Text style={[styles.slotCapText, isSelected && styles.slotCapTextActive]}>
+                            {slot.maxOrders - slot.bookedOrders} slots
+                          </Text>
                         </View>
                       ) : (
-                        <Text style={styles.slotFullText}>Full</Text>
+                        <View style={styles.slotFullBadge}>
+                          <Text style={styles.slotFullText}>Full</Text>
+                        </View>
                       )}
+
+                      <MaterialCommunityIcons
+                        name={isSelected ? 'radiobox-marked' : 'radiobox-blank'}
+                        size={16}
+                        color={isSelected ? '#16A34A' : !isAvailable ? (isDark ? '#475569' : '#CBD5E1') : (isDark ? colors.textCaption : '#94A3B8')}
+                      />
                     </View>
-                    <Text style={[styles.slotLabel, { color: colors.textHeading }, isSelected && styles.slotLabelActive, !isAvailable && styles.slotLabelDisabled]}>
-                      {`${slot.startTime} - ${slot.endTime}`}
-                    </Text>
                   </Pressable>
                 );
               })}
@@ -3577,57 +3607,97 @@ const styles = StyleSheet.create({
   slotGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 10,
+    justifyContent: 'space-between',
+    rowGap: 10,
   },
   slotCard: {
-    flex: 1,
-    minWidth: 0,
+    width: '48.5%',
     borderRadius: 14,
-    padding: 12,
-    borderWidth: 1,
-    gap: 6,
+    paddingVertical: 12,
+    paddingHorizontal: 11,
+    borderWidth: 1.5,
+    minHeight: 68,
+    justifyContent: 'space-between',
+    gap: 8,
   },
   slotCardActive: {
-    borderColor: '#F97316',
+    borderColor: '#16A34A',
     borderWidth: 1.5,
-    backgroundColor: '#FFF7ED',
+    backgroundColor: '#F0FDF4',
+    shadowColor: '#16A34A',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.12,
+    shadowRadius: 4,
+    elevation: 2,
   },
   slotCardDisabled: {
-    backgroundColor: '#F3F4F6',
-    borderColor: '#E5E7EB',
-    opacity: 0.6,
+    backgroundColor: '#F8FAFC',
+    borderColor: '#E2E8F0',
+    opacity: 0.55,
   },
-  slotCardTop: {
+  slotCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  slotCardBottom: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
   },
   slotCapBadge: {
-    backgroundColor: '#DCFCE7',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#F0FDF4',
+    borderWidth: 1,
+    borderColor: '#BBF7D0',
+    paddingHorizontal: 7,
+    paddingVertical: 2.5,
     borderRadius: 6,
   },
+  slotCapBadgeActive: {
+    backgroundColor: '#DCFCE7',
+    borderColor: '#86EFAC',
+  },
+  slotCapDot: {
+    width: 5,
+    height: 5,
+    borderRadius: 2.5,
+    backgroundColor: '#22C55E',
+  },
   slotCapText: {
-    fontSize: 9,
+    fontSize: 10,
     fontWeight: '800',
     color: '#16A34A',
   },
+  slotCapTextActive: {
+    color: '#15803D',
+  },
+  slotFullBadge: {
+    backgroundColor: '#F1F5F9',
+    paddingHorizontal: 7,
+    paddingVertical: 2.5,
+    borderRadius: 6,
+  },
   slotFullText: {
-    fontSize: 9,
+    fontSize: 10,
     fontWeight: '700',
-    color: '#9CA3AF',
+    color: '#94A3B8',
   },
   slotLabel: {
-    fontSize: 12,
-    fontWeight: '800',
-    color: '#1C0B18',
+    flex: 1,
+    fontSize: 12.5,
+    fontWeight: '700',
+    color: '#1E293B',
+    letterSpacing: -0.2,
   },
   slotLabelActive: {
-    color: '#F97316',
+    color: '#15803D',
+    fontWeight: '800',
   },
   slotLabelDisabled: {
-    color: '#9CA3AF',
+    color: '#94A3B8',
   },
   expressBox: {
     flexDirection: 'row',

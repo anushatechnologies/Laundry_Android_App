@@ -16,7 +16,6 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useApp } from '@/context/AppContext';
-import { useToast } from '@/context/ToastContext';
 import { useTheme } from '@/context/ThemeContext';
 import { COLORS, money } from '@/ui/theme';
 import { getGarmentImageUrl } from '@/lib/garment-photos';
@@ -72,7 +71,6 @@ const DEFAULT_POPULAR_SEARCHES = [
 export function SearchScreen({ onBook, onBack, onSelectProduct, initialQuery = '', onQueryChange }: SearchScreenProps) {
   const { colors, isDark } = useTheme();
   const insets = useSafeAreaInsets();
-  const { toast } = useToast();
   const { cart, cartSummary, addCartItem, setCartQuantity, removeFromCart, catalog } = useApp();
   const [query, setQueryState] = useState(initialQuery);
 
@@ -724,12 +722,6 @@ export function SearchScreen({ onBook, onBack, onSelectProduct, initialQuery = '
                                 unit: item.unit === 'kg' ? 'KG' : 'Piece',
                                 subtotal: item.price,
                                 imageUrl: item.imageUrl,
-                              });
-                              toast.cart(`Added ${item.name} to Bag! 🛍️`, {
-                                subtitle: `${item.serviceName} • ₹${item.price}`,
-                                thumbnail: item.imageUrl,
-                                actionLabel: 'View Bag',
-                                onAction: onBook,
                               });
                             }}
                             onIncrement={() => {

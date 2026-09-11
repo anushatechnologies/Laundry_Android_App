@@ -180,6 +180,8 @@ export interface DeliveryFeeCalculation {
   storeLatitude?: number;
   storeLongitude?: number;
   breakdown?: string;
+  hubId?: string;
+  hubName?: string;
 }
 
 export interface Catalog {

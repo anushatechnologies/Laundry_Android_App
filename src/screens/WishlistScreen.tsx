@@ -12,7 +12,6 @@ import {
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useApp } from '@/context/AppContext';
-import { useToast } from '@/context/ToastContext';
 import { useTheme } from '@/context/ThemeContext';
 import { getGarmentImageUrl } from '@/lib/garment-photos';
 import type { ProductItem, ServicePriceOption } from '@/types/domain';
@@ -25,7 +24,6 @@ interface WishlistScreenProps {
 
 export function WishlistScreen({ onBook, onExploreServices, onSelectProduct }: WishlistScreenProps) {
   const { colors, isDark } = useTheme();
-  const { toast } = useToast();
   const {
     wishlist,
     toggleWishlist,
@@ -196,18 +194,10 @@ export function WishlistScreen({ onBook, onExploreServices, onSelectProduct }: W
     }
   }, [safeWishlist, catalog?.clothTypes, catalog?.priceMatrix]);
 
-  const handleRemoveFromWishlist = (id: string, name: string) => {
+  const handleRemoveFromWishlist = (id: string, _name: string) => {
     if (typeof toggleWishlist === 'function') {
       toggleWishlist(id);
     }
-    toast.info(`Removed "${name}" from Wishlist`, {
-      actionLabel: 'Undo',
-      onAction: () => {
-        if (typeof toggleWishlist === 'function') {
-          toggleWishlist(id);
-        }
-      },
-    });
   };
 
   const handleClearAll = () => {
@@ -223,7 +213,6 @@ export function WishlistScreen({ onBook, onExploreServices, onSelectProduct }: W
             if (typeof toggleWishlist === 'function') {
               [...safeWishlist].forEach((id) => toggleWishlist(id));
             }
-            toast.info('Wishlist cleared');
           },
         },
       ]
@@ -245,16 +234,6 @@ export function WishlistScreen({ onBook, onExploreServices, onSelectProduct }: W
         subtotal: item.price,
         clothId: item.id,
         imageUrl: item.imageUrl,
-      });
-      toast.cart(`Added ${item.name} to Bag! 🛍️`, {
-        subtitle: `${item.serviceType} • ₹${item.price}`,
-        thumbnail: item.imageUrl,
-        actionLabel: 'View Bag',
-        onAction: () => {
-          if (typeof onBook === 'function') {
-            onBook();
-          }
-        },
       });
     }
   };
@@ -279,14 +258,6 @@ export function WishlistScreen({ onBook, onExploreServices, onSelectProduct }: W
         });
       });
     }
-    toast.cart(`Added all ${wishlistItems.length} items to Bag! 🛍️`, {
-      actionLabel: 'View Bag',
-      onAction: () => {
-        if (typeof onBook === 'function') {
-          onBook();
-        }
-      },
-    });
   };
 
   if (wishlistItems.length === 0) {
@@ -460,10 +431,6 @@ export function WishlistScreen({ onBook, onExploreServices, onSelectProduct }: W
                                 if (typeof removeFromCart === 'function') {
                                   removeFromCart(foundInCart.id);
                                 }
-                                toast.info(`Removed "${item.name}" from Bag`, {
-                                  actionLabel: 'Undo',
-                                  onAction: () => handleAddToCart(item),
-                                });
                               } else {
                                 if (typeof setCartQuantity === 'function') {
                                   setCartQuantity(foundInCart.id, foundInCart.quantity - 1);

@@ -12,7 +12,6 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useApp } from '@/context/AppContext';
-import { useToast } from '@/context/ToastContext';
 import { useTheme } from '@/context/ThemeContext';
 
 interface BulkLaundryScreenProps {
@@ -76,7 +75,6 @@ export function BulkLaundryScreen({
 }: BulkLaundryScreenProps) {
   const { isDark, colors } = useTheme();
   const insets = useSafeAreaInsets();
-  const { toast } = useToast();
   const { cart, cartSummary, addCartItem } = useApp();
 
   const [selectedServiceId, setSelectedServiceId] = useState<string>('srv-m-wash-fold');
@@ -224,13 +222,6 @@ export function BulkLaundryScreen({
       subtotal: totalPrice,
       clothId: 'bulk',
       imageUrl: bannerUrl,
-    });
-
-    toast.cart(`Added ${kg} KG ${currentService.name}! 🛍️`, {
-      subtitle: `Total: ₹${totalPrice} (₹${effectiveRate}/KG)`,
-      thumbnail: bannerUrl,
-      actionLabel: 'View Bag',
-      onAction: onViewCart,
     });
   };
 

@@ -88,33 +88,15 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const toast = useRef({
-    cart: (title: string, options?: Omit<ToastOptions, 'title' | 'type'>) => {
-      showToast({
-        title,
-        type: 'cart',
-        icon: 'shopping-outline',
-        ...options,
-      });
+    cart: (_title: string, _options?: Omit<ToastOptions, 'title' | 'type'>) => {
+      // Intentionally silent: toast notifications disabled across screens for add, update, delete, like
     },
     wishlist: (
-      title: string,
-      isAddedOrOptions?: boolean | Omit<ToastOptions, 'title' | 'type'>,
-      options?: Omit<ToastOptions, 'title' | 'type'>
+      _title: string,
+      _isAddedOrOptions?: boolean | Omit<ToastOptions, 'title' | 'type'>,
+      _options?: Omit<ToastOptions, 'title' | 'type'>
     ) => {
-      let isAdded = true;
-      let opts: Omit<ToastOptions, 'title' | 'type'> | undefined = options;
-      if (typeof isAddedOrOptions === 'boolean') {
-        isAdded = isAddedOrOptions;
-      } else if (typeof isAddedOrOptions === 'object' && isAddedOrOptions !== null) {
-        opts = isAddedOrOptions;
-      }
-
-      showToast({
-        title,
-        type: 'wishlist',
-        icon: isAdded ? 'heart' : 'heart-outline',
-        ...opts,
-      });
+      // Intentionally silent: toast notifications disabled across screens for add, update, delete, like
     },
     success: (
       title: string,
