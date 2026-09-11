@@ -29,6 +29,7 @@ import type {
   LocationPermissionPromptMode,
 } from '@/services/location/types';
 import { requestLocationPermissionInteractive } from '@/services/permissions/permissionCoordinator';
+import { useTheme } from '@/context/ThemeContext';
 
 interface MapLocationPickerScreenProps {
   initialLocation?: CustomerLocation | null;
@@ -180,6 +181,7 @@ export function MapLocationPickerScreen({
   initialGpsCoords = null,
   customerId = null,
 }: MapLocationPickerScreenProps) {
+  const { isDark, colors } = useTheme();
   const insets = useSafeAreaInsets();
   const [coords, setCoords] = useState<Coordinates>(() => {
     if (initialGpsCoords) return initialGpsCoords;
@@ -464,8 +466,8 @@ export function MapLocationPickerScreen({
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       style={{ flex: 1 }}
     >
-      <View style={styles.root}>
-        <StatusBar style="dark" />
+      <View style={[styles.root, { backgroundColor: colors.background }]}>
+        <StatusBar style={isDark ? 'light' : 'dark'} />
 
         <View style={styles.mapArea}>
           <WebViewComponent
@@ -485,17 +487,17 @@ export function MapLocationPickerScreen({
           {!mapError ? (
             <View pointerEvents="none" style={styles.centerPinContainer}>
               <View style={styles.pinWrapper}>
-                <MaterialCommunityIcons name="map-marker" size={48} color="#111827" />
+                <MaterialCommunityIcons name="map-marker" size={48} color={isDark ? '#F97316' : '#111827'} />
                 <View style={styles.pinInnerWhiteDot} />
               </View>
               <View style={styles.groundShadowDot} />
             </View>
           ) : (
             <View style={styles.mapErrorOverlay}>
-              <View style={styles.mapErrorCard}>
+              <View style={[styles.mapErrorCard, { backgroundColor: colors.surface }]}>
                 <MaterialCommunityIcons name="map-outline" size={28} color="#FF6418" />
-                <Text style={styles.mapErrorTitle}>Map unavailable</Text>
-                <Text style={styles.mapErrorText}>{mapError}</Text>
+                <Text style={[styles.mapErrorTitle, { color: colors.textHeading }]}>Map unavailable</Text>
+                <Text style={[styles.mapErrorText, { color: colors.textCaption }]}>{mapError}</Text>
                 <Pressable style={({ pressed }) => [styles.mapRetryBtn, pressed && styles.buttonPressed]} onPress={retryMap}>
                   <Text style={styles.mapRetryText}>Retry map</Text>
                 </Pressable>
@@ -505,28 +507,28 @@ export function MapLocationPickerScreen({
 
           <View style={[styles.topBar, { top: insets.top + 12 }]}>
             <Pressable
-              style={({ pressed }) => [styles.circularButton, pressed && styles.buttonPressed]}
+              style={({ pressed }) => [styles.circularButton, { backgroundColor: colors.surface }, pressed && styles.buttonPressed]}
               onPress={onBack}
               accessibilityRole="button"
               accessibilityLabel="Back"
             >
-              <MaterialCommunityIcons name="chevron-left" size={28} color="#111827" />
+              <MaterialCommunityIcons name="chevron-left" size={28} color={colors.textHeading} />
             </Pressable>
             <Pressable
-              style={({ pressed }) => [styles.circularButton, pressed && styles.buttonPressed]}
+              style={({ pressed }) => [styles.circularButton, { backgroundColor: colors.surface }, pressed && styles.buttonPressed]}
               onPress={() => void handleInteractiveLocate()}
               accessibilityRole="button"
               accessibilityLabel="Use current location"
             >
               {phase === 'locating'
                 ? <ActivityIndicator size="small" color="#FF6418" />
-                : <MaterialCommunityIcons name="crosshairs-gps" size={22} color="#111827" />}
+                : <MaterialCommunityIcons name="crosshairs-gps" size={22} color={colors.textHeading} />}
             </Pressable>
           </View>
         </View>
 
-        <SafeAreaView edges={['bottom']} style={styles.bottomCardWrapper}>
-          <View style={styles.bottomSheetHandle} />
+        <SafeAreaView edges={['bottom']} style={[styles.bottomCardWrapper, { backgroundColor: colors.surface }]}>
+          <View style={[styles.bottomSheetHandle, { backgroundColor: colors.border }]} />
           <ScrollView
             style={styles.bottomScrollView}
             contentContainerStyle={[styles.bottomCardContent, { paddingBottom: 16 }]}
@@ -536,18 +538,18 @@ export function MapLocationPickerScreen({
           >
             <View style={styles.dragHintRow}>
               <MaterialCommunityIcons name="map-marker" size={13} color="#FF6418" />
-              <Text style={styles.dragHintText}>Drag the map to adjust your location</Text>
+              <Text style={[styles.dragHintText, { color: colors.textCaption }]}>Drag the map to adjust your location</Text>
             </View>
 
             <View style={styles.addressRow}>
-              <View style={styles.pinIconContainer}>
+              <View style={[styles.pinIconContainer, { backgroundColor: isDark ? colors.section : '#FFF7ED' }]}>
                 {isCheckingSelection
                   ? <ActivityIndicator size="small" color="#FF6418" />
                   : <MaterialCommunityIcons name="map-marker" size={24} color="#FF6418" />}
               </View>
               <View style={styles.addressTextCol}>
-                <Text style={styles.addressTitle} numberOfLines={1}>{titleForPhase(phase, resolvedLocation)}</Text>
-                <Text style={styles.addressSubtitle} numberOfLines={2}>{subtitleForPhase(phase, resolvedLocation, errorMessage)}</Text>
+                <Text style={[styles.addressTitle, { color: colors.textHeading }]} numberOfLines={1}>{titleForPhase(phase, resolvedLocation)}</Text>
+                <Text style={[styles.addressSubtitle, { color: colors.textCaption }]} numberOfLines={2}>{subtitleForPhase(phase, resolvedLocation, errorMessage)}</Text>
               </View>
             </View>
 
@@ -579,13 +581,13 @@ export function MapLocationPickerScreen({
             ) : null}
 
             {/* SWIGGY-STYLE ADDRESS INPUT DETAILS */}
-            <View style={styles.addressDetailsContainer}>
+            <View style={[styles.addressDetailsContainer, { backgroundColor: isDark ? colors.section : '#F8FAFC', borderColor: colors.border }]}>
               <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>HOUSE / FLAT / BLOCK NO.</Text>
+                <Text style={[styles.inputLabel, { color: colors.textCaption }]}>HOUSE / FLAT / BLOCK NO.</Text>
                 <TextInput
-                  style={styles.detailTextInput}
+                  style={[styles.detailTextInput, { backgroundColor: isDark ? colors.surface : '#FFFFFF', borderColor: colors.border, color: colors.textHeading }]}
                   placeholder="e.g. Flat 302, Block B"
-                  placeholderTextColor="#94A3B8"
+                  placeholderTextColor={colors.textCaption}
                   value={houseNo}
                   onChangeText={setHouseNo}
                   autoCorrect={false}
@@ -593,11 +595,11 @@ export function MapLocationPickerScreen({
               </View>
 
               <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>APARTMENT / LANDMARK (OPTIONAL)</Text>
+                <Text style={[styles.inputLabel, { color: colors.textCaption }]}>APARTMENT / LANDMARK (OPTIONAL)</Text>
                 <TextInput
-                  style={styles.detailTextInput}
+                  style={[styles.detailTextInput, { backgroundColor: isDark ? colors.surface : '#FFFFFF', borderColor: colors.border, color: colors.textHeading }]}
                   placeholder="e.g. Near Metro Station / Park"
-                  placeholderTextColor="#94A3B8"
+                  placeholderTextColor={colors.textCaption}
                   value={landmark}
                   onChangeText={setLandmark}
                   autoCorrect={false}
@@ -605,22 +607,26 @@ export function MapLocationPickerScreen({
               </View>
 
               <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>SAVE AS</Text>
+                <Text style={[styles.inputLabel, { color: colors.textCaption }]}>SAVE AS</Text>
                 <View style={styles.tagSelectorRow}>
                   {(['Home', 'Work', 'Other'] as const).map((tag) => {
                     const active = addressTag === tag;
                     return (
                       <Pressable
                         key={tag}
-                        style={[styles.tagPill, active && styles.tagPillActive]}
+                        style={[
+                          styles.tagPill,
+                          { backgroundColor: isDark ? colors.surface : '#FFFFFF', borderColor: colors.border },
+                          active && styles.tagPillActive,
+                        ]}
                         onPress={() => setAddressTag(tag)}
                       >
                         <MaterialCommunityIcons
                           name={tag === 'Home' ? 'home-outline' : tag === 'Work' ? 'briefcase-outline' : 'map-marker-outline'}
                           size={16}
-                          color={active ? '#FFFFFF' : '#475569'}
+                          color={active ? '#FFFFFF' : colors.textCaption}
                         />
-                        <Text style={[styles.tagPillText, active && styles.tagPillTextActive]}>{tag}</Text>
+                        <Text style={[styles.tagPillText, { color: colors.textCaption }, active && styles.tagPillTextActive]}>{tag}</Text>
                       </Pressable>
                     );
                   })}
@@ -644,15 +650,15 @@ export function MapLocationPickerScreen({
 
             {isSearchOpen ? (
               <View style={styles.searchPanel}>
-                <View style={styles.searchInputRow}>
-                  <MaterialCommunityIcons name="magnify" size={20} color="#64748B" />
+                <View style={[styles.searchInputRow, { backgroundColor: isDark ? colors.section : '#F8FAFC', borderColor: colors.border }]}>
+                  <MaterialCommunityIcons name="magnify" size={20} color={colors.textCaption} />
                   <TextInput
-                    style={styles.searchInput}
+                    style={[styles.searchInput, { color: colors.textHeading }]}
                     value={searchQuery}
                     onChangeText={setSearchQuery}
                     onSubmitEditing={() => void handleSearch()}
                     placeholder="Search road, landmark, or PIN code"
-                    placeholderTextColor="#94A3B8"
+                    placeholderTextColor={colors.textCaption}
                     returnKeyType="search"
                     autoCorrect={false}
                     accessibilityLabel="Search for an address"
@@ -670,15 +676,15 @@ export function MapLocationPickerScreen({
                 {searchResults.slice(0, 3).map((location, index) => (
                   <Pressable
                     key={`${location.latitude}-${location.longitude}-${index}`}
-                    style={({ pressed }) => [styles.searchResultRow, pressed && styles.resultPressed]}
+                    style={({ pressed }) => [styles.searchResultRow, { borderBottomColor: colors.border }, pressed && styles.resultPressed]}
                     onPress={() => handleSearchResult(location)}
                     accessibilityRole="button"
                     accessibilityLabel={`Choose ${humanAddress(location)}`}
                   >
                     <MaterialCommunityIcons name="map-marker-outline" size={19} color="#FF6418" />
                     <View style={styles.searchResultTextCol}>
-                      <Text style={styles.searchResultTitle} numberOfLines={1}>{humanAddress(location)}</Text>
-                      <Text style={styles.searchResultSubtitle} numberOfLines={1}>{subtitleForPhase('ready', location, null)}</Text>
+                      <Text style={[styles.searchResultTitle, { color: colors.textHeading }]} numberOfLines={1}>{humanAddress(location)}</Text>
+                      <Text style={[styles.searchResultSubtitle, { color: colors.textCaption }]} numberOfLines={1}>{subtitleForPhase('ready', location, null)}</Text>
                     </View>
                   </Pressable>
                 ))}
@@ -687,7 +693,7 @@ export function MapLocationPickerScreen({
           </ScrollView>
 
           {/* STICKY BOTTOM ACTION CONTAINER (ALWAYS VISIBLE) */}
-          <View style={[styles.bottomStickyActionContainer, { paddingBottom: Math.max(insets.bottom, 12) }]}>
+          <View style={[styles.bottomStickyActionContainer, { backgroundColor: colors.surface, borderTopColor: colors.border, paddingBottom: Math.max(insets.bottom, 12) }]}>
             <Pressable
               style={({ pressed }) => [
                 styles.useLocationBtn,

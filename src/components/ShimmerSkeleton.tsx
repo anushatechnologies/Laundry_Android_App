@@ -1,5 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import { Animated, StyleSheet, View, ViewStyle } from 'react-native';
+import { useTheme } from '@/context/ThemeContext';
 
 interface ShimmerSkeletonProps {
   width?: number | string;
@@ -14,6 +15,7 @@ export function ShimmerSkeleton({
   borderRadius = 8,
   style,
 }: ShimmerSkeletonProps) {
+  const { colors, isDark } = useTheme();
   const opacity = useRef(new Animated.Value(0.3)).current;
 
   useEffect(() => {
@@ -40,6 +42,7 @@ export function ShimmerSkeleton({
     <Animated.View
       style={[
         styles.skeleton,
+        { backgroundColor: isDark ? colors.border : '#E8DED6' },
         {
           width: width as any,
           height: height as any,
@@ -71,8 +74,9 @@ export function CategoryPillsSkeleton() {
 }
 
 export function GarmentCardSkeleton() {
+  const { colors } = useTheme();
   return (
-    <View style={styles.garmentCard}>
+    <View style={[styles.garmentCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
       <ShimmerSkeleton width={105} height={125} borderRadius={14} />
       <View style={styles.garmentCardDetails}>
         <ShimmerSkeleton width="70%" height={16} borderRadius={4} />
@@ -88,8 +92,9 @@ export function GarmentCardSkeleton() {
 }
 
 export function OrderCardSkeleton() {
+  const { colors } = useTheme();
   return (
-    <View style={styles.orderCard}>
+    <View style={[styles.orderCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
       <View style={styles.orderCardTop}>
         <ShimmerSkeleton width={110} height={16} borderRadius={4} />
         <ShimmerSkeleton width={80} height={22} borderRadius={8} />

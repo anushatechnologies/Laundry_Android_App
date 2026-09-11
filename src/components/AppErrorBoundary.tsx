@@ -50,7 +50,7 @@ export class AppErrorBoundary extends Component<Props, State> {
 
           {this.state.error?.message ? (
             <View style={styles.errorBox}>
-              <Text style={styles.errorBoxText} numberOfLines={2}>
+              <Text style={styles.errorBoxText} numberOfLines={6}>
                 {this.state.error.message}
               </Text>
             </View>

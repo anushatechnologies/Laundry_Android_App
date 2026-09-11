@@ -12,6 +12,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useApp } from '@/context/AppContext';
+import { useToast } from '@/context/ToastContext';
 import { useTheme } from '@/context/ThemeContext';
 
 interface BulkLaundryScreenProps {
@@ -73,8 +74,9 @@ export function BulkLaundryScreen({
   onViewCart,
   onBook,
 }: BulkLaundryScreenProps) {
-    const { colors } = useTheme();
+  const { isDark, colors } = useTheme();
   const insets = useSafeAreaInsets();
+  const { toast } = useToast();
   const { cart, cartSummary, addCartItem } = useApp();
 
   const [selectedServiceId, setSelectedServiceId] = useState<string>('srv-m-wash-fold');
@@ -82,7 +84,6 @@ export function BulkLaundryScreen({
   const [slabs, setSlabs] = useState<BulkServiceSlab[]>([]);
   const [servicesList, setServicesList] = useState<BulkServiceOption[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
-  const [justAddedToast, setJustAddedToast] = useState<string | null>(null);
   const [heroImgError, setHeroImgError] = useState<boolean>(false);
 
   // Fetch dynamic services and slabs from live backend API
@@ -197,11 +198,19 @@ export function BulkLaundryScreen({
     };
   }, [weightKg, selectedServiceId, slabs, currentService]);
 
+  const currentCartItemId = `bulk-${currentService?.id || ''}-${weightKg}kg`;
+  const existingCartItem = useMemo(
+    () => cart.find((item) => item.id === currentCartItemId),
+    [cart, currentCartItemId]
+  );
+  const isAlreadyInCart = Boolean(existingCartItem);
+
   const handleAddWeightToCart = (kg: number) => {
     if (!currentService) return;
     
     const { totalPrice, effectiveRate } = calculatePriceForWeight(kg);
     const cartItemId = `bulk-${currentService.id}-${kg}kg`;
+    const bannerUrl = 'https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/banners/banner-4.jpg';
 
     addCartItem({
       id: cartItemId,
@@ -214,42 +223,48 @@ export function BulkLaundryScreen({
       unit: 'KG',
       subtotal: totalPrice,
       clothId: 'bulk',
-      imageUrl: 'https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/banners/banner-4.jpg',
+      imageUrl: bannerUrl,
     });
 
-    setJustAddedToast(`Added ${kg} KG ${currentService.name} (₹${totalPrice}) to your Bag!`);
-    setTimeout(() => {
-      setJustAddedToast(null);
-    }, 3000);
+    toast.cart(`Added ${kg} KG ${currentService.name}! 🛍️`, {
+      subtitle: `Total: ₹${totalPrice} (₹${effectiveRate}/KG)`,
+      thumbnail: bannerUrl,
+      actionLabel: 'View Bag',
+      onAction: onViewCart,
+    });
   };
 
   return (
     <View style={[styles.root, { backgroundColor: colors.background }]}>
       {/* 1. TOP HEADER BAR */}
-      <View style={[styles.topBar, { paddingTop: Math.max(insets.top, 12) + 4 }]}>
+      <View style={[styles.topBar, { backgroundColor: colors.surface, borderBottomColor: colors.border, paddingTop: Math.max(insets.top, 12) + 4 }]}>
         <Pressable
-          style={({ pressed }) => [styles.backBtn, pressed && styles.pressedBtn]}
+          style={({ pressed }) => [styles.backBtn, { backgroundColor: isDark ? colors.section : '#F1F5F9' }, pressed && styles.pressedBtn]}
           onPress={onBack}
           hitSlop={8}
           accessibilityLabel="Back"
         >
-          <MaterialCommunityIcons name="arrow-left" size={22} color="#0F172A" />
+          <MaterialCommunityIcons name="arrow-left" size={22} color={colors.textHeading} />
         </Pressable>
 
         <View style={styles.titleColumn}>
-          <Text style={styles.topBarTitle}>Bulk Laundry (Pay by KG)</Text>
-          <Text style={styles.topBarSubtitle}>
+          <Text style={[styles.topBarTitle, { color: colors.textHeading }]}>Bulk Laundry (Pay by KG)</Text>
+          <Text style={[styles.topBarSubtitle, { color: colors.textCaption }]}>
             Starting @ ₹{currentService.baseKgPrice || 55}/KG • Free Doorstep Pickup
           </Text>
         </View>
 
         <Pressable
-          style={({ pressed }) => [styles.cartBtn, pressed && styles.pressedBtn]}
+          style={({ pressed }) => [
+            styles.cartBtn,
+            { backgroundColor: isDark ? 'rgba(22, 163, 74, 0.15)' : '#F0FDF4', borderColor: isDark ? 'rgba(34, 197, 94, 0.3)' : '#BBF7D0' },
+            pressed && styles.pressedBtn,
+          ]}
           onPress={onViewCart}
           hitSlop={8}
           accessibilityLabel="Cart"
         >
-          <MaterialCommunityIcons name="shopping-outline" size={22} color="#0F172A" />
+          <MaterialCommunityIcons name="shopping-outline" size={22} color={isDark ? '#4ADE80' : '#0F172A'} />
           {cartSummary.itemCount > 0 && (
             <View style={styles.cartBadge}>
               <Text style={styles.cartBadgeText}>{cartSummary.itemCount}</Text>
@@ -263,11 +278,11 @@ export function BulkLaundryScreen({
         showsVerticalScrollIndicator={false}
         contentContainerStyle={[
           styles.scrollContent,
-          { paddingBottom: 90 + Math.max(insets.bottom, 12) },
+          { paddingBottom: (cartSummary.itemCount > 0 ? 175 : 95) + Math.max(insets.bottom, 12) },
         ]}
       >
         {/* 2. CLEAN HERO BANNER (Removed cluttered text overlay as requested) */}
-        <View style={styles.cleanHeroCard}>
+        <View style={[styles.cleanHeroCard, { borderColor: colors.border }]}>
           <Image
             source={{
               uri: heroImgError
@@ -290,16 +305,91 @@ export function BulkLaundryScreen({
 
         {/* 3. SELECT LAUNDRY TREATMENT TYPE */}
         <View style={styles.sectionWrap}>
-          <Text style={styles.sectionTitle}>1. Select Laundry Treatment</Text>
+          <Text style={[styles.sectionTitle, { color: colors.textHeading }]}>1. Select Laundry Treatment</Text>
 
           <View style={styles.servicesGrid}>
-            {servicesList.map((srv) => {
+            {servicesList.map((srv, index) => {
               const isSelected = srv.id === selectedServiceId;
+              const isFullWidth = servicesList.length % 2 !== 0 && index === servicesList.length - 1;
+
+              if (isFullWidth) {
+                return (
+                  <Pressable
+                    key={srv.id}
+                    style={[
+                      styles.serviceOptionCard,
+                      styles.serviceOptionCardFullWidth,
+                      { backgroundColor: colors.surface, borderColor: colors.border },
+                      isSelected && styles.serviceOptionCardSelected,
+                    ]}
+                    onPress={() => setSelectedServiceId(srv.id)}
+                  >
+                    <View
+                      style={[
+                        styles.serviceIconWrap,
+                        isSelected && styles.serviceIconWrapSelected,
+                      ]}
+                    >
+                      <MaterialCommunityIcons
+                        name={srv.icon as any}
+                        size={22}
+                        color={isSelected ? '#FFFFFF' : '#FF6B0B'}
+                      />
+                    </View>
+
+                    <View style={styles.fullWidthInfo}>
+                      <View style={styles.fullWidthHeaderRow}>
+                        <Text
+                          style={[
+                            styles.serviceOptionTitle,
+                            { color: colors.textHeading, marginBottom: 2 },
+                            isSelected && { color: '#FF6B0B' },
+                          ]}
+                          numberOfLines={1}
+                        >
+                          {srv.name}
+                        </Text>
+                        <View
+                          style={[
+                            styles.ratePill,
+                            { backgroundColor: isDark ? colors.section : '#F1F5F9' },
+                            isSelected && styles.ratePillSelected,
+                          ]}
+                        >
+                          <Text
+                            style={[
+                              styles.ratePillText,
+                              { color: colors.textCaption },
+                              isSelected && styles.ratePillTextSelected,
+                            ]}
+                          >
+                            ₹{srv.baseKgPrice}/KG
+                          </Text>
+                        </View>
+                      </View>
+                      <Text
+                        style={[styles.serviceOptionSubtitle, { color: colors.textCaption }]}
+                        numberOfLines={1}
+                      >
+                        {srv.subtitle}
+                      </Text>
+                    </View>
+
+                    {isSelected && (
+                      <View style={styles.selectedCheckBadge}>
+                        <MaterialCommunityIcons name="check" size={13} color="#FFFFFF" />
+                      </View>
+                    )}
+                  </Pressable>
+                );
+              }
+
               return (
                 <Pressable
                   key={srv.id}
                   style={[
                     styles.serviceOptionCard,
+                    { backgroundColor: colors.surface, borderColor: colors.border },
                     isSelected && styles.serviceOptionCardSelected,
                   ]}
                   onPress={() => setSelectedServiceId(srv.id)}
@@ -317,8 +407,20 @@ export function BulkLaundryScreen({
                         color={isSelected ? '#FFFFFF' : '#FF6B0B'}
                       />
                     </View>
-                    <View style={[styles.ratePill, isSelected && styles.ratePillSelected]}>
-                      <Text style={[styles.ratePillText, isSelected && styles.ratePillTextSelected]}>
+                    <View
+                      style={[
+                        styles.ratePill,
+                        { backgroundColor: isDark ? colors.section : '#F1F5F9' },
+                        isSelected && styles.ratePillSelected,
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.ratePillText,
+                          { color: colors.textCaption },
+                          isSelected && styles.ratePillTextSelected,
+                        ]}
+                      >
                         ₹{srv.baseKgPrice}/KG
                       </Text>
                     </View>
@@ -327,14 +429,24 @@ export function BulkLaundryScreen({
                   <Text
                     style={[
                       styles.serviceOptionTitle,
-                      isSelected && styles.serviceOptionTitleSelected,
+                      { color: colors.textHeading },
+                      isSelected && { color: '#FF6B0B' },
                     ]}
                   >
                     {srv.name}
                   </Text>
-                  <Text style={styles.serviceOptionSubtitle} numberOfLines={2}>
+                  <Text
+                    style={[styles.serviceOptionSubtitle, { color: colors.textCaption }]}
+                    numberOfLines={2}
+                  >
                     {srv.subtitle}
                   </Text>
+
+                  {isSelected && (
+                    <View style={styles.cardCornerCheck}>
+                      <MaterialCommunityIcons name="check-circle" size={16} color="#FF6B0B" />
+                    </View>
+                  )}
                 </Pressable>
               );
             })}
@@ -344,7 +456,7 @@ export function BulkLaundryScreen({
         {/* 4. CHOOSE WEIGHT BUNDLE */}
         <View style={styles.sectionWrap}>
           <View style={styles.sectionHeaderBetween}>
-            <Text style={styles.sectionTitle}>2. Choose Weight Bundle</Text>
+            <Text style={[styles.sectionTitle, { color: colors.textHeading }]}>2. Choose Weight Bundle</Text>
             <View style={styles.activeWeightBadge}>
               <Text style={styles.activeWeightBadgeText}>{weightKg} KG Selected</Text>
             </View>
@@ -361,7 +473,11 @@ export function BulkLaundryScreen({
                   key={item.kg}
                   style={[
                     styles.presetCardRow,
-                    isChosen && styles.presetCardRowChosen,
+                    { backgroundColor: colors.surface, borderColor: colors.border },
+                    isChosen && {
+                      borderColor: '#FF6B0B',
+                      backgroundColor: isDark ? 'rgba(255, 107, 11, 0.12)' : '#FFFBF8',
+                    },
                   ]}
                   onPress={() => setWeightKg(item.kg)}
                 >
@@ -370,29 +486,30 @@ export function BulkLaundryScreen({
                       <Text
                         style={[
                           styles.presetKgText,
+                          { color: colors.textHeading },
                           isChosen && styles.presetKgTextChosen,
                         ]}
                       >
                         {item.label}
                       </Text>
                       {item.tag && (
-                        <View style={[styles.presetTagBadge, isChosen ? { backgroundColor: '#FFF7ED' } : {}]}>
-                          <Text style={[styles.presetTagBadgeText, isChosen ? { color: '#FF6B0B' } : {}]}>
+                        <View style={[styles.presetTagBadge, isChosen ? { backgroundColor: '#FFF7ED' } : { backgroundColor: isDark ? colors.section : '#F1F5F9' }]}>
+                          <Text style={[styles.presetTagBadgeText, isChosen ? { color: '#FF6B0B' } : { color: colors.textCaption }]}>
                             {item.tag}
                           </Text>
                         </View>
                       )}
                     </View>
 
-                    <Text style={styles.presetClothesText}>
+                    <Text style={[styles.presetClothesText, { color: colors.textCaption }]}>
                       {item.clothes}
                     </Text>
 
                     <View style={styles.presetPriceRow}>
-                      <Text style={[styles.presetPriceTotal, isChosen && styles.presetPriceTotalChosen]}>
+                      <Text style={[styles.presetPriceTotal, { color: colors.textHeading }, isChosen && styles.presetPriceTotalChosen]}>
                         ₹{totalPrice}
                       </Text>
-                      <Text style={styles.presetPricePerKg}>
+                      <Text style={[styles.presetPricePerKg, { color: colors.textCaption }]}>
                         (₹{effectiveRate}/KG)
                       </Text>
                     </View>
@@ -412,16 +529,17 @@ export function BulkLaundryScreen({
           </View>
 
           {/* Custom Weight Stepper */}
-          <View style={styles.customWeightBox}>
+          <View style={[styles.customWeightBox, { backgroundColor: colors.surface, borderColor: colors.border }]}>
             <View style={{ flex: 1 }}>
-              <Text style={styles.customWeightLabel}>Custom Load</Text>
-              <Text style={styles.customWeightSub}>Minimum 1 KG • Digital scale at doorstep</Text>
+              <Text style={[styles.customWeightLabel, { color: colors.textHeading }]}>Custom Load</Text>
+              <Text style={[styles.customWeightSub, { color: colors.textCaption }]}>Minimum 1 KG • Digital scale at doorstep</Text>
             </View>
 
-            <View style={styles.stepperWrap}>
+            <View style={[styles.stepperWrap, { backgroundColor: isDark ? colors.section : '#F1F5F9' }]}>
               <Pressable
                 style={[
                   styles.stepperButton,
+                  { backgroundColor: colors.surface },
                   weightKg <= 1 && styles.stepperButtonDisabled,
                 ]}
                 disabled={weightKg <= 1}
@@ -430,18 +548,19 @@ export function BulkLaundryScreen({
                 <MaterialCommunityIcons
                   name="minus"
                   size={18}
-                  color={weightKg <= 1 ? '#CBD5E1' : '#0F172A'}
+                  color={weightKg <= 1 ? colors.border : colors.textHeading}
                 />
               </Pressable>
 
               <View style={styles.weightValueContainer}>
-                <Text style={styles.weightValueText}>{weightKg}</Text>
-                <Text style={styles.weightUnitText}>KG</Text>
+                <Text style={[styles.weightValueText, { color: colors.textHeading }]}>{weightKg}</Text>
+                <Text style={[styles.weightUnitText, { color: colors.textCaption }]}>KG</Text>
               </View>
 
               <Pressable
                 style={[
                   styles.stepperButton,
+                  { backgroundColor: colors.surface },
                   weightKg >= 40 && styles.stepperButtonDisabled,
                 ]}
                 disabled={weightKg >= 40}
@@ -450,7 +569,7 @@ export function BulkLaundryScreen({
                 <MaterialCommunityIcons
                   name="plus"
                   size={18}
-                  color={weightKg >= 40 ? '#CBD5E1' : '#0F172A'}
+                  color={weightKg >= 40 ? colors.border : colors.textHeading}
                 />
               </Pressable>
             </View>
@@ -458,26 +577,26 @@ export function BulkLaundryScreen({
         </View>
 
         {/* 5. PACKAGE CALCULATION (Clean Breakdown, Removed Confusing Redundant In-Card Button) */}
-        <View style={styles.summaryCard}>
+        <View style={[styles.summaryCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
           <View style={styles.summaryTopRow}>
             <View>
-              <Text style={styles.summaryHeading}>Package Calculation</Text>
-              <Text style={styles.summarySub}>
+              <Text style={[styles.summaryHeading, { color: colors.textHeading }]}>Package Calculation</Text>
+              <Text style={[styles.summarySub, { color: colors.textCaption }]}>
                 {currentService.name} • {weightKg} KG
               </Text>
             </View>
             <View style={styles.summaryPriceBox}>
               <Text style={styles.summaryPriceValue}>₹{pricingInfo.totalPrice}</Text>
-              <Text style={styles.summaryPriceRate}>
+              <Text style={[styles.summaryPriceRate, { color: colors.textCaption }]}>
                 (₹{pricingInfo.effectiveRate}/KG)
               </Text>
             </View>
           </View>
 
           {pricingInfo.estimatedSavings > 0 && (
-            <View style={styles.savingsBanner}>
+            <View style={[styles.savingsBanner, isDark && { backgroundColor: 'rgba(21, 128, 61, 0.15)', borderColor: 'rgba(34, 197, 94, 0.3)' }]}>
               <MaterialCommunityIcons name="tag-heart-outline" size={16} color="#15803D" />
-              <Text style={styles.savingsBannerText}>
+              <Text style={[styles.savingsBannerText, isDark && { color: '#4ADE80' }]}>
                 You save approx ₹{pricingInfo.estimatedSavings} compared to per-piece dry cleaning!
               </Text>
             </View>
@@ -487,85 +606,74 @@ export function BulkLaundryScreen({
           <View style={styles.checklist}>
             <View style={styles.checkItem}>
               <MaterialCommunityIcons name="check-circle" size={16} color="#16A34A" />
-              <Text style={styles.checkText}>Hygienic individual wash (zero mixing with other orders)</Text>
+              <Text style={[styles.checkText, { color: colors.textBody }]}>Hygienic individual wash (zero mixing with other orders)</Text>
             </View>
             <View style={styles.checkItem}>
               <MaterialCommunityIcons name="check-circle" size={16} color="#16A34A" />
-              <Text style={styles.checkText}>Anti-bacterial ozone disinfection & premium fabric softener</Text>
+              <Text style={[styles.checkText, { color: colors.textBody }]}>Anti-bacterial ozone disinfection & premium fabric softener</Text>
             </View>
             <View style={styles.checkItem}>
               <MaterialCommunityIcons name="check-circle" size={16} color="#16A34A" />
-              <Text style={styles.checkText}>Warm tumble dry & crisp wrinkle-free folding</Text>
+              <Text style={[styles.checkText, { color: colors.textBody }]}>Warm tumble dry & crisp wrinkle-free folding</Text>
             </View>
             <View style={styles.checkItem}>
               <MaterialCommunityIcons name="check-circle" size={16} color="#16A34A" />
-              <Text style={styles.checkText}>Sealed luxury protective garment bag packaging</Text>
+              <Text style={[styles.checkText, { color: colors.textBody }]}>Sealed luxury protective garment bag packaging</Text>
             </View>
           </View>
         </View>
       </ScrollView>
 
-      {/* 6. TOAST NOTIFICATION */}
-      {justAddedToast && (
-        <View style={styles.toastWrap}>
-          <View style={styles.toast}>
-            <MaterialCommunityIcons name="check-circle" size={18} color="#FFFFFF" />
-            <Text style={styles.toastText} numberOfLines={2}>
-              {justAddedToast}
-            </Text>
-          </View>
-        </View>
-      )}
-
-      {/* 7. SINGLE CLEAR STICKY ACTION BAR AT BOTTOM */}
+      {/* 6. PREMIUM STICKY ACTION BAR AT BOTTOM */}
       <View
         style={[
           styles.bottomFixedBar,
-          { paddingBottom: Math.max(insets.bottom, 10) + 8 },
+          {
+            backgroundColor: colors.surface,
+            borderTopColor: colors.border,
+            paddingBottom: Math.max(insets.bottom, 10) + 8,
+          },
         ]}
       >
         <View style={styles.bottomPriceWrap}>
           <View style={styles.bottomTotalRow}>
-            <Text style={styles.bottomPriceTitle}>₹{pricingInfo.totalPrice}</Text>
-            <Text style={styles.bottomRateTag}>₹{pricingInfo.effectiveRate}/KG</Text>
+            <Text style={[styles.bottomPriceTitle, { color: colors.textHeading }]}>
+              ₹{pricingInfo.totalPrice}
+            </Text>
+            <View style={[styles.bottomRateBadge, isDark && { backgroundColor: 'rgba(5, 150, 105, 0.2)' }]}>
+              <Text style={styles.bottomRateTag}>₹{pricingInfo.effectiveRate}/KG</Text>
+            </View>
           </View>
-          <Text style={styles.bottomPriceSub} numberOfLines={1}>
+          <Text style={[styles.bottomPriceSub, { color: colors.textCaption }]} numberOfLines={1}>
             {weightKg} KG • {currentService.name}
           </Text>
         </View>
 
-        <View style={styles.bottomButtonsRow}>
-          <Pressable
-            style={({ pressed }) => [
-              styles.bottomAddBtnWrap,
-              pressed && styles.pressedBtn,
-            ]}
-            onPress={() => handleAddWeightToCart(weightKg)}
+        <Pressable
+          style={({ pressed }) => [
+            styles.bottomAddBtnWrap,
+            pressed && styles.pressedBtn,
+          ]}
+          onPress={() => handleAddWeightToCart(weightKg)}
+          accessibilityRole="button"
+          accessibilityLabel={`Add ${weightKg} KG ${currentService.name} to cart for ₹${pricingInfo.totalPrice}`}
+        >
+          <LinearGradient
+            colors={isAlreadyInCart ? ['#059669', '#047857'] : ['#10B981', '#059669']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.bottomAddBtnGradient}
           >
-            <LinearGradient
-              colors={['#10B981', '#059669']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={styles.bottomAddBtnGradient}
-            >
-              <MaterialCommunityIcons name="cart-plus" size={18} color="#FFFFFF" />
-              <Text style={styles.addToCartText}>Add to Cart</Text>
-            </LinearGradient>
-          </Pressable>
-
-          {cartSummary.itemCount > 0 && (
-            <Pressable
-              style={({ pressed }) => [
-                styles.viewBagBtn,
-                pressed ? styles.pressedBtn : null,
-              ]}
-              onPress={onViewCart}
-            >
-              <Text style={styles.viewBagBtnText}>View Bag ({cartSummary.itemCount})</Text>
-              <MaterialCommunityIcons name="arrow-right" size={15} color="#0F172A" />
-            </Pressable>
-          )}
-        </View>
+            <MaterialCommunityIcons
+              name={isAlreadyInCart ? 'check-circle' : 'cart-plus'}
+              size={18}
+              color="#FFFFFF"
+            />
+            <Text style={styles.addToCartText}>
+              {isAlreadyInCart ? `In Bag • Add More` : `Add to Cart`}
+            </Text>
+          </LinearGradient>
+        </Pressable>
       </View>
     </View>
   );
@@ -818,6 +926,39 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: '#64748B',
     lineHeight: 15,
+  },
+  serviceOptionCardFullWidth: {
+    width: '100%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 14,
+  },
+  fullWidthInfo: {
+    flex: 1,
+    minWidth: 0,
+  },
+  fullWidthHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+    marginBottom: 4,
+  },
+  selectedCheckBadge: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: '#FF6B0B',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: 4,
+  },
+  cardCornerCheck: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
   },
 
   /* Presets Column */
@@ -1111,62 +1252,57 @@ const styles = StyleSheet.create({
   },
   bottomTotalRow: {
     flexDirection: 'row',
-    alignItems: 'baseline',
-    gap: 6,
+    alignItems: 'center',
+    gap: 8,
   },
   bottomPriceTitle: {
-    fontSize: 20,
-    fontWeight: '800',
+    fontSize: 22,
+    fontWeight: '900',
     color: '#0F172A',
+    letterSpacing: -0.3,
+  },
+  bottomRateBadge: {
+    backgroundColor: '#ECFDF5',
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#A7F3D0',
   },
   bottomRateTag: {
-    fontSize: 11.5,
+    fontSize: 11,
     color: '#059669',
-    fontWeight: '700',
+    fontWeight: '800',
   },
   bottomPriceSub: {
     fontSize: 11,
     color: '#64748B',
-    fontWeight: '500',
-    marginTop: 1,
-  },
-  bottomButtonsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
+    fontWeight: '600',
+    marginTop: 2,
   },
   bottomAddBtnWrap: {
-    borderRadius: 14,
+    borderRadius: 16,
     overflow: 'hidden',
     shadowColor: '#059669',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.28,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
     shadowRadius: 8,
     elevation: 4,
+    minWidth: 145,
   },
   bottomAddBtnGradient: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 18,
-    paddingVertical: 12,
-    borderRadius: 14,
-    gap: 6,
+    justifyContent: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 13,
+    borderRadius: 16,
+    gap: 8,
   },
   addToCartText: {
     color: '#FFFFFF',
     fontSize: 14,
     fontWeight: '800',
-  },
-  viewBagBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 10,
-    paddingVertical: 12,
-    gap: 4,
-  },
-  viewBagBtnText: {
-    color: '#0F172A',
-    fontSize: 12.5,
-    fontWeight: '700',
+    letterSpacing: 0.2,
   },
 });

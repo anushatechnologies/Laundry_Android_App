@@ -32,7 +32,7 @@ const COMPLIMENT_TAGS = [
 const TIP_OPTIONS = [0, 20, 50, 100];
 
 export function RatingScreen({ orderId = 'ORD-1042', onComplete }: RatingScreenProps) {
-  const { colors } = useTheme();
+  const { isDark, colors } = useTheme();
   const [stars, setStars] = useState(5);
   const [selectedTags, setSelectedTags] = useState<string[]>(['c1', 'c2']);
   const [selectedTip, setSelectedTip] = useState(20);
@@ -94,9 +94,9 @@ export function RatingScreen({ orderId = 'ORD-1042', onComplete }: RatingScreenP
       </Card>
 
       {/* 2. STAR RATING SECTION */}
-      <Card style={styles.starCard}>
-        <Text style={styles.starHeadline}>{getStarHeadline(stars)}</Text>
-        <Text style={styles.starSub}>Tap a star to rate your garment cleanliness and delivery</Text>
+      <Card style={[styles.starCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+        <Text style={[styles.starHeadline, { color: colors.textHeading }]}>{getStarHeadline(stars)}</Text>
+        <Text style={[styles.starSub, { color: colors.textCaption }]}>Tap a star to rate your garment cleanliness and delivery</Text>
 
         <View style={styles.starsRow}>
           {[1, 2, 3, 4, 5].map((star) => (
@@ -113,7 +113,7 @@ export function RatingScreen({ orderId = 'ORD-1042', onComplete }: RatingScreenP
 
       {/* 3. COMPLIMENT CHIPS */}
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>What did you like most?</Text>
+        <Text style={[styles.sectionTitle, { color: colors.textHeading }]}>What did you like most?</Text>
 
         <View style={styles.tagsGrid}>
           {COMPLIMENT_TAGS.map((tag) => {
@@ -121,10 +121,18 @@ export function RatingScreen({ orderId = 'ORD-1042', onComplete }: RatingScreenP
             return (
               <Pressable
                 key={tag.id}
-                style={[styles.tagChip, isSelected && styles.tagChipActive]}
+                style={[
+                  styles.tagChip,
+                  { backgroundColor: colors.surface, borderColor: colors.border },
+                  isSelected && {
+                    backgroundColor: isDark ? 'rgba(249, 115, 22, 0.15)' : '#FFF7ED',
+                    borderColor: '#F97316',
+                    borderWidth: 1.5,
+                  },
+                ]}
                 onPress={() => toggleTag(tag.id)}
               >
-                <Text style={[styles.tagChipText, isSelected && styles.tagChipTextActive]}>
+                <Text style={[styles.tagChipText, { color: colors.textHeading }, isSelected && styles.tagChipTextActive]}>
                   {tag.label}
                 </Text>
               </Pressable>
@@ -134,11 +142,11 @@ export function RatingScreen({ orderId = 'ORD-1042', onComplete }: RatingScreenP
       </View>
 
       {/* 4. RIDER TIP SELECTOR */}
-      <Card style={styles.tipCard}>
+      <Card style={[styles.tipCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
         <View style={styles.tipHeaderRow}>
           <View>
-            <Text style={styles.tipTitle}>Tip Your Delivery Executive</Text>
-            <Text style={styles.tipSub}>100% of your tip goes directly to Ramesh</Text>
+            <Text style={[styles.tipTitle, { color: colors.textHeading }]}>Tip Your Delivery Executive</Text>
+            <Text style={[styles.tipSub, { color: colors.textCaption }]}>100% of your tip goes directly to Ramesh</Text>
           </View>
           <MaterialCommunityIcons name="heart-circle" size={32} color="#EF4444" />
         </View>
@@ -149,10 +157,17 @@ export function RatingScreen({ orderId = 'ORD-1042', onComplete }: RatingScreenP
             return (
               <Pressable
                 key={tip}
-                style={[styles.tipPill, isSelected && styles.tipPillActive]}
+                style={[
+                  styles.tipPill,
+                  { backgroundColor: isDark ? colors.section : '#FAF5EF', borderColor: colors.border },
+                  isSelected && {
+                    backgroundColor: isDark ? '#F97316' : '#1C0B18',
+                    borderColor: isDark ? '#F97316' : '#1C0B18',
+                  },
+                ]}
                 onPress={() => setSelectedTip(tip)}
               >
-                <Text style={[styles.tipPillText, isSelected && styles.tipPillTextActive]}>
+                <Text style={[styles.tipPillText, { color: colors.textHeading }, isSelected && styles.tipPillTextActive]}>
                   {tip === 0 ? 'No Tip' : `₹${tip}`}
                 </Text>
               </Pressable>
@@ -163,11 +178,11 @@ export function RatingScreen({ orderId = 'ORD-1042', onComplete }: RatingScreenP
 
       {/* 5. WRITTEN REVIEW INPUT */}
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Write a Review (Optional)</Text>
+        <Text style={[styles.sectionTitle, { color: colors.textHeading }]}>Write a Review (Optional)</Text>
         <TextInput
-          style={styles.reviewInput}
+          style={[styles.reviewInput, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.textHeading }]}
           placeholder="Share details about your fabric feel, scent, or ironing quality..."
-          placeholderTextColor="#A1A1AA"
+          placeholderTextColor={colors.textCaption}
           value={reviewText}
           onChangeText={setReviewText}
           multiline

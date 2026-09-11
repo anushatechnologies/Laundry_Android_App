@@ -47,7 +47,7 @@ interface LiveChatSupportScreenProps {
 
 export function LiveChatSupportScreen({ onBack }: LiveChatSupportScreenProps = {}) {
   const { session } = useApp();
-  const { colors } = useTheme();
+  const { colors, isDark } = useTheme();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputText, setInputText] = useState('');
   const [roomId, setRoomId] = useState<string | null>(null);
@@ -295,14 +295,14 @@ export function LiveChatSupportScreen({ onBack }: LiveChatSupportScreenProps = {
       keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 25}
     >
       {/* 1. AGENT STATUS & NAVIGATION HEADER */}
-      <View style={styles.agentHeader}>
+      <View style={[styles.agentHeader, { backgroundColor: colors.surface, borderColor: colors.border }]}>
         {onBack && (
           <Pressable
             style={styles.backBtn}
             onPress={onBack}
             hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
           >
-            <MaterialCommunityIcons name="arrow-left" size={24} color="#1C0B18" />
+            <MaterialCommunityIcons name="arrow-left" size={24} color={colors.textHeading} />
           </Pressable>
         )}
 
@@ -312,7 +312,7 @@ export function LiveChatSupportScreen({ onBack }: LiveChatSupportScreenProps = {
         </View>
 
         <View style={{ flex: 1 }}>
-          <Text style={styles.agentName}>Priya M. • Fabric Specialist</Text>
+          <Text style={[styles.agentName, { color: colors.textHeading }]}>RAMYA. • Fabric Specialist</Text>
           <View style={styles.statusRow}>
             <View style={styles.connectedDot} />
             <Text style={styles.agentStatus}>
@@ -355,12 +355,29 @@ export function LiveChatSupportScreen({ onBack }: LiveChatSupportScreenProps = {
           const isUser = item.senderType === 'CUSTOMER';
           return (
             <View style={[styles.bubbleWrap, isUser ? styles.bubbleWrapUser : styles.bubbleWrapAgent]}>
-              <View style={[styles.bubble, isUser ? styles.bubbleUser : styles.bubbleAgent]}>
-                <Text style={[styles.bubbleText, isUser ? styles.bubbleTextUser : styles.bubbleTextAgent]}>
+              <View
+                style={[
+                  styles.bubble,
+                  isUser
+                    ? styles.bubbleUser
+                    : [styles.bubbleAgent, { backgroundColor: colors.surface, borderColor: colors.border }],
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.bubbleText,
+                    isUser ? styles.bubbleTextUser : [styles.bubbleTextAgent, { color: colors.textHeading }],
+                  ]}
+                >
                   {item.message}
                 </Text>
                 <View style={styles.bubbleFooter}>
-                  <Text style={[styles.bubbleTime, isUser ? styles.bubbleTimeUser : styles.bubbleTimeAgent]}>
+                  <Text
+                    style={[
+                      styles.bubbleTime,
+                      isUser ? styles.bubbleTimeUser : [styles.bubbleTimeAgent, { color: colors.textCaption }],
+                    ]}
+                  >
                     {item.time}
                   </Text>
                   {isUser && item.isRead && (
@@ -375,9 +392,9 @@ export function LiveChatSupportScreen({ onBack }: LiveChatSupportScreenProps = {
         ListEmptyComponent={
           !loading ? (
             <View style={styles.emptyContainer}>
-              <MaterialCommunityIcons name="chat-processing-outline" size={48} color="#D1D5DB" />
-              <Text style={styles.emptyTitle}>Chat with Care Support</Text>
-              <Text style={styles.emptySubtitle}>
+              <MaterialCommunityIcons name="chat-processing-outline" size={48} color={colors.border} />
+              <Text style={[styles.emptyTitle, { color: colors.textHeading }]}>Chat with Care Support</Text>
+              <Text style={[styles.emptySubtitle, { color: colors.textCaption }]}>
                 Send a message or select a prompt below. Our team is here to help!
               </Text>
             </View>
@@ -386,26 +403,29 @@ export function LiveChatSupportScreen({ onBack }: LiveChatSupportScreenProps = {
       />
 
       {/* 3. QUICK CHIPS */}
-      <View style={styles.quickPromptsRow}>
+      <View style={[styles.quickPromptsRow, { backgroundColor: colors.surface, borderColor: colors.border }]}>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.quickScroll}>
           {QUICK_PROMPTS.map((prompt, idx) => (
             <Pressable
               key={idx}
-              style={styles.promptChip}
+              style={[styles.promptChip, { backgroundColor: isDark ? colors.section : '#FAF5EF', borderColor: colors.border }]}
               onPress={() => sendMessage(prompt)}
             >
-              <Text style={styles.promptChipText}>{prompt}</Text>
+              <Text style={[styles.promptChipText, { color: colors.textHeading }]}>{prompt}</Text>
             </Pressable>
           ))}
         </ScrollView>
       </View>
 
       {/* 4. TEXT INPUT BAR */}
-      <View style={styles.inputBar}>
+      <View style={[styles.inputBar, { backgroundColor: colors.surface, borderColor: colors.border }]}>
         <TextInput
-          style={styles.textInput}
+          style={[
+            styles.textInput,
+            { backgroundColor: isDark ? colors.section : '#FAF5EF', borderColor: colors.border, color: colors.textHeading },
+          ]}
           placeholder="Ask a question about your garments..."
-          placeholderTextColor="#A1A1AA"
+          placeholderTextColor={colors.textCaption}
           value={inputText}
           onChangeText={handleInputChange}
           onFocus={() => {

@@ -15,6 +15,7 @@ import {
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useTheme } from '@/context/ThemeContext';
 import { api, type AddressSearchResult } from '@/lib/api';
 import { openLocationSettings } from '@/services/location/locationService';
 import type { CustomerAddress } from '@/types/domain';
@@ -41,6 +42,7 @@ export function LocationSelectorModal({
   onUseCurrentGps,
   onOpenMapPicker,
 }: LocationSelectorModalProps) {
+  const { colors, isDark } = useTheme();
   const insets = useSafeAreaInsets();
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<AddressSearchResult[]>([]);
@@ -197,33 +199,33 @@ export function LocationSelectorModal({
       transparent={false}
       onRequestClose={onClose}
     >
-      <View style={[styles.container, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
+      <View style={[styles.container, { backgroundColor: colors.background, paddingTop: insets.top, paddingBottom: insets.bottom }]}>
         {/* Top Modern Header */}
-        <View style={styles.header}>
+        <View style={[styles.header, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
           <TouchableOpacity
-            style={styles.closeBtn}
+            style={[styles.closeBtn, { backgroundColor: colors.section }]}
             onPress={onClose}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
             accessibilityRole="button"
             accessibilityLabel="Close location selector"
           >
-            <MaterialCommunityIcons name="arrow-left" size={22} color="#0F172A" />
+            <MaterialCommunityIcons name="arrow-left" size={22} color={colors.textHeading} />
           </TouchableOpacity>
           <View style={styles.headerTitleWrap}>
-            <Text style={styles.headerTitle}>Select Delivery Location</Text>
-            <Text style={styles.headerSubtitle}>Choose doorstep address or pinpoint on map</Text>
+            <Text style={[styles.headerTitle, { color: colors.textHeading }]}>Select Delivery Location</Text>
+            <Text style={[styles.headerSubtitle, { color: colors.textCaption }]}>Choose doorstep address or pinpoint on map</Text>
           </View>
           <View style={{ width: 38 }} />
         </View>
 
         {/* Modern Search Bar */}
-        <View style={styles.searchContainer}>
-          <View style={styles.searchBox}>
+        <View style={[styles.searchContainer, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
+          <View style={[styles.searchBox, { backgroundColor: colors.section, borderColor: colors.border }]}>
             <MaterialCommunityIcons name="magnify" size={22} color="#EA580C" style={styles.searchIcon} />
             <TextInput
-              style={styles.searchInput}
+              style={[styles.searchInput, { color: colors.textHeading }]}
               placeholder="Search area, apartment, street name or PIN..."
-              placeholderTextColor="#94A3B8"
+              placeholderTextColor={colors.textCaption}
               value={searchQuery}
               onChangeText={handleSearchChange}
               autoCorrect={false}
@@ -231,7 +233,7 @@ export function LocationSelectorModal({
             />
             {searchQuery.length > 0 && (
               <TouchableOpacity onPress={() => handleSearchChange('')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                <MaterialCommunityIcons name="close-circle" size={18} color="#94A3B8" />
+                <MaterialCommunityIcons name="close-circle" size={18} color={colors.textCaption} />
               </TouchableOpacity>
             )}
           </View>
@@ -252,37 +254,37 @@ export function LocationSelectorModal({
           )}
 
           {searchResults.length > 0 ? (
-            <View style={styles.resultsSection}>
-              <Text style={styles.sectionLabel}>SEARCH RESULTS</Text>
+            <View style={[styles.resultsSection, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+              <Text style={[styles.sectionLabel, { color: colors.textCaption }]}>SEARCH RESULTS</Text>
               {searchResults.map((item, idx) => (
                 <TouchableOpacity
                   key={`res-${idx}`}
-                  style={styles.searchResultItem}
+                  style={[styles.searchResultItem, { borderBottomColor: colors.border }]}
                   onPress={() => handleSelectSearchResult(item)}
                   activeOpacity={0.7}
                 >
-                  <View style={styles.searchResultIconBox}>
+                  <View style={[styles.searchResultIconBox, { backgroundColor: colors.section }]}>
                     <MaterialCommunityIcons name="map-marker-outline" size={20} color="#EA580C" />
                   </View>
                   <View style={styles.searchResultInfo}>
-                    <Text style={styles.searchResultTitle} numberOfLines={1}>
+                    <Text style={[styles.searchResultTitle, { color: colors.textHeading }]} numberOfLines={1}>
                       {item.areaName || item.address || item.city}
                     </Text>
-                    <Text style={styles.searchResultSubtitle} numberOfLines={2}>
+                    <Text style={[styles.searchResultSubtitle, { color: colors.textCaption }]} numberOfLines={2}>
                       {item.formattedAddress || item.address}
                     </Text>
                     {item.pincode && (
                       <Text style={styles.pincodeBadge}>PIN: {item.pincode}</Text>
                     )}
                   </View>
-                  <MaterialCommunityIcons name="chevron-right" size={20} color="#CBD5E1" />
+                  <MaterialCommunityIcons name="chevron-right" size={20} color={colors.textCaption} />
                 </TouchableOpacity>
               ))}
             </View>
           ) : null}
 
           {/* PRIMARY QUICK ACTIONS: USE CURRENT GPS & MAP PICKER */}
-          <View style={styles.quickActionsCard}>
+          <View style={[styles.quickActionsCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
             {/* 1. Use Current Location (GPS) */}
             <TouchableOpacity
               style={styles.quickActionRow}
@@ -290,7 +292,7 @@ export function LocationSelectorModal({
               disabled={locatingGps}
               activeOpacity={0.7}
             >
-              <View style={[styles.actionIconBox, { backgroundColor: '#EFF6FF' }]}>
+              <View style={[styles.actionIconBox, { backgroundColor: isDark ? 'rgba(37, 99, 235, 0.15)' : '#EFF6FF' }]}>
                 {locatingGps ? (
                   <ActivityIndicator size="small" color="#2563EB" />
                 ) : (
@@ -300,12 +302,12 @@ export function LocationSelectorModal({
               <View style={styles.actionInfo}>
                 <View style={styles.actionTitleRow}>
                   <Text style={[styles.actionTitle, { color: '#2563EB' }]}>Use current location</Text>
-                  <View style={styles.gpsBadge}>
+                  <View style={[styles.gpsBadge, isDark && { backgroundColor: 'rgba(22, 163, 74, 0.15)', borderColor: '#16A34A' }]}>
                     <View style={styles.gpsPulseDot} />
-                    <Text style={styles.gpsBadgeText}>Using GPS</Text>
+                    <Text style={[styles.gpsBadgeText, isDark && { color: '#4ADE80' }]}>Using GPS</Text>
                   </View>
                 </View>
-                <Text style={styles.actionSubtitle} numberOfLines={1}>
+                <Text style={[styles.actionSubtitle, { color: colors.textCaption }]} numberOfLines={1}>
                   {locatingGps
                     ? 'Detecting your GPS position...'
                     : currentLocation?.areaName
@@ -316,7 +318,7 @@ export function LocationSelectorModal({
               <MaterialCommunityIcons name="chevron-right" size={20} color="#93C5FD" />
             </TouchableOpacity>
 
-            <View style={styles.actionDivider} />
+            <View style={[styles.actionDivider, { backgroundColor: colors.border }]} />
 
             {/* 2. Select Location on Map */}
             <TouchableOpacity
@@ -327,12 +329,12 @@ export function LocationSelectorModal({
               }}
               activeOpacity={0.7}
             >
-              <View style={[styles.actionIconBox, { backgroundColor: '#FFF7ED' }]}>
+              <View style={[styles.actionIconBox, { backgroundColor: isDark ? 'rgba(234, 88, 12, 0.15)' : '#FFF7ED' }]}>
                 <MaterialCommunityIcons name="map-marker-radius-outline" size={22} color="#EA580C" />
               </View>
               <View style={styles.actionInfo}>
-                <Text style={styles.actionTitle}>Select location on map</Text>
-                <Text style={styles.actionSubtitle}>Drag and adjust pin on interactive map</Text>
+                <Text style={[styles.actionTitle, { color: colors.textHeading }]}>Select location on map</Text>
+                <Text style={[styles.actionSubtitle, { color: colors.textCaption }]}>Drag and adjust pin on interactive map</Text>
               </View>
               <MaterialCommunityIcons name="chevron-right" size={20} color="#FED7AA" />
             </TouchableOpacity>
@@ -342,10 +344,10 @@ export function LocationSelectorModal({
           <View style={styles.savedSection}>
             <View style={styles.sectionHeaderRow}>
               <View style={styles.sectionHeaderLeft}>
-                <Text style={styles.sectionLabel}>SAVED ADDRESSES</Text>
+                <Text style={[styles.sectionLabel, { color: colors.textCaption }]}>SAVED ADDRESSES</Text>
                 {savedAddresses.length > 0 && (
-                  <View style={styles.countBadge}>
-                    <Text style={styles.countBadgeText}>{savedAddresses.length}</Text>
+                  <View style={[styles.countBadge, { backgroundColor: colors.section }]}>
+                    <Text style={[styles.countBadgeText, { color: colors.textHeading }]}>{savedAddresses.length}</Text>
                   </View>
                 )}
               </View>
@@ -387,13 +389,14 @@ export function LocationSelectorModal({
                       activeOpacity={0.88}
                       style={[
                         styles.savedAddressCard,
-                        isSelected && styles.savedAddressSelected,
+                        { backgroundColor: colors.surface, borderColor: colors.border },
+                        isSelected && [styles.savedAddressSelected, isDark && { backgroundColor: 'rgba(22, 163, 74, 0.15)' }],
                       ]}
                       onPress={() => handleSelectSavedAddress(addr)}
                     >
                       <View style={styles.savedAddressTop}>
                         <View style={styles.savedTagCluster}>
-                          <View style={[styles.tagBadge, { backgroundColor: tagBg }]}>
+                          <View style={[styles.tagBadge, { backgroundColor: isDark ? colors.section : tagBg }]}>
                             <MaterialCommunityIcons
                               name={tagIcon as any}
                               size={15}
@@ -404,44 +407,46 @@ export function LocationSelectorModal({
                             </Text>
                           </View>
                           {isSelected && (
-                            <View style={styles.selectedPill}>
+                            <View style={[styles.selectedPill, isDark && { backgroundColor: 'rgba(22, 163, 74, 0.2)', borderColor: '#16A34A' }]}>
                               <MaterialCommunityIcons name="check-circle" size={12} color="#16A34A" />
-                              <Text style={styles.selectedPillText}>CURRENTLY SELECTED</Text>
+                              <Text style={[styles.selectedPillText, isDark && { color: '#4ADE80' }]}>CURRENTLY SELECTED</Text>
                             </View>
                           )}
                         </View>
                         <TouchableOpacity
-                          style={styles.deleteBtn}
+                          style={[styles.deleteBtn, { backgroundColor: colors.section }]}
                           onPress={() => handleDeleteSavedAddress(addr.id)}
                           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                           accessibilityLabel="Delete address"
                         >
-                          <MaterialCommunityIcons name="trash-can-outline" size={17} color="#94A3B8" />
+                          <MaterialCommunityIcons name="trash-can-outline" size={17} color={colors.textCaption} />
                         </TouchableOpacity>
                       </View>
 
                       {/* Primary Street / Building Line */}
-                      <Text style={styles.savedAddressPrimary} numberOfLines={1}>
+                      <Text style={[styles.savedAddressPrimary, { color: colors.textHeading }]} numberOfLines={1}>
                         {primaryLine}
                       </Text>
 
                       {/* Secondary Landmark / Area */}
                       {secondaryLine ? (
-                        <Text style={styles.savedAddressSecondary} numberOfLines={2}>
+                        <Text style={[styles.savedAddressSecondary, { color: colors.textBody }]} numberOfLines={2}>
                           {secondaryLine}
                         </Text>
                       ) : null}
 
                       {/* City & PIN */}
-                      <Text style={styles.savedAddressCity}>
+                      <Text style={[styles.savedAddressCity, { color: colors.textCaption }]}>
                         {cityPinLine}
                       </Text>
 
                       {/* Bottom Action Button */}
-                      <View style={styles.deliverHereRow}>
+                      <View style={[styles.deliverHereRow, { borderTopColor: colors.border }]}>
                         <View style={[
                           styles.deliverActionBtn,
-                          isSelected ? styles.deliverActionBtnActive : styles.deliverActionBtnDefault
+                          isSelected
+                            ? [styles.deliverActionBtnActive, isDark && { backgroundColor: 'rgba(22, 163, 74, 0.2)', borderColor: '#16A34A' }]
+                            : [styles.deliverActionBtnDefault, isDark && { backgroundColor: colors.section, borderColor: colors.border }]
                         ]}>
                           <MaterialCommunityIcons
                             name={isSelected ? "check-circle" : "truck-delivery-outline"}
@@ -450,7 +455,7 @@ export function LocationSelectorModal({
                           />
                           <Text style={[
                             styles.deliverHereText,
-                            isSelected ? styles.deliverHereTextActive : styles.deliverHereTextDefault
+                            isSelected ? [styles.deliverHereTextActive, isDark && { color: '#4ADE80' }] : styles.deliverHereTextDefault
                           ]}>
                             {isSelected ? 'Delivering to this address' : 'Deliver to this address'}
                           </Text>
@@ -464,10 +469,10 @@ export function LocationSelectorModal({
                 })}
               </View>
             ) : (
-              <View style={styles.emptySavedBox}>
-                <MaterialCommunityIcons name="map-marker-plus-outline" size={40} color="#CBD5E1" />
-                <Text style={styles.emptySavedTitle}>No saved addresses yet</Text>
-                <Text style={styles.emptySavedDesc}>
+              <View style={[styles.emptySavedBox, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                <MaterialCommunityIcons name="map-marker-plus-outline" size={40} color={colors.textCaption} />
+                <Text style={[styles.emptySavedTitle, { color: colors.textHeading }]}>No saved addresses yet</Text>
+                <Text style={[styles.emptySavedDesc, { color: colors.textCaption }]}>
                   Save your home, apartment, or office addresses for fast 1-tap checkout.
                 </Text>
                 <TouchableOpacity

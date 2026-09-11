@@ -30,7 +30,7 @@ interface ReferralScreenProps {
 }
 
 export function ReferralScreen({ onUseReward, onSignIn, onNavigateWallet, onBack }: ReferralScreenProps) {
-  const { colors } = useTheme();
+  const { isDark, colors } = useTheme();
   const { session } = useApp();
   const customerId = session?.user.id;
 
@@ -271,25 +271,25 @@ export function ReferralScreen({ onUseReward, onSignIn, onNavigateWallet, onBack
 
         {/* Code Sharing Card */}
         {referralCode ? (
-          <View style={styles.codeCard}>
-            <Text style={styles.codeLabel}>YOUR PERSONAL REFERRAL CODE</Text>
-            <View style={styles.codeDashedBox}>
-              <Text selectable style={styles.codeText}>
+          <View style={[styles.codeCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+            <Text style={[styles.codeLabel, { color: colors.textCaption }]}>YOUR PERSONAL REFERRAL CODE</Text>
+            <View style={[styles.codeDashedBox, isDark && { backgroundColor: 'rgba(20, 184, 166, 0.1)', borderColor: '#14B8A6' }]}>
+              <Text selectable style={[styles.codeText, isDark && { color: '#2DD4BF' }]}>
                 {referralCode}
               </Text>
-              <Pressable onPress={handleCopyCode} style={styles.copyIconBtn}>
+              <Pressable onPress={handleCopyCode} style={[styles.copyIconBtn, isDark && { backgroundColor: colors.section, borderColor: '#14B8A6' }]}>
                 <MaterialCommunityIcons
                   name={copied ? 'check' : 'content-copy'}
                   size={20}
                   color={copied ? '#059669' : '#0F766E'}
                 />
-                <Text style={[styles.copyIconText, copied && { color: '#059669' }]}>
+                <Text style={[styles.copyIconText, copied && { color: '#059669' }, isDark && { color: '#2DD4BF' }]}>
                   {copied ? 'Copied' : 'Share'}
                 </Text>
               </Pressable>
             </View>
 
-            <Text style={styles.codeHint}>
+            <Text style={[styles.codeHint, { color: colors.textCaption }]}>
               Tap Share or send directly via WhatsApp to your friends & family
             </Text>
 
@@ -300,68 +300,68 @@ export function ReferralScreen({ onUseReward, onSignIn, onNavigateWallet, onBack
                 <Text style={styles.whatsAppBtnText}>Share on WhatsApp</Text>
               </Pressable>
 
-              <Pressable style={styles.moreShareBtn} onPress={handleNativeShare}>
-                <MaterialCommunityIcons name="share-variant" size={20} color="#374151" />
+              <Pressable style={[styles.moreShareBtn, { backgroundColor: isDark ? colors.section : '#F3F4F6', borderColor: colors.border }]} onPress={handleNativeShare}>
+                <MaterialCommunityIcons name="share-variant" size={20} color={colors.textHeading} />
               </Pressable>
             </View>
           </View>
         ) : null}
 
         {/* Performance Statistics Grid */}
-        <View style={styles.statsCard}>
-          <Text style={styles.sectionTitle}>Your Referral Performance</Text>
+        <View style={[styles.statsCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+          <Text style={[styles.sectionTitle, { color: colors.textHeading }]}>Your Referral Performance</Text>
           <View style={styles.statsGrid}>
-            <View style={styles.statBox}>
-              <View style={[styles.statIconWrap, { backgroundColor: '#F0FDFA' }]}>
+            <View style={[styles.statBox, { backgroundColor: isDark ? colors.section : '#F9FAFB', borderColor: colors.border }]}>
+              <View style={[styles.statIconWrap, { backgroundColor: isDark ? 'rgba(15, 118, 110, 0.2)' : '#F0FDFA' }]}>
                 <MaterialCommunityIcons name="account-group" size={20} color="#0F766E" />
               </View>
-              <Text style={styles.statValue}>{invitedCount}</Text>
-              <Text style={styles.statLabel}>Friends Joined</Text>
+              <Text style={[styles.statValue, { color: colors.textHeading }]}>{invitedCount}</Text>
+              <Text style={[styles.statLabel, { color: colors.textCaption }]}>Friends Joined</Text>
             </View>
 
-            <View style={styles.statBox}>
-              <View style={[styles.statIconWrap, { backgroundColor: '#ECFDF5' }]}>
+            <View style={[styles.statBox, { backgroundColor: isDark ? colors.section : '#F9FAFB', borderColor: colors.border }]}>
+              <View style={[styles.statIconWrap, { backgroundColor: isDark ? 'rgba(5, 150, 105, 0.2)' : '#ECFDF5' }]}>
                 <MaterialCommunityIcons name="wallet-giftcard" size={20} color="#059669" />
               </View>
               <Text style={[styles.statValue, { color: '#059669' }]}>₹{totalEarned}</Text>
-              <Text style={styles.statLabel}>Wallet Earned</Text>
+              <Text style={[styles.statLabel, { color: colors.textCaption }]}>Wallet Earned</Text>
             </View>
 
-            <View style={styles.statBox}>
-              <View style={[styles.statIconWrap, { backgroundColor: '#FEF3C7' }]}>
+            <View style={[styles.statBox, { backgroundColor: isDark ? colors.section : '#F9FAFB', borderColor: colors.border }]}>
+              <View style={[styles.statIconWrap, { backgroundColor: isDark ? 'rgba(217, 119, 6, 0.2)' : '#FEF3C7' }]}>
                 <MaterialCommunityIcons name="lightning-bolt" size={20} color="#D97706" />
               </View>
               <Text style={[styles.statValue, { color: '#D97706' }]}>₹{referrerReward}</Text>
-              <Text style={styles.statLabel}>Per Referral</Text>
+              <Text style={[styles.statLabel, { color: colors.textCaption }]}>Per Referral</Text>
             </View>
           </View>
 
           {onNavigateWallet && (
-            <Pressable style={styles.viewWalletRow} onPress={onNavigateWallet}>
-              <MaterialCommunityIcons name="wallet-outline" size={18} color="#0F766E" />
-              <Text style={styles.viewWalletText}>View & Use Wallet Balance</Text>
-              <MaterialCommunityIcons name="chevron-right" size={18} color="#0F766E" />
+            <Pressable style={[styles.viewWalletRow, isDark && { backgroundColor: 'rgba(20, 184, 166, 0.15)' }]} onPress={onNavigateWallet}>
+              <MaterialCommunityIcons name="wallet-outline" size={18} color={isDark ? '#2DD4BF' : '#0F766E'} />
+              <Text style={[styles.viewWalletText, isDark && { color: '#2DD4BF' }]}>View & Use Wallet Balance</Text>
+              <MaterialCommunityIcons name="chevron-right" size={18} color={isDark ? '#2DD4BF' : '#0F766E'} />
             </Pressable>
           )}
         </View>
 
         {/* Registered Friends List */}
-        <View style={styles.friendsCard}>
+        <View style={[styles.friendsCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
           <View style={styles.friendsHeader}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
               <MaterialCommunityIcons name="account-check-outline" size={22} color="#10B981" />
-              <Text style={styles.sectionTitle}>Friends Registered</Text>
+              <Text style={[styles.sectionTitle, { color: colors.textHeading }]}>Friends Registered</Text>
             </View>
-            <View style={styles.friendsCountBadge}>
+            <View style={[styles.friendsCountBadge, isDark && { backgroundColor: 'rgba(5, 150, 105, 0.2)' }]}>
               <Text style={styles.friendsCountText}>{friends.length}</Text>
             </View>
           </View>
 
           {friends.length === 0 ? (
             <View style={styles.emptyFriendsContainer}>
-              <MaterialCommunityIcons name="account-clock-outline" size={48} color="#D1D5DB" />
-              <Text style={styles.emptyFriendsTitle}>No friends registered yet</Text>
-              <Text style={styles.emptyFriendsDesc}>
+              <MaterialCommunityIcons name="account-clock-outline" size={48} color={colors.border} />
+              <Text style={[styles.emptyFriendsTitle, { color: colors.textHeading }]}>No friends registered yet</Text>
+              <Text style={[styles.emptyFriendsDesc, { color: colors.textCaption }]}>
                 Share your referral code now! As soon as a friend creates an account, you will see them here with ₹{referrerReward} credited.
               </Text>
               <Pressable style={styles.inviteNowBtn} onPress={handleShareWhatsApp}>
@@ -378,20 +378,20 @@ export function ReferralScreen({ onUseReward, onSignIn, onNavigateWallet, onBack
               });
 
               return (
-                <View key={friend.id || index} style={styles.friendRow}>
-                  <View style={styles.friendAvatar}>
-                    <MaterialCommunityIcons name="account" size={20} color="#0F766E" />
+                <View key={friend.id || index} style={[styles.friendRow, { borderBottomColor: colors.border }]}>
+                  <View style={[styles.friendAvatar, isDark && { backgroundColor: 'rgba(15, 118, 110, 0.2)' }]}>
+                    <MaterialCommunityIcons name="account" size={20} color={isDark ? '#2DD4BF' : '#0F766E'} />
                   </View>
                   <View style={styles.friendInfo}>
-                    <Text style={styles.friendName}>
+                    <Text style={[styles.friendName, { color: colors.textHeading }]}>
                       {friend.name && friend.name !== 'Customer' ? friend.name : friend.phoneMasked}
                     </Text>
                     {friend.name && friend.name !== 'Customer' && (
-                      <Text style={styles.friendPhone}>{friend.phoneMasked}</Text>
+                      <Text style={[styles.friendPhone, { color: colors.textCaption }]}>{friend.phoneMasked}</Text>
                     )}
-                    <Text style={styles.friendDate}>Joined on {formattedDate}</Text>
+                    <Text style={[styles.friendDate, { color: colors.textCaption }]}>Joined on {formattedDate}</Text>
                   </View>
-                  <View style={styles.rewardTag}>
+                  <View style={[styles.rewardTag, isDark && { backgroundColor: 'rgba(5, 150, 105, 0.2)' }]}>
                     <MaterialCommunityIcons name="check-circle" size={14} color="#10B981" />
                     <Text style={styles.rewardTagText}>+₹{friend.bonusAwarded || referrerReward} Added</Text>
                   </View>
@@ -403,12 +403,12 @@ export function ReferralScreen({ onUseReward, onSignIn, onNavigateWallet, onBack
 
         {/* Apply Friend's Code (if user is eligible) */}
         {data?.canApply && (
-          <View style={styles.applyCard}>
+          <View style={[styles.applyCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-              <MaterialCommunityIcons name="ticket-percent-outline" size={20} color="#0F766E" />
-              <Text style={styles.sectionTitle}>Have a Friend's Invite Code?</Text>
+              <MaterialCommunityIcons name="ticket-percent-outline" size={20} color={isDark ? '#2DD4BF' : '#0F766E'} />
+              <Text style={[styles.sectionTitle, { color: colors.textHeading }]}>Have a Friend's Invite Code?</Text>
             </View>
-            <Text style={styles.applyDesc}>
+            <Text style={[styles.applyDesc, { color: colors.textCaption }]}>
               Enter their code to receive ₹{friendBonus} Welcome Bonus instantly in your wallet!
             </Text>
             <View style={styles.applyInputRow}>
@@ -419,8 +419,8 @@ export function ReferralScreen({ onUseReward, onSignIn, onNavigateWallet, onBack
                 autoCorrect={false}
                 maxLength={16}
                 placeholder="ENTER CODE"
-                placeholderTextColor="#A3A3A3"
-                style={styles.applyInput}
+                placeholderTextColor={colors.textCaption}
+                style={[styles.applyInput, { backgroundColor: isDark ? colors.section : '#F9FAFB', borderColor: colors.border, color: colors.textHeading }]}
               />
               <Pressable
                 disabled={saving || !inviteCode.trim()}
@@ -438,44 +438,44 @@ export function ReferralScreen({ onUseReward, onSignIn, onNavigateWallet, onBack
         )}
 
         {/* How It Works */}
-        <View style={styles.howItWorksCard}>
-          <Text style={styles.sectionTitle}>How It Works</Text>
+        <View style={[styles.howItWorksCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+          <Text style={[styles.sectionTitle, { color: colors.textHeading }]}>How It Works</Text>
 
           <View style={styles.stepRow}>
             <View style={styles.stepNumWrap}>
               <Text style={styles.stepNum}>1</Text>
             </View>
             <View style={styles.stepContent}>
-              <Text style={styles.stepHeading}>Share Your Code</Text>
-              <Text style={styles.stepText}>
+              <Text style={[styles.stepHeading, { color: colors.textHeading }]}>Share Your Code</Text>
+              <Text style={[styles.stepText, { color: colors.textBody }]}>
                 Send your unique referral code via WhatsApp, SMS, or social media.
               </Text>
             </View>
           </View>
 
-          <View style={styles.stepLine} />
+          <View style={[styles.stepLine, { backgroundColor: colors.border }]} />
 
           <View style={styles.stepRow}>
             <View style={styles.stepNumWrap}>
               <Text style={styles.stepNum}>2</Text>
             </View>
             <View style={styles.stepContent}>
-              <Text style={styles.stepHeading}>Friend Registers</Text>
-              <Text style={styles.stepText}>
+              <Text style={[styles.stepHeading, { color: colors.textHeading }]}>Friend Registers</Text>
+              <Text style={[styles.stepText, { color: colors.textBody }]}>
                 When they create an account with your code, they get ₹{friendBonus} free wallet cash.
               </Text>
             </View>
           </View>
 
-          <View style={styles.stepLine} />
+          <View style={[styles.stepLine, { backgroundColor: colors.border }]} />
 
           <View style={styles.stepRow}>
             <View style={styles.stepNumWrap}>
               <Text style={styles.stepNum}>3</Text>
             </View>
             <View style={styles.stepContent}>
-              <Text style={styles.stepHeading}>You Get ₹{referrerReward} Instantly</Text>
-              <Text style={styles.stepText}>
+              <Text style={[styles.stepHeading, { color: colors.textHeading }]}>You Get ₹{referrerReward} Instantly</Text>
+              <Text style={[styles.stepText, { color: colors.textBody }]}>
                 ₹{referrerReward} is credited directly to your LaundryFresh Wallet to spend on any order!
               </Text>
             </View>

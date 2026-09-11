@@ -31,7 +31,7 @@ function initialDraft(name: string, phone: string): AddressDraft {
 }
 
 export function AddressesScreen({ onBook, onSignIn }: AddressesScreenProps) {
-    const { colors } = useTheme();
+  const { colors, isDark } = useTheme();
   const { session, addresses, saveAddress, deleteAddress, validatePincode, refreshAccountData } = useApp();
   const [creating, setCreating] = useState(addresses.length === 0);
   const [draft, setDraft] = useState<AddressDraft>(() => initialDraft(session?.user.name || '', session?.user.phone || ''));
@@ -59,55 +59,55 @@ export function AddressesScreen({ onBook, onSignIn }: AddressesScreenProps) {
   if (!session) {
     return (
       <ScrollView style={[styles.root, { backgroundColor: colors.background }]} contentContainerStyle={styles.guestContainer} showsVerticalScrollIndicator={false}>
-        <View style={styles.guestIllustrationBox}>
+        <View style={[styles.guestIllustrationBox, isDark && { backgroundColor: 'rgba(249, 115, 22, 0.12)', borderColor: 'rgba(249, 115, 22, 0.25)' }]}>
           <MaterialCommunityIcons name="map-marker-radius-outline" size={54} color="#F97316" />
         </View>
 
-        <Text style={styles.guestTitle}>Saved Pickup Addresses</Text>
-        <Text style={styles.guestSubtitle}>
+        <Text style={[styles.guestTitle, isDark && { color: colors.textHeading }]}>Saved Pickup Addresses</Text>
+        <Text style={[styles.guestSubtitle, isDark && { color: colors.textCaption }]}>
           Sign in to save Home, Office, and Apartment addresses for 1-tap express laundry pickups.
         </Text>
 
-        <View style={styles.guestBenefitsCard}>
-          <Text style={styles.guestBenefitsHeader}>Address features with an account:</Text>
+        <View style={[styles.guestBenefitsCard, isDark && { backgroundColor: colors.surface, borderColor: colors.border }]}>
+          <Text style={[styles.guestBenefitsHeader, isDark && { color: colors.textHeading }]}>Address features with an account:</Text>
           <View style={styles.guestBenefitRow}>
             <MaterialCommunityIcons name="home-outline" size={20} color="#16A34A" />
-            <Text style={styles.guestBenefitText}>Save multiple delivery points (Home, Work, Villa)</Text>
+            <Text style={[styles.guestBenefitText, isDark && { color: colors.textBody }]}>Save multiple delivery points (Home, Work, Villa)</Text>
           </View>
           <View style={styles.guestBenefitRow}>
             <MaterialCommunityIcons name="crosshairs-gps" size={20} color="#3B82F6" />
-            <Text style={styles.guestBenefitText}>Precise GPS pin matching to nearest processing hub</Text>
+            <Text style={[styles.guestBenefitText, isDark && { color: colors.textBody }]}>Precise GPS pin matching to nearest processing hub</Text>
           </View>
           <View style={styles.guestBenefitRow}>
             <MaterialCommunityIcons name="shield-check-outline" size={20} color="#F97316" />
-            <Text style={styles.guestBenefitText}>Serviceability verification across all 6-digit pincodes</Text>
+            <Text style={[styles.guestBenefitText, isDark && { color: colors.textBody }]}>One-click checkout — no re-typing addresses ever</Text>
           </View>
         </View>
 
         <Pressable
           style={styles.guestPrimaryBtn}
           onPress={onSignIn}
-          accessibilityLabel="Sign in to save addresses"
+          accessibilityLabel="Sign in or register to save addresses"
         >
           <MaterialCommunityIcons name="login" size={18} color="#FFFFFF" />
-          <Text style={styles.guestPrimaryBtnText}>Sign In to Save Addresses</Text>
+          <Text style={styles.guestPrimaryBtnText}>Sign In / Register</Text>
           <MaterialCommunityIcons name="arrow-right" size={18} color="#FFFFFF" />
         </Pressable>
 
         <Pressable
-          style={styles.guestSecondaryBtn}
+          style={[styles.guestSecondaryBtn, isDark && { backgroundColor: colors.surface, borderColor: colors.border }]}
           onPress={onBook}
           accessibilityLabel="Book a new laundry pickup"
         >
-          <MaterialCommunityIcons name="calendar-plus" size={18} color="#1C0B18" />
-          <Text style={styles.guestSecondaryBtnText}>Book a Pickup</Text>
+          <MaterialCommunityIcons name="calendar-plus" size={18} color={isDark ? colors.textHeading : '#1C0B18'} />
+          <Text style={[styles.guestSecondaryBtnText, isDark && { color: colors.textHeading }]}>Book a Pickup</Text>
         </Pressable>
       </ScrollView>
     );
   }
 
   const checkPincode = async () => {
-    const pin = draft.pincode.replace(/\D/g, '');
+    const pin = String(draft.pincode || '').replace(/\D/g, '');
     if (pin.length !== 6) {
       setAvailability({ valid: false, message: 'Enter a six-digit pincode.' });
       return false;
@@ -160,7 +160,7 @@ export function AddressesScreen({ onBook, onSignIn }: AddressesScreenProps) {
   };
 
   const handleSave = async () => {
-    if (!draft.contactName?.trim() || !draft.contactPhone?.trim() || !draft.street.trim() || !draft.pincode.trim()) {
+    if (!String(draft.contactName || '').trim() || !String(draft.contactPhone || '').trim() || !String(draft.street || '').trim() || !String(draft.pincode || '').trim()) {
       Alert.alert('Required Fields', 'Please complete contact name, phone, address, and pincode.');
       return;
     }
@@ -197,8 +197,8 @@ export function AddressesScreen({ onBook, onSignIn }: AddressesScreenProps) {
       }
     >
       {creating ? (
-        <Card style={styles.formCard}>
-          <Text style={styles.formTitle}>Add New Address</Text>
+        <Card style={[styles.formCard, isDark && { backgroundColor: colors.surface, borderColor: colors.border }]}>
+          <Text style={[styles.formTitle, isDark && { color: colors.textHeading }]}>Add New Address</Text>
 
           <PickupLocationCard
             state={locationState}
@@ -256,13 +256,13 @@ export function AddressesScreen({ onBook, onSignIn }: AddressesScreenProps) {
           />
 
           {availability && (
-            <View style={[styles.statusBox, availability.valid ? styles.statusBoxSuccess : styles.statusBoxError]}>
+            <View style={[styles.statusBox, availability.valid ? styles.statusBoxSuccess : styles.statusBoxError, isDark && (availability.valid ? { backgroundColor: 'rgba(22, 163, 74, 0.2)' } : { backgroundColor: 'rgba(220, 38, 38, 0.2)' })]}>
               <MaterialCommunityIcons
                 name={availability.valid ? 'check-circle' : 'alert-circle'}
                 size={16}
-                color={availability.valid ? '#16A34A' : '#DC2626'}
+                color={availability.valid ? (isDark ? '#4ADE80' : '#16A34A') : (isDark ? '#F87171' : '#DC2626')}
               />
-              <Text style={[styles.statusBoxText, { color: availability.valid ? '#16A34A' : '#DC2626' }]}>
+              <Text style={[styles.statusBoxText, { color: availability.valid ? (isDark ? '#4ADE80' : '#16A34A') : (isDark ? '#F87171' : '#DC2626') }]}>
                 {availability.message || (availability.valid ? 'Pincode is serviceable for 24H laundry.' : 'Location currently unserviceable.')}
               </Text>
             </View>
@@ -293,9 +293,9 @@ export function AddressesScreen({ onBook, onSignIn }: AddressesScreenProps) {
           />
 
           {addresses.map((item) => (
-            <Card key={item.id} style={styles.addressCard}>
+            <Card key={item.id} style={[styles.addressCard, isDark && { backgroundColor: colors.surface, borderColor: colors.border }]}>
               <View style={styles.addressTop}>
-                <View style={styles.addressTypeBadge}>
+                <View style={[styles.addressTypeBadge, isDark && { backgroundColor: 'rgba(249, 115, 22, 0.15)' }]}>
                   <MaterialCommunityIcons
                     name={item.type === 'Home' ? 'home-outline' : item.type === 'Office' ? 'briefcase-outline' : 'map-marker-outline'}
                     size={14}
@@ -303,17 +303,17 @@ export function AddressesScreen({ onBook, onSignIn }: AddressesScreenProps) {
                   />
                   <Text style={styles.addressTypeText}>{item.type}</Text>
                 </View>
-                {item.isDefault && <Text style={styles.defaultBadge}>Default</Text>}
+                {item.isDefault && <Text style={[styles.defaultBadge, isDark && { backgroundColor: 'rgba(22, 163, 74, 0.2)', color: '#4ADE80' }]}>Default</Text>}
               </View>
 
-              <Text style={styles.addressName}>{item.contactName} • {item.contactPhone}</Text>
-              <Text style={styles.addressStreet}>{item.street}</Text>
-              {item.landmark ? <Text style={styles.addressLandmark}>Landmark: {item.landmark}</Text> : null}
-              <Text style={styles.addressCity}>{item.city}, {item.state} - {item.pincode}</Text>
+              <Text style={[styles.addressName, isDark && { color: colors.textHeading }]}>{item.contactName} • {item.contactPhone}</Text>
+              <Text style={[styles.addressStreet, isDark && { color: colors.textBody }]}>{item.street}</Text>
+              {item.landmark ? <Text style={[styles.addressLandmark, isDark && { color: colors.textCaption }]}>Landmark: {item.landmark}</Text> : null}
+              <Text style={[styles.addressCity, isDark && { color: colors.textCaption }]}>{item.city}, {item.state} - {item.pincode}</Text>
 
-              <View style={styles.addressActions}>
+              <View style={[styles.addressActions, isDark && { borderTopColor: colors.border }]}>
                 <Pressable
-                  style={styles.deleteBtn}
+                  style={[styles.deleteBtn, isDark && { backgroundColor: 'rgba(239, 68, 68, 0.15)' }]}
                   onPress={() => {
                     Alert.alert('Delete Address', 'Are you sure you want to remove this saved address?', [
                       { text: 'Cancel', style: 'cancel' },

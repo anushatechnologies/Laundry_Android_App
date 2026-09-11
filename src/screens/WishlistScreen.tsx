@@ -12,16 +12,20 @@ import {
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useApp } from '@/context/AppContext';
+import { useToast } from '@/context/ToastContext';
 import { useTheme } from '@/context/ThemeContext';
 import { getGarmentImageUrl } from '@/lib/garment-photos';
+import type { ProductItem, ServicePriceOption } from '@/types/domain';
 
 interface WishlistScreenProps {
   onBook: () => void;
   onExploreServices: () => void;
+  onSelectProduct?: (product: ProductItem) => void;
 }
 
-export function WishlistScreen({ onBook, onExploreServices }: WishlistScreenProps) {
-  const { colors } = useTheme();
+export function WishlistScreen({ onBook, onExploreServices, onSelectProduct }: WishlistScreenProps) {
+  const { colors, isDark } = useTheme();
+  const { toast } = useToast();
   const {
     wishlist,
     toggleWishlist,
@@ -33,7 +37,6 @@ export function WishlistScreen({ onBook, onExploreServices }: WishlistScreenProp
     refreshCatalog,
   } = useApp();
 
-  const [notification, setNotification] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [failedImages, setFailedImages] = useState<Record<string, boolean>>({});
 
@@ -51,11 +54,6 @@ export function WishlistScreen({ onBook, onExploreServices }: WishlistScreenProp
     }
   }, [refreshCatalog]);
 
-  const showToast = (msg: string) => {
-    setNotification(msg);
-    setTimeout(() => setNotification(null), 2500);
-  };
-
   // 1. Safely normalize wishlist into clean string IDs
   const safeWishlist: string[] = useMemo(() => {
     if (!Array.isArray(wishlist)) return [];
@@ -70,7 +68,7 @@ export function WishlistScreen({ onBook, onExploreServices }: WishlistScreenProp
       .filter((id): id is string => Boolean(id && id.length > 0));
   }, [wishlist]);
 
-  // 2. Safe mapping of wishlist items against catalog
+  // 2. Safe mapping of wishlist items against catalog with complete ProductItem domain objects
   const wishlistItems = useMemo(() => {
     try {
       return safeWishlist
@@ -78,50 +76,117 @@ export function WishlistScreen({ onBook, onExploreServices }: WishlistScreenProp
           if (!id || typeof id !== 'string') return null;
 
           const cloth = catalog?.clothTypes?.find((c) => c && String(c.id) === String(id));
-          if (cloth) {
-            const prices = Array.isArray(catalog?.priceMatrix)
-              ? catalog.priceMatrix.filter(
-                  (p) => p && String(p.clothTypeId) === String(cloth.id) && p.isActive
-                )
-              : [];
+          const cleanName = id.replace(/^cloth-/, '').replace(/-/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase());
 
-            const primaryPrice =
-              prices.find(
-                (p) =>
-                  p?.serviceName &&
-                  typeof p.serviceName === 'string' &&
-                  p.serviceName.toLowerCase().includes('dry clean')
-              ) || prices[0];
+          const prices = Array.isArray(catalog?.priceMatrix)
+            ? catalog.priceMatrix.filter(
+                (p) => p && String(p.clothTypeId || (p as any).clothId) === String(id) && p.isActive !== false
+              )
+            : [];
 
-            const clothImg =
-              cloth.imageUrl ||
-              getGarmentImageUrl(cloth.id, undefined, cloth.categoryTag);
+          const primaryPrice =
+            prices.find(
+              (p) =>
+                p?.serviceName &&
+                typeof p.serviceName === 'string' &&
+                p.serviceName.toLowerCase().includes('dry clean')
+            ) || prices[0];
 
+          const clothImg =
+            cloth?.imageUrl ||
+            getGarmentImageUrl(id, undefined, cloth?.categoryTag, cloth?.name || cleanName);
+
+          const rawServices: ServicePriceOption[] = prices.map((pm) => {
+            const sName = pm.serviceName || 'Standard Care';
+            let sCode = ((pm as any).serviceCode || '').toUpperCase();
+            if (!sCode) {
+              if (sName.toLowerCase().includes('dry')) sCode = 'DRY_CLEAN';
+              else if (sName.toLowerCase().includes('press') || sName.toLowerCase().includes('steam') || sName.toLowerCase().includes('iron')) sCode = 'PRESS';
+              else if (sName.toLowerCase().includes('wash') && sName.toLowerCase().includes('fold')) sCode = 'WASH_FOLD';
+              else if (sName.toLowerCase().includes('wash')) sCode = 'WASH_IRON';
+              else if (sName.toLowerCase().includes('shoe')) sCode = 'SHOE_SPA';
+              else if (sName.toLowerCase().includes('saree') || sName.toLowerCase().includes('polish')) sCode = 'SAREE_POLISH';
+              else sCode = 'OTHER';
+            }
             return {
-              id: String(cloth.id),
-              name: String(cloth.name || 'Garment Item'),
-              category: String(cloth.categoryLabel || cloth.categoryTag || 'Fabric Care'),
-              serviceType: String(primaryPrice?.serviceName || 'Standard Care'),
-              serviceId: String(primaryPrice?.serviceId || ''),
-              tat: `${primaryPrice?.turnaroundHours || 24}H`,
-              price: Number(primaryPrice?.price || 0),
-              unit: 'pc',
-              imageUrl: clothImg,
+              serviceId: pm.serviceId || `srv-${id}-${sCode.toLowerCase()}`,
+              serviceName: sName,
+              displayName: sName,
+              shortLabel: sCode === 'PRESS' ? 'Press' : sCode === 'DRY_CLEAN' ? 'Dry Clean' : sCode === 'WASH_IRON' ? 'Wash+Iron' : sCode === 'WASH_FOLD' ? 'Wash+Fold' : sName,
+              serviceCode: sCode as any,
+              price: Number(pm.price) || 0,
+              icon: sCode === 'PRESS' ? 'iron' : sCode === 'DRY_CLEAN' ? 'coat-rack' : sCode === 'SHOE_SPA' ? 'shoe-sneaker' : 'washing-machine',
+              unit: (pm as any).unit || 'Piece',
+              turnaroundHours: Number(pm.turnaroundHours) || 24,
             };
-          }
+          });
 
-          // Fallback if cloth not in current catalog
-          const cleanName = id.replace('cloth-', '').replace(/-/g, ' ').toUpperCase();
+          // Standard fallback care services if catalog priceMatrix is unpopulated
+          const fallbackPrice = Number(primaryPrice?.price) || 60;
+          const services: ServicePriceOption[] = rawServices.length > 0 ? rawServices : [
+            {
+              serviceId: `srv-${id}-press`,
+              serviceName: 'Steam Press',
+              displayName: 'Steam Press',
+              shortLabel: 'Press',
+              serviceCode: 'PRESS' as any,
+              price: Math.round(fallbackPrice * 0.6) || 30,
+              icon: 'iron',
+              unit: 'Piece',
+              turnaroundHours: 24,
+            },
+            {
+              serviceId: `srv-${id}-wash-iron`,
+              serviceName: 'Wash & Steam Iron',
+              displayName: 'Wash & Steam Iron',
+              shortLabel: 'Wash+Iron',
+              serviceCode: 'WASH_IRON' as any,
+              price: fallbackPrice,
+              icon: 'washing-machine',
+              unit: 'Piece',
+              turnaroundHours: 48,
+            },
+            {
+              serviceId: `srv-${id}-dry-clean`,
+              serviceName: 'Dry Cleaning',
+              displayName: 'Dry Cleaning',
+              shortLabel: 'Dry Clean',
+              serviceCode: 'DRY_CLEAN' as any,
+              price: Math.round(fallbackPrice * 1.4) || 80,
+              icon: 'coat-rack',
+              unit: 'Piece',
+              turnaroundHours: 48,
+            },
+          ];
+
+          const validPrices = services.map((s) => s.price).filter((p) => p > 0);
+          const minPrice = validPrices.length > 0 ? Math.min(...validPrices) : fallbackPrice;
+
+          const productItem: ProductItem = {
+            id: String(cloth?.id || id),
+            name: String(cloth?.name || cleanName),
+            categoryTag: String(cloth?.categoryTag || 'MENS'),
+            categoryLabel: String(cloth?.categoryLabel || cloth?.categoryTag || "Men's Wear"),
+            subcategory: String((cloth as any)?.subCategory || (cloth as any)?.subcategory || 'Fabric Care'),
+            imageUrl: clothImg,
+            fallbackImageUrl: getGarmentImageUrl(id, undefined, cloth?.categoryTag, cloth?.name || cleanName),
+            description: cloth?.description || `Premium ozone sanitization, organic stain removal & precision steam finishing for ${cloth?.name || cleanName}.`,
+            services,
+            minPrice,
+          };
+
           return {
-            id: String(id),
-            name: cleanName || 'Garment Item',
-            category: 'Fabric Care',
-            serviceType: 'Standard Care',
-            serviceId: '',
-            tat: '24H',
-            price: 0,
+            id: String(cloth?.id || id),
+            name: String(cloth?.name || cleanName),
+            category: String(cloth?.categoryLabel || cloth?.categoryTag || "Men's Clothing"),
+            serviceType: String(primaryPrice?.serviceName || services[0]?.serviceName || 'Standard Care'),
+            serviceId: String(primaryPrice?.serviceId || services[0]?.serviceId || ''),
+            tat: `${primaryPrice?.turnaroundHours || services[0]?.turnaroundHours || 24}H`,
+            price: Number(primaryPrice?.price || services[0]?.price || minPrice),
             unit: 'pc',
-            imageUrl: getGarmentImageUrl(id),
+            imageUrl: clothImg,
+            productItem,
+            services,
           };
         })
         .filter((item): item is NonNullable<typeof item> => Boolean(item));
@@ -135,7 +200,14 @@ export function WishlistScreen({ onBook, onExploreServices }: WishlistScreenProp
     if (typeof toggleWishlist === 'function') {
       toggleWishlist(id);
     }
-    showToast(`Removed "${name}" from Wishlist`);
+    toast.info(`Removed "${name}" from Wishlist`, {
+      actionLabel: 'Undo',
+      onAction: () => {
+        if (typeof toggleWishlist === 'function') {
+          toggleWishlist(id);
+        }
+      },
+    });
   };
 
   const handleClearAll = () => {
@@ -151,7 +223,7 @@ export function WishlistScreen({ onBook, onExploreServices }: WishlistScreenProp
             if (typeof toggleWishlist === 'function') {
               [...safeWishlist].forEach((id) => toggleWishlist(id));
             }
-            showToast('Wishlist cleared');
+            toast.info('Wishlist cleared');
           },
         },
       ]
@@ -174,7 +246,16 @@ export function WishlistScreen({ onBook, onExploreServices }: WishlistScreenProp
         clothId: item.id,
         imageUrl: item.imageUrl,
       });
-      showToast(`Added ${item.name} to Bag! 🛍️`);
+      toast.cart(`Added ${item.name} to Bag! 🛍️`, {
+        subtitle: `${item.serviceType} • ₹${item.price}`,
+        thumbnail: item.imageUrl,
+        actionLabel: 'View Bag',
+        onAction: () => {
+          if (typeof onBook === 'function') {
+            onBook();
+          }
+        },
+      });
     }
   };
 
@@ -198,19 +279,24 @@ export function WishlistScreen({ onBook, onExploreServices }: WishlistScreenProp
         });
       });
     }
-    if (typeof onBook === 'function') {
-      onBook();
-    }
+    toast.cart(`Added all ${wishlistItems.length} items to Bag! 🛍️`, {
+      actionLabel: 'View Bag',
+      onAction: () => {
+        if (typeof onBook === 'function') {
+          onBook();
+        }
+      },
+    });
   };
 
   if (wishlistItems.length === 0) {
     return (
-      <View style={styles.emptyContainer}>
-        <View style={styles.emptyIconWrap}>
+      <View style={[styles.emptyContainer, isDark && { backgroundColor: colors.background }]}>
+        <View style={[styles.emptyIconWrap, isDark && { backgroundColor: colors.surface, borderColor: colors.border }]}>
           <MaterialCommunityIcons name="heart-outline" size={56} color="#16A34A" />
         </View>
-        <Text style={styles.emptyTitle}>Your Wishlist is Empty</Text>
-        <Text style={styles.emptySubtitle}>
+        <Text style={[styles.emptyTitle, isDark && { color: colors.textHeading }]}>Your Wishlist is Empty</Text>
+        <Text style={[styles.emptySubtitle, isDark && { color: colors.textCaption }]}>
           Save garments, ethnic wear, and household linen you plan to wash or dry clean. Tap the heart icon on any item to save it here!
         </Text>
         <Pressable
@@ -237,13 +323,6 @@ export function WishlistScreen({ onBook, onExploreServices }: WishlistScreenProp
 
   return (
     <View style={[styles.root, { backgroundColor: colors.background }]}>
-      {/* Dynamic Toast Feedback */}
-      {notification && (
-        <View style={styles.toastBanner}>
-          <MaterialCommunityIcons name="check-circle" size={16} color="#16A34A" />
-          <Text style={styles.toastText} numberOfLines={1}>{notification}</Text>
-        </View>
-      )}
 
       <ScrollView
         contentContainerStyle={styles.content}
@@ -260,12 +339,16 @@ export function WishlistScreen({ onBook, onExploreServices }: WishlistScreenProp
         {/* Header Bar */}
         <View style={styles.headerRow}>
           <View>
-            <Text style={styles.headerTitle}>My Wishlist</Text>
-            <Text style={styles.headerSubtitle}>
+            <Text style={[styles.headerTitle, isDark && { color: colors.textHeading }]}>My Wishlist</Text>
+            <Text style={[styles.headerSubtitle, isDark && { color: colors.textCaption }]}>
               {wishlistItems.length} {wishlistItems.length === 1 ? 'item' : 'items'} saved for care
             </Text>
           </View>
-          <Pressable style={styles.clearAllBtn} onPress={handleClearAll} hitSlop={8}>
+          <Pressable
+            style={[styles.clearAllBtn, isDark && { backgroundColor: 'rgba(239, 68, 68, 0.15)', borderColor: 'rgba(239, 68, 68, 0.3)' }]}
+            onPress={handleClearAll}
+            hitSlop={8}
+          >
             <MaterialCommunityIcons name="trash-can-outline" size={15} color="#EF4444" />
             <Text style={styles.clearAllText}>Clear All</Text>
           </Pressable>
@@ -291,9 +374,15 @@ export function WishlistScreen({ onBook, onExploreServices }: WishlistScreenProp
             const isImageFailed = failedImages[item.id];
 
             return (
-              <View key={item.id} style={styles.card}>
-                {/* Left Photo */}
-                <View style={styles.imageContainer}>
+              <View key={item.id} style={[styles.card, isDark && { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                {/* Left Photo - Tappable to open product details */}
+                <Pressable
+                  style={[styles.imageContainer, isDark && { backgroundColor: colors.surface }]}
+                  onPress={() => onSelectProduct?.(item.productItem)}
+                  accessibilityRole="button"
+                  accessibilityLabel={`View details for ${item.name}`}
+                  hitSlop={4}
+                >
                   {item.imageUrl && !isImageFailed ? (
                     <Image
                       source={{ uri: item.imageUrl }}
@@ -302,48 +391,62 @@ export function WishlistScreen({ onBook, onExploreServices }: WishlistScreenProp
                       onError={() => setFailedImages((prev) => ({ ...prev, [item.id]: true }))}
                     />
                   ) : (
-                    <View style={styles.imageFallback}>
-                      <MaterialCommunityIcons name="hanger" size={32} color="#CBD5E1" />
+                    <View style={[styles.imageFallback, isDark && { backgroundColor: colors.surface }]}>
+                      <MaterialCommunityIcons name="hanger" size={32} color={isDark ? colors.textCaption : '#CBD5E1'} />
                     </View>
                   )}
                   <View style={styles.tatBadge}>
                     <MaterialCommunityIcons name="clock-fast" size={10} color="#FFFFFF" />
                     <Text style={styles.tatBadgeText}>{item.tat}</Text>
                   </View>
-                </View>
+                </Pressable>
 
                 {/* Right Details */}
                 <View style={styles.details}>
-                  <View>
+                  {/* Top Details - Tappable to open product details */}
+                  <Pressable
+                    style={styles.detailsTopPressable}
+                    onPress={() => onSelectProduct?.(item.productItem)}
+                    accessibilityRole="button"
+                    accessibilityLabel={`View details for ${item.name}`}
+                    hitSlop={4}
+                  >
                     <View style={styles.catRow}>
                       <Text style={styles.category} numberOfLines={1}>
                         {item.category}
                       </Text>
+                      <View style={styles.viewDetailHint}>
+                        <Text style={[styles.viewDetailText, isDark && { color: colors.textCaption }]}>Details</Text>
+                        <MaterialCommunityIcons name="chevron-right" size={13} color={isDark ? colors.textCaption : '#94A3B8'} />
+                      </View>
                     </View>
-                    <Text style={styles.name} numberOfLines={1}>
+                    <Text style={[styles.name, isDark && { color: colors.textHeading }]} numberOfLines={1}>
                       {item.name}
                     </Text>
-                    <Text style={styles.serviceType} numberOfLines={1}>
-                      {item.serviceType}
-                    </Text>
-                  </View>
+                    <View style={styles.serviceRow}>
+                      <MaterialCommunityIcons name="coat-rack" size={12} color={isDark ? '#34D399' : '#0F766E'} />
+                      <Text style={[styles.serviceType, isDark && { color: colors.textCaption }]} numberOfLines={1}>
+                        {item.serviceType}
+                      </Text>
+                    </View>
+                  </Pressable>
 
                   {/* Price and Actions */}
                   <View style={styles.bottomRow}>
                     <View style={styles.priceWrap}>
-                      <Text style={styles.price}>₹{item.price}</Text>
-                      <Text style={styles.unit}>/{item.unit}</Text>
+                      <Text style={[styles.price, isDark && { color: colors.textHeading }]}>₹{item.price}</Text>
+                      <Text style={[styles.unit, isDark && { color: colors.textCaption }]}>/{item.unit}</Text>
                     </View>
 
                     <View style={styles.actions}>
                       {/* Explicit REMOVE Button */}
                       <Pressable
-                        style={styles.removeBtn}
+                        style={[styles.removeBtn, isDark && { backgroundColor: 'rgba(239, 68, 68, 0.15)', borderColor: 'rgba(239, 68, 68, 0.3)' }]}
                         onPress={() => handleRemoveFromWishlist(item.id, item.name)}
                         hitSlop={8}
                         accessibilityLabel="Remove from Wishlist"
                       >
-                        <MaterialCommunityIcons name="trash-can-outline" size={15} color="#EF4444" />
+                        <MaterialCommunityIcons name="trash-can-outline" size={14} color="#EF4444" />
                         <Text style={styles.removeBtnText}>Remove</Text>
                       </Pressable>
 
@@ -357,7 +460,10 @@ export function WishlistScreen({ onBook, onExploreServices }: WishlistScreenProp
                                 if (typeof removeFromCart === 'function') {
                                   removeFromCart(foundInCart.id);
                                 }
-                                showToast(`Removed "${item.name}" from Bag`);
+                                toast.info(`Removed "${item.name}" from Bag`, {
+                                  actionLabel: 'Undo',
+                                  onAction: () => handleAddToCart(item),
+                                });
                               } else {
                                 if (typeof setCartQuantity === 'function') {
                                   setCartQuantity(foundInCart.id, foundInCart.quantity - 1);
@@ -404,10 +510,10 @@ export function WishlistScreen({ onBook, onExploreServices }: WishlistScreenProp
       </ScrollView>
 
       {/* Floating Bottom Action Bar */}
-      <View style={styles.bottomBar}>
+      <View style={[styles.bottomBar, isDark && { backgroundColor: colors.surface, borderTopColor: colors.border }]}>
         <View style={styles.bottomBarInfo}>
-          <Text style={styles.bottomBarCount}>{wishlistItems.length} Saved {wishlistItems.length === 1 ? 'Item' : 'Items'}</Text>
-          <Text style={styles.bottomBarNote}>Doorstep pickup & expert fabric care</Text>
+          <Text style={[styles.bottomBarCount, isDark && { color: colors.textHeading }]}>{wishlistItems.length} Saved {wishlistItems.length === 1 ? 'Item' : 'Items'}</Text>
+          <Text style={[styles.bottomBarNote, isDark && { color: colors.textCaption }]}>Doorstep pickup & expert fabric care</Text>
         </View>
         <View style={styles.bottomBarButtons}>
           <Pressable style={styles.addAllBtn} onPress={handleAddAllToCart}>
@@ -605,9 +711,13 @@ const styles = StyleSheet.create({
     padding: 12,
     justifyContent: 'space-between',
   },
+  detailsTopPressable: {
+    paddingBottom: 2,
+  },
   catRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
   },
   category: {
     fontSize: 11,
@@ -616,16 +726,31 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     letterSpacing: 0.6,
   },
+  viewDetailHint: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 1,
+  },
+  viewDetailText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#94A3B8',
+  },
   name: {
     fontSize: 15,
     fontWeight: '900',
     color: '#1C0B18',
     marginTop: 2,
   },
+  serviceRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 2,
+  },
   serviceType: {
     fontSize: 12,
     color: '#8A7A84',
-    marginTop: 1,
     fontWeight: '600',
   },
   bottomRow: {

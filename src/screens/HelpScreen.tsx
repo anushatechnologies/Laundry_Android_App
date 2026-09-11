@@ -60,7 +60,7 @@ const FAQS: FAQItem[] = [
 ];
 
 export function HelpScreen() {
-  const { colors } = useTheme();
+  const { isDark, colors } = useTheme();
   const [activeCategory, setActiveCategory] = useState<'ALL' | 'PICKUP' | 'PRICING' | 'CARE' | 'GUARANTEE'>('ALL');
   const [expandedFaqId, setExpandedFaqId] = useState<string | null>('f1');
   const [issueText, setIssueText] = useState('');
@@ -112,22 +112,22 @@ export function HelpScreen() {
           <Text style={styles.contactTileSubWhatsApp}>Instant Reply • 7am-10pm</Text>
         </Pressable>
 
-        <Pressable style={styles.contactTileCall} onPress={callSupport}>
-          <View style={styles.contactIconCircleCall}>
+        <Pressable style={[styles.contactTileCall, { backgroundColor: colors.surface, borderColor: colors.border }]} onPress={callSupport}>
+          <View style={[styles.contactIconCircleCall, { backgroundColor: isDark ? colors.section : '#FFF7ED' }]}>
             <MaterialCommunityIcons name="phone" size={22} color="#F97316" />
           </View>
-          <Text style={styles.contactTileTitleCall}>Call Helpline</Text>
-          <Text style={styles.contactTileSubCall}>+91 8522918866</Text>
+          <Text style={[styles.contactTileTitleCall, { color: colors.textHeading }]}>Call Helpline</Text>
+          <Text style={[styles.contactTileSubCall, { color: colors.textCaption }]}>+91 8522918866</Text>
         </Pressable>
       </View>
 
       {/* 2. QUALITY PROMISES BANNER */}
-      <Card style={styles.guaranteeCard}>
+      <Card style={[styles.guaranteeCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
         <View style={styles.guaranteeRow}>
           <MaterialCommunityIcons name="shield-check" size={24} color="#16A34A" />
           <View style={{ flex: 1 }}>
-            <Text style={styles.guaranteeTitle}>LaundryFresh 100% Care Promise</Text>
-            <Text style={styles.guaranteeSub}>
+            <Text style={[styles.guaranteeTitle, { color: colors.textHeading }]}>LaundryFresh 100% Care Promise</Text>
+            <Text style={[styles.guaranteeSub, { color: colors.textCaption }]}>
               Zero Color Bleed • Free Re-wash Guarantee • Safe Fabric Insurance
             </Text>
           </View>
@@ -136,7 +136,7 @@ export function HelpScreen() {
 
       {/* 3. FAQ SECTION */}
       <View style={styles.faqSection}>
-        <Text style={styles.sectionHeaderTitle}>Frequently Asked Questions</Text>
+        <Text style={[styles.sectionHeaderTitle, { color: colors.textHeading }]}>Frequently Asked Questions</Text>
 
         {/* Category Pills */}
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.pillsScroll}>
@@ -151,10 +151,23 @@ export function HelpScreen() {
             return (
               <Pressable
                 key={c.key}
-                style={[styles.catPill, isSelected && styles.catPillActive]}
+                style={[
+                  styles.catPill,
+                  { backgroundColor: colors.surface, borderColor: colors.border },
+                  isSelected && {
+                    backgroundColor: isDark ? '#F97316' : '#1C0B18',
+                    borderColor: isDark ? '#F97316' : '#1C0B18',
+                  },
+                ]}
                 onPress={() => setActiveCategory(c.key as any)}
               >
-                <Text style={[styles.catPillText, isSelected && styles.catPillTextActive]}>
+                <Text
+                  style={[
+                    styles.catPillText,
+                    { color: isSelected ? '#FFFFFF' : colors.textCaption },
+                    isSelected && styles.catPillTextActive,
+                  ]}
+                >
                   {c.label}
                 </Text>
               </Pressable>
@@ -167,12 +180,12 @@ export function HelpScreen() {
           {filteredFaqs.map((faq) => {
             const isExpanded = expandedFaqId === faq.id;
             return (
-              <Card key={faq.id} style={styles.faqCard}>
+              <Card key={faq.id} style={[styles.faqCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
                 <Pressable
                   style={styles.faqQuestionRow}
                   onPress={() => setExpandedFaqId(isExpanded ? null : faq.id)}
                 >
-                  <Text style={styles.faqQuestionText}>{faq.question}</Text>
+                  <Text style={[styles.faqQuestionText, { color: colors.textHeading }]}>{faq.question}</Text>
                   <MaterialCommunityIcons
                     name={isExpanded ? 'chevron-up' : 'chevron-down'}
                     size={20}
@@ -181,8 +194,8 @@ export function HelpScreen() {
                 </Pressable>
 
                 {isExpanded && (
-                  <View style={styles.faqAnswerBox}>
-                    <Text style={styles.faqAnswerText}>{faq.answer}</Text>
+                  <View style={[styles.faqAnswerBox, { borderTopColor: colors.border }]}>
+                    <Text style={[styles.faqAnswerText, { color: colors.textBody }]}>{faq.answer}</Text>
                   </View>
                 )}
               </Card>
@@ -192,16 +205,19 @@ export function HelpScreen() {
       </View>
 
       {/* 4. REPORT ISSUE / RE-WASH REQUEST FORM */}
-      <Card style={styles.ticketCard}>
-        <Text style={styles.ticketTitle}>Need a Free Re-Wash or Have a Feedback?</Text>
-        <Text style={styles.ticketSubtitle}>
+      <Card style={[styles.ticketCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+        <Text style={[styles.ticketTitle, { color: colors.textHeading }]}>Need a Free Re-Wash or Have a Feedback?</Text>
+        <Text style={[styles.ticketSubtitle, { color: colors.textCaption }]}>
           Let our Master Garment Specialists resolve any stain or press quality concern.
         </Text>
 
         <TextInput
-          style={styles.ticketInput}
+          style={[
+            styles.ticketInput,
+            { backgroundColor: isDark ? colors.section : '#FAF5EF', borderColor: colors.border, color: colors.textHeading },
+          ]}
           placeholder="Describe your issue or order ID (e.g. Collar crease on order #1042)..."
-          placeholderTextColor="#A1A1AA"
+          placeholderTextColor={colors.textCaption}
           value={issueText}
           onChangeText={setIssueText}
           multiline
@@ -221,8 +237,8 @@ export function HelpScreen() {
 
       {/* Email Link */}
       <Pressable style={styles.emailRow} onPress={emailSupport}>
-        <MaterialCommunityIcons name="email-outline" size={18} color="#8A7A84" />
-        <Text style={styles.emailText}>Email: support@anushatechnologies.com</Text>
+        <MaterialCommunityIcons name="email-outline" size={18} color={colors.textCaption} />
+        <Text style={[styles.emailText, { color: colors.textCaption }]}>Email: support@anushatechnologies.com</Text>
       </Pressable>
     </ScrollView>
   );

@@ -60,7 +60,7 @@ const GIFT_THEMES: GiftCardTheme[] = [
 const CARD_AMOUNTS = [500, 1000, 2500, 5000];
 
 export function GiftCardsScreen() {
-    const { colors } = useTheme();
+  const { isDark, colors } = useTheme();
   const [selectedTheme, setSelectedTheme] = useState<GiftCardTheme>(GIFT_THEMES[0] || GIFT_THEMES[0]!);
   const [selectedAmount, setSelectedAmount] = useState(1000);
   const [recipientName, setRecipientName] = useState('');
@@ -98,20 +98,20 @@ export function GiftCardsScreen() {
   return (
     <ScrollView style={[styles.root, { backgroundColor: colors.background }]} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
       {/* 1. VOUCHER REDEEM BOX */}
-      <Card style={styles.redeemCard}>
-        <Text style={styles.redeemTitle}>Have a Gift Card Voucher?</Text>
-        <Text style={styles.redeemSubtitle}>Redeem your code for instant wallet balance</Text>
+      <Card style={[styles.redeemCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+        <Text style={[styles.redeemTitle, { color: colors.textHeading }]}>Have a Gift Card Voucher?</Text>
+        <Text style={[styles.redeemSubtitle, { color: colors.textCaption }]}>Redeem your code for instant wallet balance</Text>
 
         <View style={styles.redeemInputRow}>
           <TextInput
-            style={styles.redeemInput}
+            style={[styles.redeemInput, { backgroundColor: isDark ? colors.section : '#FAF5EF', borderColor: colors.border, color: colors.textHeading }]}
             placeholder="Enter voucher code (e.g. GIFT1000)"
-            placeholderTextColor="#A1A1AA"
+            placeholderTextColor={colors.textCaption}
             value={voucherCode}
             onChangeText={setVoucherCode}
             autoCapitalize="characters"
           />
-          <Pressable style={styles.redeemBtn} onPress={handleRedeemVoucher}>
+          <Pressable style={[styles.redeemBtn, { backgroundColor: isDark ? '#F97316' : '#1C0B18' }]} onPress={handleRedeemVoucher}>
             <Text style={styles.redeemBtnText}>Redeem</Text>
           </Pressable>
         </View>
@@ -137,7 +137,7 @@ export function GiftCardsScreen() {
 
       {/* 3. SELECT THEME PILLS */}
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>1. Choose Card Occasion Theme</Text>
+        <Text style={[styles.sectionTitle, { color: colors.textHeading }]}>1. Choose Card Occasion Theme</Text>
 
         <View style={styles.themeGrid}>
           {GIFT_THEMES.map((theme) => {
@@ -145,15 +145,23 @@ export function GiftCardsScreen() {
             return (
               <Pressable
                 key={theme.id}
-                style={[styles.themePill, isSelected && styles.themePillActive]}
+                style={[
+                  styles.themePill,
+                  { backgroundColor: colors.surface, borderColor: colors.border },
+                  isSelected && {
+                    borderColor: '#F97316',
+                    borderWidth: 1.5,
+                    backgroundColor: isDark ? 'rgba(249, 115, 22, 0.15)' : '#FFFDF9',
+                  },
+                ]}
                 onPress={() => setSelectedTheme(theme)}
               >
                 <MaterialCommunityIcons
                   name={theme.icon as any}
                   size={18}
-                  color={isSelected ? '#F97316' : '#1C0B18'}
+                  color={isSelected ? '#F97316' : colors.textHeading}
                 />
-                <Text style={[styles.themePillText, isSelected && styles.themePillTextActive]}>
+                <Text style={[styles.themePillText, { color: colors.textHeading }, isSelected && styles.themePillTextActive]}>
                   {theme.title}
                 </Text>
               </Pressable>
@@ -164,7 +172,7 @@ export function GiftCardsScreen() {
 
       {/* 4. SELECT AMOUNT */}
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>2. Choose Gift Value</Text>
+        <Text style={[styles.sectionTitle, { color: colors.textHeading }]}>2. Choose Gift Value</Text>
 
         <View style={styles.amountsRow}>
           {CARD_AMOUNTS.map((amt) => {
@@ -172,10 +180,14 @@ export function GiftCardsScreen() {
             return (
               <Pressable
                 key={amt}
-                style={[styles.amountTile, isSelected && styles.amountTileActive]}
+                style={[
+                  styles.amountTile,
+                  { backgroundColor: colors.surface, borderColor: colors.border },
+                  isSelected && { backgroundColor: isDark ? '#F97316' : '#1C0B18', borderColor: isDark ? '#F97316' : '#1C0B18' },
+                ]}
                 onPress={() => setSelectedAmount(amt)}
               >
-                <Text style={[styles.amountTileText, isSelected && styles.amountTileTextActive]}>
+                <Text style={[styles.amountTileText, { color: colors.textHeading }, isSelected && styles.amountTileTextActive]}>
                   ₹{amt}
                 </Text>
               </Pressable>
@@ -185,34 +197,34 @@ export function GiftCardsScreen() {
       </View>
 
       {/* 5. RECIPIENT DETAILS */}
-      <Card style={styles.formCard}>
-        <Text style={styles.sectionTitle}>3. Recipient Details</Text>
+      <Card style={[styles.formCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+        <Text style={[styles.sectionTitle, { color: colors.textHeading }]}>3. Recipient Details</Text>
 
         <View style={styles.formGroup}>
-          <Text style={styles.formLabel}>Recipient Full Name *</Text>
+          <Text style={[styles.formLabel, { color: colors.textHeading }]}>Recipient Full Name *</Text>
           <TextInput
-            style={styles.formInput}
+            style={[styles.formInput, { backgroundColor: isDark ? colors.section : '#FAF5EF', borderColor: colors.border, color: colors.textHeading }]}
             placeholder="e.g. Sravanthi Reddy"
-            placeholderTextColor="#A1A1AA"
+            placeholderTextColor={colors.textCaption}
             value={recipientName}
             onChangeText={setRecipientName}
           />
 
-          <Text style={[styles.formLabel, { marginTop: 10 }]}>Recipient Mobile Number (for WhatsApp Delivery) *</Text>
+          <Text style={[styles.formLabel, { color: colors.textHeading, marginTop: 10 }]}>Recipient Mobile Number (for WhatsApp Delivery) *</Text>
           <TextInput
-            style={styles.formInput}
+            style={[styles.formInput, { backgroundColor: isDark ? colors.section : '#FAF5EF', borderColor: colors.border, color: colors.textHeading }]}
             placeholder="e.g. 9876543210"
-            placeholderTextColor="#A1A1AA"
+            placeholderTextColor={colors.textCaption}
             keyboardType="phone-pad"
             value={recipientPhone}
             onChangeText={setRecipientPhone}
           />
 
-          <Text style={[styles.formLabel, { marginTop: 10 }]}>Custom Gift Message (Optional)</Text>
+          <Text style={[styles.formLabel, { color: colors.textHeading, marginTop: 10 }]}>Custom Gift Message (Optional)</Text>
           <TextInput
-            style={styles.notesInput}
+            style={[styles.notesInput, { backgroundColor: isDark ? colors.section : '#FAF5EF', borderColor: colors.border, color: colors.textHeading }]}
             placeholder="Wishing you a wonderful wedding celebration! Enjoy fresh garment care on us."
-            placeholderTextColor="#A1A1AA"
+            placeholderTextColor={colors.textCaption}
             value={giftNote}
             onChangeText={setGiftNote}
             multiline

@@ -74,8 +74,37 @@ export function AppButton({ title, onPress, variant = 'primary', loading, disabl
 
 /** Surface uses Paper elevation while preserving the familiar Card API used by every screen. */
 export function Card({ children, style }: PropsWithChildren<{ style?: StyleProp<ViewStyle> }>) {
-  const { colors } = useTheme();
-  return <Surface elevation={1} style={[styles.card, { backgroundColor: colors.surface }, style]}>{children}</Surface>;
+  const { colors, isDark } = useTheme();
+  const flat = StyleSheet.flatten(style) || {};
+  const isLightBg = !flat.backgroundColor ||
+    flat.backgroundColor === '#FFFFFF' ||
+    flat.backgroundColor === '#fff' ||
+    flat.backgroundColor === '#FAF5EF' ||
+    flat.backgroundColor === '#F8FAFC' ||
+    flat.backgroundColor === '#F1F5F9' ||
+    flat.backgroundColor === 'white';
+  const isLightBorder = !flat.borderColor ||
+    flat.borderColor === '#E2E8F0' ||
+    flat.borderColor === '#F3E8DF' ||
+    flat.borderColor === '#E5E7EB' ||
+    flat.borderColor === '#F7F2EE' ||
+    flat.borderColor === '#CBD5E1' ||
+    flat.borderColor === COLORS.line;
+
+  return (
+    <Surface
+      elevation={1}
+      style={[
+        styles.card,
+        { backgroundColor: colors.surface, borderColor: colors.border, shadowColor: isDark ? '#000000' : colors.primaryDark },
+        style,
+        isDark && isLightBg && { backgroundColor: colors.surface },
+        isDark && isLightBorder && { borderColor: colors.border },
+      ]}
+    >
+      {children}
+    </Surface>
+  );
 }
 
 export function ScreenSection({ children, style }: PropsWithChildren<{ style?: StyleProp<ViewStyle> }>) {
@@ -104,7 +133,7 @@ export function AppInput({ label, containerStyle, style, ...props }: AppInputPro
         activeOutlineColor={colors.primary}
         textColor={colors.ink}
         outlineStyle={styles.inputOutline}
-        style={[styles.input, style as unknown as StyleProp<TextStyle>]}
+        style={[styles.input, { backgroundColor: colors.surface }, style as unknown as StyleProp<TextStyle>]}
         contentStyle={[styles.inputContent, style as unknown as StyleProp<TextStyle>]}
         {...props}
       />
@@ -120,7 +149,7 @@ export function Chip({ label, active, onPress }: { label: string; active?: boole
       selected={active}
       showSelectedCheck={false}
       onPress={onPress}
-      style={[styles.chip, { borderColor: colors.line }, active && { backgroundColor: colors.primary, borderColor: colors.primary }]}
+      style={[styles.chip, { borderColor: colors.line, backgroundColor: colors.surface }, active && { backgroundColor: colors.primary, borderColor: colors.primary }]}
       textStyle={[styles.chipText, { color: active ? colors.white : colors.textBody }]}
     >
       {label}

@@ -1,7 +1,9 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import {
   ActivityIndicator,
+  FlatList,
   Image,
+  Platform,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -11,13 +13,16 @@ import {
   View,
   useWindowDimensions,
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useApp } from '@/context/AppContext';
+import { useToast } from '@/context/ToastContext';
 import { useTheme } from '@/context/ThemeContext';
 import { api } from '@/lib/api';
 import { getGarmentImageUrl } from '@/lib/garment-photos';
 import { getCategoryImageUrl, getSubcategoryImageUrl } from '@/lib/category-photos';
+import { AnimatedCartButton } from '@/components/AnimatedCartButton';
 import type { Catalog } from '@/types/domain';
 
 interface CategoryCatalogScreenProps {
@@ -98,6 +103,11 @@ const SERVICE_FILTERS: Array<{ key: CatalogServiceFilter; label: string; icon: s
   { key: 'STARCH', label: 'Starch & Crisp', icon: 'sparkles' },
   { key: 'EXPRESS', label: 'Express 24h', icon: 'lightning-bolt' },
 ];
+
+const SERVICE_FILTER_ORDER_MAP: Record<string, number> = {};
+SERVICE_FILTERS.forEach((filter, idx) => {
+  SERVICE_FILTER_ORDER_MAP[filter.key] = idx;
+});
 
 function normalizeCategoryTag(tag?: string): string {
   const normalized = (tag || 'MENS').toUpperCase().trim().replace(/_/g, '-');
@@ -209,6 +219,356 @@ function matchesSubcategoryKeyword(name: string, sub: string): boolean {
   return false;
 }
 
+// In-memory catalog cache for INSTANT screen transitions (<16ms)
+let cachedDynamicCatalog: Catalog | null = null;
+let lastCatalogFetchTime = 0;
+const CATALOG_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+const CACHED_CATALOG_STORAGE_KEY = '@laundryfresh_cached_catalog_v2';
+
+// Immediately hydrate from local storage on module initialization (<5ms)
+void (async () => {
+  try {
+    const raw = await AsyncStorage.getItem(CACHED_CATALOG_STORAGE_KEY);
+    if (raw && !cachedDynamicCatalog) {
+      cachedDynamicCatalog = JSON.parse(raw);
+    }
+  } catch {}
+})();
+
+// Global prefetch utility to pre-warm catalog in background on app launch
+export async function prefetchCatalog(): Promise<void> {
+  const now = Date.now();
+  if (cachedDynamicCatalog && now - lastCatalogFetchTime < CATALOG_CACHE_TTL) {
+    return;
+  }
+  try {
+    const res = await api.getCatalog();
+    let rawCatalog: Catalog | null = null;
+    if (res && typeof res === 'object') {
+      if ('data' in res && (res as any).data) {
+        rawCatalog = (res as any).data as Catalog;
+      } else if ('clothTypes' in res) {
+        rawCatalog = res as Catalog;
+      }
+    }
+
+    if (rawCatalog && Array.isArray(rawCatalog.clothTypes)) {
+      let cloths = rawCatalog.clothTypes;
+      const [hiddenSet, clothOverrides] = await Promise.all([
+        (api as any).getHiddenGarmentIds ? (api as any).getHiddenGarmentIds().catch(() => new Set<string>()) : Promise.resolve(new Set<string>()),
+        (api as any).getClothOverrides ? (api as any).getClothOverrides().catch(() => ({})) : Promise.resolve({}),
+      ]);
+      if (hiddenSet && hiddenSet.size > 0) {
+        cloths = cloths.filter((item: any) => !hiddenSet.has(item.id));
+      }
+      if (clothOverrides && typeof clothOverrides === 'object') {
+        cloths = cloths.map((item: any) =>
+          clothOverrides[item.id] ? { ...item, ...clothOverrides[item.id] } : item
+        );
+      }
+      rawCatalog = { ...rawCatalog, clothTypes: cloths };
+    }
+
+    if (rawCatalog) {
+      cachedDynamicCatalog = rawCatalog;
+      lastCatalogFetchTime = Date.now();
+      void AsyncStorage.setItem(CACHED_CATALOG_STORAGE_KEY, JSON.stringify(rawCatalog)).catch(() => {});
+    }
+  } catch (err) {
+    console.warn('[prefetchCatalog] error:', err);
+  }
+}
+
+interface ProductCardProps {
+  cloth: ProductItem;
+  cardWidth: number;
+  chosenService: ServicePriceOption;
+  cartQty: number;
+  isFavorite: boolean;
+  colors: any;
+  isDark: boolean;
+  onSelectProduct?: (product: ProductItem) => void;
+  onToggleWishlist: (clothId: string, clothName?: string) => void;
+  onSelectService: (clothId: string, serviceId: string) => void;
+  onAddToCart: (cloth: ProductItem, service: ServicePriceOption) => void;
+  onIncrement: (cloth: ProductItem, service: ServicePriceOption) => void;
+  onDecrement: (cloth: ProductItem, service: ServicePriceOption) => void;
+}
+
+const ProductCard = React.memo(function ProductCard({
+  cloth,
+  cardWidth,
+  chosenService,
+  cartQty,
+  isFavorite,
+  colors,
+  isDark,
+  onSelectProduct,
+  onToggleWishlist,
+  onSelectService,
+  onAddToCart,
+  onIncrement,
+  onDecrement,
+}: ProductCardProps) {
+  const [imageLoaded, setImageLoaded] = useState(false);
+  const [imageErrorLevel, setImageErrorLevel] = useState<'none' | 'primary' | 'all'>('none');
+
+  const primaryPhotoUrl = cloth.imageUrl
+    ? getGarmentImageUrl(cloth.id, cloth.imageUrl, cloth.categoryTag, cloth.name)
+    : cloth.fallbackImageUrl;
+
+  const photoUrl =
+    imageErrorLevel === 'all'
+      ? undefined
+      : imageErrorLevel === 'primary'
+      ? cloth.fallbackImageUrl
+      : primaryPhotoUrl;
+
+  const turnaround = formatTurnaround(chosenService.turnaroundHours);
+
+  return (
+    <View
+      style={[
+        styles.productCard,
+        {
+          width: cardWidth,
+          backgroundColor: colors.surface,
+          borderColor: colors.border,
+        },
+      ]}
+    >
+      {/* PRODUCT IMAGE (Elevated 136px height, clean cover crop) */}
+      <Pressable
+        style={[styles.cardImageContainer, { backgroundColor: colors.section }]}
+        onPress={() => onSelectProduct?.(cloth)}
+        accessibilityRole="button"
+        accessibilityLabel={`View details for ${cloth.name}`}
+      >
+        {photoUrl ? (
+          <>
+            <Image
+              source={{ uri: photoUrl }}
+              style={styles.cardImage}
+              resizeMode="cover"
+              onLoadEnd={() => setImageLoaded(true)}
+              onError={() => {
+                setImageErrorLevel((prev) =>
+                  prev === 'none' && primaryPhotoUrl !== cloth.fallbackImageUrl ? 'primary' : 'all'
+                );
+                setImageLoaded(true);
+              }}
+            />
+            {!imageLoaded && (
+              <View style={styles.imageLoadingOverlay}>
+                <ActivityIndicator size="small" color="#16A34A" />
+              </View>
+            )}
+          </>
+        ) : (
+          <View style={[styles.cardImageFallback, { backgroundColor: colors.section }]}>
+            <MaterialCommunityIcons name="tshirt-crew" size={34} color={colors.border} />
+          </View>
+        )}
+
+        {/* Subcategory Pill Tag */}
+        {(cloth.subcategory || cloth.categoryLabel) && (
+          <View
+            style={[
+              styles.cardSubcatBadge,
+              {
+                backgroundColor: isDark ? 'rgba(15, 23, 42, 0.88)' : 'rgba(255, 255, 255, 0.94)',
+                borderColor: colors.border,
+              },
+            ]}
+          >
+            <Text style={[styles.cardSubcatBadgeText, { color: colors.textBody }]} numberOfLines={1}>
+              {cloth.subcategory || cloth.categoryLabel}
+            </Text>
+          </View>
+        )}
+
+        {/* Favorite Heart Button */}
+        <Pressable
+          style={[styles.favoriteCircleBtn, { backgroundColor: colors.surface, borderColor: colors.border }]}
+          onPress={() => onToggleWishlist(cloth.id, cloth.name)}
+          hitSlop={6}
+          accessibilityRole="button"
+          accessibilityLabel={isFavorite ? `Remove ${cloth.name} from saved items` : `Save ${cloth.name}`}
+        >
+          <MaterialCommunityIcons
+            name={isFavorite ? 'heart' : 'heart-outline'}
+            size={15}
+            color={isFavorite ? '#EF4444' : colors.textCaption}
+          />
+        </Pressable>
+
+        {turnaround ? (
+          <View style={styles.turnaroundBadge}>
+            <MaterialCommunityIcons name="lightning-bolt" size={10} color="#16A34A" />
+            <Text style={styles.turnaroundBadgeText}>{turnaround} TAT</Text>
+          </View>
+        ) : null}
+      </Pressable>
+
+      {/* PRODUCT CARD BODY */}
+      <View style={styles.cardBody}>
+        {/* Title */}
+        <Pressable
+          onPress={() => onSelectProduct?.(cloth)}
+          accessibilityRole="button"
+          accessibilityLabel={`View details for ${cloth.name}`}
+        >
+          <View style={styles.titleRow}>
+            <Text style={[styles.productCardTitle, { color: colors.textHeading }]} numberOfLines={1}>
+              {cloth.name}
+            </Text>
+            <MaterialCommunityIcons name="chevron-right" size={14} color={colors.textCaption} />
+          </View>
+        </Pressable>
+
+        {/* Service Selector Mini-Pills */}
+        <View style={styles.serviceChipsWrap}>
+          {cloth.services.map((srv) => {
+            const isChosen = chosenService.serviceId === srv.serviceId;
+            const label =
+              srv.serviceCode === 'PRESS'
+                ? 'Press'
+                : srv.serviceCode === 'WASH_FOLD'
+                ? 'Wash'
+                : srv.serviceCode === 'WASH_IRON'
+                ? 'W+Iron'
+                : srv.serviceCode === 'DRY_CLEAN'
+                ? 'DryClean'
+                : srv.shortLabel || 'Care';
+
+            return (
+              <Pressable
+                key={srv.serviceId}
+                style={[
+                  styles.serviceMiniPill,
+                  { backgroundColor: colors.section, borderColor: colors.border },
+                  isChosen && styles.serviceMiniPillActive,
+                ]}
+                onPress={() => onSelectService(cloth.id, srv.serviceId)}
+                hitSlop={4}
+                accessibilityRole="radio"
+                accessibilityState={{ selected: isChosen }}
+                accessibilityLabel={`Choose ${srv.displayName} for ${cloth.name}, ₹${srv.price} per ${String(
+                  srv.unit || 'pc'
+                ).toLowerCase()}`}
+              >
+                <Text
+                  style={[
+                    styles.serviceMiniText,
+                    { color: colors.textBody },
+                    isChosen && styles.serviceMiniTextActive,
+                  ]}
+                  numberOfLines={1}
+                >
+                  {label}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+
+        {/* Price & Action Row */}
+        <View style={styles.priceAndActionRow}>
+          <View style={styles.priceCol}>
+            <Text style={[styles.priceText, { color: colors.textHeading }]}>₹{chosenService.price}</Text>
+            <Text style={[styles.priceUnitText, { color: colors.textCaption }]} numberOfLines={1}>
+              /{chosenService.unit === 'KG' ? 'kg' : 'pc'}
+            </Text>
+          </View>
+
+          <AnimatedCartButton
+            quantity={cartQty}
+            onAdd={() => onAddToCart(cloth, chosenService)}
+            onIncrement={() => onIncrement(cloth, chosenService)}
+            onDecrement={() => onDecrement(cloth, chosenService)}
+            isDark={isDark}
+          />
+        </View>
+
+        {/* Quick Link to Custom Care Options */}
+        <Pressable
+          style={styles.customCareLink}
+          onPress={() => onSelectProduct?.(cloth)}
+          hitSlop={4}
+        >
+          <Text style={styles.customCareLinkText}>Options & care</Text>
+          <MaterialCommunityIcons name="arrow-right" size={11} color="#16A34A" />
+        </Pressable>
+      </View>
+    </View>
+  );
+});
+
+const SubcategoryCircleItem = React.memo(function SubcategoryCircleItem({
+  sub,
+  displayName,
+  subPhotoUrl,
+  fallbackIcon,
+  isSelected,
+  colors,
+  onPress,
+}: {
+  sub: string;
+  displayName: string;
+  subPhotoUrl?: string;
+  fallbackIcon: string;
+  isSelected: boolean;
+  colors: any;
+  onPress: (sub: string) => void;
+}) {
+  const [hasError, setHasError] = useState(false);
+
+  return (
+    <Pressable
+      style={styles.subcatCircleItem}
+      onPress={() => onPress(sub)}
+      hitSlop={4}
+      accessibilityRole="tab"
+      accessibilityState={{ selected: isSelected }}
+      accessibilityLabel={`Show ${displayName} garments`}
+    >
+      <View
+        style={[
+          styles.subcatCircleWrap,
+          { backgroundColor: colors.section, borderColor: colors.border },
+          isSelected && styles.subcatCircleWrapSelected,
+        ]}
+      >
+        <View style={styles.subcatIconLayer}>
+          <MaterialCommunityIcons
+            name={fallbackIcon as any}
+            size={20}
+            color={isSelected ? '#16A34A' : colors.textCaption}
+          />
+        </View>
+        {subPhotoUrl && !hasError && (
+          <Image
+            source={{ uri: subPhotoUrl }}
+            style={styles.subcatCircleImg}
+            resizeMode="cover"
+            onError={() => setHasError(true)}
+          />
+        )}
+      </View>
+      <Text
+        style={[
+          styles.subcatCircleText,
+          { color: colors.textCaption },
+          isSelected && styles.subcatCircleTextSelected,
+        ]}
+        numberOfLines={1}
+      >
+        {displayName}
+      </Text>
+    </Pressable>
+  );
+});
+
 export function CategoryCatalogScreen({
   categoryTag = 'MENS',
   categoryTitle = "Men's Wear",
@@ -222,15 +582,14 @@ export function CategoryCatalogScreen({
   hasBottomTabBar = false,
 }: CategoryCatalogScreenProps) {
   const insets = useSafeAreaInsets();
-  const { colors } = useTheme();
+  const { colors, isDark } = useTheme();
   const { width: windowWidth } = useWindowDimensions();
   const { catalog, cart, cartSummary, addCartItem, setCartQuantity, removeFromCart, wishlist, toggleWishlist } = useApp();
+  const { toast } = useToast();
   const initialCategoryTag = normalizeCategoryTag(categoryTag);
 
   // Active Category State
-  const [activeCategoryTag, setActiveCategoryTag] = useState<string>(
-    initialCategoryTag
-  );
+  const [activeCategoryTag, setActiveCategoryTag] = useState<string>(initialCategoryTag);
   const [activeCategoryTitle, setActiveCategoryTitle] = useState<string>(
     categoryTitle || (categoryTag === 'ALL' ? 'All Garments' : "Men's Wear")
   );
@@ -247,22 +606,44 @@ export function CategoryCatalogScreen({
   // Track chosen service per cloth ID
   const [selectedClothServiceMap, setSelectedClothServiceMap] = useState<Record<string, string>>({});
 
-  // Image error tracker
-  const [imageFailures, setImageFailures] = useState<Record<string, 'primary' | 'fallback'>>({});
-  const [imageLoading, setImageLoading] = useState<Record<string, boolean>>({});
-  const [subcategoryImageErrors, setSubcategoryImageErrors] = useState<Record<string, boolean>>({});
-
-  // Dynamic Catalog State
-  const [dynamicCatalog, setDynamicCatalog] = useState<Catalog | null>(null);
-  const [isLoading, setIsLoading] = useState<boolean>(false);
+  // Dynamic Catalog State initialized instantly from memory cache
+  const [dynamicCatalog, setDynamicCatalog] = useState<Catalog | null>(() => cachedDynamicCatalog);
+  const [isLoading, setIsLoading] = useState<boolean>(() => !cachedDynamicCatalog && !catalog);
   const [refreshing, setRefreshing] = useState<boolean>(false);
+
+  // Sync if cachedDynamicCatalog was hydrated from AsyncStorage
+  useEffect(() => {
+    if (!dynamicCatalog && cachedDynamicCatalog) {
+      setDynamicCatalog(cachedDynamicCatalog);
+      setIsLoading(false);
+    }
+  }, [dynamicCatalog]);
 
   // Pull-to-refresh handler
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
     try {
       const freshCatalog = await api.getCatalog();
-      setDynamicCatalog(freshCatalog);
+      if (freshCatalog && Array.isArray(freshCatalog.clothTypes)) {
+        let cloths = freshCatalog.clothTypes;
+        const [hiddenSet, clothOverrides] = await Promise.all([
+          (api as any).getHiddenGarmentIds ? (api as any).getHiddenGarmentIds().catch(() => new Set<string>()) : Promise.resolve(new Set<string>()),
+          (api as any).getClothOverrides ? (api as any).getClothOverrides().catch(() => ({})) : Promise.resolve({}),
+        ]);
+        if (hiddenSet && hiddenSet.size > 0) {
+          cloths = cloths.filter((item: any) => !hiddenSet.has(item.id));
+        }
+        if (clothOverrides && typeof clothOverrides === 'object') {
+          cloths = cloths.map((item: any) =>
+            clothOverrides[item.id] ? { ...item, ...clothOverrides[item.id] } : item
+          );
+        }
+        const updated = { ...freshCatalog, clothTypes: cloths };
+        cachedDynamicCatalog = updated;
+        lastCatalogFetchTime = Date.now();
+        void AsyncStorage.setItem(CACHED_CATALOG_STORAGE_KEY, JSON.stringify(updated)).catch(() => {});
+        setDynamicCatalog(updated);
+      }
     } catch (error) {
       console.error('[CategoryCatalogScreen] Refresh error:', error);
     } finally {
@@ -270,65 +651,87 @@ export function CategoryCatalogScreen({
     }
   }, []);
 
-  // Sync categoryTag & service filter changes
+  // Sync categoryTag & service filter changes only when actually changed (prevents redundant re-render on mount)
+  const prevTagRef = useRef(categoryTag);
+  const prevTitleRef = useRef(categoryTitle);
+  const prevFilterRef = useRef(initialServiceFilter);
+
   useEffect(() => {
-    if (categoryTag) {
+    if (categoryTag && categoryTag !== prevTagRef.current) {
+      prevTagRef.current = categoryTag;
       const norm = normalizeCategoryTag(categoryTag);
       setActiveCategoryTag(norm);
     }
-    if (categoryTitle) {
+    if (categoryTitle && categoryTitle !== prevTitleRef.current) {
+      prevTitleRef.current = categoryTitle;
       setActiveCategoryTitle(categoryTitle);
     }
-    setSelectedServiceFilter((initialServiceFilter as any) || 'ALL');
+    if (initialServiceFilter && initialServiceFilter !== prevFilterRef.current) {
+      prevFilterRef.current = initialServiceFilter;
+      setSelectedServiceFilter((initialServiceFilter as any) || 'ALL');
+    }
   }, [categoryTag, categoryTitle, initialServiceFilter]);
 
-  // Fetch full live catalog on mount
+  // Fetch full live catalog in background with caching (Stale-While-Revalidate)
   useEffect(() => {
     let isMounted = true;
-    setIsLoading(true);
+    const now = Date.now();
+    const isCacheExpired = !cachedDynamicCatalog || (now - lastCatalogFetchTime > CATALOG_CACHE_TTL);
 
-    api
-      .getCatalog()
-      .then(async (res) => {
-        if (!isMounted) return;
-        let rawCatalog: Catalog | null = null;
-        if (res && typeof res === 'object') {
-          if ('data' in res && (res as any).data) {
-            rawCatalog = (res as any).data as Catalog;
-          } else if ('clothTypes' in res) {
-            rawCatalog = res as Catalog;
-          }
-        }
+    if (!cachedDynamicCatalog && !catalog) {
+      setIsLoading(true);
+    }
 
-        if (rawCatalog && Array.isArray(rawCatalog.clothTypes)) {
-          let cloths = rawCatalog.clothTypes;
-          const [hiddenSet, clothOverrides] = await Promise.all([
-            (api as any).getHiddenGarmentIds ? (api as any).getHiddenGarmentIds().catch(() => new Set<string>()) : Promise.resolve(new Set<string>()),
-            (api as any).getClothOverrides ? (api as any).getClothOverrides().catch(() => ({})) : Promise.resolve({}),
-          ]);
-          if (hiddenSet && hiddenSet.size > 0) {
-            cloths = cloths.filter((item: any) => !hiddenSet.has(item.id));
+    if (isCacheExpired) {
+      api
+        .getCatalog()
+        .then(async (res) => {
+          if (!isMounted) return;
+          let rawCatalog: Catalog | null = null;
+          if (res && typeof res === 'object') {
+            if ('data' in res && (res as any).data) {
+              rawCatalog = (res as any).data as Catalog;
+            } else if ('clothTypes' in res) {
+              rawCatalog = res as Catalog;
+            }
           }
-          if (clothOverrides && typeof clothOverrides === 'object') {
-            cloths = cloths.map((item: any) =>
-              clothOverrides[item.id] ? { ...item, ...clothOverrides[item.id] } : item
-            );
-          }
-          rawCatalog = { ...rawCatalog, clothTypes: cloths };
-        }
 
-        if (rawCatalog) {
-          setDynamicCatalog(rawCatalog);
-        }
-      })
-      .finally(() => {
-        if (isMounted) setIsLoading(false);
-      });
+          if (rawCatalog && Array.isArray(rawCatalog.clothTypes)) {
+            let cloths = rawCatalog.clothTypes;
+            const [hiddenSet, clothOverrides] = await Promise.all([
+              (api as any).getHiddenGarmentIds ? (api as any).getHiddenGarmentIds().catch(() => new Set<string>()) : Promise.resolve(new Set<string>()),
+              (api as any).getClothOverrides ? (api as any).getClothOverrides().catch(() => ({})) : Promise.resolve({}),
+            ]);
+            if (hiddenSet && hiddenSet.size > 0) {
+              cloths = cloths.filter((item: any) => !hiddenSet.has(item.id));
+            }
+            if (clothOverrides && typeof clothOverrides === 'object') {
+              cloths = cloths.map((item: any) =>
+                clothOverrides[item.id] ? { ...item, ...clothOverrides[item.id] } : item
+              );
+            }
+            rawCatalog = { ...rawCatalog, clothTypes: cloths };
+          }
+
+          if (rawCatalog && isMounted) {
+            cachedDynamicCatalog = rawCatalog;
+            lastCatalogFetchTime = Date.now();
+            void AsyncStorage.setItem(CACHED_CATALOG_STORAGE_KEY, JSON.stringify(rawCatalog)).catch(() => {});
+            setDynamicCatalog(rawCatalog);
+          }
+        })
+        .catch((err) => {
+          console.warn('[CategoryCatalogScreen] Fetch catalog error:', err);
+        })
+        .finally(() => {
+          if (isMounted) setIsLoading(false);
+        });
+    }
 
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [catalog]);
 
   // Filter cloths matching activeCategoryTag
   const activeClothTypes = useMemo(() => {
@@ -449,6 +852,33 @@ export function CategoryCatalogScreen({
     return ['ALL', ...orderedSubcategories];
   }, [activeClothTypes, activeCategoryTag, dynamicCatalog?.subcategories, catalog?.subcategories]);
 
+  // Precomputed subcategory carousel render data
+  const subcategoryRenderData = useMemo(() => {
+    const currentCatObj = categoriesList.find((c) => c.tag === activeCategoryTag);
+    const subObjMap = new Map<string, any>();
+    (dynamicCatalog?.subcategories || catalog?.subcategories || []).forEach((s: any) => {
+      if (s && (activeCategoryTag === 'ALL' || s.categoryTag === activeCategoryTag) && s.name) {
+        subObjMap.set(String(s.name).toLowerCase(), s);
+      }
+    });
+
+    return subcategoriesList.map((sub) => {
+      const isAll = sub === 'ALL';
+      const matchedSubObj = subObjMap.get(String(sub).toLowerCase());
+      const subPhotoUrl = isAll
+        ? getCategoryImageUrl(activeCategoryTag, currentCatObj?.imageUrl)
+        : getSubcategoryImageUrl(sub, matchedSubObj?.categoryTag || activeCategoryTag, matchedSubObj?.imageUrl);
+      const fallbackIcon = getSubcategoryFallbackIcon(sub, activeCategoryTag);
+
+      return {
+        sub,
+        displayName: isAll ? 'All' : sub,
+        subPhotoUrl,
+        fallbackIcon,
+      };
+    });
+  }, [subcategoriesList, activeCategoryTag, categoriesList, dynamicCatalog?.subcategories, catalog?.subcategories]);
+
   // Build product items with price options
   const products: ProductItem[] = useMemo(() => {
     const matrixLookup: Record<string, any[]> = {};
@@ -486,7 +916,7 @@ export function CategoryCatalogScreen({
           };
         });
 
-      // Deduplicate by serviceCode so each service appears at most once per garment (no duplicate Press/Press)
+      // Deduplicate by serviceCode so each service appears at most once per garment
       const uniqueServicesMap = new Map<CatalogServiceCode, ServicePriceOption>();
       rawServices.forEach((srv) => {
         const existing = uniqueServicesMap.get(srv.serviceCode);
@@ -497,9 +927,9 @@ export function CategoryCatalogScreen({
 
       const servicesForCloth: ServicePriceOption[] = Array.from(uniqueServicesMap.values())
         .sort((a, b) => {
-          const aOrder = SERVICE_FILTERS.findIndex((filter) => filter.key === a.serviceCode);
-          const bOrder = SERVICE_FILTERS.findIndex((filter) => filter.key === b.serviceCode);
-          return (aOrder < 0 ? SERVICE_FILTERS.length : aOrder) - (bOrder < 0 ? SERVICE_FILTERS.length : bOrder);
+          const aOrder = SERVICE_FILTER_ORDER_MAP[a.serviceCode] ?? 999;
+          const bOrder = SERVICE_FILTER_ORDER_MAP[b.serviceCode] ?? 999;
+          return aOrder - bOrder;
         });
 
       const validPrices = servicesForCloth.map((s) => s.price).filter((p) => p > 0);
@@ -526,6 +956,21 @@ export function CategoryCatalogScreen({
     ),
     [products]
   );
+
+  // Fast Cart Quantity Map for O(1) lookups
+  const cartQtyMap = useMemo(() => {
+    const map: Record<string, number> = {};
+    for (const c of cart) {
+      if (c.id) map[c.id] = c.quantity;
+      if (c.clothId && c.serviceId) {
+        map[`${c.clothId}-${c.serviceId}`] = c.quantity;
+      }
+    }
+    return map;
+  }, [cart]);
+
+  // Fast Wishlist Set for O(1) lookups
+  const wishlistSet = useMemo(() => new Set(wishlist), [wishlist]);
 
   // Filtered Products
   const filteredProducts = useMemo(() => {
@@ -578,127 +1023,217 @@ export function CategoryCatalogScreen({
     return list;
   }, [products, selectedSubcategory, selectedServiceFilter, searchQuery, selectedSort, selectedClothServiceMap]);
 
-  const getSelectedServiceForCloth = (cloth: ProductItem): ServicePriceOption => {
-    if (selectedServiceFilter !== 'ALL') {
-      const matchedFilter = cloth.services.find((s) => s.serviceCode === selectedServiceFilter);
-      if (matchedFilter) return matchedFilter;
-    }
+  const getSelectedServiceForCloth = useCallback(
+    (cloth: ProductItem): ServicePriceOption => {
+      if (selectedServiceFilter !== 'ALL') {
+        const matchedFilter = cloth.services.find((s) => s.serviceCode === selectedServiceFilter);
+        if (matchedFilter) return matchedFilter;
+      }
 
-    const selectedId = selectedClothServiceMap[cloth.id];
-    if (selectedId) {
-      const found = cloth.services.find((s) => s.serviceId === selectedId);
-      if (found) return found;
-    }
+      const selectedId = selectedClothServiceMap[cloth.id];
+      if (selectedId) {
+        const found = cloth.services.find((s) => s.serviceId === selectedId);
+        if (found) return found;
+      }
 
-    return cloth.services[0]!;
-  };
+      return cloth.services[0]!;
+    },
+    [selectedServiceFilter, selectedClothServiceMap]
+  );
 
-  const handleSelectServiceForCloth = (clothId: string, serviceId: string) => {
+  const handleSelectServiceForCloth = useCallback((clothId: string, serviceId: string) => {
     setSelectedClothServiceMap((prev) => ({
       ...prev,
       [clothId]: serviceId,
     }));
-    // A card-level choice supersedes the broad filter. This keeps the highlighted
-    // service and the price customers add to their bag in sync.
     setSelectedServiceFilter('ALL');
-  };
-
-  // Cart Operations
-  const handleAddToCart = (cloth: ProductItem, service: ServicePriceOption) => {
-    const cartItemId = `${cloth.id}-${service.serviceId}`;
-    const cleanSvcName = service?.serviceName && service.serviceName !== 'null' && service.serviceName !== 'undefined'
-      ? service.serviceName
-      : (service?.serviceCode === 'PRESS' ? 'Steam Press' : service?.serviceCode === 'DRY_CLEAN' ? 'Dry Clean' : 'Wash & Iron');
-    const displayName = `${cloth.name} (${cleanSvcName})`;
-    
-    addCartItem({
-      id: cartItemId,
-      serviceId: service.serviceId,
-      serviceName: displayName,
-      categoryName: activeCategoryTitle,
-      pricingModel: service.unit === 'KG' ? 'PER_KG' : 'PER_ITEM',
-      unitPrice: service.price,
-      quantity: 1,
-      unit: service.unit,
-      subtotal: service.price,
-      clothId: cloth.id,
-      imageUrl: getGarmentImageUrl(cloth.id, cloth.imageUrl, cloth.categoryTag, cloth.name),
-    });
-  };
-
-  const getCartItemForProduct = (cloth: ProductItem, serviceId: string) => {
-    const directId = `${cloth.id}-${serviceId}`;
-    return cart.find(
-      (c) =>
-        c.id === directId ||
-        c.id === `cat-${directId}` ||
-        c.id === `garment-${directId}` ||
-        (c.clothId === cloth.id && c.serviceId === serviceId)
-    );
-  };
-
-  const getCartQuantityForProduct = (cloth: ProductItem, serviceId: string): number => {
-    const item = getCartItemForProduct(cloth, serviceId);
-    return item ? item.quantity : 0;
-  };
-
-  const handleIncrement = (cloth: ProductItem, service: ServicePriceOption) => {
-    const item = getCartItemForProduct(cloth, service.serviceId);
-    if (item) {
-      setCartQuantity(item.id, item.quantity + 1);
-    } else {
-      handleAddToCart(cloth, service);
-    }
-  };
-
-  const handleDecrement = (cloth: ProductItem, service: ServicePriceOption) => {
-    const item = getCartItemForProduct(cloth, service.serviceId);
-    if (!item) return;
-    if (item.quantity <= 1) {
-      removeFromCart(item.id);
-    } else {
-      setCartQuantity(item.id, item.quantity - 1);
-    }
-  };
+  }, []);
 
   const handleCartClick = onOpenCart || onViewCart || (() => {});
 
-  // Clean Header Title (Issue 2: No duplicate text, clear title)
+  // Cart Operations
+  const handleAddToCart = useCallback(
+    (cloth: ProductItem, service: ServicePriceOption) => {
+      const cartItemId = `${cloth.id}-${service.serviceId}`;
+      const cleanSvcName =
+        service?.serviceName && service.serviceName !== 'null' && service.serviceName !== 'undefined'
+          ? service.serviceName
+          : service?.serviceCode === 'PRESS'
+          ? 'Steam Press'
+          : service?.serviceCode === 'DRY_CLEAN'
+          ? 'Dry Clean'
+          : 'Wash & Iron';
+      const displayName = `${cloth.name} (${cleanSvcName})`;
+      const imgUrl = getGarmentImageUrl(cloth.id, cloth.imageUrl, cloth.categoryTag, cloth.name);
+
+      addCartItem({
+        id: cartItemId,
+        serviceId: service.serviceId,
+        serviceName: displayName,
+        categoryName: activeCategoryTitle,
+        pricingModel: service.unit === 'KG' ? 'PER_KG' : 'PER_ITEM',
+        unitPrice: service.price,
+        quantity: 1,
+        unit: service.unit,
+        subtotal: service.price,
+        clothId: cloth.id,
+        imageUrl: imgUrl,
+      });
+
+      toast.cart(`Added ${cloth.name} to Bag! 🛍️`, {
+        subtitle: `${cleanSvcName} • ₹${service.price}`,
+        thumbnail: imgUrl,
+        actionLabel: 'View Bag',
+        onAction: handleCartClick,
+      });
+    },
+    [activeCategoryTitle, addCartItem, toast, handleCartClick]
+  );
+
+  const getCartItemForProduct = useCallback(
+    (cloth: ProductItem, serviceId: string) => {
+      const directId = `${cloth.id}-${serviceId}`;
+      return cart.find(
+        (c) =>
+          c.id === directId ||
+          c.id === `cat-${directId}` ||
+          c.id === `garment-${directId}` ||
+          (c.clothId === cloth.id && c.serviceId === serviceId)
+      );
+    },
+    [cart]
+  );
+
+  const handleIncrement = useCallback(
+    (cloth: ProductItem, service: ServicePriceOption) => {
+      const item = getCartItemForProduct(cloth, service.serviceId);
+      if (item) {
+        setCartQuantity(item.id, item.quantity + 1);
+      } else {
+        handleAddToCart(cloth, service);
+      }
+    },
+    [getCartItemForProduct, setCartQuantity, handleAddToCart]
+  );
+
+  const handleDecrement = useCallback(
+    (cloth: ProductItem, service: ServicePriceOption) => {
+      const item = getCartItemForProduct(cloth, service.serviceId);
+      if (!item) return;
+      if (item.quantity <= 1) {
+        removeFromCart(item.id);
+      } else {
+        setCartQuantity(item.id, item.quantity - 1);
+      }
+    },
+    [getCartItemForProduct, removeFromCart, setCartQuantity]
+  );
+
+  const handleToggleWishlist = useCallback(
+    (clothId: string, clothName?: string) => {
+      const isCurrentlyFav = wishlistSet.has(clothId);
+      toggleWishlist(clothId);
+      if (!isCurrentlyFav) {
+        toast.wishlist(`Saved ${clothName || 'item'} to Wishlist! ❤️`);
+      } else {
+        toast.info(`Removed ${clothName || 'item'} from Wishlist`, {
+          actionLabel: 'Undo',
+          onAction: () => toggleWishlist(clothId),
+        });
+      }
+    },
+    [wishlistSet, toggleWishlist, toast]
+  );
+
+  // Clean Header Title
   const displayTitle = activeCategoryTag === 'ALL'
     ? (initialServiceName ? `${initialServiceName} Collection` : 'All Garments')
     : (categoriesList.find((cat) => cat.tag === activeCategoryTag)?.label || activeCategoryTitle || 'Catalog');
 
-  // Responsive Grid Widths (Pixel-perfect 2-column calculation matching padding)
+  // Responsive Grid Widths
   const SCREEN_PADDING = 12;
   const GRID_GAP = 10;
   const useSingleColumn = windowWidth < 340;
   const cardWidth = useSingleColumn
     ? Math.floor(windowWidth - SCREEN_PADDING * 2)
     : Math.floor((windowWidth - SCREEN_PADDING * 2 - GRID_GAP) / 2);
+  const numColumns = useSingleColumn ? 1 : 2;
+
+  const keyExtractor = useCallback((item: ProductItem) => item.id, []);
+
+  const renderProductCard = useCallback(
+    ({ item: cloth }: { item: ProductItem }) => {
+      const chosenService = getSelectedServiceForCloth(cloth);
+      const cartQty =
+        cartQtyMap[`${cloth.id}-${chosenService.serviceId}`] ??
+        cartQtyMap[`cat-${cloth.id}-${chosenService.serviceId}`] ??
+        cartQtyMap[`garment-${cloth.id}-${chosenService.serviceId}`] ??
+        0;
+      const isFavorite = wishlistSet.has(cloth.id);
+
+      return (
+        <ProductCard
+          cloth={cloth}
+          cardWidth={cardWidth}
+          chosenService={chosenService}
+          cartQty={cartQty}
+          isFavorite={isFavorite}
+          colors={colors}
+          isDark={isDark}
+          onSelectProduct={onSelectProduct}
+          onToggleWishlist={handleToggleWishlist}
+          onSelectService={handleSelectServiceForCloth}
+          onAddToCart={handleAddToCart}
+          onIncrement={handleIncrement}
+          onDecrement={handleDecrement}
+        />
+      );
+    },
+    [
+      getSelectedServiceForCloth,
+      cartQtyMap,
+      wishlistSet,
+      cardWidth,
+      colors,
+      isDark,
+      onSelectProduct,
+      handleToggleWishlist,
+      handleSelectServiceForCloth,
+      handleAddToCart,
+      handleIncrement,
+      handleDecrement,
+    ]
+  );
+
+  const bottomPadding = Math.max(insets.bottom, 16) + (hasBottomTabBar ? 104 : 24);
 
   return (
     <View style={[styles.root, { backgroundColor: colors.background }]}>
       {/* 1. TOP APP BAR (Compact 52px height, count badge, search toggle and cart shortcut) */}
-      <View style={styles.topBar}>
+      <View style={[styles.topBar, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
         <Pressable
-          style={({ pressed }) => [styles.backBtn, pressed && styles.pressedBtn]}
+          style={({ pressed }) => [
+            styles.backBtn,
+            { backgroundColor: colors.section, borderColor: colors.border },
+            pressed && styles.pressedBtn,
+          ]}
           onPress={onBack}
           hitSlop={8}
           accessibilityLabel="Back"
         >
-          <MaterialCommunityIcons name="arrow-left" size={20} color="#0F172A" />
+          <MaterialCommunityIcons name="arrow-left" size={20} color={colors.textHeading} />
         </Pressable>
 
         <View style={styles.titleColumn}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-            <Text style={styles.topBarTitle} numberOfLines={1}>
+            <Text style={[styles.topBarTitle, { color: colors.textHeading }]} numberOfLines={1}>
               {displayTitle}
             </Text>
             <View style={styles.countBadgePill}>
               <Text style={styles.countBadgePillText}>{filteredProducts.length}</Text>
             </View>
           </View>
-          <Text style={styles.topBarSubtitle}>
+          <Text style={[styles.topBarSubtitle, { color: colors.textCaption }]}>
             {selectedServiceFilter !== 'ALL'
               ? `${availableServiceFilters.find((filter) => filter.key === selectedServiceFilter)?.label || 'Selected service'}`
               : 'Tap garment for custom fabric care'}
@@ -707,7 +1242,11 @@ export function CategoryCatalogScreen({
 
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
           <Pressable
-            style={[styles.headerActionBtn, (isSearchOpen || searchQuery.length > 0) && styles.headerActionBtnActive]}
+            style={[
+              styles.headerActionBtn,
+              { backgroundColor: colors.section, borderColor: colors.border },
+              (isSearchOpen || searchQuery.length > 0) && styles.headerActionBtnActive,
+            ]}
             onPress={() => setIsSearchOpen((prev) => !prev)}
             hitSlop={8}
             accessibilityLabel="Search"
@@ -715,17 +1254,21 @@ export function CategoryCatalogScreen({
             <MaterialCommunityIcons
               name={isSearchOpen || searchQuery.length > 0 ? 'close' : 'magnify'}
               size={22}
-              color={isSearchOpen || searchQuery.length > 0 ? '#16A34A' : '#0F172A'}
+              color={isSearchOpen || searchQuery.length > 0 ? '#16A34A' : colors.textHeading}
             />
           </Pressable>
 
           <Pressable
-            style={({ pressed }) => [styles.cartBtn, pressed && styles.pressedBtn]}
+            style={({ pressed }) => [
+              styles.cartBtn,
+              { backgroundColor: isDark ? colors.section : '#F0FDF4', borderColor: isDark ? colors.border : '#BBF7D0' },
+              pressed && styles.pressedBtn,
+            ]}
             onPress={handleCartClick}
             hitSlop={8}
             accessibilityLabel={`Shopping bag, ${cartSummary.itemCount} items`}
           >
-            <MaterialCommunityIcons name="shopping-outline" size={23} color="#166534" />
+            <MaterialCommunityIcons name="shopping-outline" size={23} color={isDark ? '#34D399' : '#166534'} />
             {cartSummary.itemCount > 0 && (
               <View style={styles.cartBadge}>
                 <Text style={styles.cartBadgeText}>
@@ -738,7 +1281,7 @@ export function CategoryCatalogScreen({
       </View>
 
       {/* 2. MAIN CATEGORY TABS (Luxury pills, solid active glow) */}
-      <View style={styles.categoryTabsContainer}>
+      <View style={[styles.categoryTabsContainer, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -751,7 +1294,9 @@ export function CategoryCatalogScreen({
                 key={c.tag}
                 style={[
                   styles.categoryPill,
-                  isSelected ? styles.categoryPillSelected : styles.categoryPillUnselected,
+                  isSelected
+                    ? styles.categoryPillSelected
+                    : [styles.categoryPillUnselected, { backgroundColor: colors.section, borderColor: colors.border }],
                 ]}
                 onPress={() => {
                   if (c.tag === 'BULK' && onOpenBulkLaundry) {
@@ -770,13 +1315,13 @@ export function CategoryCatalogScreen({
                 <MaterialCommunityIcons
                   name={c.icon as any}
                   size={14}
-                  color={isSelected ? '#FFFFFF' : '#64748B'}
+                  color={isSelected ? '#FFFFFF' : colors.textCaption}
                   style={{ marginRight: 5 }}
                 />
                 <Text
                   style={[
                     styles.categoryPillText,
-                    isSelected ? styles.categoryPillTextSelected : styles.categoryPillTextUnselected,
+                    isSelected ? styles.categoryPillTextSelected : [styles.categoryPillTextUnselected, { color: colors.textBody }],
                   ]}
                 >
                   {c.label}
@@ -813,78 +1358,31 @@ export function CategoryCatalogScreen({
       )}
 
       {/* 4. HORIZONTAL GARMENT SUBCATEGORY CAROUSEL (Never blank: verified photo + icon layer) */}
-      <View style={styles.subcatCarouselContainer}>
+      <View style={[styles.subcatCarouselContainer, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.subcatCarouselScroll}
         >
-          {subcategoriesList.map((sub) => {
-            const isSelected = selectedSubcategory === sub;
-            const isAll = sub === 'ALL';
-            const subcategoryKey = `${activeCategoryTag}-${sub}`;
-            const currentCatObj = categoriesList.find((c) => c.tag === activeCategoryTag);
-            const matchedSubObj = (dynamicCatalog?.subcategories || catalog?.subcategories || []).find(
-              (s: any) => s && (activeCategoryTag === 'ALL' || s.categoryTag === activeCategoryTag) && String(s.name || '').toLowerCase() === String(sub || '').toLowerCase()
-            );
-            const subPhotoUrl = isAll
-              ? getCategoryImageUrl(activeCategoryTag, currentCatObj?.imageUrl)
-              : getSubcategoryImageUrl(sub, matchedSubObj?.categoryTag || activeCategoryTag, matchedSubObj?.imageUrl);
-            const displayName = isAll ? 'All' : sub;
-            const hasImgError = subcategoryImageErrors[subcategoryKey];
-
-            return (
-              <Pressable
-                key={sub}
-                style={styles.subcatCircleItem}
-                onPress={() => setSelectedSubcategory(sub)}
-                hitSlop={4}
-                accessibilityRole="tab"
-                accessibilityState={{ selected: isSelected }}
-                accessibilityLabel={`Show ${displayName} garments`}
-              >
-                <View
-                  style={[
-                    styles.subcatCircleWrap,
-                    isSelected && styles.subcatCircleWrapSelected,
-                  ]}
-                >
-                  {/* Layered fallback icon: guaranteed visible */}
-                  <View style={styles.subcatIconLayer}>
-                    <MaterialCommunityIcons
-                      name={getSubcategoryFallbackIcon(sub, activeCategoryTag) as any}
-                      size={20}
-                      color={isSelected ? '#16A34A' : '#94A3B8'}
-                    />
-                  </View>
-                  {subPhotoUrl && !hasImgError && (
-                    <Image
-                      source={{ uri: subPhotoUrl }}
-                      style={styles.subcatCircleImg}
-                      resizeMode="cover"
-                      onError={() => setSubcategoryImageErrors((curr) => ({ ...curr, [subcategoryKey]: true }))}
-                    />
-                  )}
-                </View>
-                <Text
-                  style={[
-                    styles.subcatCircleText,
-                    isSelected && styles.subcatCircleTextSelected,
-                  ]}
-                  numberOfLines={1}
-                >
-                  {displayName}
-                </Text>
-              </Pressable>
-            );
-          })}
+          {subcategoryRenderData.map((item) => (
+            <SubcategoryCircleItem
+              key={item.sub}
+              sub={item.sub}
+              displayName={item.displayName}
+              subPhotoUrl={item.subPhotoUrl}
+              fallbackIcon={item.fallbackIcon}
+              isSelected={selectedSubcategory === item.sub}
+              colors={colors}
+              onPress={setSelectedSubcategory}
+            />
+          ))}
         </ScrollView>
       </View>
 
       {/* 5. INTEGRATED SERVICE FILTERS & SORT ROW (Left pinned Sort + Full-width natural scroll) */}
-      <View style={styles.filterSortBar}>
+      <View style={[styles.filterSortBar, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
         <Pressable
-          style={styles.sortButtonPill}
+          style={[styles.sortButtonPill, { backgroundColor: colors.section, borderColor: colors.border }]}
           onPress={() => {
             setSelectedSort((prev) =>
               prev === 'POPULAR' ? 'PRICE_LOW' : prev === 'PRICE_LOW' ? 'PRICE_HIGH' : 'POPULAR'
@@ -895,13 +1393,13 @@ export function CategoryCatalogScreen({
           accessibilityLabel="Change sort order"
         >
           <MaterialCommunityIcons name="swap-vertical" size={13} color="#16A34A" />
-          <Text style={styles.sortButtonPillText}>
+          <Text style={[styles.sortButtonPillText, { color: colors.textBody }]}>
             {selectedSort === 'POPULAR' ? 'Sort' : selectedSort === 'PRICE_LOW' ? 'Price ↑' : 'Price ↓'}
           </Text>
-          <MaterialCommunityIcons name="chevron-down" size={12} color="#64748B" />
+          <MaterialCommunityIcons name="chevron-down" size={12} color={colors.textCaption} />
         </Pressable>
 
-        <View style={styles.filterDivider} />
+        <View style={[styles.filterDivider, { backgroundColor: colors.border }]} />
 
         <ScrollView
           horizontal
@@ -916,7 +1414,9 @@ export function CategoryCatalogScreen({
                 key={item.key}
                 style={[
                   styles.serviceChipCompact,
-                  isSelected ? styles.serviceChipCompactSelected : styles.serviceChipCompactUnselected,
+                  isSelected
+                    ? styles.serviceChipCompactSelected
+                    : [styles.serviceChipCompactUnselected, { backgroundColor: colors.section, borderColor: colors.border }],
                 ]}
                 onPress={() => setSelectedServiceFilter(item.key)}
                 hitSlop={4}
@@ -927,13 +1427,13 @@ export function CategoryCatalogScreen({
                 <MaterialCommunityIcons
                   name={item.icon as any}
                   size={12}
-                  color={isSelected ? '#16A34A' : '#64748B'}
+                  color={isSelected ? '#16A34A' : colors.textCaption}
                   style={{ marginRight: 4 }}
                 />
                 <Text
                   style={[
                     styles.serviceChipTextCompact,
-                    isSelected ? styles.serviceChipTextCompactSelected : styles.serviceChipTextCompactUnselected,
+                    isSelected ? styles.serviceChipTextCompactSelected : [styles.serviceChipTextCompactUnselected, { color: colors.textBody }],
                   ]}
                 >
                   {item.label}
@@ -944,298 +1444,62 @@ export function CategoryCatalogScreen({
         </ScrollView>
       </View>
 
-      {/* 6. PRODUCT GRID (Compact, fast to scan, 4-6 products visible, safe bottom padding) */}
-      {isLoading && filteredProducts.length === 0 ? (
-        <View style={styles.loadingGridContainer}>
-          <ActivityIndicator size="small" color="#16A34A" />
-          <Text style={styles.loadingText}>Loading live garments...</Text>
-        </View>
-      ) : filteredProducts.length === 0 ? (
-        <View style={styles.emptyContainer}>
-          <MaterialCommunityIcons name="hanger" size={44} color="#CBD5E1" />
-          <Text style={styles.emptyTitle}>No garments found</Text>
-          <Text style={styles.emptySubtitle}>
-            Try clearing filters or search to view all {displayTitle} items.
-          </Text>
-          <Pressable
-            style={styles.resetFilterBtn}
-            onPress={() => {
-              setSelectedSubcategory('ALL');
-              setSelectedServiceFilter('ALL');
-              setSearchQuery('');
-            }}
-          >
-            <Text style={styles.resetFilterBtnText}>View All Garments</Text>
-          </Pressable>
-        </View>
-      ) : (
-        <ScrollView
-          style={styles.productsScroll}
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={[
-            styles.productsScrollContent,
-            {
-              paddingBottom: Math.max(insets.bottom, 16) + (cartSummary.itemCount > 0 ? 92 : 24),
-            },
-          ]}
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={handleRefresh}
-              colors={['#2563EB', '#F97316']}
-              tintColor="#2563EB"
-            />
-          }
-        >
-          <View style={styles.productsGrid2Col}>
-            {filteredProducts.map((cloth) => {
-              const chosenService = getSelectedServiceForCloth(cloth);
-              const cartQty = getCartQuantityForProduct(cloth, chosenService.serviceId);
-              const imageFailure = imageFailures[cloth.id];
-              const primaryPhotoUrl = cloth.imageUrl
-                ? getGarmentImageUrl(cloth.id, cloth.imageUrl, cloth.categoryTag, cloth.name)
-                : cloth.fallbackImageUrl;
-              const photoUrl = imageFailure === 'fallback'
-                ? undefined
-                : imageFailure === 'primary'
-                ? cloth.fallbackImageUrl
-                : primaryPhotoUrl;
-              const isImageLoading = imageLoading[cloth.id];
-              const isFavorite = wishlist.includes(cloth.id);
-              const turnaround = formatTurnaround(chosenService.turnaroundHours);
-
-              return (
-                <View
-                  key={cloth.id}
-                  style={[styles.productCard, { width: cardWidth }]}
-                >
-                  {/* PRODUCT IMAGE (Elevated 124px height, clean cover crop) */}
-                  <Pressable
-                    style={styles.cardImageContainer}
-                    onPress={() => onSelectProduct?.(cloth)}
-                    accessibilityRole="button"
-                    accessibilityLabel={`View details for ${cloth.name}`}
-                  >
-                    {photoUrl ? (
-                      <>
-                        <Image
-                          source={{ uri: photoUrl }}
-                          style={styles.cardImage}
-                          resizeMode="cover"
-                          onLoadStart={() => setImageLoading((prev) => ({ ...prev, [cloth.id]: true }))}
-                          onLoadEnd={() => setImageLoading((prev) => ({ ...prev, [cloth.id]: false }))}
-                          onError={() => {
-                            setImageFailures((current) => ({
-                              ...current,
-                              [cloth.id]: !current[cloth.id] && primaryPhotoUrl !== cloth.fallbackImageUrl
-                                ? 'primary'
-                                : 'fallback',
-                            }));
-                            setImageLoading((prev) => ({ ...prev, [cloth.id]: false }));
-                          }}
-                        />
-                        {isImageLoading && (
-                          <View style={styles.imageLoadingOverlay}>
-                            <ActivityIndicator size="small" color="#16A34A" />
-                          </View>
-                        )}
-                      </>
-                    ) : (
-                      <View style={styles.cardImageFallback}>
-                        <MaterialCommunityIcons name="tshirt-crew" size={34} color="#CBD5E1" />
-                      </View>
-                    )}
-
-                    {/* Subcategory Pill Tag */}
-                    {(cloth.subcategory || cloth.categoryLabel) && (
-                      <View style={styles.cardSubcatBadge}>
-                        <Text style={styles.cardSubcatBadgeText} numberOfLines={1}>
-                          {cloth.subcategory || cloth.categoryLabel}
-                        </Text>
-                      </View>
-                    )}
-
-                    {/* Favorite Heart Button */}
-                    <Pressable
-                      style={styles.favoriteCircleBtn}
-                      onPress={() => toggleWishlist(cloth.id)}
-                      hitSlop={6}
-                      accessibilityRole="button"
-                      accessibilityLabel={isFavorite ? `Remove ${cloth.name} from saved items` : `Save ${cloth.name}`}
-                    >
-                      <MaterialCommunityIcons
-                        name={isFavorite ? 'heart' : 'heart-outline'}
-                        size={15}
-                        color={isFavorite ? '#EF4444' : '#64748B'}
-                      />
-                    </Pressable>
-
-                    {turnaround ? (
-                      <View style={styles.turnaroundBadge}>
-                        <MaterialCommunityIcons name="lightning-bolt" size={10} color="#16A34A" />
-                        <Text style={styles.turnaroundBadgeText}>{turnaround} TAT</Text>
-                      </View>
-                    ) : null}
-                  </Pressable>
-
-                  {/* PRODUCT CARD BODY */}
-                  <View style={styles.cardBody}>
-                    {/* Title */}
-                    <Pressable
-                      onPress={() => onSelectProduct?.(cloth)}
-                      accessibilityRole="button"
-                      accessibilityLabel={`View details for ${cloth.name}`}
-                    >
-                      <View style={styles.titleRow}>
-                        <Text style={styles.productCardTitle} numberOfLines={1}>
-                          {cloth.name}
-                        </Text>
-                        <MaterialCommunityIcons name="chevron-right" size={14} color="#94A3B8" />
-                      </View>
-                    </Pressable>
-
-                    {/* Service Selector Mini-Pills (Clean wrapping row, prevents text truncation) */}
-                    <View style={styles.serviceChipsWrap}>
-                      {cloth.services.map((srv) => {
-                        const isChosen = chosenService.serviceId === srv.serviceId;
-                        const label =
-                          srv.serviceCode === 'PRESS'
-                            ? 'Press'
-                            : srv.serviceCode === 'WASH_FOLD'
-                            ? 'Wash'
-                            : srv.serviceCode === 'WASH_IRON'
-                            ? 'W+Iron'
-                            : srv.serviceCode === 'DRY_CLEAN'
-                            ? 'DryClean'
-                            : srv.shortLabel || 'Care';
-
-                        return (
-                          <Pressable
-                            key={srv.serviceId}
-                            style={[
-                              styles.serviceMiniPill,
-                              isChosen && styles.serviceMiniPillActive,
-                            ]}
-                            onPress={() => handleSelectServiceForCloth(cloth.id, srv.serviceId)}
-                            hitSlop={4}
-                            accessibilityRole="radio"
-                            accessibilityState={{ selected: isChosen }}
-                            accessibilityLabel={`Choose ${srv.displayName} for ${cloth.name}, ₹${srv.price} per ${String(srv.unit || 'pc').toLowerCase()}`}
-                          >
-                            <Text
-                              style={[
-                                styles.serviceMiniText,
-                                isChosen && styles.serviceMiniTextActive,
-                              ]}
-                              numberOfLines={1}
-                            >
-                              {label}
-                            </Text>
-                          </Pressable>
-                        );
-                      })}
-                    </View>
-
-                    {/* Price & Action Row */}
-                    <View style={styles.priceAndActionRow}>
-                      <View style={styles.priceCol}>
-                        <Text style={styles.priceText}>₹{chosenService.price}</Text>
-                        <Text style={styles.priceUnitText} numberOfLines={1}>
-                          /{chosenService.unit === 'KG' ? 'kg' : 'pc'}
-                        </Text>
-                      </View>
-
-                      {cartQty > 0 ? (
-                        <View style={styles.stepperCompact}>
-                          <Pressable
-                            style={styles.stepperActionBtnCompact}
-                            onPress={() => handleDecrement(cloth, chosenService)}
-                            hitSlop={6}
-                            accessibilityRole="button"
-                            accessibilityLabel={`Remove one ${cloth.name}`}
-                          >
-                            <MaterialCommunityIcons name="minus" size={13} color="#FFFFFF" />
-                          </Pressable>
-                          <Text style={styles.stepperQtyCompact}>{cartQty}</Text>
-                          <Pressable
-                            style={styles.stepperActionBtnCompact}
-                            onPress={() => handleIncrement(cloth, chosenService)}
-                            hitSlop={6}
-                            accessibilityRole="button"
-                            accessibilityLabel={`Add one ${cloth.name}`}
-                          >
-                            <MaterialCommunityIcons name="plus" size={13} color="#FFFFFF" />
-                          </Pressable>
-                        </View>
-                      ) : (
-                        <Pressable
-                          style={styles.addBtnCompact}
-                          onPress={() => handleAddToCart(cloth, chosenService)}
-                          hitSlop={6}
-                          accessibilityRole="button"
-                          accessibilityLabel={`Add ${cloth.name}, ${chosenService.displayName}, ₹${chosenService.price}, to bag`}
-                        >
-                          <MaterialCommunityIcons name="plus" size={13} color="#166534" />
-                          <Text style={styles.addBtnTextCompact}>ADD</Text>
-                        </Pressable>
-                      )}
-                    </View>
-
-                    {/* Quick Link to Custom Care Options */}
-                    <Pressable
-                      style={styles.customCareLink}
-                      onPress={() => onSelectProduct?.(cloth)}
-                      hitSlop={4}
-                    >
-                      <Text style={styles.customCareLinkText}>Options & care</Text>
-                      <MaterialCommunityIcons name="arrow-right" size={11} color="#16A34A" />
-                    </Pressable>
-                  </View>
-                </View>
-              );
-            })}
-          </View>
-        </ScrollView>
-      )}
-
-      {cartSummary.itemCount > 0 && (
-        <View
-          style={[
-            styles.stickyCartBarWrap,
-            { paddingBottom: Math.max(insets.bottom, 8) },
-            hasBottomTabBar && styles.stickyCartBarWrapAboveTabs,
-          ]}
-        >
-          <Pressable
-            style={styles.cartBarPressable}
-            onPress={handleCartClick}
-            accessibilityRole="button"
-            accessibilityLabel={`View laundry bag with ${cartSummary.itemCount} items`}
-          >
-            <View style={styles.stickyCartBar}>
-              <View style={styles.cartBarLeft}>
-                <View style={styles.cartBarIconBadge}>
-                  <MaterialCommunityIcons name="shopping" size={18} color="#FFFFFF" />
-                </View>
-                <View style={styles.cartBarInfo}>
-                  <View style={styles.cartBarTotalText}>
-                    <Text style={styles.cartBarCountText}>
-                      {cartSummary.itemCount} {cartSummary.itemCount === 1 ? 'item' : 'items'}
-                    </Text>
-                    <Text style={styles.cartBarDotText}> · </Text>
-                    <Text style={styles.cartBarPriceText}>₹{cartSummary.itemTotal}</Text>
-                  </View>
-                  <Text style={styles.cartBarCountText}>Ready to review your bag</Text>
-                </View>
-              </View>
-              <View style={styles.cartBarRightBtn}>
-                <Text style={styles.cartBarActionText}>View Bag</Text>
-                <MaterialCommunityIcons name="arrow-right" size={17} color="#FFFFFF" />
-              </View>
+      {/* 6. VIRTUALIZED PRODUCT GRID (Super-fast FlatList: only renders visible cards on screen) */}
+      <FlatList
+        key={`catalog-grid-${numColumns}`}
+        data={filteredProducts}
+        keyExtractor={keyExtractor}
+        numColumns={numColumns}
+        columnWrapperStyle={useSingleColumn ? undefined : styles.columnWrapper}
+        renderItem={renderProductCard}
+        initialNumToRender={6}
+        maxToRenderPerBatch={6}
+        windowSize={3}
+        updateCellsBatchingPeriod={50}
+        removeClippedSubviews={Platform.OS === 'android'}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={[
+          styles.productsScrollContent,
+          {
+            paddingBottom: Math.max(insets.bottom, 16) + (hasBottomTabBar ? 195 : 100),
+            flexGrow: filteredProducts.length === 0 ? 1 : undefined,
+          },
+        ]}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
+            colors={['#16A34A', '#2563EB']}
+            tintColor="#16A34A"
+          />
+        }
+        ListEmptyComponent={
+          isLoading && filteredProducts.length === 0 ? (
+            <View style={styles.loadingGridContainer}>
+              <ActivityIndicator size="small" color="#16A34A" />
+              <Text style={styles.loadingText}>Loading live garments...</Text>
             </View>
-          </Pressable>
-        </View>
-      )}
+          ) : (
+            <View style={styles.emptyContainer}>
+              <MaterialCommunityIcons name="hanger" size={44} color="#CBD5E1" />
+              <Text style={styles.emptyTitle}>No garments found</Text>
+              <Text style={styles.emptySubtitle}>
+                Try clearing filters or search to view all {displayTitle} items.
+              </Text>
+              <Pressable
+                style={styles.resetFilterBtn}
+                onPress={() => {
+                  setSelectedSubcategory('ALL');
+                  setSelectedServiceFilter('ALL');
+                  setSearchQuery('');
+                }}
+              >
+                <Text style={styles.resetFilterBtnText}>View All Garments</Text>
+              </Pressable>
+            </View>
+          )
+        }
+      />
     </View>
   );
 }
@@ -1566,6 +1830,10 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: 10,
   },
+  columnWrapper: {
+    justifyContent: 'space-between',
+    gap: 10,
+  },
   productCard: {
     backgroundColor: '#FFFFFF',
     borderRadius: 18,
@@ -1577,7 +1845,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.07,
     shadowRadius: 10,
     elevation: 3,
-    marginBottom: 12,
+    marginBottom: 10,
   },
 
   /* Card Image */
@@ -1721,6 +1989,7 @@ const styles = StyleSheet.create({
     alignItems: 'baseline',
     flex: 1,
     minWidth: 0,
+    marginRight: 6,
   },
   priceText: {
     fontSize: 17,
@@ -1899,6 +2168,11 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '900',
+  },
+  cartBarSubText: {
+    color: '#94A3B8',
+    fontSize: 11,
+    fontWeight: '500',
   },
   cartBarRightBtn: {
     flexDirection: 'row',

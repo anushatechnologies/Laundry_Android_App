@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
+  Dimensions,
   FlatList,
   Image,
   NativeScrollEvent,
@@ -19,8 +20,9 @@ interface BannerCarouselProps {
 
 export function BannerCarousel({ banners, onSelectBanner }: BannerCarouselProps) {
   const { width: windowWidth } = useWindowDimensions();
-  const screenWidth = windowWidth > 0 ? windowWidth : 360;
-  const cardWidth = Math.max(280, screenWidth - 32);
+  const screenWidth = windowWidth > 0 ? windowWidth : Dimensions.get('window').width || 360;
+  // Increased banner width for maximum visibility while retaining clean edge clearance
+  const cardWidth = Math.max(280, screenWidth - 24);
 
   const [activeIndex, setActiveIndex] = useState(0);
   const [imageErrors, setImageErrors] = useState<Record<string, boolean>>({});
@@ -51,7 +53,7 @@ export function BannerCarousel({ banners, onSelectBanner }: BannerCarouselProps)
 
   const onScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
     const offset = event.nativeEvent.contentOffset.x;
-    const index = Math.round(offset / (cardWidth + 12));
+    const index = Math.round(offset / screenWidth);
     if (index >= 0 && index < activeBanners.length && index !== activeIndex) {
       setActiveIndex(index);
     }
@@ -65,17 +67,18 @@ export function BannerCarousel({ banners, onSelectBanner }: BannerCarouselProps)
         ref={flatListRef}
         data={activeBanners}
         horizontal
+        pagingEnabled
         showsHorizontalScrollIndicator={false}
         onScroll={onScroll}
         scrollEventThrottle={16}
-        snapToInterval={cardWidth + 12}
-        snapToAlignment="start"
+        snapToInterval={screenWidth}
+        snapToAlignment="center"
         decelerationRate="fast"
         contentContainerStyle={styles.listContent}
         keyExtractor={(item) => item.id}
         getItemLayout={(_, index) => ({
-          length: cardWidth + 12,
-          offset: (cardWidth + 12) * index,
+          length: screenWidth,
+          offset: screenWidth * index,
           index,
         })}
         onScrollToIndexFailed={(info) => {
@@ -83,8 +86,7 @@ export function BannerCarousel({ banners, onSelectBanner }: BannerCarouselProps)
             flatListRef.current?.scrollToIndex({ index: info.index, animated: true });
           }, 100);
         }}
-        renderItem={({ item, index }) => {
-          const isLast = index === activeBanners.length - 1;
+        renderItem={({ item }) => {
           const fallbackUri = 'https://images.unsplash.com/photo-1545173168-9f1947eebb7f?auto=format&fit=crop&w=1200&q=80';
           const hasError = imageErrors[item.id];
           const imageUri = (!hasError && item.imageUrl)
@@ -92,26 +94,28 @@ export function BannerCarousel({ banners, onSelectBanner }: BannerCarouselProps)
             : fallbackUri;
 
           return (
-            <Pressable
-              style={({ pressed }) => [
-                styles.cardWrapper,
-                { width: cardWidth, marginRight: isLast ? 0 : 12 },
-                pressed && styles.cardPressed,
-              ]}
-              onPress={() => onSelectBanner(item)}
-            >
-              {/* PURE BANNER IMAGE ONLY - ZERO TEXT OVERLAYS OR FALLBACK CONTENT */}
-              <View style={[styles.card, { width: cardWidth }]}>
-                <Image
-                  source={{ uri: imageUri }}
-                  style={[styles.bannerImage, { width: cardWidth }]}
-                  resizeMode="cover"
-                  onError={() => {
-                    setImageErrors((prev) => ({ ...prev, [item.id]: true }));
-                  }}
-                />
-              </View>
-            </Pressable>
+            <View style={[styles.slideContainer, { width: screenWidth }]}>
+              <Pressable
+                style={({ pressed }) => [
+                  styles.cardWrapper,
+                  { width: cardWidth },
+                  pressed && styles.cardPressed,
+                ]}
+                onPress={() => onSelectBanner(item)}
+              >
+                {/* PURE BANNER IMAGE ONLY - ZERO TEXT OVERLAYS OR FALLBACK CONTENT */}
+                <View style={[styles.card, { width: cardWidth }]}>
+                  <Image
+                    source={{ uri: imageUri }}
+                    style={[styles.bannerImage, { width: cardWidth }]}
+                    resizeMode="cover"
+                    onError={() => {
+                      setImageErrors((prev) => ({ ...prev, [item.id]: true }));
+                    }}
+                  />
+                </View>
+              </Pressable>
+            </View>
           );
         }}
       />
@@ -139,18 +143,22 @@ const styles = StyleSheet.create({
     marginVertical: 10,
   },
   listContent: {
-    paddingHorizontal: 16,
+    paddingHorizontal: 0,
+  },
+  slideContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   cardWrapper: {
-    height: 165,
+    height: 168,
   },
   cardPressed: {
     opacity: 0.95,
     transform: [{ scale: 0.99 }],
   },
   card: {
-    height: 165,
-    borderRadius: 18,
+    height: 168,
+    borderRadius: 20,
     overflow: 'hidden',
     backgroundColor: '#0F172A',
     shadowColor: '#000000',
@@ -162,7 +170,7 @@ const styles = StyleSheet.create({
     borderColor: '#E2E8F0',
   },
   bannerImage: {
-    height: 165,
+    height: 168,
   },
   pagination: {
     flexDirection: 'row',

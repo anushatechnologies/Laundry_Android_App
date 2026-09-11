@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { ActivityIndicator, Badge, Divider } from 'react-native-paper';
 import { useApp } from '@/context/AppContext';
+import { useToast } from '@/context/ToastContext';
 import { useTheme } from '@/context/ThemeContext';
 import { api } from '@/lib/api';
 import { AppButton, AppInput, Card, EmptyState, SectionTitle } from '@/ui/components';
@@ -10,7 +11,8 @@ import type { Coupon } from '@/types/domain';
 
 export function OffersScreen({ onUseCoupon }: { onUseCoupon: (code: string) => void }) {
   const { cartSummary, orders } = useApp();
-  const { colors } = useTheme();
+  const { toast } = useToast();
+  const { colors, isDark } = useTheme();
   const [coupons, setCoupons] = useState<Coupon[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -56,19 +58,28 @@ export function OffersScreen({ onUseCoupon }: { onUseCoupon: (code: string) => v
     setMessage(null);
     try {
       if (!availableForCart) {
+        toast.info(`${normalized} Applied!`, {
+          subtitle: 'Add laundry to bag to enjoy your discount.',
+        });
         setMessage(`${normalized} is ready. Add laundry to your bag, then review it at checkout.`);
         onUseCoupon(normalized);
         return;
       }
       const result = await api.applyCoupon(normalized, cartSummary.itemTotal, orders.length === 0);
       if (!result.isValid) {
+        toast.error(result.message || 'Invalid coupon code');
         setMessage(result.message);
         return;
       }
+      toast.success(`Coupon ${normalized} Applied! 🎉`, {
+        subtitle: `You save an estimated ${money(result.discount)}!`,
+      });
       setMessage(`${result.message} You save an estimated ${money(result.discount)} before final checkout.`);
       onUseCoupon(normalized);
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : 'This code could not be applied.');
+      const errMsg = error instanceof Error ? error.message : 'This code could not be applied.';
+      toast.error(errMsg);
+      setMessage(errMsg);
     } finally {
       setProcessingCode(null);
     }
@@ -90,15 +101,15 @@ export function OffersScreen({ onUseCoupon }: { onUseCoupon: (code: string) => v
       }
     >
       {cartSummary.itemCount ? (
-        <View style={styles.bagBar}>
-          <Text style={styles.bagBarText}>Applying to your bag:</Text>
-          <Badge style={styles.bagBadge}>{money(cartSummary.itemTotal)}</Badge>
+        <View style={[styles.bagBar, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+          <Text style={[styles.bagBarText, { color: colors.textHeading }]}>Applying to your bag:</Text>
+          <Badge style={[styles.bagBadge, { backgroundColor: colors.primary }]}>{money(cartSummary.itemTotal)}</Badge>
         </View>
       ) : null}
 
-      <Card style={styles.manualCard}>
-        <Text style={styles.manualTitle}>Have a promo code?</Text>
-        <Text style={styles.manualDetail}>We check it against your current bag before sending you to secure checkout.</Text>
+      <Card style={[styles.manualCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+        <Text style={[styles.manualTitle, { color: colors.textHeading }]}>Have a promo code?</Text>
+        <Text style={[styles.manualDetail, { color: colors.textCaption }]}>We check it against your current bag before sending you to secure checkout.</Text>
         <View style={styles.manualRow}>
           <AppInput
             label="Promo code"
@@ -111,23 +122,36 @@ export function OffersScreen({ onUseCoupon }: { onUseCoupon: (code: string) => v
         </View>
       </Card>
 
-      {message ? <Card style={styles.messageCard}><Text style={styles.message}>{message}</Text></Card> : null}
+      {message ? (
+        <Card style={[styles.messageCard, { backgroundColor: colors.section, borderColor: colors.border }]}>
+          <Text style={[styles.message, { color: colors.primary }]}>{message}</Text>
+        </Card>
+      ) : null}
 
       <SectionTitle title="Available coupons" action={<AppButton title="Refresh" compact variant="outline" icon="refresh" onPress={load} loading={loading} />} />
-      {loading ? <View style={styles.loading}><ActivityIndicator color={COLORS.plum} /><Text style={styles.loadingText}>Checking current offers...</Text></View> : null}
+      {loading ? (
+        <View style={styles.loading}>
+          <ActivityIndicator color={colors.primary} />
+          <Text style={[styles.loadingText, { color: colors.textCaption }]}>Checking current offers...</Text>
+        </View>
+      ) : null}
       {!loading && coupons.length ? (
         <View style={styles.couponStack}>
           {coupons.map((coupon) => (
-            <Card key={coupon.id} style={styles.couponCard}>
+            <Card key={coupon.id} style={[styles.couponCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
               <View style={styles.couponTop}>
-                <View style={styles.codeBox}><Text style={styles.code}>{coupon.code}</Text></View>
-                {coupon.firstOrderOnly ? <Badge style={styles.firstOrderBadge}>First order</Badge> : null}
+                <View style={[styles.codeBox, { backgroundColor: colors.primary }]}>
+                  <Text style={styles.code}>{coupon.code}</Text>
+                </View>
+                {coupon.firstOrderOnly ? (
+                  <Badge style={[styles.firstOrderBadge, { backgroundColor: colors.section, color: colors.primaryLight }]}>First order</Badge>
+                ) : null}
               </View>
-              <Text style={styles.couponTitle}>{coupon.title}</Text>
-              <Text style={styles.couponDetail}>{coupon.description}</Text>
-              <Divider style={styles.divider} />
+              <Text style={[styles.couponTitle, { color: colors.textHeading }]}>{coupon.title}</Text>
+              <Text style={[styles.couponDetail, { color: colors.textBody }]}>{coupon.description}</Text>
+              <Divider style={[styles.divider, { backgroundColor: colors.border }]} />
               <View style={styles.couponBottom}>
-                <Text style={styles.validity}>Min. {money(coupon.minOrderValue)} · Valid through {shortDate(coupon.expiryDate)}</Text>
+                <Text style={[styles.validity, { color: colors.textCaption }]}>Min. {money(coupon.minOrderValue)} · Valid through {shortDate(coupon.expiryDate)}</Text>
                 <AppButton
                   title={availableForCart ? 'Use offer' : 'Save offer'}
                   compact
@@ -146,32 +170,32 @@ export function OffersScreen({ onUseCoupon }: { onUseCoupon: (code: string) => v
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: COLORS.cream },
+  root: { flex: 1 },
   content: { paddingHorizontal: 16, paddingTop: 14, paddingBottom: 32, gap: 16 },
-  bagBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#FFFFFF', paddingHorizontal: 16, paddingVertical: 10, borderRadius: 14, borderWidth: 1, borderColor: '#F1F5F9' },
-  bagBarText: { fontSize: 13, fontWeight: '700', color: COLORS.plumDark },
+  bagBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 10, borderRadius: 14, borderWidth: 1 },
+  bagBarText: { fontSize: 13, fontWeight: '700' },
   headerCopy: { flex: 1 },
-  title: { color: COLORS.plumDark, fontSize: 26, fontWeight: '900' },
-  subtitle: { color: COLORS.muted, fontSize: 14, lineHeight: 20, marginTop: 4 },
-  bagBadge: { backgroundColor: COLORS.plum, color: COLORS.white, fontWeight: '800' },
-  manualCard: { backgroundColor: COLORS.blush, borderColor: COLORS.line, padding: 18, borderRadius: 20 },
-  manualTitle: { color: COLORS.plumDark, fontSize: 18, fontWeight: '900' },
-  manualDetail: { color: COLORS.muted, fontSize: 13, lineHeight: 19, marginTop: 4 },
+  title: { fontSize: 26, fontWeight: '900' },
+  subtitle: { fontSize: 14, lineHeight: 20, marginTop: 4 },
+  bagBadge: { color: '#FFFFFF', fontWeight: '800' },
+  manualCard: { padding: 18, borderRadius: 20, borderWidth: 1 },
+  manualTitle: { fontSize: 18, fontWeight: '900' },
+  manualDetail: { fontSize: 13, lineHeight: 19, marginTop: 4 },
   manualRow: { flexDirection: 'row', alignItems: 'center', gap: 9, marginTop: 13 },
   manualInput: { flex: 1 },
-  messageCard: { backgroundColor: COLORS.blush, borderColor: COLORS.line, paddingVertical: 12 },
-  message: { color: COLORS.plum, fontSize: 12, fontWeight: '700', lineHeight: 18 },
+  messageCard: { paddingVertical: 12, paddingHorizontal: 16, borderRadius: 14, borderWidth: 1 },
+  message: { fontSize: 12, fontWeight: '700', lineHeight: 18 },
   loading: { minHeight: 120, alignItems: 'center', justifyContent: 'center', gap: 10 },
-  loadingText: { color: COLORS.muted, fontSize: 12 },
+  loadingText: { fontSize: 12 },
   couponStack: { gap: 12 },
-  couponCard: { padding: 18, borderRadius: 20 },
+  couponCard: { padding: 18, borderRadius: 20, borderWidth: 1 },
   couponTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 },
-  codeBox: { borderRadius: 10, backgroundColor: COLORS.plum, paddingHorizontal: 14, paddingVertical: 7 },
-  code: { color: COLORS.white, fontSize: 14, letterSpacing: 1.5, fontWeight: '900' },
-  firstOrderBadge: { backgroundColor: COLORS.blush, color: COLORS.plum, fontSize: 12, fontWeight: '800', paddingHorizontal: 8, paddingVertical: 2 },
-  couponTitle: { color: COLORS.plumDark, fontSize: 19, fontWeight: '900', marginTop: 12 },
-  couponDetail: { color: '#4A3B45', fontSize: 14, lineHeight: 20, marginTop: 4 },
-  divider: { marginVertical: 14, backgroundColor: COLORS.line },
+  codeBox: { borderRadius: 10, paddingHorizontal: 14, paddingVertical: 7 },
+  code: { color: '#FFFFFF', fontSize: 14, letterSpacing: 1.5, fontWeight: '900' },
+  firstOrderBadge: { fontSize: 12, fontWeight: '800', paddingHorizontal: 8, paddingVertical: 2 },
+  couponTitle: { fontSize: 19, fontWeight: '900', marginTop: 12 },
+  couponDetail: { fontSize: 14, lineHeight: 20, marginTop: 4 },
+  divider: { marginVertical: 14 },
   couponBottom: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 },
-  validity: { flex: 1, color: COLORS.muted, fontSize: 12, lineHeight: 17 },
+  validity: { flex: 1, fontSize: 12, lineHeight: 17 },
 });

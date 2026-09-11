@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useApp } from '@/context/AppContext';
+import { useTheme } from '@/context/ThemeContext';
 import { COLORS, money } from '@/ui/theme';
 import { getGarmentImageUrl } from '@/lib/garment-photos';
 
@@ -25,6 +26,7 @@ interface MiniBagDrawerProps {
 
 export function MiniBagDrawer({ visible, onClose, onProceed }: MiniBagDrawerProps) {
   const { cart, cartSummary, setCartQuantity, removeFromCart } = useApp();
+  const { colors, isDark } = useTheme();
   const slideAnim = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
 
   useEffect(() => {
@@ -54,12 +56,13 @@ export function MiniBagDrawer({ visible, onClose, onProceed }: MiniBagDrawerProp
         <Animated.View
           style={[
             styles.drawerContainer,
+            { backgroundColor: colors.surface, borderTopColor: colors.border, borderWidth: isDark ? 1 : 0 },
             { transform: [{ translateY: slideAnim }] },
           ]}
         >
           {/* Top Drag Indicator */}
           <View style={styles.dragPillWrap}>
-            <View style={styles.dragPill} />
+            <View style={[styles.dragPill, isDark && { backgroundColor: colors.border }]} />
           </View>
 
           {/* Header */}
@@ -69,33 +72,33 @@ export function MiniBagDrawer({ visible, onClose, onProceed }: MiniBagDrawerProp
                 <MaterialCommunityIcons name="shopping" size={20} color="#F97316" />
               </View>
               <View>
-                <Text style={styles.headerTitle}>Your Laundry Bag</Text>
-                <Text style={styles.headerSubtitle}>
+                <Text style={[styles.headerTitle, { color: colors.textHeading }]}>Your Laundry Bag</Text>
+                <Text style={[styles.headerSubtitle, { color: colors.textCaption }]}>
                   {cartSummary.itemCount} item{cartSummary.itemCount === 1 ? '' : 's'} selected for care
                 </Text>
               </View>
             </View>
 
-            <Pressable style={styles.closeBtn} onPress={onClose} hitSlop={10}>
-              <MaterialCommunityIcons name="close" size={20} color="#1C0B18" />
+            <Pressable style={[styles.closeBtn, { backgroundColor: colors.section }]} onPress={onClose} hitSlop={10}>
+              <MaterialCommunityIcons name="close" size={20} color={colors.textHeading} />
             </Pressable>
           </View>
 
           {/* Promise Banner */}
-          <View style={styles.promiseBanner}>
+          <View style={[styles.promiseBanner, isDark && { backgroundColor: colors.section, borderColor: colors.border }]}>
             <View style={styles.promiseItem}>
               <MaterialCommunityIcons name="lightning-bolt" size={14} color="#EA580C" />
-              <Text style={styles.promiseText}>24H-48H Turnaround</Text>
+              <Text style={[styles.promiseText, isDark && { color: colors.textBody }]}>24H-48H Turnaround</Text>
             </View>
-            <View style={styles.promiseDivider} />
+            <View style={[styles.promiseDivider, isDark && { backgroundColor: colors.border }]} />
             <View style={styles.promiseItem}>
               <MaterialCommunityIcons name="shield-check" size={14} color="#16A34A" />
-              <Text style={styles.promiseText}>100% Free Re-wash</Text>
+              <Text style={[styles.promiseText, isDark && { color: colors.textBody }]}>100% Free Re-wash</Text>
             </View>
-            <View style={styles.promiseDivider} />
+            <View style={[styles.promiseDivider, isDark && { backgroundColor: colors.border }]} />
             <View style={styles.promiseItem}>
               <MaterialCommunityIcons name="truck-check" size={14} color="#3B82F6" />
-              <Text style={styles.promiseText}>Free Doorstep Pickup</Text>
+              <Text style={[styles.promiseText, isDark && { color: colors.textBody }]}>Free Doorstep Pickup</Text>
             </View>
           </View>
 
@@ -108,8 +111,8 @@ export function MiniBagDrawer({ visible, onClose, onProceed }: MiniBagDrawerProp
             {cart.length === 0 ? (
               <View style={styles.emptyCart}>
                 <MaterialCommunityIcons name="bag-personal-outline" size={48} color="#D6B36A" />
-                <Text style={styles.emptyCartText}>Your bag is empty</Text>
-                <Text style={styles.emptyCartSub}>Add garments or bulk laundry packs to get started.</Text>
+                <Text style={[styles.emptyCartText, { color: colors.textHeading }]}>Your bag is empty</Text>
+                <Text style={[styles.emptyCartSub, { color: colors.textCaption }]}>Add garments or bulk laundry packs to get started.</Text>
               </View>
             ) : (
               cart.map((item) => {
@@ -128,18 +131,18 @@ export function MiniBagDrawer({ visible, onClose, onProceed }: MiniBagDrawerProp
                 const imageUrl = getGarmentImageUrl(rawClothId || 'cloth-shirt', item.imageUrl, item.categoryName, item.serviceName);
 
                 return (
-                  <View key={item.id} style={styles.itemRow}>
+                  <View key={item.id} style={[styles.itemRow, { borderBottomColor: colors.border }]}>
                     {/* Image / Icon */}
-                    <View style={styles.itemThumbWrap}>
+                    <View style={[styles.itemThumbWrap, { backgroundColor: colors.section }]}>
                       <Image source={{ uri: imageUrl }} style={styles.itemImage} resizeMode="cover" />
                     </View>
 
                     {/* Details */}
                     <View style={styles.itemInfo}>
-                      <Text style={styles.itemName} numberOfLines={1}>
+                      <Text style={[styles.itemName, { color: colors.textHeading }]} numberOfLines={1}>
                         {item.serviceName ? item.serviceName.replace(/\s*\((null|undefined)\)/gi, '').trim() : 'Garment'}
                       </Text>
-                      <Text style={styles.itemMeta}>
+                      <Text style={[styles.itemMeta, { color: colors.textCaption }]}>
                         ₹{item.unitPrice}/{item.unit || (isBulk ? 'KG' : 'Piece')}
                       </Text>
                     </View>
@@ -176,7 +179,7 @@ export function MiniBagDrawer({ visible, onClose, onProceed }: MiniBagDrawerProp
                     </View>
 
                     {/* Subtotal */}
-                    <Text style={styles.itemSubtotal}>{money(item.subtotal)}</Text>
+                    <Text style={[styles.itemSubtotal, { color: colors.textHeading }]}>{money(item.subtotal)}</Text>
                   </View>
                 );
               })
@@ -185,23 +188,23 @@ export function MiniBagDrawer({ visible, onClose, onProceed }: MiniBagDrawerProp
 
           {/* Footer Bill & CTA */}
           {cartSummary.itemCount > 0 && (
-            <View style={styles.footer}>
+            <View style={[styles.footer, { borderTopColor: colors.border }]}>
               {/* Bill Summary */}
-              <View style={styles.billBox}>
+              <View style={[styles.billBox, { backgroundColor: colors.section, borderColor: colors.border }]}>
                 <View style={styles.billRow}>
-                  <Text style={styles.billLabel}>Bag Subtotal</Text>
-                  <Text style={styles.billVal}>{money(cartSummary.itemTotal)}</Text>
+                  <Text style={[styles.billLabel, { color: colors.textCaption }]}>Bag Subtotal</Text>
+                  <Text style={[styles.billVal, { color: colors.textHeading }]}>{money(cartSummary.itemTotal)}</Text>
                 </View>
                 <View style={styles.billRow}>
-                  <Text style={styles.billLabel}>Doorstep Pickup & Delivery</Text>
+                  <Text style={[styles.billLabel, { color: colors.textCaption }]}>Doorstep Pickup & Delivery</Text>
                   <View style={styles.freeBadge}>
                     <Text style={styles.freeBadgeText}>FREE</Text>
                   </View>
                 </View>
-                <View style={styles.billDivider} />
+                <View style={[styles.billDivider, { backgroundColor: colors.border }]} />
                 <View style={styles.billRow}>
-                  <Text style={styles.billTotalLabel}>Estimated Total</Text>
-                  <Text style={styles.billTotalVal}>{money(cartSummary.itemTotal)}</Text>
+                  <Text style={[styles.billTotalLabel, { color: colors.textHeading }]}>Estimated Total</Text>
+                  <Text style={[styles.billTotalVal, { color: colors.primary }]}>{money(cartSummary.itemTotal)}</Text>
                 </View>
               </View>
 

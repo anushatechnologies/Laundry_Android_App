@@ -298,6 +298,8 @@ export const api = {
   getNearestHubForPincode: (pincode: string) =>
     request<{ hub: import('@/types/domain').HubBranch; isDirectTerritory: boolean }>(`/hubs/nearest-for-pincode?pincode=${encodeURIComponent(pincode)}`),
   getBanners: () => request<Banner[]>('/banners'),
+  getProfile: (customerId: string) =>
+    request<{ id: string; name: string; email?: string; phone: string }>(`/customers/${encodeURIComponent(customerId)}`, {}, true),
   updateProfile: (customerId: string, data: { name?: string; email?: string; phone?: string; wishlist?: string[] }) =>
     request<{ id: string; name: string; email?: string; phone: string }>(`/customers/${encodeURIComponent(customerId)}`, {
       method: 'PUT',

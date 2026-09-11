@@ -8,7 +8,7 @@ import { COLORS, money } from '@/ui/theme';
 import type { BulkPricingFeed } from '@/types/domain';
 
 export function PricingScreen({ onBook }: { onBook: () => void }) {
-  const { colors } = useTheme();
+  const { isDark, colors } = useTheme();
   const [feed, setFeed] = useState<BulkPricingFeed | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -28,36 +28,36 @@ export function PricingScreen({ onBook }: { onBook: () => void }) {
   useEffect(() => { void load(); }, [load]);
 
   if (loading) {
-    return <View style={styles.centered}><ActivityIndicator size="large" color={COLORS.plum} /><Text style={styles.loadingText}>Loading current package prices...</Text></View>;
+    return <View style={[styles.centered, { backgroundColor: colors.background }]}><ActivityIndicator size="large" color={isDark ? '#F97316' : COLORS.plum} /><Text style={[styles.loadingText, { color: colors.textCaption }]}>Loading current package prices...</Text></View>;
   }
 
   if (error || !feed) {
-    return <View style={styles.errorRoot}><EmptyState icon="cloud-alert-outline" title="Pricing unavailable" detail={error || 'Try again shortly.'} action={<AppButton title="Retry" compact icon="refresh" onPress={load} />} /></View>;
+    return <View style={[styles.errorRoot, { backgroundColor: colors.background }]}><EmptyState icon="cloud-alert-outline" title="Pricing unavailable" detail={error || 'Try again shortly.'} action={<AppButton title="Retry" compact icon="refresh" onPress={load} />} /></View>;
   }
 
   return (
     <ScrollView style={[styles.root, { backgroundColor: colors.background }]} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-      <Text style={styles.subtitle}>Clear package slabs for your bag. Your final total is confirmed after weighing and checkout.</Text>
+      <Text style={[styles.subtitle, { color: colors.textCaption }]}>Clear package slabs for your bag. Your final total is confirmed after weighing and checkout.</Text>
 
-      <Card style={styles.noteCard}>
-        <Text style={styles.noteTitle}>How weight pricing works</Text>
-        <Text style={styles.noteText}>Choose the service that fits your garments, then select a pickup. Exact weight, pincode fees, offers, tax, and express choices are confirmed securely at checkout.</Text>
+      <Card style={[styles.noteCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+        <Text style={[styles.noteTitle, { color: colors.textHeading }]}>How weight pricing works</Text>
+        <Text style={[styles.noteText, { color: colors.textBody }]}>Choose the service that fits your garments, then select a pickup. Exact weight, pincode fees, offers, tax, and express choices are confirmed securely at checkout.</Text>
       </Card>
 
       <View style={styles.services}>
         {feed.services.map((service) => (
-          <Card key={service.serviceId} style={styles.serviceCard}>
+          <Card key={service.serviceId} style={[styles.serviceCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
             <View style={styles.serviceHeading}>
-              <View style={styles.iconBubble}><Text style={styles.iconText}>{service.icon || 'L'}</Text></View>
-              <View style={styles.serviceCopy}><Text style={styles.serviceName}>{service.serviceName}</Text><Text style={styles.serviceDetail}>Mixed laundry · per KG packages</Text></View>
+              <View style={[styles.iconBubble, { backgroundColor: isDark ? colors.section : COLORS.blush }]}><Text style={[styles.iconText, { color: isDark ? '#F97316' : COLORS.plum }]}>{service.icon || 'L'}</Text></View>
+              <View style={styles.serviceCopy}><Text style={[styles.serviceName, { color: colors.textHeading }]}>{service.serviceName}</Text><Text style={[styles.serviceDetail, { color: colors.textCaption }]}>Mixed laundry · per KG packages</Text></View>
             </View>
-            <Divider style={styles.divider} />
-            <View style={styles.tableHeader}><Text style={[styles.tableHeading, styles.weightCell]}>Weight</Text><Text style={styles.tableHeading}>Regular</Text><Text style={styles.tableHeading}>Express</Text></View>
+            <Divider style={[styles.divider, { backgroundColor: colors.border }]} />
+            <View style={styles.tableHeader}><Text style={[styles.tableHeading, styles.weightCell, { color: colors.textCaption }]}>Weight</Text><Text style={[styles.tableHeading, { color: colors.textCaption }]}>Regular</Text><Text style={[styles.tableHeading, { color: colors.textCaption }]}>Express</Text></View>
             {service.pricing.map((slab, index) => (
-              <View key={slab.id} style={[styles.slabRow, index === service.pricing.length - 1 && styles.lastSlab]}>
-                <Text style={[styles.slabWeight, styles.weightCell]}>{slab.weightKg} KG</Text>
-                <View style={styles.priceCell}><Text style={styles.slabPrice}>{money(slab.regularPrice)}</Text><Text style={styles.tat}>{slab.regularTatHours}h</Text></View>
-                <View style={styles.priceCell}><Text style={styles.slabPrice}>{money(slab.expressPrice)}</Text><Text style={styles.tat}>{slab.expressTatHours}h</Text></View>
+              <View key={slab.id} style={[styles.slabRow, { borderBottomColor: colors.border }, index === service.pricing.length - 1 && styles.lastSlab]}>
+                <Text style={[styles.slabWeight, styles.weightCell, { color: colors.textHeading }]}>{slab.weightKg} KG</Text>
+                <View style={styles.priceCell}><Text style={[styles.slabPrice, { color: isDark ? '#F97316' : COLORS.plum }]}>{money(slab.regularPrice)}</Text><Text style={[styles.tat, { color: colors.textCaption }]}>{slab.regularTatHours}h</Text></View>
+                <View style={styles.priceCell}><Text style={[styles.slabPrice, { color: isDark ? '#F97316' : COLORS.plum }]}>{money(slab.expressPrice)}</Text><Text style={[styles.tat, { color: colors.textCaption }]}>{slab.expressTatHours}h</Text></View>
               </View>
             ))}
           </Card>

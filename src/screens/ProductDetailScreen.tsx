@@ -1,9 +1,8 @@
-import React, { useState, useMemo, useRef } from 'react';
+import React, { useState, useMemo, useRef, useCallback } from 'react';
 import {
   Alert,
   Animated,
   Image,
-  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -14,8 +13,10 @@ import {
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useApp } from '@/context/AppContext';
+import { useToast } from '@/context/ToastContext';
 import { useTheme } from '@/context/ThemeContext';
 import { getGarmentImageUrl } from '@/lib/garment-photos';
+import { AnimatedCartButton } from '@/components/AnimatedCartButton';
 import type { ProductItem, ServicePriceOption } from '@/types/domain';
 
 interface ProductDetailScreenProps {
@@ -32,44 +33,14 @@ export function ProductDetailScreen({
   onViewCart,
 }: ProductDetailScreenProps) {
   const insets = useSafeAreaInsets();
-  const { colors } = useTheme();
+  const { colors, isDark } = useTheme();
+  const { toast } = useToast();
   const { cart, cartSummary, addCartItem, setCartQuantity, removeFromCart, wishlist, toggleWishlist } = useApp();
 
-  // Find initial service or default to first
-  const defaultService = useMemo(() => {
-    if (initialServiceId) {
-      const match = product.services.find((s) => s.serviceId === initialServiceId);
-      if (match) return match;
-    }
-    return product.services[0] || null;
-  }, [product.services, initialServiceId]);
-
-  const [selectedService, setSelectedService] = useState<ServicePriceOption | null>(defaultService);
+  const [imageFailed, setImageFailed] = useState(false);
   const [starchOption, setStarchOption] = useState<'NONE' | 'LIGHT' | 'CRISP'>('NONE');
   const [packingOption, setPackingOption] = useState<'FOLDED' | 'HANGER'>('HANGER');
   const [customNote, setCustomNote] = useState('');
-  const [imageFailed, setImageFailed] = useState(false);
-
-  // Check if this cloth + selected service is already in cart
-  const cartItemId = useMemo(() => {
-    if (!selectedService) return '';
-    return `${product.id}-${selectedService.serviceId}`;
-  }, [product.id, selectedService]);
-
-  const existingCartItem = useMemo(() => {
-    return cart.find((c) => c && (c.id === cartItemId || (c.clothId === product.id && c.serviceId === selectedService?.serviceId)));
-  }, [cart, cartItemId, product.id, selectedService]);
-
-  const [quantity, setQuantity] = useState(existingCartItem ? existingCartItem.quantity : 1);
-
-  // Sync quantity when selectedService changes
-  const handleServiceSelect = (srv: ServicePriceOption) => {
-    setSelectedService(srv);
-    const existing = cart.find(
-      (c) => c && (c.id === `${product.id}-${srv.serviceId}` || (c.clothId === product.id && c.serviceId === srv.serviceId))
-    );
-    setQuantity(existing ? existing.quantity : 1);
-  };
 
   const isFavorite = wishlist.includes(product.id);
 
@@ -82,63 +53,98 @@ export function ProductDetailScreen({
     return product.fallbackImageUrl || undefined;
   }, [product, imageFailed]);
 
-  // Price calculations
-  const unitPrice = selectedService ? selectedService.price : product.minPrice;
+  // Per-service cart helpers
+  const getCartItemForService = useCallback(
+    (srv: ServicePriceOption) =>
+      cart.find(
+        (c) =>
+          c &&
+          (c.id === `${product.id}-${srv.serviceId}` ||
+            (c.clothId === product.id && c.serviceId === srv.serviceId))
+      ),
+    [cart, product.id]
+  );
+
   const starchExtra = starchOption === 'LIGHT' ? 10 : starchOption === 'CRISP' ? 15 : 0;
-  const totalPrice = (unitPrice + starchExtra) * quantity;
 
-  // Add / Update Bag handler
-  const btnScaleAnim = useRef(new Animated.Value(1)).current;
+  // Notes summary
+  const getNotes = useCallback(() => {
+    const parts: string[] = [];
+    if (starchOption !== 'NONE') parts.push(`${starchOption === 'LIGHT' ? 'Light' : 'Crisp'} Starch`);
+    if (packingOption === 'HANGER') parts.push('Hanger Pack');
+    if (customNote.trim()) parts.push(customNote.trim());
+    return parts.join(' • ');
+  }, [starchOption, packingOption, customNote]);
 
-  const handleAddOrUpdate = () => {
-    if (!selectedService) {
-      Alert.alert('Select a Service', 'Please choose a laundry treatment for this garment.');
-      return;
-    }
-
-    Animated.sequence([
-      Animated.timing(btnScaleAnim, { toValue: 0.94, duration: 90, useNativeDriver: true }),
-      Animated.spring(btnScaleAnim, { toValue: 1, friction: 4, tension: 120, useNativeDriver: true }),
-    ]).start();
-
-    const cleanServiceCode = selectedService.serviceCode.replace(/-/g, '_').toUpperCase();
-
-    // Notes summary
-    const notesParts: string[] = [];
-    if (starchOption !== 'NONE') notesParts.push(`${starchOption === 'LIGHT' ? 'Light' : 'Crisp'} Starch`);
-    if (packingOption === 'HANGER') notesParts.push('Hanger Pack');
-    if (customNote.trim()) notesParts.push(customNote.trim());
-    const finalNotes = notesParts.join(' • ');
-
-    if (existingCartItem) {
-      // Update quantity
-      setCartQuantity(existingCartItem.id, quantity);
-    } else {
-      // Add new cart item
-      const itemUnitPrice = unitPrice + starchExtra;
+  // Add a specific service to cart
+  const handleAdd = useCallback(
+    (srv: ServicePriceOption) => {
+      const itemUnitPrice = srv.price + starchExtra;
+      const cartItemId = `${product.id}-${srv.serviceId}`;
       addCartItem({
         id: cartItemId,
-        serviceId: selectedService.serviceId,
+        serviceId: srv.serviceId,
         clothId: product.id,
         clothName: product.name,
-        serviceName: `${product.name} (${selectedService.displayName})`,
+        serviceName: `${product.name} (${srv.displayName})`,
         categoryName: product.categoryLabel || product.categoryTag,
-        pricingModel: selectedService.unit === 'KG' ? 'PER_KG' : 'PER_ITEM',
+        pricingModel: srv.unit === 'KG' ? 'PER_KG' : 'PER_ITEM',
         unitPrice: itemUnitPrice,
-        quantity,
-        unit: selectedService.unit === 'KG' ? 'KG' : 'Piece',
-        subtotal: itemUnitPrice * quantity,
-        specialInstructions: finalNotes || undefined,
-        turnaroundHours: selectedService.turnaroundHours,
+        quantity: 1,
+        unit: srv.unit === 'KG' ? 'KG' : 'Piece',
+        subtotal: itemUnitPrice,
+        specialInstructions: getNotes() || undefined,
+        turnaroundHours: srv.turnaroundHours,
         imageUrl: product.imageUrl || product.fallbackImageUrl,
       });
+
+      toast.cart(`Added ${product.name} to Bag! 🛍️`, {
+        subtitle: `${srv.displayName} • ₹${itemUnitPrice}`,
+        thumbnail: photoUrl,
+        actionLabel: 'View Bag',
+        onAction: onViewCart,
+      });
+    },
+    [product, addCartItem, starchExtra, getNotes, toast, photoUrl, onViewCart]
+  );
+
+  const handleIncrement = useCallback(
+    (srv: ServicePriceOption) => {
+      const existing = getCartItemForService(srv);
+      if (existing) setCartQuantity(existing.id, existing.quantity + 1);
+    },
+    [getCartItemForService, setCartQuantity]
+  );
+
+  const handleDecrement = useCallback(
+    (srv: ServicePriceOption) => {
+      const existing = getCartItemForService(srv);
+      if (!existing) return;
+      if (existing.quantity <= 1) {
+        removeFromCart(existing.id);
+      } else {
+        setCartQuantity(existing.id, existing.quantity - 1);
+      }
+    },
+    [getCartItemForService, removeFromCart, setCartQuantity]
+  );
+
+  const handleToggleWishlist = useCallback(() => {
+    toggleWishlist(product.id);
+    if (!isFavorite) {
+      toast.wishlist(`Saved ${product.name} to Wishlist! ❤️`);
+    } else {
+      toast.info(`Removed ${product.name} from Wishlist`, {
+        actionLabel: 'Undo',
+        onAction: () => toggleWishlist(product.id),
+      });
     }
-  };
+  }, [product.id, product.name, isFavorite, toggleWishlist, toast]);
 
   return (
     <View style={[styles.root, { backgroundColor: colors.background }]}>
       {/* 1. TOP APP BAR */}
-      <View style={styles.header}>
+      <View style={[styles.header, isDark && { backgroundColor: colors.background, borderBottomColor: colors.border }]}>
         <Pressable
           style={styles.headerBackBtn}
           onPress={onBack}
@@ -146,30 +152,49 @@ export function ProductDetailScreen({
           accessibilityRole="button"
           accessibilityLabel="Go back"
         >
-          <MaterialCommunityIcons name="arrow-left" size={22} color="#0F172A" />
+          <MaterialCommunityIcons name="arrow-left" size={22} color={isDark ? colors.textHeading : '#0F172A'} />
         </Pressable>
-        <Text style={styles.headerTitle} numberOfLines={1}>
+        <Text style={[styles.headerTitle, isDark && { color: colors.textHeading }]} numberOfLines={1}>
           {product.name}
         </Text>
-        <Pressable
-          style={styles.headerFavoriteBtn}
-          onPress={() => toggleWishlist(product.id)}
-          hitSlop={8}
-          accessibilityRole="button"
-          accessibilityLabel={isFavorite ? 'Remove from saved' : 'Save item'}
-        >
-          <MaterialCommunityIcons
-            name={isFavorite ? 'heart' : 'heart-outline'}
-            size={22}
-            color={isFavorite ? '#EF4444' : '#64748B'}
-          />
-        </Pressable>
+        <View style={styles.headerRightActions}>
+          <Pressable
+            style={styles.headerFavoriteBtn}
+            onPress={handleToggleWishlist}
+            hitSlop={8}
+            accessibilityRole="button"
+            accessibilityLabel={isFavorite ? 'Remove from saved' : 'Save item'}
+          >
+            <MaterialCommunityIcons
+              name={isFavorite ? 'heart' : 'heart-outline'}
+              size={22}
+              color={isFavorite ? '#EF4444' : (isDark ? colors.textCaption : '#64748B')}
+            />
+          </Pressable>
+
+          <Pressable
+            style={styles.headerCartBtn}
+            onPress={onViewCart}
+            hitSlop={8}
+            accessibilityRole="button"
+            accessibilityLabel={`Shopping bag, ${cartSummary.itemCount} items`}
+          >
+            <MaterialCommunityIcons name="shopping-outline" size={23} color={isDark ? colors.primaryLight : '#166534'} />
+            {cartSummary.itemCount > 0 && (
+              <View style={styles.headerCartBadge}>
+                <Text style={styles.headerCartBadgeText}>
+                  {cartSummary.itemCount > 99 ? '99+' : cartSummary.itemCount}
+                </Text>
+              </View>
+            )}
+          </Pressable>
+        </View>
       </View>
 
       {/* 2. SCROLLABLE CONTENT */}
       <ScrollView
         style={styles.scrollArea}
-        contentContainerStyle={[styles.scrollContent, { paddingBottom: 120 }]}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 120 }]}
         showsVerticalScrollIndicator={false}
       >
         {/* HERO IMAGE CONTAINER */}
@@ -182,8 +207,8 @@ export function ProductDetailScreen({
               onError={() => setImageFailed(true)}
             />
           ) : (
-            <View style={styles.heroImageFallback}>
-              <MaterialCommunityIcons name="tshirt-crew" size={72} color="#CBD5E1" />
+            <View style={[styles.heroImageFallback, isDark && { backgroundColor: colors.section }]}>
+              <MaterialCommunityIcons name="tshirt-crew" size={72} color={isDark ? colors.textCaption : '#CBD5E1'} />
             </View>
           )}
 
@@ -202,115 +227,130 @@ export function ProductDetailScreen({
         </View>
 
         {/* GARMENT DETAILS CARD */}
-        <View style={styles.detailsCard}>
+        <View style={[styles.detailsCard, isDark && { backgroundColor: colors.surface, borderColor: colors.border }]}>
           <View style={styles.titleRow}>
-            <Text style={styles.garmentTitle}>{product.name}</Text>
+            <Text style={[styles.garmentTitle, isDark && { color: colors.textHeading }]}>{product.name}</Text>
           </View>
 
-          <Text style={styles.garmentSubcategory}>
+          <Text style={[styles.garmentSubcategory, isDark && { color: colors.textCaption }]}>
             {product.subcategory ? `${product.subcategory} • ` : ''}Professional Care & Steam Finishing
           </Text>
 
           {product.description ? (
-            <Text style={styles.garmentDesc}>{product.description}</Text>
+            <Text style={[styles.garmentDesc, isDark && { color: colors.textBody }]}>{product.description}</Text>
           ) : (
-            <Text style={styles.garmentDesc}>
+            <Text style={[styles.garmentDesc, isDark && { color: colors.textBody }]}>
               Individually inspected, sanitized with hospital-grade ozone, and steam-pressed with industrial vacuum irons.
             </Text>
           )}
         </View>
 
-        {/* SERVICE SELECTION SECTION */}
-        <View style={styles.sectionWrap}>
+        {/* SERVICE SELECTION — Per-service ADD buttons */}
+        <View style={[styles.sectionWrap, isDark && { backgroundColor: colors.surface, borderColor: colors.border }]}>
           <View style={styles.sectionHeader}>
             <MaterialCommunityIcons name="tag-outline" size={18} color="#16A34A" />
-            <Text style={styles.sectionTitle}>Select Treatment & Service</Text>
+            <Text style={[styles.sectionTitle, isDark && { color: colors.textHeading }]}>Select Treatment & Service</Text>
           </View>
-          <Text style={styles.sectionSubtitle}>
-            Choose the care type suited for this garment:
+          <Text style={[styles.sectionSubtitle, isDark && { color: colors.textCaption }]}>
+            Tap ADD on any service — you can add multiple treatments for the same garment:
           </Text>
 
           <View style={styles.servicesList}>
             {product.services.map((srv) => {
-              const isSelected = selectedService?.serviceId === srv.serviceId;
+              const cartItem = getCartItemForService(srv);
+              const qty = cartItem ? cartItem.quantity : 0;
               const tat = srv.turnaroundHours ? `${srv.turnaroundHours}h TAT` : '24-48h Return';
+              const benefit = srv.serviceCode.includes('DRY')
+                ? 'Zero-solvent hydrocarbon cleaning, odor-free, delivered on wire hanger'
+                : srv.serviceCode.includes('WASH')
+                ? 'Gentle organic wash, fabric softening & crease-free steam iron'
+                : 'Industrial vacuum high-pressure steam press, zero wrinkles guaranteed';
 
               return (
-                <Pressable
+                <View
                   key={srv.serviceId}
                   style={[
                     styles.serviceCard,
-                    isSelected && styles.serviceCardSelected,
+                    isDark && { backgroundColor: colors.section, borderColor: colors.border },
+                    qty > 0 && (isDark
+                      ? { backgroundColor: 'rgba(22, 163, 74, 0.15)', borderColor: '#16A34A' }
+                      : styles.serviceCardActive),
                   ]}
-                  onPress={() => handleServiceSelect(srv)}
-                  accessibilityRole="radio"
-                  accessibilityState={{ selected: isSelected }}
                 >
-                  <View style={styles.serviceCardLeft}>
-                    <View
-                      style={[
-                        styles.radioIndicator,
-                        isSelected && styles.radioIndicatorSelected,
-                      ]}
-                    >
-                      {isSelected && <View style={styles.radioDot} />}
-                    </View>
-
-                    <View style={styles.serviceInfoCol}>
-                      <View style={styles.serviceNameRow}>
-                        <Text style={[styles.serviceName, isSelected && styles.serviceNameSelected]}>
-                          {srv.displayName}
-                        </Text>
-                        <View style={styles.tatPill}>
-                          <MaterialCommunityIcons name="clock-outline" size={11} color="#2563EB" />
-                          <Text style={styles.tatPillText}>{tat}</Text>
-                        </View>
-                      </View>
-                      <Text style={styles.serviceBenefit}>
-                        {srv.serviceCode.includes('DRY')
-                          ? 'Zero-solvent hydrocarbon cleaning, odor-free, delivered on wire hanger'
-                          : srv.serviceCode.includes('WASH')
-                          ? 'Gentle organic wash, fabric softening & crease-free steam iron'
-                          : 'Industrial vacuum high-pressure steam press, zero wrinkles guaranteed'}
+                  {/* Left: service info */}
+                  <View style={styles.serviceInfoCol}>
+                    <View style={styles.serviceNameRow}>
+                      <Text style={[
+                        styles.serviceName,
+                        isDark && { color: colors.textHeading },
+                        qty > 0 && styles.serviceNameActive,
+                      ]}>
+                        {srv.displayName}
                       </Text>
+                      <View style={[styles.tatPill, isDark && { backgroundColor: 'rgba(37, 99, 235, 0.18)' }]}>
+                        <MaterialCommunityIcons name="clock-outline" size={11} color="#2563EB" />
+                        <Text style={styles.tatPillText}>{tat}</Text>
+                      </View>
+                    </View>
+                    <Text style={[styles.serviceBenefit, isDark && { color: colors.textCaption }]}>
+                      {benefit}
+                    </Text>
+
+                    {/* Price row */}
+                    <View style={styles.servicePriceRow}>
+                      <Text style={[styles.servicePrice, isDark && { color: colors.textHeading }, qty > 0 && { color: '#16A34A' }]}>
+                        ₹{srv.price + starchExtra}
+                      </Text>
+                      <Text style={[styles.serviceUnit, isDark && { color: colors.textCaption }]}>
+                        /{srv.unit.toLowerCase()}
+                      </Text>
+                      {starchExtra > 0 && (
+                        <Text style={styles.starchExtra}>+₹{starchExtra} starch</Text>
+                      )}
                     </View>
                   </View>
 
-                  <View style={styles.servicePriceCol}>
-                    <Text style={[styles.servicePrice, isSelected && styles.servicePriceSelected]}>
-                      ₹{srv.price}
-                    </Text>
-                    <Text style={styles.serviceUnit}>/{srv.unit.toLowerCase()}</Text>
+                  {/* Right: ADD / Stepper per service */}
+                  <View style={styles.serviceAddWrap}>
+                    <AnimatedCartButton
+                      quantity={qty}
+                      onAdd={() => handleAdd(srv)}
+                      onIncrement={() => handleIncrement(srv)}
+                      onDecrement={() => handleDecrement(srv)}
+                      isDark={isDark}
+                    />
                   </View>
-                </Pressable>
+                </View>
               );
             })}
           </View>
         </View>
 
         {/* SPECIAL CARE PREFERENCES */}
-        <View style={styles.sectionWrap}>
+        <View style={[styles.sectionWrap, isDark && { backgroundColor: colors.surface, borderColor: colors.border }]}>
           <View style={styles.sectionHeader}>
             <MaterialCommunityIcons name="tune-variant" size={18} color="#16A34A" />
-            <Text style={styles.sectionTitle}>Custom Finishing (Optional)</Text>
+            <Text style={[styles.sectionTitle, isDark && { color: colors.textHeading }]}>Custom Finishing (Optional)</Text>
           </View>
 
           {/* Starch Options */}
-          <Text style={styles.subOptionTitle}>Starch Level</Text>
+          <Text style={[styles.subOptionTitle, isDark && { color: colors.textHeading }]}>Starch Level</Text>
           <View style={styles.optionPillsRow}>
             {(['NONE', 'LIGHT', 'CRISP'] as const).map((opt) => (
               <Pressable
                 key={opt}
                 style={[
                   styles.optionPill,
-                  starchOption === opt && styles.optionPillActive,
+                  isDark && { backgroundColor: colors.section, borderColor: colors.border },
+                  starchOption === opt && (isDark ? { backgroundColor: 'rgba(22, 163, 74, 0.15)', borderColor: '#16A34A' } : styles.optionPillActive),
                 ]}
                 onPress={() => setStarchOption(opt)}
               >
                 <Text
                   style={[
                     styles.optionPillText,
-                    starchOption === opt && styles.optionPillTextActive,
+                    isDark && { color: colors.textBody },
+                    starchOption === opt && (isDark ? { color: '#4ADE80' } : styles.optionPillTextActive),
                   ]}
                 >
                   {opt === 'NONE' ? 'No Starch' : opt === 'LIGHT' ? 'Light Starch (+₹10)' : 'Crisp Finish (+₹15)'}
@@ -320,27 +360,29 @@ export function ProductDetailScreen({
           </View>
 
           {/* Packaging Option */}
-          <Text style={styles.subOptionTitle}>Packaging Preference</Text>
+          <Text style={[styles.subOptionTitle, isDark && { color: colors.textHeading }]}>Packaging Preference</Text>
           <View style={styles.optionPillsRow}>
             {(['HANGER', 'FOLDED'] as const).map((opt) => (
               <Pressable
                 key={opt}
                 style={[
                   styles.optionPill,
-                  packingOption === opt && styles.optionPillActive,
+                  isDark && { backgroundColor: colors.section, borderColor: colors.border },
+                  packingOption === opt && (isDark ? { backgroundColor: 'rgba(22, 163, 74, 0.15)', borderColor: '#16A34A' } : styles.optionPillActive),
                 ]}
                 onPress={() => setPackingOption(opt)}
               >
                 <MaterialCommunityIcons
                   name={opt === 'HANGER' ? 'hanger' : 'package-variant-closed'}
                   size={14}
-                  color={packingOption === opt ? '#16A34A' : '#64748B'}
+                  color={packingOption === opt ? '#16A34A' : (isDark ? colors.textCaption : '#64748B')}
                   style={{ marginRight: 6 }}
                 />
                 <Text
                   style={[
                     styles.optionPillText,
-                    packingOption === opt && styles.optionPillTextActive,
+                    isDark && { color: colors.textBody },
+                    packingOption === opt && (isDark ? { color: '#4ADE80' } : styles.optionPillTextActive),
                   ]}
                 >
                   {opt === 'HANGER' ? 'Delivered on Hanger' : 'Flat Folded in Polybag'}
@@ -350,11 +392,11 @@ export function ProductDetailScreen({
           </View>
 
           {/* Special Notes Input */}
-          <Text style={styles.subOptionTitle}>Special Instructions for Washer / Ironer</Text>
+          <Text style={[styles.subOptionTitle, isDark && { color: colors.textHeading }]}>Special Instructions for Washer / Ironer</Text>
           <TextInput
-            style={styles.notesInput}
+            style={[styles.notesInput, isDark && { backgroundColor: colors.section, borderColor: colors.border, color: colors.textHeading }]}
             placeholder="e.g., Check cuff stain, handle delicate collar gently..."
-            placeholderTextColor="#94A3B8"
+            placeholderTextColor={isDark ? colors.textCaption : '#94A3B8'}
             value={customNote}
             onChangeText={setCustomNote}
             maxLength={140}
@@ -362,12 +404,12 @@ export function ProductDetailScreen({
         </View>
 
         {/* QUALITY & GUARANTEE PROMISE */}
-        <View style={styles.guaranteeCard}>
+        <View style={[styles.guaranteeCard, isDark && { backgroundColor: colors.surface, borderColor: colors.border }]}>
           <View style={styles.guaranteeRow}>
             <MaterialCommunityIcons name="shield-check" size={24} color="#16A34A" />
             <View style={{ flex: 1 }}>
-              <Text style={styles.guaranteeTitle}>The LaundryFresh Fabric Promise</Text>
-              <Text style={styles.guaranteeDesc}>
+              <Text style={[styles.guaranteeTitle, isDark && { color: colors.textHeading }]}>The LaundryFresh Fabric Promise</Text>
+              <Text style={[styles.guaranteeDesc, isDark && { color: colors.textCaption }]}>
                 100% Zero Color Bleed • Free Re-wash Guarantee • Hospital-Grade Ozone Sanitization
               </Text>
             </View>
@@ -375,69 +417,39 @@ export function ProductDetailScreen({
         </View>
       </ScrollView>
 
-      {/* 3. STICKY BOTTOM CHECKOUT DOCK */}
-      <View
-        style={[
-          styles.stickyBottomDock,
-          { paddingBottom: Math.max(insets.bottom, 14) },
-        ]}
-      >
-        <View style={styles.dockMainRow}>
-          {/* Quantity Stepper */}
-          <View style={styles.dockStepper}>
-            <Pressable
-              style={styles.dockStepperBtn}
-              onPress={() => setQuantity((q) => Math.max(1, q - 1))}
-              hitSlop={8}
-              accessibilityRole="button"
-              accessibilityLabel="Decrease quantity"
-            >
-              <MaterialCommunityIcons name="minus" size={16} color="#0F172A" />
-            </Pressable>
-            <Text style={styles.dockStepperQty}>{quantity}</Text>
-            <Pressable
-              style={styles.dockStepperBtn}
-              onPress={() => setQuantity((q) => q + 1)}
-              hitSlop={8}
-              accessibilityRole="button"
-              accessibilityLabel="Increase quantity"
-            >
-              <MaterialCommunityIcons name="plus" size={16} color="#0F172A" />
-            </Pressable>
-          </View>
-
-          {/* Total & Action Button */}
-          <View style={styles.dockActionGroup}>
-            <View style={styles.dockPriceCol}>
-              <Text style={styles.dockPriceTotal}>₹{totalPrice}</Text>
-              <Text style={styles.dockPriceSub} numberOfLines={1}>
-                {selectedService?.shortLabel || 'Care'} · {quantity} {quantity === 1 ? 'pc' : 'pcs'}
-              </Text>
-            </View>
-
-            <Animated.View style={{ transform: [{ scale: btnScaleAnim }], flex: 1 }}>
-              <Pressable
-                style={[
-                  styles.dockPrimaryBtn,
-                  existingCartItem ? styles.dockPrimaryBtnUpdate : null,
-                ]}
-                onPress={handleAddOrUpdate}
-                accessibilityRole="button"
-                accessibilityLabel={existingCartItem ? 'Update laundry bag' : 'Add garment to laundry bag'}
-              >
-                <MaterialCommunityIcons
-                  name={existingCartItem ? 'check' : 'shopping'}
-                  size={18}
-                  color="#FFFFFF"
-                />
-                <Text style={styles.dockPrimaryBtnText}>
-                  {existingCartItem ? 'Update Bag' : 'Add to Bag'}
+      {/* 3. STICKY BOTTOM DOCK — View Bag summary */}
+      {cartSummary.itemCount > 0 && (
+        <Pressable
+          style={[
+            styles.stickyBottomDock,
+            isDark && { backgroundColor: colors.surface, borderTopColor: colors.border },
+            { paddingBottom: Math.max(insets.bottom, 14) },
+          ]}
+          onPress={onViewCart}
+          accessibilityRole="button"
+          accessibilityLabel={`View bag with ${cartSummary.itemCount} items, total ₹${cartSummary.itemTotal}`}
+        >
+          <View style={styles.dockBagRow}>
+            <View style={styles.dockBagLeft}>
+              <View style={styles.dockBagIconBadge}>
+                <MaterialCommunityIcons name="shopping" size={15} color="#FFFFFF" />
+              </View>
+              <View>
+                <Text style={[styles.dockBagCount, isDark && { color: colors.textHeading }]}>
+                  {cartSummary.itemCount} {cartSummary.itemCount === 1 ? 'item' : 'items'} in Bag
                 </Text>
-              </Pressable>
-            </Animated.View>
+                <Text style={[styles.dockBagTotal, isDark && { color: colors.textCaption }]}>
+                  ₹{cartSummary.itemTotal} total
+                </Text>
+              </View>
+            </View>
+            <View style={styles.dockViewBagBtn}>
+              <Text style={styles.dockViewBagBtnText}>View Bag</Text>
+              <MaterialCommunityIcons name="arrow-right" size={16} color="#FFFFFF" />
+            </View>
           </View>
-        </View>
-      </View>
+        </Pressable>
+      )}
     </View>
   );
 }
@@ -471,12 +483,49 @@ const styles = StyleSheet.create({
     color: '#0F172A',
     letterSpacing: -0.2,
   },
+  headerRightActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
   headerFavoriteBtn: {
     width: 38,
     height: 38,
     borderRadius: 19,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  headerCartBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 13,
+    backgroundColor: '#F0FDF4',
+    borderWidth: 1.5,
+    borderColor: '#BBF7D0',
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
+    marginLeft: 2,
+  },
+  headerCartBadge: {
+    position: 'absolute',
+    top: -4,
+    right: -4,
+    backgroundColor: '#EA580C',
+    minWidth: 19,
+    height: 19,
+    borderRadius: 9.5,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 4,
+    borderWidth: 1.5,
+    borderColor: '#FFFFFF',
+    elevation: 3,
+  },
+  headerCartBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 10,
+    fontWeight: '900',
   },
   scrollArea: {
     flex: 1,
@@ -598,64 +647,43 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#64748B',
     marginBottom: 12,
+    lineHeight: 16,
   },
   servicesList: {
     gap: 10,
   },
   serviceCard: {
     flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    alignItems: 'flex-start',
     backgroundColor: '#F8FAFC',
     borderRadius: 16,
-    padding: 12,
+    padding: 14,
     borderWidth: 1.5,
     borderColor: '#E2E8F0',
+    gap: 10,
   },
-  serviceCardSelected: {
+  serviceCardActive: {
     backgroundColor: '#F0FDF4',
     borderColor: '#16A34A',
   },
-  serviceCardLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    flex: 1,
-  },
-  radioIndicator: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    borderWidth: 2,
-    borderColor: '#94A3B8',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  radioIndicatorSelected: {
-    borderColor: '#16A34A',
-  },
-  radioDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: '#16A34A',
-  },
   serviceInfoCol: {
     flex: 1,
+    minWidth: 0,
   },
   serviceNameRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    marginBottom: 3,
+    marginBottom: 4,
+    flexWrap: 'wrap',
   },
   serviceName: {
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '800',
     color: '#0F172A',
   },
-  serviceNameSelected: {
-    color: '#C2410C',
+  serviceNameActive: {
+    color: '#15803D',
   },
   tatPill: {
     flexDirection: 'row',
@@ -675,23 +703,33 @@ const styles = StyleSheet.create({
     fontSize: 11.5,
     color: '#64748B',
     lineHeight: 16,
+    marginBottom: 6,
   },
-  servicePriceCol: {
-    alignItems: 'flex-end',
-    marginLeft: 8,
+  servicePriceRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: 3,
   },
   servicePrice: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '900',
     color: '#0F172A',
-  },
-  servicePriceSelected: {
-    color: '#16A34A',
   },
   serviceUnit: {
     fontSize: 11,
     color: '#64748B',
     fontWeight: '600',
+  },
+  starchExtra: {
+    fontSize: 10.5,
+    color: '#EA580C',
+    fontWeight: '700',
+    marginLeft: 4,
+  },
+  serviceAddWrap: {
+    alignSelf: 'flex-start',
+    flexShrink: 0,
+    paddingTop: 2,
   },
   subOptionTitle: {
     fontSize: 13,
@@ -762,6 +800,7 @@ const styles = StyleSheet.create({
     color: '#166534',
     lineHeight: 16,
   },
+  // Bottom dock — View Bag summary
   stickyBottomDock: {
     backgroundColor: '#FFFFFF',
     borderTopWidth: 1,
@@ -774,82 +813,60 @@ const styles = StyleSheet.create({
     shadowRadius: 12,
     elevation: 8,
   },
-  dockMainRow: {
+  dockBagRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
     gap: 12,
   },
-  dockStepper: {
+  dockBagLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F1F5F9',
-    borderRadius: 14,
-    paddingHorizontal: 4,
-    height: 48,
+    gap: 10,
+    flex: 1,
   },
-  dockStepperBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
+  dockBagIconBadge: {
+    width: 38,
+    height: 38,
+    borderRadius: 12,
+    backgroundColor: '#16A34A',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#FFFFFF',
+    shadowColor: '#16A34A',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 3,
   },
-  dockStepperQty: {
-    fontSize: 16,
+  dockBagCount: {
+    fontSize: 13,
     fontWeight: '800',
     color: '#0F172A',
-    paddingHorizontal: 12,
   },
-  dockActionGroup: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  dockPriceCol: {
-    justifyContent: 'center',
-  },
-  dockPriceTotal: {
-    fontSize: 18,
-    fontWeight: '900',
-    color: '#0F172A',
-  },
-  dockPriceSub: {
-    fontSize: 11,
-    fontWeight: '600',
+  dockBagTotal: {
+    fontSize: 11.5,
     color: '#64748B',
+    fontWeight: '600',
+    marginTop: 1,
   },
-  dockPrimaryBtn: {
-    height: 48,
-    backgroundColor: '#059669',
-    borderRadius: 14,
+  dockViewBagBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    shadowColor: '#059669',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
+    gap: 6,
+    backgroundColor: '#16A34A',
+    paddingHorizontal: 16,
+    paddingVertical: 11,
+    borderRadius: 14,
+    shadowColor: '#16A34A',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.35,
+    shadowRadius: 6,
     elevation: 4,
   },
-  dockPrimaryBtnUpdate: {
-    backgroundColor: '#0D9488',
-    shadowColor: '#0D9488',
-  },
-  dockPrimaryBtnText: {
+  dockViewBagBtnText: {
     color: '#FFFFFF',
-    fontSize: 15,
-    fontWeight: '800',
-  },
-  viewCartShortcut: {
-    alignItems: 'center',
-    paddingTop: 8,
-  },
-  viewCartShortcutText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#059669',
+    fontSize: 13.5,
+    fontWeight: '900',
+    letterSpacing: 0.2,
   },
 });

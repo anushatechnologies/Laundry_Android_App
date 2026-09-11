@@ -16,6 +16,7 @@ import { api } from '@/lib/api';
 import { getCurrentCustomerLocation } from '@/services/location/locationService';
 import { AppButton, AppInput, Card } from '@/ui/components';
 import { COLORS } from '@/ui/theme';
+import { useTheme } from '@/context/ThemeContext';
 
 const brandLogo = require('../../assets/brand-logo.png');
 
@@ -33,6 +34,7 @@ export function LocationPermissionScreen({
   onLocationApproved,
   onSkip,
 }: LocationPermissionScreenProps) {
+  const { colors, isDark } = useTheme();
   const [isLocating, setIsLocating] = useState(false);
   const [manualMode, setManualMode] = useState(false);
   const [pincodeInput, setPincodeInput] = useState('');
@@ -114,7 +116,7 @@ export function LocationPermissionScreen({
   };
 
   return (
-    <SafeAreaView style={styles.root} edges={['top', 'bottom', 'left', 'right']}>
+    <SafeAreaView style={[styles.root, { backgroundColor: colors.background }]} edges={['top', 'bottom', 'left', 'right']}>
       <StatusBar style="light" />
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         {/* Top Header & Logo */}
@@ -169,54 +171,54 @@ export function LocationPermissionScreen({
             </Pressable>
           </View>
         ) : (
-          <Card style={styles.manualCard}>
-            <Text style={styles.manualHeading}>Select Your City or Pincode</Text>
+          <Card style={[styles.manualCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+            <Text style={[styles.manualHeading, { color: colors.textHeading }]}>Select Your City or Pincode</Text>
 
             {/* Quick City Presets */}
             <View style={styles.presetsRow}>
               <Pressable
-                style={styles.presetChip}
+                style={[styles.presetChip, { backgroundColor: isDark ? colors.section : COLORS.cream, borderColor: colors.border }]}
                 accessibilityRole="button"
                 accessibilityLabel="Choose Kukatpally, Hyderabad"
                 onPress={() => handleSelectPresetCity('Hyderabad', '500072', 'Anusha Laundry (Kukatpally)')}
               >
-                <MaterialCommunityIcons name="map-marker-outline" size={20} color={COLORS.plum} />
+                <MaterialCommunityIcons name="map-marker-outline" size={20} color={isDark ? colors.primaryLight : COLORS.plum} />
                 <View>
-                  <Text style={styles.presetCity}>Kukatpally, Hyderabad</Text>
-                  <Text style={styles.presetHub}>Anusha Laundry Hub</Text>
+                  <Text style={[styles.presetCity, { color: colors.textHeading }]}>Kukatpally, Hyderabad</Text>
+                  <Text style={[styles.presetHub, { color: colors.textCaption }]}>Anusha Laundry Hub</Text>
                 </View>
               </Pressable>
 
               <Pressable
-                style={styles.presetChip}
+                style={[styles.presetChip, { backgroundColor: isDark ? colors.section : COLORS.cream, borderColor: colors.border }]}
                 accessibilityRole="button"
                 accessibilityLabel="Choose Madhapur or Hitech City"
                 onPress={() => handleSelectPresetCity('Hyderabad', '500081', 'Hyderabad Cyber Hub')}
               >
-                <MaterialCommunityIcons name="map-marker-outline" size={20} color={COLORS.plum} />
+                <MaterialCommunityIcons name="map-marker-outline" size={20} color={isDark ? colors.primaryLight : COLORS.plum} />
                 <View>
-                  <Text style={styles.presetCity}>Madhapur / Hitech City</Text>
-                  <Text style={styles.presetHub}>Cyber Hub & Plant</Text>
+                  <Text style={[styles.presetCity, { color: colors.textHeading }]}>Madhapur / Hitech City</Text>
+                  <Text style={[styles.presetHub, { color: colors.textCaption }]}>Cyber Hub & Plant</Text>
                 </View>
               </Pressable>
 
               <Pressable
-                style={styles.presetChip}
+                style={[styles.presetChip, { backgroundColor: isDark ? colors.section : COLORS.cream, borderColor: colors.border }]}
                 accessibilityRole="button"
                 accessibilityLabel="Choose Rajahmundry"
                 onPress={() => handleSelectPresetCity('Rajahmundry', '533101', 'Rajahmundry Central Hub')}
               >
-                <MaterialCommunityIcons name="map-marker-outline" size={20} color={COLORS.plum} />
+                <MaterialCommunityIcons name="map-marker-outline" size={20} color={isDark ? colors.primaryLight : COLORS.plum} />
                 <View>
-                  <Text style={styles.presetCity}>Rajahmundry</Text>
-                  <Text style={styles.presetHub}>Central Processing Hub</Text>
+                  <Text style={[styles.presetCity, { color: colors.textHeading }]}>Rajahmundry</Text>
+                  <Text style={[styles.presetHub, { color: colors.textCaption }]}>Central Processing Hub</Text>
                 </View>
               </Pressable>
             </View>
 
             {/* Pincode Input */}
             <View style={styles.pincodeBox}>
-              <Text style={styles.pincodeLabel}>Or enter 6-digit Pincode:</Text>
+              <Text style={[styles.pincodeLabel, { color: colors.textCaption }]}>Or enter 6-digit Pincode:</Text>
               <View style={styles.pincodeInputRow}>
                 <AppInput
                   label="Pincode"
@@ -247,7 +249,7 @@ export function LocationPermissionScreen({
                 compact
               />
               <Pressable accessibilityRole="button" accessibilityLabel="Browse services without choosing a location" onPress={onSkip} style={styles.skipButton}>
-                <Text style={styles.manualSkipText}>Browse services for now</Text>
+                <Text style={[styles.manualSkipText, { color: isDark ? colors.primaryLight : COLORS.plum }]}>Browse services for now</Text>
               </Pressable>
             </View>
           </Card>

@@ -1,6 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  ActivityIndicator,
   Alert,
   Image,
   Linking,
@@ -18,7 +17,8 @@ import { useTheme } from '@/context/ThemeContext';
 import { AppButton, Card } from '@/ui/components';
 import { COLORS, dateTime, money, shortDate, statusLabel, statusTone } from '@/ui/theme';
 import { getGarmentImageUrl } from '@/lib/garment-photos';
-import { downloadInvoicePdf } from '@/lib/invoice';
+import { downloadInvoicePdf, shareInvoicePdf } from '@/lib/invoice';
+import { InvoiceViewerModal, InvoiceActionModal } from '@/components/InvoiceViewerModal';
 import type { Order, TrackingOrder } from '@/types/domain';
 
 interface OrdersScreenProps {
@@ -75,7 +75,7 @@ function milestoneIndexForStatus(status: string): number {
 
 export function OrdersScreen({ onBook, onSignIn, onBrowseServices, onOpenOrderDetail }: OrdersScreenProps) {
   const { session, orders, refreshOrders, isRefreshing, trackOrder } = useApp();
-  const { colors } = useTheme();
+  const { colors, isDark } = useTheme();
   const insets = useSafeAreaInsets();
   // The floating tab bar is absolutely positioned over the scroll view.
   // Keep enough room for its pill, shadow, and Android gesture area.
@@ -84,6 +84,24 @@ export function OrdersScreen({ onBook, onSignIn, onBrowseServices, onOpenOrderDe
   const [tracking, setTracking] = useState<TrackingOrder | null>(null);
   const [loadingTracking, setLoadingTracking] = useState(false);
   const [filter, setFilter] = useState<OrderFilter>('ALL');
+  const [invoiceOptionsOrder, setInvoiceOptionsOrder] = useState<Order | null>(null);
+  const [viewingInvoiceOrderId, setViewingInvoiceOrderId] = useState<string | null>(null);
+
+  const handleViewInvoice = useCallback((orderId: string) => {
+    setViewingInvoiceOrderId(orderId);
+  }, []);
+
+  const handleDownloadInvoice = useCallback((orderId: string) => {
+    void downloadInvoicePdf(orderId).catch(() => {
+      Alert.alert('Invoice unavailable', 'Please try downloading the invoice again in a moment.');
+    });
+  }, []);
+
+  const handleShareInvoice = useCallback((orderId: string) => {
+    void shareInvoicePdf(orderId).catch(() => {
+      Alert.alert('Share unavailable', 'Unable to share invoice right now. Please try again.');
+    });
+  }, []);
 
   // Pull-to-refresh handler
   const handleRefresh = useCallback(async () => {
@@ -140,32 +158,32 @@ export function OrdersScreen({ onBook, onSignIn, onBrowseServices, onOpenOrderDe
           <MaterialCommunityIcons name="clipboard-text-clock-outline" size={56} color="#16A34A" />
         </View>
 
-        <Text style={styles.guestTitle}>Track Your Orders Live</Text>
-        <Text style={styles.guestSubtitle}>
+        <Text style={[styles.guestTitle, isDark && { color: colors.textHeading }]}>Track Your Orders Live</Text>
+        <Text style={[styles.guestSubtitle, isDark && { color: colors.textCaption }]}>
           Sign in with your mobile number to view active pickups, live washing milestones, driver contact & digital tax invoices.
         </Text>
 
-        <View style={styles.guestBenefitsCard}>
-          <Text style={styles.guestBenefitsHeader}>What you get with an account:</Text>
+        <View style={[styles.guestBenefitsCard, isDark && { backgroundColor: colors.surface, borderColor: colors.border }]}>
+          <Text style={[styles.guestBenefitsHeader, isDark && { color: colors.textHeading }]}>What you get with an account:</Text>
           
           <View style={styles.guestBenefitRow}>
             <MaterialCommunityIcons name="moped" size={20} color="#16A34A" />
-            <Text style={styles.guestBenefitText}>Real-time 30-min pickup & delivery tracking</Text>
+            <Text style={[styles.guestBenefitText, isDark && { color: colors.textBody }]}>Real-time 30-min pickup & delivery tracking</Text>
           </View>
 
           <View style={styles.guestBenefitRow}>
             <MaterialCommunityIcons name="washing-machine" size={20} color="#3B82F6" />
-            <Text style={styles.guestBenefitText}>5-Stage fabric care & steam spa milestones</Text>
+            <Text style={[styles.guestBenefitText, isDark && { color: colors.textBody }]}>5-Stage fabric care & steam spa milestones</Text>
           </View>
 
           <View style={styles.guestBenefitRow}>
             <MaterialCommunityIcons name="receipt" size={20} color="#0F766E" />
-            <Text style={styles.guestBenefitText}>Itemized GST invoices & secure online receipts</Text>
+            <Text style={[styles.guestBenefitText, isDark && { color: colors.textBody }]}>Itemized GST invoices & secure online receipts</Text>
           </View>
 
           <View style={styles.guestBenefitRow}>
             <MaterialCommunityIcons name="whatsapp" size={20} color="#10B981" />
-            <Text style={styles.guestBenefitText}>Direct WhatsApp updates when laundry is ready</Text>
+            <Text style={[styles.guestBenefitText, isDark && { color: colors.textBody }]}>Direct WhatsApp updates when laundry is ready</Text>
           </View>
         </View>
 
@@ -184,8 +202,8 @@ export function OrdersScreen({ onBook, onSignIn, onBrowseServices, onOpenOrderDe
           onPress={onBook}
           accessibilityLabel="Book a new laundry pickup"
         >
-          <MaterialCommunityIcons name="calendar-plus" size={18} color="#1C0B18" />
-          <Text style={styles.guestSecondaryBtnText}>Book a New Laundry Pickup</Text>
+          <MaterialCommunityIcons name="calendar-plus" size={18} color={isDark ? colors.textHeading : "#1C0B18"} />
+          <Text style={[styles.guestSecondaryBtnText, isDark && { color: colors.textHeading }]}>Book a New Laundry Pickup</Text>
         </Pressable>
       </ScrollView>
     );
@@ -194,7 +212,8 @@ export function OrdersScreen({ onBook, onSignIn, onBrowseServices, onOpenOrderDe
 function cleanItemDisplayName(item: any): string {
   if (item?.clothName && !item.clothName.includes('null') && item.clothName !== 'null') {
     const sName = item?.serviceName && !item.serviceName.includes('null') ? item.serviceName : 'Steam Care & Press';
-    return `${item.clothName} • ${sName}`;
+    const cleanServiceName = sName.replace(/^\s*\((.*)\)\s*$/, '$1').trim();
+    return `${item.clothName} • ${cleanServiceName}`;
   }
   const raw = item?.serviceName || item?.name || item?.clothName || '';
   if (!raw || raw.includes('null') || raw.trim() === '(null)' || raw.trim() === 'null') {
@@ -203,7 +222,14 @@ function cleanItemDisplayName(item: any): string {
     }
     return item?.categoryName ? `${item.categoryName} Garment Care` : 'Premium Garment Care';
   }
-  return raw.replace(/null\s*\(null\)/gi, 'Premium Garment Care').replace(/\(null\)/gi, '').trim();
+  let cleaned = raw.replace(/null\s*\(null\)/gi, 'Premium Garment Care').replace(/\(null\)/gi, '').trim();
+  const matchParen = cleaned.match(/^([^(]+?)\s*\((.+)\)\s*$/);
+  if (matchParen) {
+    const garment = matchParen[1].trim();
+    const service = matchParen[2].trim();
+    return `${garment} • ${service}`;
+  }
+  return cleaned;
 }
 
   // --- DETAIL VIEW: Tracking Modal / Sheet ---
@@ -243,11 +269,12 @@ function cleanItemDisplayName(item: any): string {
     const grandTotal = (selectedOrder as any).pricing?.finalTotal || selectedOrder.totalAmount || (garmentsSubtotal + deliveryFee + expressFee + taxAmount - discountAmount);
 
     return (
-      <ScrollView
-        style={[styles.root, { backgroundColor: colors.background }]}
-        contentContainerStyle={[styles.content, { paddingBottom: scrollBottomClearance }]}
-        showsVerticalScrollIndicator={false}
-      >
+      <>
+        <ScrollView
+          style={[styles.root, { backgroundColor: colors.background }]}
+          contentContainerStyle={[styles.content, { paddingBottom: scrollBottomClearance }]}
+          showsVerticalScrollIndicator={false}
+        >
         {/* Top Navigation Row */}
         <Pressable style={styles.backBtn} onPress={() => setSelectedOrder(null)}>
           <MaterialCommunityIcons name="arrow-left" size={20} color={COLORS.plumDark} />
@@ -258,8 +285,8 @@ function cleanItemDisplayName(item: any): string {
         <Card style={styles.orderHeaderCard}>
           <View style={styles.orderHeaderTop}>
             <View style={{ flex: 1, minWidth: 0, paddingRight: 10 }}>
-              <Text style={styles.orderIdText} numberOfLines={1} ellipsizeMode="middle">Order #{selectedOrder.id}</Text>
-              <Text style={styles.orderPlacedTime}>Placed on {dateTime(selectedOrder.createdAt)}</Text>
+              <Text style={[styles.orderIdText, isDark && { color: colors.textHeading }]} numberOfLines={1} ellipsizeMode="middle">Order #{selectedOrder.id}</Text>
+              <Text style={[styles.orderPlacedTime, isDark && { color: colors.textCaption }]}>Placed on {dateTime(selectedOrder.createdAt)}</Text>
             </View>
               <View style={[styles.statusBadge, { backgroundColor: statusTone(selectedOrder.currentStatus, colors).backgroundColor }]}>
                 <Text style={[styles.statusBadgeText, { color: statusTone(selectedOrder.currentStatus, colors).color }]}>
@@ -277,32 +304,68 @@ function cleanItemDisplayName(item: any): string {
             </View>
           ) : null}
 
-          {/* Quick Header Tax Invoice Action */}
-          <Pressable
-            style={({ pressed }) => [styles.headerInvoiceBar, pressed && { opacity: 0.9, transform: [{ scale: 0.99 }] }]}
-            onPress={handleDownloadInvoice}
-            accessibilityRole="button"
-            accessibilityLabel="Download Tax Invoice via PDF"
+          {/* Quick Header Tax Invoice Action with View and Download */}
+          <View
+            style={[
+              styles.headerInvoiceBar,
+              isDark && styles.headerInvoiceBarDark,
+            ]}
           >
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 }}>
-              <View style={styles.headerInvoiceIconCircle}>
-                <MaterialCommunityIcons name="file-pdf-box" size={20} color="#FFFFFF" />
+            <Pressable
+              style={styles.headerInvoiceLeft}
+              onPress={() => handleViewInvoice(selectedOrder.id)}
+              accessibilityRole="button"
+              accessibilityLabel="View Tax Invoice"
+            >
+              <View style={[styles.headerInvoiceIconCircle, isDark && styles.headerInvoiceIconCircleDark]}>
+                <MaterialCommunityIcons name="file-pdf-box" size={20} color={isDark ? '#4ADE80' : '#16A34A'} />
               </View>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.headerInvoiceTitle}>Download Tax Invoice (GST PDF)</Text>
-                <Text style={styles.headerInvoiceSub}>Itemized official invoice & payment receipt</Text>
+              <View style={styles.headerInvoiceTextCol}>
+                <Text style={[styles.headerInvoiceTitle, isDark && styles.headerInvoiceTitleDark]} numberOfLines={1}>
+                  Tax Invoice (GST PDF)
+                </Text>
+                <Text style={[styles.headerInvoiceSub, isDark && styles.headerInvoiceSubDark]} numberOfLines={1}>
+                  Itemized official receipt & breakdown
+                </Text>
               </View>
+            </Pressable>
+
+            <View style={styles.headerInvoiceActionsGroup}>
+              <Pressable
+                style={({ pressed }) => [
+                  styles.headerInvoiceViewBtn,
+                  isDark && styles.headerInvoiceViewBtnDark,
+                  pressed && { opacity: 0.8 },
+                ]}
+                onPress={() => handleViewInvoice(selectedOrder.id)}
+                hitSlop={6}
+                accessibilityRole="button"
+                accessibilityLabel="View Tax Invoice"
+              >
+                <MaterialCommunityIcons name="eye-outline" size={13} color={isDark ? '#86EFAC' : '#15803D'} />
+                <Text style={[styles.headerInvoiceViewBtnText, isDark && { color: '#86EFAC' }]}>View</Text>
+              </Pressable>
+
+              <Pressable
+                style={({ pressed }) => [
+                  styles.headerInvoiceBadge,
+                  pressed && { opacity: 0.8 },
+                ]}
+                onPress={() => setInvoiceOptionsOrder(selectedOrder)}
+                hitSlop={6}
+                accessibilityRole="button"
+                accessibilityLabel="Invoice download and share options"
+              >
+                <MaterialCommunityIcons name="download" size={13} color="#FFFFFF" />
+                <Text style={styles.headerInvoiceBadgeText}>PDF</Text>
+              </Pressable>
             </View>
-            <View style={styles.headerInvoiceBadge}>
-              <MaterialCommunityIcons name="download" size={15} color="#FFFFFF" />
-              <Text style={styles.headerInvoiceBadgeText}>PDF</Text>
-            </View>
-          </Pressable>
+          </View>
         </Card>
 
         {/* LIVE 5-STAGE MILESTONE TIMELINE */}
         <Card style={styles.milestoneCard}>
-          <Text style={styles.milestoneSectionTitle}>Live Order Milestones</Text>
+          <Text style={[styles.milestoneSectionTitle, isDark && { color: colors.textHeading }]}>Live Order Milestones</Text>
 
           <View style={styles.timelineWrapper}>
             {ORDER_MILESTONES.map((milestone, idx) => {
@@ -346,6 +409,7 @@ function cleanItemDisplayName(item: any): string {
                         styles.milestoneLabel,
                         isCurrent && styles.milestoneLabelCurrent,
                         isUpcoming && styles.milestoneLabelPending,
+                        !isCurrent && !isUpcoming && isDark && { color: colors.textBody },
                       ]}
                     >
                       {milestone.label}
@@ -372,7 +436,7 @@ function cleanItemDisplayName(item: any): string {
             </View>
             <View style={{ flex: 1 }}>
               <View style={styles.driverNameRow}>
-                <Text style={styles.driverNameText}>
+                <Text style={[styles.driverNameText, isDark && { color: colors.textHeading }]}>
                   {hasDriver ? driverName : 'Assigning Pilot Shortly'}
                 </Text>
                 {hasDriver ? (
@@ -385,7 +449,7 @@ function cleanItemDisplayName(item: any): string {
               <Text style={styles.driverRoleSubtext}>
                 {isDeliveryStage ? 'Assigned Doorstep Delivery Partner' : 'Assigned Doorstep Pickup Executive'}
               </Text>
-              <Text style={styles.driverVehicleText}>
+              <Text style={[styles.driverVehicleText, isDark && { color: colors.textCaption }]}>
                 {hasDriver ? driverVehicle : 'Dispatch Hub allocating nearest verified pilot'}
               </Text>
             </View>
@@ -408,8 +472,8 @@ function cleanItemDisplayName(item: any): string {
 
         {/* Rider & Support Action Box */}
         <Card style={styles.supportCard}>
-          <Text style={styles.supportCardTitle}>Need Quick Assistance?</Text>
-          <Text style={styles.supportCardSubtitle}>
+          <Text style={[styles.supportCardTitle, isDark && { color: colors.textHeading }]}>Need Quick Assistance?</Text>
+          <Text style={[styles.supportCardSubtitle, isDark && { color: colors.textCaption }]}>
             Our dispatch coordinator and rider are on standby for your pickup & delivery.
           </Text>
 
@@ -429,7 +493,7 @@ function cleanItemDisplayName(item: any): string {
         {/* Items in Bag List */}
         {selectedOrder.items && selectedOrder.items.length > 0 ? (
           <Card style={styles.itemsCard}>
-            <Text style={styles.itemsSectionTitle}>Garments & Services ({selectedOrder.items.length})</Text>
+            <Text style={[styles.itemsSectionTitle, isDark && { color: colors.textHeading }]}>Garments & Services ({selectedOrder.items.length})</Text>
             {selectedOrder.items.map((item, idx) => {
               const displayName = cleanItemDisplayName(item);
               const isBulk = item.pricingModel === 'PER_KG';
@@ -454,12 +518,12 @@ function cleanItemDisplayName(item: any): string {
                     )}
                   </View>
                   <View style={{ flex: 1 }}>
-                    <Text style={styles.itemName} numberOfLines={2}>{displayName}</Text>
-                    <Text style={styles.itemDetail}>
+                    <Text style={[styles.itemName, isDark && { color: colors.textHeading }]} numberOfLines={2}>{displayName}</Text>
+                    <Text style={[styles.itemDetail, isDark && { color: colors.textCaption }]}>
                       {item.quantity} {item.unit || (isBulk ? 'KG' : 'Piece')} × {money(item.unitPrice)}
                     </Text>
                   </View>
-                  <Text style={styles.itemSubtotal}>{money(item.subtotal)}</Text>
+                  <Text style={[styles.itemSubtotal, isDark && { color: colors.textHeading }]}>{money(item.subtotal)}</Text>
                 </View>
               );
             })}
@@ -469,15 +533,15 @@ function cleanItemDisplayName(item: any): string {
         {/* Itemized Bill Breakdown & Tax Invoice - ALWAYS SHOWN */}
         <Card style={styles.billCard}>
           <View style={styles.billBreakdownSection}>
-            <Text style={styles.billSectionHeader}>Bill Breakdown</Text>
+            <Text style={[styles.billSectionHeader, isDark && { color: colors.textHeading }]}>Bill Breakdown</Text>
 
             <View style={styles.billLineItem}>
-              <Text style={styles.billLineLabel}>Garments Subtotal</Text>
-              <Text style={styles.billLineValue}>{money(garmentsSubtotal)}</Text>
+              <Text style={[styles.billLineLabel, isDark && { color: colors.textCaption }]}>Garments Subtotal</Text>
+              <Text style={[styles.billLineValue, isDark && { color: colors.textHeading }]}>{money(garmentsSubtotal)}</Text>
             </View>
 
             <View style={styles.billLineItem}>
-              <Text style={styles.billLineLabel}>Doorstep Pickup & Delivery</Text>
+              <Text style={[styles.billLineLabel, isDark && { color: colors.textCaption }]}>Doorstep Pickup & Delivery</Text>
               {deliveryFee > 0 ? (
                 <Text style={styles.billLineValue}>{money(deliveryFee)}</Text>
               ) : (
@@ -487,8 +551,8 @@ function cleanItemDisplayName(item: any): string {
 
             {expressFee > 0 ? (
               <View style={styles.billLineItem}>
-                <Text style={styles.billLineLabel}>Express Care Surcharge</Text>
-                <Text style={styles.billLineValue}>+{money(expressFee)}</Text>
+                <Text style={[styles.billLineLabel, isDark && { color: colors.textCaption }]}>Express Care Surcharge</Text>
+                <Text style={[styles.billLineValue, isDark && { color: colors.textHeading }]}>+{money(expressFee)}</Text>
               </View>
             ) : null}
 
@@ -504,13 +568,13 @@ function cleanItemDisplayName(item: any): string {
             ) : null}
 
             <View style={styles.billLineItem}>
-              <Text style={styles.billLineLabel}>GST / Taxes (5%)</Text>
-              <Text style={styles.billLineValue}>{taxAmount > 0 ? money(taxAmount) : '₹0'}</Text>
+              <Text style={[styles.billLineLabel, isDark && { color: colors.textCaption }]}>GST / Taxes (5%)</Text>
+              <Text style={[styles.billLineValue, isDark && { color: colors.textHeading }]}>{taxAmount > 0 ? money(taxAmount) : '₹0'}</Text>
             </View>
 
             <View style={styles.billGrandRow}>
               <View>
-                <Text style={styles.billGrandLabel}>Total Amount (Inc. GST)</Text>
+                <Text style={[styles.billGrandLabel, isDark && { color: colors.textHeading }]}>Total Amount (Inc. GST)</Text>
                 <Text style={styles.billPaymentStatusSub}>
                   {selectedOrder.paymentStatus === 'PAID' ? '✓ Paid Online via Razorpay' : 'Pay on Delivery / Pending'}
                 </Text>
@@ -518,38 +582,90 @@ function cleanItemDisplayName(item: any): string {
               <Text style={styles.billGrandValue}>{money(grandTotal)}</Text>
             </View>
 
-            {/* 1-Tap Tax Invoice Download Button */}
-            <Pressable
-              style={({ pressed }) => [styles.downloadInvoiceHeroBtn, pressed && { opacity: 0.9, transform: [{ scale: 0.99 }] }]}
-              onPress={handleDownloadInvoice}
-              accessibilityRole="button"
-              accessibilityLabel="Download Tax Invoice via PDF"
-            >
-              <View style={styles.invoiceBtnIconWrap}>
-                <MaterialCommunityIcons name="file-pdf-box" size={22} color="#FFFFFF" />
+            {/* Tax Invoice & Official Payment Receipt Section */}
+            <View style={[styles.billInvoiceBox, isDark && styles.billInvoiceBoxDark]}>
+              <Pressable
+                style={styles.billInvoiceHeaderRow}
+                onPress={() => handleViewInvoice(selectedOrder.id)}
+                accessibilityRole="button"
+                accessibilityLabel="View Tax Invoice"
+              >
+                <View style={[styles.billInvoiceIconBadge, isDark && styles.billInvoiceIconBadgeDark]}>
+                  <MaterialCommunityIcons name="file-pdf-box" size={22} color={isDark ? '#4ADE80' : '#16A34A'} />
+                </View>
+                <View style={styles.billInvoiceTextWrap}>
+                  <Text style={[styles.billInvoiceTitle, isDark && styles.billInvoiceTitleDark]}>
+                    Tax Invoice (GST PDF)
+                  </Text>
+                  <Text style={[styles.billInvoiceSubtitle, isDark && styles.billInvoiceSubtitleDark]}>
+                    Itemized official invoice & payment receipt
+                  </Text>
+                </View>
+              </Pressable>
+
+              <View style={styles.billInvoiceActionsRow}>
+                <Pressable
+                  style={({ pressed }) => [
+                    styles.billInvoiceViewBtn,
+                    isDark && styles.billInvoiceViewBtnDark,
+                    pressed && { opacity: 0.8, transform: [{ scale: 0.98 }] },
+                  ]}
+                  onPress={() => handleViewInvoice(selectedOrder.id)}
+                  accessibilityRole="button"
+                  accessibilityLabel="View Tax Invoice in app"
+                >
+                  <MaterialCommunityIcons name="eye-outline" size={15} color={isDark ? '#86EFAC' : '#15803D'} />
+                  <Text style={[styles.billInvoiceViewBtnText, isDark && { color: '#86EFAC' }]}>
+                    View Invoice
+                  </Text>
+                </Pressable>
+
+                <Pressable
+                  style={({ pressed }) => [
+                    styles.billInvoiceDownloadBtn,
+                    pressed && { opacity: 0.85, transform: [{ scale: 0.98 }] },
+                  ]}
+                  onPress={() => setInvoiceOptionsOrder(selectedOrder)}
+                  accessibilityRole="button"
+                  accessibilityLabel="Invoice download and share options"
+                >
+                  <MaterialCommunityIcons name="download" size={15} color="#FFFFFF" />
+                  <Text style={styles.billInvoiceDownloadBtnText}>PDF Options</Text>
+                </Pressable>
               </View>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.downloadInvoiceHeroText}>Download Tax Invoice (GST PDF)</Text>
-                <Text style={styles.downloadInvoiceHeroSub}>Itemized official invoice & payment receipt</Text>
-              </View>
-              <View style={styles.invoiceDownloadPill}>
-                <MaterialCommunityIcons name="download" size={15} color="#FFFFFF" />
-                <Text style={styles.invoiceDownloadPillText}>PDF</Text>
-              </View>
-            </Pressable>
+            </View>
           </View>
         </Card>
       </ScrollView>
+
+      {/* In-App Invoice Viewer Modal */}
+      <InvoiceViewerModal
+        visible={!!viewingInvoiceOrderId}
+        orderId={viewingInvoiceOrderId}
+        onClose={() => setViewingInvoiceOrderId(null)}
+      />
+
+      {/* Invoice Options Action Sheet Modal */}
+      <InvoiceActionModal
+        visible={!!invoiceOptionsOrder}
+        order={invoiceOptionsOrder}
+        onClose={() => setInvoiceOptionsOrder(null)}
+        onView={handleViewInvoice}
+        onDownload={handleDownloadInvoice}
+        onShare={handleShareInvoice}
+      />
+      </>
     );
   }
 
   // --- ALL ORDERS LIST VIEW (Authenticated) ---
   return (
+    <>
     <ScrollView
       style={[styles.root, { backgroundColor: colors.background }]}
       contentContainerStyle={[styles.content, { paddingBottom: scrollBottomClearance }]}
       showsVerticalScrollIndicator={false}
-      stickyHeaderIndices={[0, 1]}
+      stickyHeaderIndices={[0]}
       refreshControl={
         <RefreshControl
           refreshing={isRefreshing}
@@ -559,46 +675,50 @@ function cleanItemDisplayName(item: any): string {
         />
       }
     >
-      {/* Header & Title */}
-      <View style={[styles.header, styles.stickyOrdersHeader, { backgroundColor: colors.background }]}>
-        <View>
-          <Text style={styles.headerTitle}>My Orders</Text>
-          <Text style={styles.headerSubtitle}>Track pickups, washes, and doorstep deliveries</Text>
+      {/* Sticky Top Header: Title, Subtitle, Refresh & Horizontal Filter Tabs */}
+      <View style={[styles.topHeaderSection, { backgroundColor: colors.background }]}>
+        <View style={styles.header}>
+          <View style={styles.headerTextCol}>
+            <Text style={[styles.headerTitle, isDark && { color: colors.textHeading }]}>My Orders</Text>
+            <Text style={[styles.headerSubtitle, isDark && { color: colors.textCaption }]} numberOfLines={1}>
+              Track pickups, washes, and doorstep deliveries
+            </Text>
+          </View>
         </View>
 
-        <Pressable
-          style={styles.refreshBtn}
-          onPress={() => void refreshOrders()}
-          disabled={isRefreshing}
-          accessibilityLabel="Refresh orders"
-        >
-          {isRefreshing ? (
-            <ActivityIndicator size="small" color={colors.primary} />
-          ) : (
-            <MaterialCommunityIcons name="refresh" size={20} color={colors.primary} />
-          )}
-        </Pressable>
-      </View>
-
-      {/* Filter Tabs (All / Active / Completed) */}
-      <View style={[styles.filterRow, styles.stickyOrdersFilters, { backgroundColor: colors.background }]}>
-        {(['ALL', 'ACTIVE', 'COMPLETED'] as OrderFilter[]).map((tab) => {
-          const isSelected = filter === tab;
-          return (
-            <Pressable
-              key={tab}
-              style={[styles.filterChip, { backgroundColor: isSelected ? colors.primary : colors.surface, borderColor: isSelected ? colors.primary : colors.border }, isSelected && styles.filterChipActive]}
-              onPress={() => setFilter(tab)}
-              accessibilityRole="tab"
-              accessibilityState={{ selected: isSelected }}
-              accessibilityLabel={`Show ${tab === 'ALL' ? 'all orders' : tab === 'ACTIVE' ? 'active pickups' : 'delivered orders'}`}
-            >
-              <Text style={[styles.filterChipText, { color: isSelected ? colors.white : colors.textCaption }, isSelected && styles.filterChipTextActive]}>
-                {tab === 'ALL' ? 'All Orders' : tab === 'ACTIVE' ? 'Active Pickups' : 'Delivered'}
-              </Text>
-            </Pressable>
-          );
-        })}
+        {/* Horizontal Filter Tabs (All Orders / Active Pickups / Delivered) */}
+        <View style={styles.filterRow}>
+          {(['ALL', 'ACTIVE', 'COMPLETED'] as OrderFilter[]).map((tab) => {
+            const isSelected = filter === tab;
+            return (
+              <Pressable
+                key={tab}
+                style={[
+                  styles.filterChip,
+                  isDark && styles.filterChipDark,
+                  isSelected && (isDark ? styles.filterChipActiveDark : styles.filterChipActive),
+                ]}
+                onPress={() => setFilter(tab)}
+                accessibilityRole="tab"
+                accessibilityState={{ selected: isSelected }}
+                accessibilityLabel={`Show ${tab === 'ALL' ? 'all orders' : tab === 'ACTIVE' ? 'active pickups' : 'delivered orders'}`}
+              >
+                <Text
+                  style={[
+                    styles.filterChipText,
+                    isDark && styles.filterChipTextDark,
+                    isSelected && styles.filterChipTextActive,
+                  ]}
+                  numberOfLines={1}
+                  adjustsFontSizeToFit
+                  minimumFontScale={0.82}
+                >
+                  {tab === 'ALL' ? 'All Orders' : tab === 'ACTIVE' ? 'Active Pickups' : 'Delivered'}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
       </View>
 
       {/* Order Cards List */}
@@ -667,8 +787,8 @@ function cleanItemDisplayName(item: any): string {
                 {/* Top Row: ID + Status Badge */}
                 <View style={styles.cardTopRow}>
                   <View style={{ flex: 1, minWidth: 0, paddingRight: 8 }}>
-                    <Text style={styles.cardOrderId} numberOfLines={1} ellipsizeMode="middle">Order #{order.id}</Text>
-                    <Text style={styles.cardDate}>{dateTime(order.createdAt)}</Text>
+                    <Text style={[styles.cardOrderId, isDark && { color: colors.textHeading }]} numberOfLines={1} ellipsizeMode="middle">Order #{order.id}</Text>
+                    <Text style={[styles.cardDate, isDark && { color: colors.textCaption }]}>{dateTime(order.createdAt)}</Text>
                   </View>
 
                   <View style={[styles.statusBadge, { backgroundColor: statusTone(order.currentStatus, colors).backgroundColor }]}>
@@ -716,14 +836,12 @@ function cleanItemDisplayName(item: any): string {
                       style={({ pressed }) => [styles.cardInvoiceBtn, pressed && { opacity: 0.8 }]}
                       onPress={(e) => {
                         e.stopPropagation?.();
-                        void downloadInvoicePdf(order.id).catch(() => {
-                          Alert.alert('Invoice unavailable', 'Please try downloading the invoice again in a moment.');
-                        });
+                        setInvoiceOptionsOrder(order);
                       }}
                       hitSlop={8}
-                      accessibilityLabel={`Download invoice for Order #${order.id}`}
+                      accessibilityLabel={`Invoice options for Order #${order.id}`}
                     >
-                      <MaterialCommunityIcons name="file-pdf-box" size={15} color="#059669" />
+                      <MaterialCommunityIcons name="receipt-text-outline" size={15} color="#059669" />
                       <Text style={styles.cardInvoiceBtnText}>Invoice</Text>
                     </Pressable>
 
@@ -739,6 +857,24 @@ function cleanItemDisplayName(item: any): string {
         </View>
       )}
     </ScrollView>
+
+    {/* In-App Invoice Viewer Modal */}
+    <InvoiceViewerModal
+      visible={!!viewingInvoiceOrderId}
+      orderId={viewingInvoiceOrderId}
+      onClose={() => setViewingInvoiceOrderId(null)}
+    />
+
+    {/* Invoice Options Action Sheet Modal */}
+    <InvoiceActionModal
+      visible={!!invoiceOptionsOrder}
+      order={invoiceOptionsOrder}
+      onClose={() => setInvoiceOptionsOrder(null)}
+      onView={handleViewInvoice}
+      onDownload={handleDownloadInvoice}
+      onShare={handleShareInvoice}
+    />
+    </>
   );
 }
 
@@ -857,15 +993,22 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
   },
+  topHeaderSection: {
+    paddingTop: 12,
+    paddingBottom: 4,
+    gap: 12,
+    width: '100%',
+    zIndex: 2,
+  },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    width: '100%',
   },
-  stickyOrdersHeader: {
-    paddingTop: 12,
-    paddingBottom: 8,
-    zIndex: 2,
+  headerTextCol: {
+    flex: 1,
+    paddingRight: 10,
   },
   headerTitle: {
     fontSize: 24,
@@ -879,36 +1022,49 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   refreshBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     backgroundColor: COLORS.white,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 1,
     borderColor: COLORS.line,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.06,
+    shadowRadius: 3,
+    elevation: 2,
+  },
+  refreshBtnDark: {
+    backgroundColor: '#1E293B',
+    borderColor: '#334155',
   },
   filterRow: {
     flexDirection: 'row',
+    alignItems: 'center',
+    width: '100%',
     gap: 8,
-  },
-  stickyOrdersFilters: {
-    paddingBottom: 12,
-    zIndex: 2,
   },
   filterChip: {
     flex: 1,
     paddingVertical: 10,
-    borderRadius: 14,
+    paddingHorizontal: 4,
+    borderRadius: 12,
     backgroundColor: '#FFFFFF',
     borderWidth: 1.5,
     borderColor: '#E8EAF6',
     alignItems: 'center',
+    justifyContent: 'center',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.05,
     shadowRadius: 3,
     elevation: 1,
+  },
+  filterChipDark: {
+    backgroundColor: '#1E293B',
+    borderColor: '#334155',
   },
   filterChipActive: {
     backgroundColor: '#1A1A2E',
@@ -919,13 +1075,26 @@ const styles = StyleSheet.create({
     shadowRadius: 5,
     elevation: 3,
   },
+  filterChipActiveDark: {
+    backgroundColor: '#16A34A',
+    borderColor: '#16A34A',
+    shadowColor: '#16A34A',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.35,
+    shadowRadius: 5,
+    elevation: 3,
+  },
   filterChipText: {
     fontSize: 12,
     fontWeight: '700',
-    color: COLORS.muted,
+    color: '#64748B',
+    textAlign: 'center',
+  },
+  filterChipTextDark: {
+    color: '#94A3B8',
   },
   filterChipTextActive: {
-    color: COLORS.white,
+    color: '#FFFFFF',
     fontWeight: '900',
   },
   ordersStack: {
@@ -1516,129 +1685,224 @@ const styles = StyleSheet.create({
     shadowRadius: 12,
     elevation: 3,
   },
+  billInvoiceBox: {
+    backgroundColor: '#F0FDF4',
+    borderRadius: 14,
+    padding: 12,
+    marginTop: 14,
+    borderWidth: 1.5,
+    borderColor: '#DCFCE7',
+    shadowColor: '#16A34A',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
+    elevation: 2,
+    gap: 10,
+  },
+  billInvoiceBoxDark: {
+    backgroundColor: '#064E3B',
+    borderColor: '#047857',
+    shadowColor: '#000000',
+  },
+  billInvoiceHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  billInvoiceIconBadge: {
+    width: 38,
+    height: 38,
+    borderRadius: 10,
+    backgroundColor: '#DCFCE7',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
+  billInvoiceIconBadgeDark: {
+    backgroundColor: '#14532D',
+  },
+  billInvoiceTextWrap: {
+    flex: 1,
+    minWidth: 0,
+    justifyContent: 'center',
+  },
+  billInvoiceTitle: {
+    fontSize: 13.5,
+    fontWeight: '800',
+    color: '#15803D',
+    letterSpacing: 0.1,
+  },
+  billInvoiceTitleDark: {
+    color: '#F0FDF4',
+  },
+  billInvoiceSubtitle: {
+    fontSize: 11,
+    fontWeight: '500',
+    color: '#16A34A',
+    marginTop: 1,
+  },
+  billInvoiceSubtitleDark: {
+    color: '#86EFAC',
+  },
+  billInvoiceActionsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  billInvoiceViewBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1.5,
+    borderColor: '#86EFAC',
+    paddingVertical: 9,
+    borderRadius: 10,
+  },
+  billInvoiceViewBtnDark: {
+    backgroundColor: '#14532D',
+    borderColor: '#15803D',
+  },
+  billInvoiceViewBtnText: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#15803D',
+  },
+  billInvoiceDownloadBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    backgroundColor: '#16A34A',
+    paddingVertical: 9,
+    borderRadius: 10,
+    shadowColor: '#16A34A',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  billInvoiceDownloadBtnText: {
+    fontSize: 12,
+    fontWeight: '900',
+    color: '#FFFFFF',
+    letterSpacing: 0.2,
+  },
   headerInvoiceBar: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#1E293B',
-    borderRadius: 16,
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    marginTop: 12,
-    borderWidth: 2,
-    borderColor: '#475569',
-    elevation: 5,
+    backgroundColor: '#F0FDF4',
+    borderRadius: 14,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    marginTop: 14,
+    borderWidth: 1.5,
+    borderColor: '#DCFCE7',
+    shadowColor: '#16A34A',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
+    elevation: 2,
+    gap: 10,
+  },
+  headerInvoiceBarDark: {
+    backgroundColor: '#064E3B',
+    borderColor: '#047857',
     shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
+  },
+  headerInvoiceLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    flex: 1,
+    minWidth: 0,
   },
   headerInvoiceIconCircle: {
-    width: 38,
-    height: 38,
-    borderRadius: 12,
-    backgroundColor: '#10B981',
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: '#DCFCE7',
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#10B981',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.4,
-    shadowRadius: 5,
-    elevation: 3,
+    flexShrink: 0,
+  },
+  headerInvoiceIconCircleDark: {
+    backgroundColor: '#14532D',
+  },
+  headerInvoiceTextCol: {
+    flex: 1,
+    minWidth: 0,
+    justifyContent: 'center',
   },
   headerInvoiceTitle: {
-    fontSize: 14,
-    fontWeight: '900',
-    color: '#FFFFFF',
-    letterSpacing: 0.2,
+    fontSize: 13.5,
+    fontWeight: '800',
+    color: '#15803D',
+    letterSpacing: 0.1,
+  },
+  headerInvoiceTitleDark: {
+    color: '#F0FDF4',
   },
   headerInvoiceSub: {
-    fontSize: 11.5,
-    fontWeight: '600',
-    color: '#CBD5E1',
-    marginTop: 2,
+    fontSize: 11,
+    fontWeight: '500',
+    color: '#16A34A',
+    marginTop: 1,
+  },
+  headerInvoiceSubDark: {
+    color: '#86EFAC',
   },
   headerInvoiceBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 5,
-    backgroundColor: '#10B981',
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-    borderRadius: 10,
-    shadowColor: '#10B981',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.4,
-    shadowRadius: 5,
-    elevation: 3,
+    gap: 4,
+    backgroundColor: '#16A34A',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    flexShrink: 0,
+    shadowColor: '#16A34A',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.3,
+    shadowRadius: 3,
+    elevation: 2,
   },
   headerInvoiceBadgeText: {
-    fontSize: 12,
-    fontWeight: '900',
-    color: '#FFFFFF',
-    letterSpacing: 0.5,
-  },
-  downloadInvoiceHeroBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#1E293B',
-    borderRadius: 16,
-    paddingVertical: 15,
-    paddingHorizontal: 16,
-    gap: 14,
-    marginTop: 16,
-    borderWidth: 2,
-    borderColor: '#475569',
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 10,
-    elevation: 6,
-  },
-  invoiceBtnIconWrap: {
-    width: 42,
-    height: 42,
-    borderRadius: 12,
-    backgroundColor: '#10B981',
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#10B981',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.5,
-    shadowRadius: 6,
-    elevation: 4,
-  },
-  downloadInvoiceHeroText: {
-    fontSize: 14,
-    fontWeight: '900',
-    color: '#FFFFFF',
-    letterSpacing: 0.2,
-  },
-  downloadInvoiceHeroSub: {
     fontSize: 11.5,
-    fontWeight: '600',
-    color: '#CBD5E1',
-    marginTop: 2,
+    fontWeight: '900',
+    color: '#FFFFFF',
+    letterSpacing: 0.5,
   },
-  invoiceDownloadPill: {
+  headerInvoiceActionsGroup: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 5,
-    backgroundColor: '#10B981',
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-    borderRadius: 10,
-    shadowColor: '#10B981',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.4,
-    shadowRadius: 5,
-    elevation: 3,
+    gap: 6,
+    flexShrink: 0,
   },
-  invoiceDownloadPillText: {
-    color: '#FFFFFF',
-    fontSize: 12,
-    fontWeight: '900',
-    letterSpacing: 0.5,
+  headerInvoiceViewBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    backgroundColor: '#DCFCE7',
+    borderWidth: 1,
+    borderColor: '#86EFAC',
+    paddingHorizontal: 9,
+    paddingVertical: 6,
+    borderRadius: 8,
+    flexShrink: 0,
+  },
+  headerInvoiceViewBtnDark: {
+    backgroundColor: '#14532D',
+    borderColor: '#15803D',
+  },
+  headerInvoiceViewBtnText: {
+    fontSize: 11.5,
+    fontWeight: '800',
+    color: '#15803D',
   },
   cardInvoiceBtn: {
     flexDirection: 'row',

@@ -7,6 +7,7 @@ import {
   View,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useTheme } from '@/context/ThemeContext';
 import { COLORS } from '@/ui/theme';
 
 interface ShowcaseItem {
@@ -62,6 +63,7 @@ const SHOWCASE_DATA: ShowcaseItem[] = [
 ];
 
 export function BeforeAfterShowcase() {
+  const { colors, isDark } = useTheme();
   const [selectedCaseIdx, setSelectedCaseIdx] = useState(0);
   const [viewState, setViewState] = useState<'BEFORE' | 'AFTER'>('AFTER');
 
@@ -72,12 +74,12 @@ export function BeforeAfterShowcase() {
       {/* Section Header */}
       <View style={styles.header}>
         <View style={styles.headerTitleRow}>
-          <View style={styles.sparkleBox}>
+          <View style={[styles.sparkleBox, isDark && { backgroundColor: colors.section, borderColor: colors.border, borderWidth: 1 }]}>
             <MaterialCommunityIcons name="creation" size={18} color="#D6B36A" />
           </View>
           <View>
-            <Text style={styles.title}>The Fabric Spa Difference</Text>
-            <Text style={styles.subtitle}>See real fabric restorations by our master cleaners</Text>
+            <Text style={[styles.title, { color: colors.textHeading }]}>The Fabric Spa Difference</Text>
+            <Text style={[styles.subtitle, { color: colors.textCaption }]}>See real fabric restorations by our master cleaners</Text>
           </View>
         </View>
       </View>
@@ -89,15 +91,19 @@ export function BeforeAfterShowcase() {
           return (
             <Pressable
               key={item.id}
-              style={[styles.tabChip, isSelected && styles.tabChipActive]}
+              style={[
+                styles.tabChip,
+                { backgroundColor: colors.surface, borderColor: colors.border },
+                isSelected && { backgroundColor: isDark ? colors.primary : '#1C0B18', borderColor: isDark ? colors.primary : '#1C0B18' },
+              ]}
               onPress={() => setSelectedCaseIdx(idx)}
             >
               <MaterialCommunityIcons
                 name={item.icon as any}
                 size={14}
-                color={isSelected ? '#FFFFFF' : '#1C0B18'}
+                color={isSelected ? '#FFFFFF' : colors.textHeading}
               />
-              <Text style={[styles.tabChipText, isSelected && styles.tabChipTextActive]}>
+              <Text style={[styles.tabChipText, { color: colors.textHeading }, isSelected && styles.tabChipTextActive]}>
                 {item.title.split(' ')[0]}
               </Text>
             </Pressable>
@@ -106,7 +112,7 @@ export function BeforeAfterShowcase() {
       </View>
 
       {/* Showcase Card */}
-      <View style={styles.card}>
+      <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
         {/* Visual Image with Before / After Overlay */}
         <View style={styles.imageWrap}>
           <Image source={{ uri: currentCase.imageUrl }} style={styles.image} resizeMode="cover" />
@@ -115,7 +121,7 @@ export function BeforeAfterShowcase() {
           {viewState === 'BEFORE' && <View style={styles.beforeOverlay} />}
 
           {/* Badge Tag */}
-          <View style={styles.badgeWrap}>
+          <View style={[styles.badgeWrap, isDark && { backgroundColor: colors.section }]}>
             <MaterialCommunityIcons name="check-decagram" size={12} color="#16A34A" />
             <Text style={styles.badgeText}>{currentCase.badge}</Text>
           </View>
@@ -134,9 +140,13 @@ export function BeforeAfterShowcase() {
         </View>
 
         {/* Interactive Toggle Switch */}
-        <View style={styles.toggleRow}>
+        <View style={[styles.toggleRow, { backgroundColor: colors.section }]}>
           <Pressable
-            style={[styles.toggleBtn, viewState === 'BEFORE' && styles.toggleBtnActiveBefore]}
+            style={[
+              styles.toggleBtn,
+              { backgroundColor: colors.surface, borderColor: colors.border },
+              viewState === 'BEFORE' && styles.toggleBtnActiveBefore,
+            ]}
             onPress={() => setViewState('BEFORE')}
           >
             <MaterialCommunityIcons
@@ -145,14 +155,22 @@ export function BeforeAfterShowcase() {
               color={viewState === 'BEFORE' ? '#FFFFFF' : '#EF4444'}
             />
             <Text
-              style={[styles.toggleBtnText, viewState === 'BEFORE' && styles.toggleBtnTextActive]}
+              style={[
+                styles.toggleBtnText,
+                { color: colors.textHeading },
+                viewState === 'BEFORE' && styles.toggleBtnTextActive,
+              ]}
             >
               Before Clean
             </Text>
           </Pressable>
 
           <Pressable
-            style={[styles.toggleBtn, viewState === 'AFTER' && styles.toggleBtnActiveAfter]}
+            style={[
+              styles.toggleBtn,
+              { backgroundColor: colors.surface, borderColor: colors.border },
+              viewState === 'AFTER' && styles.toggleBtnActiveAfter,
+            ]}
             onPress={() => setViewState('AFTER')}
           >
             <MaterialCommunityIcons
@@ -161,7 +179,11 @@ export function BeforeAfterShowcase() {
               color={viewState === 'AFTER' ? '#FFFFFF' : '#16A34A'}
             />
             <Text
-              style={[styles.toggleBtnText, viewState === 'AFTER' && styles.toggleBtnTextActive]}
+              style={[
+                styles.toggleBtnText,
+                { color: colors.textHeading },
+                viewState === 'AFTER' && styles.toggleBtnTextActive,
+              ]}
             >
               After Restoration
             </Text>
@@ -170,17 +192,17 @@ export function BeforeAfterShowcase() {
 
         {/* Description Box */}
         <View style={styles.descriptionBox}>
-          <Text style={styles.caseTitle}>{currentCase.title}</Text>
+          <Text style={[styles.caseTitle, { color: colors.textHeading }]}>{currentCase.title}</Text>
           <Text style={styles.caseCategory}>{currentCase.category}</Text>
 
-          <View style={styles.detailRow}>
+          <View style={[styles.detailRow, { backgroundColor: colors.section }]}>
             <MaterialCommunityIcons
               name={viewState === 'BEFORE' ? 'close-circle' : 'check-circle'}
               size={16}
               color={viewState === 'BEFORE' ? '#EF4444' : '#16A34A'}
               style={{ marginTop: 2 }}
             />
-            <Text style={styles.detailText}>
+            <Text style={[styles.detailText, { color: colors.textBody }]}>
               {viewState === 'BEFORE' ? currentCase.beforeProblem : currentCase.afterResult}
             </Text>
           </View>

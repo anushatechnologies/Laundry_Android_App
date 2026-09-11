@@ -74,7 +74,7 @@ export function HomeScreen({
   onViewSubscriptions,
   onViewReferral,
 }: HomeScreenProps) {
-    const { colors } = useTheme();
+    const { colors, isDark } = useTheme();
   const {
     session,
     orders,
@@ -936,7 +936,7 @@ export function HomeScreen({
               />
             </View>
             <View style={styles.brandTextContainer}>
-              <Text style={styles.greetingHeader} numberOfLines={1}>
+              <Text style={[styles.greetingHeader, { color: colors.textLight }]} numberOfLines={1}>
                 {greeting}, {customerFirstName} 👋
               </Text>
               <Pressable
@@ -956,7 +956,7 @@ export function HomeScreen({
                   size={12}
                   color="#FCD34D"
                 />
-                <Text style={styles.locationChipText} numberOfLines={1}>
+                <Text style={[styles.locationChipText, { color: colors.textLight }]} numberOfLines={1}>
                   {userLocation?.tag ? `${userLocation.tag} • ` : ''}
                   {userLocation?.areaName || userLocation?.city || (locationStatus === 'detecting' && !detectingTimeout ? 'Locating…' : 'Select Location')}
                   {userLocation?.pincode ? ` - ${userLocation.pincode}` : ''}
@@ -1000,20 +1000,22 @@ export function HomeScreen({
           </View>
         </View>
 
-        {/* Full-width Pill Search Bar below Location */}
+        {/* Full-width Pill Search Bar below Location matching Image 2 */}
         <Pressable
           style={({ pressed }) => [
-            styles.headerSearchBar,
-            pressed && { opacity: 0.95 },
+            styles.headerSearchBarWrap,
+            pressed && { opacity: 0.85 },
           ]}
           onPress={onOpenSearch}
           accessibilityRole="button"
-          accessibilityLabel="Search services and clothes"
+          accessibilityLabel="Search for clothes, services"
         >
-          <MaterialCommunityIcons name="magnify" size={22} color="#0F766E" style={styles.headerSearchIcon} />
-          <Text style={styles.headerSearchPlaceholder} numberOfLines={1}>
-            Search 70+ clothes, fabrics & services...
-          </Text>
+          <View style={styles.headerSearchBar}>
+            <MaterialCommunityIcons name="magnify" size={20} color="rgba(255, 255, 255, 0.9)" style={styles.headerSearchIcon} />
+            <Text style={styles.headerSearchPlaceholder} numberOfLines={1}>
+              Search for clothes, services...
+            </Text>
+          </View>
         </Pressable>
       </View>
 
@@ -1038,15 +1040,15 @@ export function HomeScreen({
 
         {/* ACTIVE ORDER TRACKER */}
         {activeOrder ? (
-          <Card style={styles.tracker}>
+          <Card style={[styles.tracker, isDark && { backgroundColor: colors.surface, borderColor: colors.border }]}>
             <View style={styles.trackerTop}>
               <View>
                 <Text style={styles.trackerLabel}>ACTIVE ORDER</Text>
-                <Text style={styles.trackerId}>#{activeOrder.id}</Text>
+                <Text style={[styles.trackerId, isDark && { color: colors.textHeading }]}>#{activeOrder.id}</Text>
               </View>
               <StatusPill status={activeOrder.currentStatus} />
             </View>
-            <Text style={styles.trackerDetail}>
+            <Text style={[styles.trackerDetail, isDark && { color: colors.textCaption }]}>
               Pickup: {shortDate(activeOrder.pickupSlot.date)} • {activeOrder.pickupSlot.slot}
             </Text>
             <AppButton
@@ -1059,15 +1061,15 @@ export function HomeScreen({
           </Card>
         ) : orders[0] ? (
           // Show most recent order if no active order
-          <Card style={styles.tracker}>
+          <Card style={[styles.tracker, isDark && { backgroundColor: colors.surface, borderColor: colors.border }]}>
             <View style={styles.trackerTop}>
               <View>
                 <Text style={styles.trackerLabel}>RECENT ORDER</Text>
-                <Text style={styles.trackerId}>#{orders[0]?.id}</Text>
+                <Text style={[styles.trackerId, isDark && { color: colors.textHeading }]}>#{orders[0]?.id}</Text>
               </View>
               <StatusPill status={orders[0]!.currentStatus} />
             </View>
-            <Text style={styles.trackerDetail}>
+            <Text style={[styles.trackerDetail, isDark && { color: colors.textCaption }]}>
               {shortDate(orders[0]!.pickupSlot.date)} • {money(orders[0]!.totalAmount)}
             </Text>
             <AppButton
@@ -1086,8 +1088,8 @@ export function HomeScreen({
         <View style={styles.categoriesSection}>
           <View style={styles.sectionHeaderRow}>
             <View>
-              <Text style={styles.sectionHeading}>Browse Categories</Text>
-              <Text style={styles.sectionSubheading}>All your fabric care needs in one place</Text>
+              <Text style={[styles.sectionHeading, { color: colors.textHeading }]}>Browse Categories</Text>
+              <Text style={[styles.sectionSubheading, { color: colors.textCaption }]}>All your fabric care needs in one place</Text>
             </View>
           </View>
 
@@ -1126,7 +1128,7 @@ export function HomeScreen({
                       <Text style={styles.homeCatCountText}>{cat.count}</Text>
                     </View>
                   </View>
-                  <Text style={styles.homeCatTitle} numberOfLines={2}>{cat.label}</Text>
+                  <Text style={[styles.homeCatTitle, { color: colors.textHeading }]} numberOfLines={2}>{cat.label}</Text>
                 </Pressable>
               );
             })}
@@ -1167,7 +1169,7 @@ export function HomeScreen({
                       <Text style={styles.homeCatCountText}>{cat.count}</Text>
                     </View>
                   </View>
-                  <Text style={styles.homeCatTitle} numberOfLines={2}>{cat.label}</Text>
+                  <Text style={[styles.homeCatTitle, { color: colors.textHeading }]} numberOfLines={2}>{cat.label}</Text>
                 </Pressable>
               );
             })}
@@ -1178,8 +1180,8 @@ export function HomeScreen({
         <View style={styles.servicesSection}>
           <View style={styles.sectionHeaderRow}>
             <View>
-              <Text style={styles.sectionHeading}>All Services & Care</Text>
-              <Text style={styles.sectionSubheading}>8 specialized treatments for every fabric</Text>
+              <Text style={[styles.sectionHeading, { color: colors.textHeading }]}>All Services & Care</Text>
+              <Text style={[styles.sectionSubheading, { color: colors.textCaption }]}>8 specialized treatments for every fabric</Text>
             </View>
             <Pressable
               onPress={() => setShowAllServicesModal(true)}
@@ -1222,7 +1224,7 @@ export function HomeScreen({
                     <Text style={styles.homeCatCountText}>{svc.priceText}</Text>
                   </View>
                 </View>
-                <Text style={styles.homeCatTitle} numberOfLines={2}>{svc.shortTitle || svc.title}</Text>
+                <Text style={[styles.homeCatTitle, { color: colors.textHeading }]} numberOfLines={2}>{svc.shortTitle || svc.title}</Text>
               </Pressable>
             ))}
           </View>
@@ -1256,7 +1258,7 @@ export function HomeScreen({
                     <Text style={styles.homeCatCountText}>{svc.priceText}</Text>
                   </View>
                 </View>
-                <Text style={styles.homeCatTitle} numberOfLines={2}>{svc.shortTitle || svc.title}</Text>
+                <Text style={[styles.homeCatTitle, { color: colors.textHeading }]} numberOfLines={2}>{svc.shortTitle || svc.title}</Text>
               </Pressable>
             ))}
           </View>
@@ -1320,25 +1322,25 @@ export function HomeScreen({
             style={styles.allServicesModalBackdrop}
             onPress={() => setShowAllServicesModal(false)}
           />
-          <View style={styles.allServicesModalContent}>
+          <View style={[styles.allServicesModalContent, isDark && { backgroundColor: colors.surface }]}>
             {/* Handle bar */}
-            <View style={styles.modalDragHandle} />
+            <View style={[styles.modalDragHandle, isDark && { backgroundColor: colors.border }]} />
 
             {/* Header */}
-            <View style={styles.allServicesModalHeader}>
+            <View style={[styles.allServicesModalHeader, isDark && { borderBottomColor: colors.border }]}>
               <View style={{ flex: 1 }}>
-                <Text style={styles.allServicesModalTitle}>All Services & Care</Text>
-                <Text style={styles.allServicesModalSubtitle}>
+                <Text style={[styles.allServicesModalTitle, isDark && { color: colors.textHeading }]}>All Services & Care</Text>
+                <Text style={[styles.allServicesModalSubtitle, isDark && { color: colors.textCaption }]}>
                   Choose from our 8 specialized garment care treatments
                 </Text>
               </View>
               <Pressable
-                style={styles.modalCloseBtn}
+                style={[styles.modalCloseBtn, isDark && { backgroundColor: colors.section }]}
                 onPress={() => setShowAllServicesModal(false)}
                 hitSlop={8}
                 accessibilityLabel="Close modal"
               >
-                <MaterialCommunityIcons name="close" size={20} color="#64748B" />
+                <MaterialCommunityIcons name="close" size={20} color={isDark ? colors.textCaption : "#64748B"} />
               </Pressable>
             </View>
 
@@ -1353,6 +1355,7 @@ export function HomeScreen({
                   key={svc.id}
                   style={({ pressed }) => [
                     styles.allServiceItemCard,
+                    isDark && { backgroundColor: colors.section, borderColor: colors.border },
                     pressed && styles.tileCardPressed,
                   ]}
                   onPress={() => {
@@ -1384,7 +1387,7 @@ export function HomeScreen({
                   </View>
                   <View style={styles.allServiceItemInfo}>
                     <View style={styles.allServiceItemTopRow}>
-                      <Text style={styles.allServiceItemTitle} numberOfLines={1}>
+                      <Text style={[styles.allServiceItemTitle, isDark && { color: colors.textHeading }]} numberOfLines={1}>
                         {svc.title}
                       </Text>
                       <View style={[styles.allServiceItemBadge, { backgroundColor: `${svc.accent}15` }]}>
@@ -1393,18 +1396,18 @@ export function HomeScreen({
                         </Text>
                       </View>
                     </View>
-                    <Text style={styles.allServiceItemDesc} numberOfLines={2}>
+                    <Text style={[styles.allServiceItemDesc, isDark && { color: colors.textCaption }]} numberOfLines={2}>
                       {svc.description}
                     </Text>
                     <View style={styles.allServiceItemBottomRow}>
-                      <Text style={styles.allServiceItemPrice}>{svc.priceText}</Text>
-                      <View style={styles.allServiceItemTatPill}>
-                        <MaterialCommunityIcons name="clock-outline" size={11} color="#64748B" />
-                        <Text style={styles.allServiceItemTatText}>{svc.tat}</Text>
+                      <Text style={[styles.allServiceItemPrice, isDark && { color: colors.primary }]}>{svc.priceText}</Text>
+                      <View style={[styles.allServiceItemTatPill, isDark && { backgroundColor: colors.surface }]}>
+                        <MaterialCommunityIcons name="clock-outline" size={11} color={isDark ? colors.textCaption : "#64748B"} />
+                        <Text style={[styles.allServiceItemTatText, isDark && { color: colors.textCaption }]}>{svc.tat}</Text>
                       </View>
                     </View>
                   </View>
-                  <MaterialCommunityIcons name="chevron-right" size={20} color="#94A3B8" />
+                  <MaterialCommunityIcons name="chevron-right" size={20} color={isDark ? colors.textCaption : "#94A3B8"} />
                 </Pressable>
               ))}
             </ScrollView>
@@ -1937,23 +1940,21 @@ const styles = StyleSheet.create({
     shadowRadius: 10,
     elevation: 4,
   },
-  headerSearchBar: {
+  headerSearchBarWrap: {
     width: '100%',
-    height: 48,
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 24,
-    paddingHorizontal: 16,
     marginTop: 10,
     marginBottom: 4,
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.12,
-    shadowRadius: 6,
-    elevation: 4,
-    borderWidth: 1.5,
-    borderColor: '#CCFBF1',
+  },
+  headerSearchBar: {
+    width: '100%',
+    height: 46,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.22)',
+    borderRadius: 23,
+    paddingHorizontal: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.16)',
   },
   headerSearchIcon: {
     marginRight: 10,
@@ -1961,8 +1962,9 @@ const styles = StyleSheet.create({
   headerSearchPlaceholder: {
     flex: 1,
     fontSize: 13.5,
-    color: '#64748B',
+    color: 'rgba(255, 255, 255, 0.85)',
     fontWeight: '500',
+    letterSpacing: 0.1,
   },
   navMainRow: {
     flexDirection: 'row',
@@ -2067,7 +2069,7 @@ const styles = StyleSheet.create({
   },
   content: {
     paddingTop: 8,
-    paddingBottom: 140,
+    paddingBottom: 195,
   },
   tracker: {
     marginHorizontal: 16,

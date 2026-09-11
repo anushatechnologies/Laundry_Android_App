@@ -14,10 +14,12 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useApp } from '@/context/AppContext';
+import { useToast } from '@/context/ToastContext';
 import { useTheme } from '@/context/ThemeContext';
 import { COLORS, money } from '@/ui/theme';
 import { getGarmentImageUrl } from '@/lib/garment-photos';
 import { api } from '@/lib/api';
+import { AnimatedCartButton } from '@/components/AnimatedCartButton';
 import type { ProductItem } from '@/types/domain';
 
 interface SearchScreenProps {
@@ -31,8 +33,9 @@ interface SearchScreenProps {
 const RECENT_SEARCHES_KEY = '@laundryfresh_recent_searches';
 
 export function SearchScreen({ onBook, onBack, onSelectProduct, initialQuery = '', onQueryChange }: SearchScreenProps) {
-    const { colors } = useTheme();
+  const { colors, isDark } = useTheme();
   const insets = useSafeAreaInsets();
+  const { toast } = useToast();
   const { cart, cartSummary, addCartItem, setCartQuantity, removeFromCart, catalog } = useApp();
   const [query, setQueryState] = useState(initialQuery);
 
@@ -337,7 +340,7 @@ export function SearchScreen({ onBook, onBack, onSelectProduct, initialQuery = '
   return (
     <View style={[styles.root, { backgroundColor: colors.background }]}>
       {/* Top Search Input Bar */}
-      <View style={[styles.header, { paddingTop: Math.max(insets.top, 12) + 6 }]}>
+      <View style={[styles.header, { paddingTop: Math.max(insets.top, 12) + 6 }, isDark && { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
         {onBack ? (
           <Pressable
             onPress={() => {
@@ -351,13 +354,13 @@ export function SearchScreen({ onBook, onBack, onSelectProduct, initialQuery = '
             style={styles.headerBackBtn}
             accessibilityLabel="Back"
           >
-            <MaterialCommunityIcons name="arrow-left" size={24} color="#0F172A" />
+            <MaterialCommunityIcons name="arrow-left" size={24} color={isDark ? colors.textHeading : '#0F172A'} />
           </Pressable>
         ) : null}
-        <View style={[styles.searchBar, onBack ? { flex: 1 } : null]}>
+        <View style={[styles.searchBar, onBack ? { flex: 1 } : null, isDark && { backgroundColor: colors.section, borderColor: colors.border }]}>
           <MaterialCommunityIcons name="magnify" size={20} color="#0F766E" style={styles.searchIcon} />
           <TextInput
-            style={styles.searchInput}
+            style={[styles.searchInput, isDark && { color: colors.textHeading }]}
             placeholder="Search 70+ clothes, fabrics & services..."
             placeholderTextColor="#94A3B8"
             value={query}
@@ -389,7 +392,7 @@ export function SearchScreen({ onBook, onBack, onSelectProduct, initialQuery = '
 
       <ScrollView
         style={styles.scrollArea}
-        contentContainerStyle={[styles.content, { paddingBottom: Math.max(insets.bottom, 16) + 24 }]}
+        contentContainerStyle={[styles.content, { paddingBottom: Math.max(insets.bottom, 16) + 130 }]}
         showsVerticalScrollIndicator={false}
       >
         {/* If Query is Empty: Show Recent & Trending Searches */}
@@ -399,7 +402,7 @@ export function SearchScreen({ onBook, onBack, onSelectProduct, initialQuery = '
             {recentSearches.length > 0 && (
               <View style={styles.section}>
                 <View style={styles.sectionHeaderRow}>
-                  <Text style={styles.sectionTitle}>Recent Searches</Text>
+                  <Text style={[styles.sectionTitle, isDark && { color: colors.textHeading }]}>Recent Searches</Text>
                   <Pressable onPress={() => void clearRecentSearches()} hitSlop={8}>
                     <Text style={styles.clearText}>Clear</Text>
                   </Pressable>
@@ -409,11 +412,11 @@ export function SearchScreen({ onBook, onBack, onSelectProduct, initialQuery = '
                   {recentSearches.map((term, idx) => (
                     <Pressable
                       key={idx}
-                      style={styles.recentChip}
+                      style={[styles.recentChip, isDark && { backgroundColor: colors.section, borderColor: colors.border }]}
                       onPress={() => handleSelectKeyword(term)}
                     >
-                      <MaterialCommunityIcons name="history" size={14} color="#8A7A84" />
-                      <Text style={styles.recentChipText}>{term}</Text>
+                      <MaterialCommunityIcons name="history" size={14} color={isDark ? colors.textCaption : '#8A7A84'} />
+                      <Text style={[styles.recentChipText, isDark && { color: colors.textBody }]}>{term}</Text>
                     </Pressable>
                   ))}
                 </View>
@@ -422,7 +425,7 @@ export function SearchScreen({ onBook, onBack, onSelectProduct, initialQuery = '
 
             {/* Popular Services */}
             <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Popular Services</Text>
+              <Text style={[styles.sectionTitle, isDark && { color: colors.textHeading }]}>Popular Services</Text>
               <View style={styles.chipsRow}>
                 {[
                   { label: 'Steam Press', icon: 'iron', color: '#2563EB', bg: '#EFF6FF' },
@@ -447,17 +450,17 @@ export function SearchScreen({ onBook, onBack, onSelectProduct, initialQuery = '
             {trendingSearches.length > 0 && (
               <View style={styles.section}>
                 <View style={styles.sectionHeaderRow}>
-                  <Text style={styles.sectionTitle}>🔥 Trending This Week</Text>
+                  <Text style={[styles.sectionTitle, isDark && { color: colors.textHeading }]}>🔥 Trending This Week</Text>
                 </View>
                 <View style={styles.chipsRow}>
                   {trendingSearches.map((trend, idx) => (
                     <Pressable
                       key={idx}
-                      style={styles.trendingBadge}
+                      style={[styles.trendingBadge, isDark && { backgroundColor: colors.section, borderColor: colors.border }]}
                       onPress={() => handleSelectKeyword(trend.text)}
                     >
                       <Text style={styles.trendingEmoji}>{trend.emoji}</Text>
-                      <Text style={styles.trendingBadgeText}>{trend.text}</Text>
+                      <Text style={[styles.trendingBadgeText, isDark && { color: colors.textHeading }]}>{trend.text}</Text>
                       <Text style={styles.trendingGrowth}>{trend.growth}</Text>
                     </Pressable>
                   ))}
@@ -468,7 +471,7 @@ export function SearchScreen({ onBook, onBack, onSelectProduct, initialQuery = '
             {/* Popular Searches */}
             {popularSearches.length > 0 && (
               <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Most Searched</Text>
+                <Text style={[styles.sectionTitle, isDark && { color: colors.textHeading }]}>Most Searched</Text>
                 <View style={styles.chipsRow}>
                   {popularSearches.map((popular, idx) => (
                     <Pressable
@@ -486,18 +489,18 @@ export function SearchScreen({ onBook, onBack, onSelectProduct, initialQuery = '
 
             {/* Popular Fabrics */}
             <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Popular Fabrics</Text>
+              <Text style={[styles.sectionTitle, isDark && { color: colors.textHeading }]}>Popular Fabrics</Text>
               <View style={styles.chipsRow}>
                 {[
                   'Pure Silk', 'Cotton Handloom', 'Woolen & Pashmina', 'Denim', 'Linen', 'Chiffon & Georgette', 'Velvet'
                 ].map((fabric, idx) => (
                   <Pressable
                     key={idx}
-                    style={styles.fabricChip}
+                    style={[styles.fabricChip, isDark && { backgroundColor: colors.section, borderColor: colors.border }]}
                     onPress={() => handleSelectKeyword(fabric)}
                   >
-                    <MaterialCommunityIcons name="tag-outline" size={13} color="#64748B" />
-                    <Text style={styles.fabricChipText}>{fabric}</Text>
+                    <MaterialCommunityIcons name="tag-outline" size={13} color={isDark ? colors.textCaption : '#64748B'} />
+                    <Text style={[styles.fabricChipText, isDark && { color: colors.textCaption }]}>{fabric}</Text>
                   </Pressable>
                 ))}
               </View>
@@ -516,29 +519,29 @@ export function SearchScreen({ onBook, onBack, onSelectProduct, initialQuery = '
           /* Search Results Grid */
           <View style={styles.resultsSection}>
             <View style={styles.resultsHeader}>
-              <Text style={styles.resultsCount}>
+              <Text style={[styles.resultsCount, isDark && { color: colors.textCaption }]}>
                 {searching ? 'Searching...' : `Found ${displayResults.length} service${displayResults.length === 1 ? '' : 's'}`}
               </Text>
               {query && !searching && displayResults.length > 0 && (
-                <Text style={styles.resultsQuery}>for "{query}"</Text>
+                <Text style={[styles.resultsQuery, isDark && { color: colors.textHeading }]}>for "{query}"</Text>
               )}
             </View>
 
             {searching ? (
               <View style={styles.loadingContainer}>
                 <ActivityIndicator size="large" color="#2563EB" />
-                <Text style={styles.loadingText}>Searching laundry services...</Text>
+                <Text style={[styles.loadingText, isDark && { color: colors.textCaption }]}>Searching laundry services...</Text>
               </View>
             ) : displayResults.length === 0 ? (
               <View style={styles.emptyResults}>
                 <MaterialCommunityIcons name="magnify-close" size={54} color="#D6B36A" />
-                <Text style={styles.emptyTitle}>No Matching Services Found</Text>
-                <Text style={styles.emptySubtitle}>
+                <Text style={[styles.emptyTitle, isDark && { color: colors.textHeading }]}>No Matching Services Found</Text>
+                <Text style={[styles.emptySubtitle, isDark && { color: colors.textCaption }]}>
                   Try searching for keywords like "Suit", "Saree", "Blanket", or "Kurti".
                 </Text>
                 {suggestions.length > 0 && (
                   <View style={styles.suggestionsWrap}>
-                    <Text style={styles.suggestionsTitle}>Try these instead:</Text>
+                    <Text style={[styles.suggestionsTitle, isDark && { color: colors.textHeading }]}>Try these instead:</Text>
                     <View style={styles.suggestionsChips}>
                       {suggestions.map((suggestion, idx) => (
                         <Pressable
@@ -569,12 +572,12 @@ export function SearchScreen({ onBook, onBack, onSelectProduct, initialQuery = '
                   return (
                     <Pressable
                       key={item.id}
-                      style={styles.garmentCard}
+                      style={[styles.garmentCard, isDark && { backgroundColor: colors.surface, borderColor: colors.border }]}
                       onPress={() => handleOpenProductDetail(item)}
                       accessibilityRole="button"
                       accessibilityLabel={`View details for ${item.name}`}
                     >
-                      <View style={styles.garmentThumbWrap}>
+                      <View style={[styles.garmentThumbWrap, isDark && { backgroundColor: colors.section }]}>
                         <Image source={{ uri: item.imageUrl }} style={styles.garmentThumb} resizeMode="cover" />
                         <View style={styles.tatBadge}>
                           <MaterialCommunityIcons name="lightning-bolt" size={10} color="#FFFFFF" />
@@ -583,59 +586,51 @@ export function SearchScreen({ onBook, onBack, onSelectProduct, initialQuery = '
                       </View>
 
                       <View style={styles.garmentDetails}>
-                        <Text style={styles.garmentName} numberOfLines={1}>{item.name}</Text>
-                        <Text style={styles.garmentService}>{item.serviceName}</Text>
+                        <Text style={[styles.garmentName, isDark && { color: colors.textHeading }]} numberOfLines={1}>{item.name}</Text>
+                        <Text style={[styles.garmentService, isDark && { color: colors.textCaption }]}>{item.serviceName}</Text>
 
                         <View style={styles.garmentBottomRow}>
-                          <Text style={styles.garmentPrice}>₹{item.price}<Text style={styles.garmentUnit}>/{item.unit}</Text></Text>
+                          <Text style={[styles.garmentPrice, isDark && { color: colors.textHeading }]}>₹{item.price}<Text style={[styles.garmentUnit, isDark && { color: colors.textCaption }]}>/{item.unit}</Text></Text>
 
-                          {qty > 0 && foundInCart ? (
-                            <View style={styles.stepperContainer}>
-                              <Pressable
-                                style={styles.stepperBtn}
-                                onPress={() => {
-                                  if (foundInCart.quantity <= 1) {
-                                    removeFromCart(foundInCart.id);
-                                  } else {
-                                    setCartQuantity(foundInCart.id, foundInCart.quantity - 1);
-                                  }
-                                }}
-                                hitSlop={8}
-                              >
-                                <MaterialCommunityIcons name="minus" size={13} color="#FFFFFF" />
-                              </Pressable>
-                              <Text style={styles.stepperQtyText}>{qty}</Text>
-                              <Pressable
-                                style={styles.stepperBtn}
-                                onPress={() => setCartQuantity(foundInCart.id, foundInCart.quantity + 1)}
-                                hitSlop={8}
-                              >
-                                <MaterialCommunityIcons name="plus" size={13} color="#FFFFFF" />
-                              </Pressable>
-                            </View>
-                          ) : (
-                            <Pressable
-                              style={styles.addBtn}
-                              onPress={() => {
-                                addCartItem({
-                                  id: `${item.id}-press`,
-                                  serviceId: 'srv-m-steam-iron',
-                                  clothId: item.id,
-                                  serviceName: `${item.name} (${item.serviceName})`,
-                                  categoryName: item.category,
-                                  pricingModel: 'PER_ITEM',
-                                  unitPrice: item.price,
-                                  quantity: 1,
-                                  unit: item.unit === 'kg' ? 'KG' : 'Piece',
-                                  subtotal: item.price,
-                                  imageUrl: item.imageUrl,
-                                });
-                              }}
-                            >
-                              <MaterialCommunityIcons name="plus" size={13} color="#FFFFFF" />
-                              <Text style={styles.addBtnText}>Add</Text>
-                            </Pressable>
-                          )}
+                          <AnimatedCartButton
+                            quantity={qty}
+                            onAdd={() => {
+                              addCartItem({
+                                id: `${item.id}-press`,
+                                serviceId: 'srv-m-steam-iron',
+                                clothId: item.id,
+                                serviceName: `${item.name} (${item.serviceName})`,
+                                categoryName: item.category,
+                                pricingModel: 'PER_ITEM',
+                                unitPrice: item.price,
+                                quantity: 1,
+                                unit: item.unit === 'kg' ? 'KG' : 'Piece',
+                                subtotal: item.price,
+                                imageUrl: item.imageUrl,
+                              });
+                              toast.cart(`Added ${item.name} to Bag! 🛍️`, {
+                                subtitle: `${item.serviceName} • ₹${item.price}`,
+                                thumbnail: item.imageUrl,
+                                actionLabel: 'View Bag',
+                                onAction: onBook,
+                              });
+                            }}
+                            onIncrement={() => {
+                              if (foundInCart) {
+                                setCartQuantity(foundInCart.id, foundInCart.quantity + 1);
+                              }
+                            }}
+                            onDecrement={() => {
+                              if (foundInCart) {
+                                if (foundInCart.quantity <= 1) {
+                                  removeFromCart(foundInCart.id);
+                                } else {
+                                  setCartQuantity(foundInCart.id, foundInCart.quantity - 1);
+                                }
+                              }
+                            }}
+                            isDark={isDark}
+                          />
                         </View>
                       </View>
                     </Pressable>

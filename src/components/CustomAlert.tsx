@@ -1,6 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import { Animated, Modal, Pressable, StyleSheet, Text, View, Easing } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useTheme } from '@/context/ThemeContext';
 
 interface CustomAlertProps {
   visible: boolean;
@@ -25,6 +26,7 @@ export function CustomAlert({
   buttons = [{ text: 'OK' }],
   onDismiss,
 }: CustomAlertProps) {
+  const { colors, isDark } = useTheme();
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const scaleAnim = useRef(new Animated.Value(0.8)).current;
 
@@ -92,6 +94,7 @@ export function CustomAlert({
         <Animated.View
           style={[
             styles.alertBox,
+            { backgroundColor: colors.surface, borderColor: colors.border, borderWidth: isDark ? 1 : 0 },
             {
               opacity: fadeAnim,
               transform: [{ scale: scaleAnim }],
@@ -104,10 +107,10 @@ export function CustomAlert({
           </View>
 
           {/* Title */}
-          <Text style={styles.title}>{title}</Text>
+          <Text style={[styles.title, { color: colors.textHeading }]}>{title}</Text>
 
           {/* Message */}
-          <Text style={styles.message}>{message}</Text>
+          <Text style={[styles.message, { color: colors.textBody }]}>{message}</Text>
 
           {/* Buttons */}
           <View style={styles.buttonsContainer}>
@@ -116,7 +119,7 @@ export function CustomAlert({
                 key={index}
                 style={({ pressed }) => [
                   styles.button,
-                  button.style === 'cancel' && styles.buttonCancel,
+                  button.style === 'cancel' && [styles.buttonCancel, { backgroundColor: colors.section }],
                   button.style === 'destructive' && styles.buttonDestructive,
                   pressed && styles.buttonPressed,
                 ]}
@@ -125,7 +128,7 @@ export function CustomAlert({
                 <Text
                   style={[
                     styles.buttonText,
-                    button.style === 'cancel' && styles.buttonTextCancel,
+                    button.style === 'cancel' && [styles.buttonTextCancel, { color: colors.textCaption }],
                     button.style === 'destructive' && styles.buttonTextDestructive,
                   ]}
                 >

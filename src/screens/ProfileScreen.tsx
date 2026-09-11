@@ -16,6 +16,7 @@ import {
   View,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useApp } from '@/context/AppContext';
 import { useTheme, type ThemeMode } from '@/context/ThemeContext';
 import { Card, SectionTitle } from '@/ui/components';
@@ -23,6 +24,7 @@ import { COLORS } from '@/ui/theme';
 import { api } from '@/lib/api';
 import { API_BASE_URL } from '@/lib/config';
 import { PolicyData } from '@/types/domain';
+import { checkForAppUpdate, CURRENT_APP_VERSION, CURRENT_APP_CODE } from '@/services/app-update/updateChecker';
 
 interface ProfileScreenProps {
   onViewAddresses: () => void;
@@ -64,7 +66,17 @@ export function ProfileScreen({
     updateUserProfile,
     refreshAccountData,
   } = useApp();
-  const { mode, resolvedMode, colors, setMode } = useTheme();
+  const { mode, resolvedMode, isDark, colors, setMode } = useTheme();
+  const insets = useSafeAreaInsets();
+  const scrollBottomPadding = Math.max(insets.bottom, 20) + 110;
+
+  const cardBg = isDark ? colors.surface : '#FFFFFF';
+  const cardBorder = isDark ? colors.border : '#F3E8DF';
+  const headingColor = colors.textHeading;
+  const captionColor = colors.textCaption;
+  const bodyColor = colors.textBody;
+  const dividerBg = isDark ? colors.border : '#F7F2EE';
+  const iconBoxBg = (lightBg: string) => isDark ? 'rgba(255, 255, 255, 0.08)' : lightBg;
 
   // Edit Profile Modal State
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -74,83 +86,14 @@ export function ProfileScreen({
   const [refreshing, setRefreshing] = useState(false);
   const [checkingUpdate, setCheckingUpdate] = useState(false);
 
-  const currentAppVersion = Constants.expoConfig?.version || '1.0.30';
-  const currentAppCode = Constants.expoConfig?.android?.versionCode || 16;
+  const currentAppVersion = CURRENT_APP_VERSION;
+  const currentAppCode = CURRENT_APP_CODE;
 
   const handleCheckUpdates = async () => {
     if (checkingUpdate) return;
     setCheckingUpdate(true);
     try {
-      const res = await fetch(`${API_BASE_URL}/app-release/latest`);
-      const json = await res.json();
-
-      if (json?.success && json?.data) {
-        const release = json.data;
-        const downloadUrl = (release.fileUrl && release.fileUrl.startsWith('http'))
-          ? release.fileUrl
-          : `${API_BASE_URL}/app-release/download`;
-
-        const latestCode = release.versionCode || 0;
-        const hasNewer = latestCode > currentAppCode;
-
-        if (hasNewer) {
-          Alert.alert(
-            `🚀 New Update Available! (${release.versionName || 'Latest'})`,
-            `${release.releaseNotes || 'A new version with performance improvements and bug fixes is ready.'}\n\nSize: ${release.fileSizeBytes ? (release.fileSizeBytes / (1024 * 1024)).toFixed(1) + ' MB' : 'Full APK'}`,
-            [
-              { text: 'Later', style: 'cancel' },
-              {
-                text: 'Download & Install',
-                onPress: () => {
-                  void Linking.openURL(downloadUrl);
-                },
-              },
-            ]
-          );
-        } else {
-          Alert.alert(
-            'You Are Up to Date! 🎉',
-            `You are using LaundryFresh v${currentAppVersion} (Build ${currentAppCode}) which is the latest version available.`,
-            [
-              { text: 'OK', style: 'cancel' },
-              {
-                text: 'Re-download APK',
-                onPress: () => {
-                  void Linking.openURL(downloadUrl);
-                },
-              },
-            ]
-          );
-        }
-      } else {
-        Alert.alert(
-          'Download Latest Release',
-          'Download the official LaundryFresh APK package directly from our cloud server.',
-          [
-            { text: 'Cancel', style: 'cancel' },
-            {
-              text: 'Download APK',
-              onPress: () => {
-                void Linking.openURL('https://laundry.anushatechnologies.com/api/app-release/latest.apk');
-              },
-            },
-          ]
-        );
-      }
-    } catch {
-      Alert.alert(
-        'Latest Release APK',
-        'Download the official LaundryFresh APK installer directly.',
-        [
-          { text: 'Cancel', style: 'cancel' },
-          {
-            text: 'Download APK',
-            onPress: () => {
-              void Linking.openURL('https://laundry.anushatechnologies.com/api/app-release/latest.apk');
-            },
-          },
-        ]
-      );
+      await checkForAppUpdate({ silentIfUpToDate: false });
     } finally {
       setCheckingUpdate(false);
     }
@@ -200,6 +143,12 @@ export function ProfileScreen({
     })();
   }, []);
 
+const EMAIL_REGEX = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+
+  const isEmailInvalid = Boolean(
+    editEmail.trim().length > 0 && !EMAIL_REGEX.test(editEmail.trim().toLowerCase())
+  );
+
   const handleSaveProfile = async () => {
     if (!editName.trim()) {
       Alert.alert('Required', 'Please enter your name.');
@@ -211,9 +160,18 @@ export function ProfileScreen({
       return;
     }
 
+    const cleanEmail = editEmail.trim().toLowerCase();
+    if (cleanEmail && !EMAIL_REGEX.test(cleanEmail)) {
+      Alert.alert(
+        'Invalid Email Format',
+        'Please enter a valid email address (e.g. name@gmail.com) or clear the email field.'
+      );
+      return;
+    }
+
     setSavingProfile(true);
     try {
-      await updateUserProfile(editName.trim(), editEmail.trim());
+      await updateUserProfile(editName.trim(), cleanEmail);
       setIsEditModalOpen(false);
       Alert.alert('Profile Updated', 'Your personal details have been saved successfully.');
     } catch (err) {
@@ -260,7 +218,7 @@ export function ProfileScreen({
   return (
     <ScrollView
       style={[styles.root, { backgroundColor: colors.background }]}
-      contentContainerStyle={styles.content}
+      contentContainerStyle={[styles.content, { paddingBottom: scrollBottomPadding }]}
       showsVerticalScrollIndicator={false}
       refreshControl={
         <RefreshControl
@@ -273,7 +231,7 @@ export function ProfileScreen({
     >
       {/* 1. PROFILE HERO CARD */}
       {session ? (
-        <View style={styles.profileHeaderCard}>
+        <View style={[styles.profileHeaderCard, { backgroundColor: cardBg, borderColor: cardBorder }]}>
           <View style={styles.profileTopRow}>
             <View style={styles.avatar}>
               <Text style={styles.avatarLetter}>
@@ -281,21 +239,21 @@ export function ProfileScreen({
               </Text>
             </View>
             <View style={styles.profileInfo}>
-              <Text style={styles.name}>{session.user.name || 'Valued Customer'}</Text>
-              <Text style={styles.phone}>
+              <Text style={[styles.name, { color: headingColor }]}>{session.user.name || 'Valued Customer'}</Text>
+              <Text style={[styles.phone, { color: isDark ? colors.primaryLight : '#0F766E' }]}>
                 {session.user.phone ? `+91 ${session.user.phone}` : '+91 8522918866'}
               </Text>
               {session.user.email ? (
-                <Text style={styles.email}>{session.user.email}</Text>
+                <Text style={[styles.email, { color: captionColor }]}>{session.user.email}</Text>
               ) : (
-                <Text style={styles.noEmail}>Add email for instant invoices</Text>
+                <Text style={[styles.noEmail, { color: captionColor }]}>Add email for instant invoices</Text>
               )}
             </View>
           </View>
 
           {/* Edit Profile Button */}
           <Pressable
-            style={styles.editProfileBtn}
+            style={[styles.editProfileBtn, isDark && { backgroundColor: 'rgba(22, 163, 74, 0.15)', borderColor: 'rgba(22, 163, 74, 0.3)' }]}
             onPress={() => {
               setEditName(session.user.name || '');
               setEditEmail(session.user.email || '');
@@ -308,14 +266,14 @@ export function ProfileScreen({
         </View>
       ) : (
         /* GUEST PROFILE CARD */
-        <View style={styles.guestHeaderCard}>
+        <View style={[styles.guestHeaderCard, isDark && { backgroundColor: colors.surface, borderColor: colors.border }]}>
           <View style={styles.guestTopRow}>
             <View style={styles.guestAvatar}>
               <MaterialCommunityIcons name="account-outline" size={32} color="#D6B36A" />
             </View>
             <View style={styles.guestInfo}>
               <Text style={styles.guestTitle}>Welcome, Guest</Text>
-              <Text style={styles.guestSubtitle}>
+              <Text style={[styles.guestSubtitle, isDark && { color: colors.textCaption }]}>
                 Sign in to save addresses, track live laundry milestones & get 50% off.
               </Text>
             </View>
@@ -387,210 +345,210 @@ export function ProfileScreen({
       {/* 3. STATS ROW */}
       <View style={styles.statRow}>
         <Pressable
-          style={styles.statCard}
+          style={[styles.statCard, { backgroundColor: cardBg, borderColor: cardBorder }]}
           onPress={session ? onViewOrders : onSignIn}
         >
-          <Text style={styles.statNumber}>{session ? orders.length : 0}</Text>
-          <Text style={styles.statLabel} numberOfLines={1}>Orders Placed</Text>
+          <Text style={[styles.statNumber, { color: headingColor }]}>{session ? orders.length : 0}</Text>
+          <Text style={[styles.statLabel, { color: captionColor }]} numberOfLines={1}>Orders Placed</Text>
         </Pressable>
 
         <Pressable
-          style={[styles.statCard, styles.statCardWallet]}
+          style={[styles.statCard, styles.statCardWallet, isDark && { backgroundColor: 'rgba(22, 163, 74, 0.15)', borderColor: 'rgba(34, 197, 94, 0.3)' }]}
           onPress={session ? (onViewWallet || onViewOrders) : onSignIn}
         >
-          <Text style={[styles.statNumber, { color: '#16A34A' }]}>
+          <Text style={[styles.statNumber, { color: isDark ? '#4ADE80' : '#16A34A' }]}>
             ₹{session ? walletBalance.toFixed(0) : 0}
           </Text>
-          <Text style={[styles.statLabel, { color: '#15803D' }]} numberOfLines={1}>Customer Wallet</Text>
+          <Text style={[styles.statLabel, { color: isDark ? '#86EFAC' : '#15803D' }]} numberOfLines={1}>Customer Wallet</Text>
         </Pressable>
 
         <Pressable
-          style={styles.statCard}
+          style={[styles.statCard, { backgroundColor: cardBg, borderColor: cardBorder }]}
           onPress={session ? onViewAddresses : onSignIn}
         >
-          <Text style={styles.statNumber}>{session ? addresses.length : 0}</Text>
-          <Text style={styles.statLabel} numberOfLines={1}>Saved Addresses</Text>
+          <Text style={[styles.statNumber, { color: headingColor }]}>{session ? addresses.length : 0}</Text>
+          <Text style={[styles.statLabel, { color: captionColor }]} numberOfLines={1}>Saved Addresses</Text>
         </Pressable>
       </View>
 
       {/* 3. ACCOUNT & SERVICES OPTIONS */}
       <SectionTitle title="Account & Services" />
-      <Card style={styles.menuCard}>
+      <Card style={[styles.menuCard, { backgroundColor: cardBg, borderColor: cardBorder }]}>
         <Pressable
           style={styles.menuRow}
           onPress={onViewOrders}
         >
-          <View style={[styles.menuIconBox, { backgroundColor: '#EFF6FF' }]}>
+          <View style={[styles.menuIconBox, { backgroundColor: iconBoxBg('#EFF6FF') }]}>
             <MaterialCommunityIcons name="shopping-outline" size={20} color="#3B82F6" />
           </View>
           <View style={styles.menuText}>
-            <Text style={styles.menuTitle}>My Orders</Text>
-            <Text style={styles.menuSubtitle}>
+            <Text style={[styles.menuTitle, { color: headingColor }]}>My Orders</Text>
+            <Text style={[styles.menuSubtitle, { color: captionColor }]}>
               {session ? 'View active orders & live progress' : 'Sign in to track orders & invoices'}
             </Text>
           </View>
-          <MaterialCommunityIcons name="chevron-right" size={20} color="#8A7A84" />
+          <MaterialCommunityIcons name="chevron-right" size={20} color={captionColor} />
         </Pressable>
 
-        <View style={styles.menuDivider} />
+        <View style={[styles.menuDivider, { backgroundColor: dividerBg }]} />
 
         <Pressable
           style={styles.menuRow}
           onPress={session ? onViewAddresses : onSignIn}
         >
-          <View style={[styles.menuIconBox, { backgroundColor: '#F0FDF4' }]}>
+          <View style={[styles.menuIconBox, { backgroundColor: iconBoxBg('#F0FDF4') }]}>
             <MaterialCommunityIcons name="map-marker-outline" size={20} color="#16A34A" />
           </View>
           <View style={styles.menuText}>
-            <Text style={styles.menuTitle}>Saved Addresses</Text>
-            <Text style={styles.menuSubtitle}>
+            <Text style={[styles.menuTitle, { color: headingColor }]}>Saved Addresses</Text>
+            <Text style={[styles.menuSubtitle, { color: captionColor }]}>
               {session ? `${addresses.length} pickup addresses saved` : 'Save Home, Office & Other addresses'}
             </Text>
           </View>
-          <MaterialCommunityIcons name="chevron-right" size={20} color="#8A7A84" />
+          <MaterialCommunityIcons name="chevron-right" size={20} color={captionColor} />
         </Pressable>
 
-        <View style={styles.menuDivider} />
+        <View style={[styles.menuDivider, { backgroundColor: dividerBg }]} />
 
         <Pressable style={styles.menuRow} onPress={onViewOffers}>
-          <View style={[styles.menuIconBox, { backgroundColor: '#F3E8FF' }]}>
+          <View style={[styles.menuIconBox, { backgroundColor: iconBoxBg('#F3E8FF') }]}>
             <MaterialCommunityIcons name="tag-outline" size={20} color="#9333EA" />
           </View>
           <View style={styles.menuText}>
-            <Text style={styles.menuTitle}>Offers & Coupons</Text>
-            <Text style={styles.menuSubtitle}>Exclusive discount codes & deals</Text>
+            <Text style={[styles.menuTitle, { color: headingColor }]}>Offers & Coupons</Text>
+            <Text style={[styles.menuSubtitle, { color: captionColor }]}>Exclusive discount codes & deals</Text>
           </View>
-          <MaterialCommunityIcons name="chevron-right" size={20} color="#8A7A84" />
+          <MaterialCommunityIcons name="chevron-right" size={20} color={captionColor} />
         </Pressable>
 
-        <View style={styles.menuDivider} />
+        <View style={[styles.menuDivider, { backgroundColor: dividerBg }]} />
 
         <Pressable style={styles.menuRow} onPress={onViewSubscriptions}>
-          <View style={[styles.menuIconBox, { backgroundColor: '#FEF9E7' }]}>
+          <View style={[styles.menuIconBox, { backgroundColor: iconBoxBg('#FEF9E7') }]}>
             <MaterialCommunityIcons name="crown-outline" size={20} color="#F59E0B" />
           </View>
           <View style={styles.menuText}>
-            <Text style={styles.menuTitle}>My Subscriptions</Text>
-            <Text style={styles.menuSubtitle}>Purchased plans, balance and validity</Text>
+            <Text style={[styles.menuTitle, { color: headingColor }]}>My Subscriptions</Text>
+            <Text style={[styles.menuSubtitle, { color: captionColor }]}>Purchased plans, balance and validity</Text>
           </View>
-          <MaterialCommunityIcons name="chevron-right" size={20} color="#8A7A84" />
+          <MaterialCommunityIcons name="chevron-right" size={20} color={captionColor} />
         </Pressable>
 
-        <View style={styles.menuDivider} />
+        <View style={[styles.menuDivider, { backgroundColor: dividerBg }]} />
 
         <Pressable style={styles.menuRow} onPress={onViewWishlist}>
-          <View style={[styles.menuIconBox, { backgroundColor: '#FEF2F2' }]}>
+          <View style={[styles.menuIconBox, { backgroundColor: iconBoxBg('#FEF2F2') }]}>
             <MaterialCommunityIcons name="heart-outline" size={20} color="#EF4444" />
           </View>
           <View style={styles.menuText}>
-            <Text style={styles.menuTitle}>My Saved Wishlist</Text>
-            <Text style={styles.menuSubtitle}>
+            <Text style={[styles.menuTitle, { color: headingColor }]}>My Saved Wishlist</Text>
+            <Text style={[styles.menuSubtitle, { color: captionColor }]}>
               {wishlist.length ? `${wishlist.length} item${wishlist.length === 1 ? '' : 's'} saved` : 'Save favorite garments & services'}
             </Text>
           </View>
-          <MaterialCommunityIcons name="chevron-right" size={20} color="#8A7A84" />
+          <MaterialCommunityIcons name="chevron-right" size={20} color={captionColor} />
         </Pressable>
 
-        <View style={styles.menuDivider} />
+        <View style={[styles.menuDivider, { backgroundColor: dividerBg }]} />
 
         <Pressable style={styles.menuRow} onPress={session ? onViewWallet : onSignIn}>
-          <View style={[styles.menuIconBox, { backgroundColor: '#ECFDF5' }]}>
+          <View style={[styles.menuIconBox, { backgroundColor: iconBoxBg('#ECFDF5') }]}>
             <MaterialCommunityIcons name="wallet-outline" size={20} color="#10B981" />
           </View>
           <View style={styles.menuText}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-              <Text style={styles.menuTitle}>LaundryFresh Wallet</Text>
-              <View style={{ backgroundColor: '#DCFCE7', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}>
-                <Text style={{ color: '#16A34A', fontSize: 10, fontWeight: '800' }}>
+              <Text style={[styles.menuTitle, { color: headingColor }]}>LaundryFresh Wallet</Text>
+              <View style={{ backgroundColor: isDark ? 'rgba(22, 163, 74, 0.2)' : '#DCFCE7', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}>
+                <Text style={{ color: isDark ? '#4ADE80' : '#16A34A', fontSize: 10, fontWeight: '800' }}>
                   {session && walletBalance > 0 ? `₹${walletBalance.toFixed(0)} BALANCE` : '₹100 REWARDS'}
                 </Text>
               </View>
             </View>
-            <Text style={styles.menuSubtitle}>Instant refunds, top-ups & referral cash</Text>
+            <Text style={[styles.menuSubtitle, { color: captionColor }]}>Instant refunds, top-ups & referral cash</Text>
           </View>
-          <MaterialCommunityIcons name="chevron-right" size={20} color="#8A7A84" />
+          <MaterialCommunityIcons name="chevron-right" size={20} color={captionColor} />
         </Pressable>
 
-        <View style={styles.menuDivider} />
+        <View style={[styles.menuDivider, { backgroundColor: dividerBg }]} />
 
         <Pressable style={styles.menuRow} onPress={session ? onViewReferral : onSignIn}>
-          <View style={[styles.menuIconBox, { backgroundColor: '#FFFBEB' }]}>
+          <View style={[styles.menuIconBox, { backgroundColor: iconBoxBg('#FFFBEB') }]}>
             <MaterialCommunityIcons name="gift-outline" size={20} color="#F59E0B" />
           </View>
           <View style={styles.menuText}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-              <Text style={styles.menuTitle}>Refer & Earn</Text>
-              <View style={{ backgroundColor: '#FEF3C7', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}>
-                <Text style={{ color: '#D97706', fontSize: 10, fontWeight: '800' }}>GET ₹50</Text>
+              <Text style={[styles.menuTitle, { color: headingColor }]}>Refer & Earn</Text>
+              <View style={{ backgroundColor: isDark ? 'rgba(245, 158, 11, 0.2)' : '#FEF3C7', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}>
+                <Text style={{ color: isDark ? '#FBBF24' : '#D97706', fontSize: 10, fontWeight: '800' }}>GET ₹50</Text>
               </View>
             </View>
-            <Text style={styles.menuSubtitle}>Invite friends and earn ₹50 directly to wallet</Text>
+            <Text style={[styles.menuSubtitle, { color: captionColor }]}>Invite friends and earn ₹50 directly to wallet</Text>
           </View>
-          <MaterialCommunityIcons name="chevron-right" size={20} color="#8A7A84" />
+          <MaterialCommunityIcons name="chevron-right" size={20} color={captionColor} />
         </Pressable>
 
-        <View style={styles.menuDivider} />
+        <View style={[styles.menuDivider, { backgroundColor: dividerBg }]} />
 
         <Pressable style={styles.menuRow} onPress={onViewSettings}>
-          <View style={[styles.menuIconBox, { backgroundColor: '#F3F4F6' }]}>
-            <MaterialCommunityIcons name="cog-outline" size={20} color="#4B5563" />
+          <View style={[styles.menuIconBox, { backgroundColor: iconBoxBg('#F3F4F6') }]}>
+            <MaterialCommunityIcons name="cog-outline" size={20} color={isDark ? '#94A3B8' : '#4B5563'} />
           </View>
           <View style={styles.menuText}>
-            <Text style={styles.menuTitle}>Settings & Preferences</Text>
-            <Text style={styles.menuSubtitle}>Notifications, privacy & account settings</Text>
+            <Text style={[styles.menuTitle, { color: headingColor }]}>Settings & Preferences</Text>
+            <Text style={[styles.menuSubtitle, { color: captionColor }]}>Notifications, privacy & account settings</Text>
           </View>
-          <MaterialCommunityIcons name="chevron-right" size={20} color="#8A7A84" />
+          <MaterialCommunityIcons name="chevron-right" size={20} color={captionColor} />
         </Pressable>
 
-        <View style={styles.menuDivider} />
+        <View style={[styles.menuDivider, { backgroundColor: dividerBg }]} />
 
         <Pressable style={styles.menuRow} onPress={onViewLiveChat}>
-          <View style={[styles.menuIconBox, { backgroundColor: '#EFF6FF' }]}>
+          <View style={[styles.menuIconBox, { backgroundColor: iconBoxBg('#EFF6FF') }]}>
             <MaterialCommunityIcons name="chat-processing-outline" size={20} color="#2563EB" />
           </View>
           <View style={styles.menuText}>
-            <Text style={styles.menuTitle}>Live Concierge Chat Support</Text>
-            <Text style={styles.menuSubtitle}>Chat with a Master Garment Specialist</Text>
+            <Text style={[styles.menuTitle, { color: headingColor }]}>Live Concierge Chat Support</Text>
+            <Text style={[styles.menuSubtitle, { color: captionColor }]}>Chat with a Master Garment Specialist</Text>
           </View>
-          <MaterialCommunityIcons name="chevron-right" size={20} color="#8A7A84" />
+          <MaterialCommunityIcons name="chevron-right" size={20} color={captionColor} />
         </Pressable>
       </Card>
 
       {/* 4. HELP & SUPPORT */}
       <SectionTitle title="Help & Support" />
-      <Card style={styles.menuCard}>
+      <Card style={[styles.menuCard, { backgroundColor: cardBg, borderColor: cardBorder }]}>
         <Pressable style={styles.menuRow} onPress={openWhatsApp}>
-          <View style={[styles.menuIconBox, { backgroundColor: '#DCFCE7' }]}>
+          <View style={[styles.menuIconBox, { backgroundColor: iconBoxBg('#DCFCE7') }]}>
             <MaterialCommunityIcons name="whatsapp" size={20} color="#16A34A" />
           </View>
           <View style={styles.menuText}>
-            <Text style={styles.menuTitle}>Chat on WhatsApp</Text>
-            <Text style={styles.menuSubtitle}>Instant resolution: 7:00 AM – 10:00 PM</Text>
+            <Text style={[styles.menuTitle, { color: headingColor }]}>Chat on WhatsApp</Text>
+            <Text style={[styles.menuSubtitle, { color: captionColor }]}>Instant resolution: 7:00 AM – 10:00 PM</Text>
           </View>
-          <MaterialCommunityIcons name="chevron-right" size={20} color="#8A7A84" />
+          <MaterialCommunityIcons name="chevron-right" size={20} color={captionColor} />
         </Pressable>
 
-        <View style={styles.menuDivider} />
+        <View style={[styles.menuDivider, { backgroundColor: dividerBg }]} />
 
         <Pressable style={styles.menuRow} onPress={callSupport}>
-          <View style={[styles.menuIconBox, { backgroundColor: '#F1F5F9' }]}>
-            <MaterialCommunityIcons name="phone-outline" size={20} color="#475569" />
+          <View style={[styles.menuIconBox, { backgroundColor: iconBoxBg('#F1F5F9') }]}>
+            <MaterialCommunityIcons name="phone-outline" size={20} color={isDark ? '#94A3B8' : '#475569'} />
           </View>
           <View style={styles.menuText}>
-            <Text style={styles.menuTitle}>Call Customer Care</Text>
-            <Text style={styles.menuSubtitle}>+91 8522918866</Text>
+            <Text style={[styles.menuTitle, { color: headingColor }]}>Call Customer Care</Text>
+            <Text style={[styles.menuSubtitle, { color: captionColor }]}>+91 8522918866</Text>
           </View>
-          <MaterialCommunityIcons name="chevron-right" size={20} color="#8A7A84" />
+          <MaterialCommunityIcons name="chevron-right" size={20} color={captionColor} />
         </Pressable>
 
-        <View style={styles.menuDivider} />
+        <View style={[styles.menuDivider, { backgroundColor: dividerBg }]} />
 
         <Pressable
           style={styles.menuRow}
           onPress={handleCheckUpdates}
           disabled={checkingUpdate}
         >
-          <View style={[styles.menuIconBox, { backgroundColor: '#F0FDFA' }]}>
+          <View style={[styles.menuIconBox, { backgroundColor: iconBoxBg('#F0FDFA') }]}>
             {checkingUpdate ? (
               <ActivityIndicator size="small" color="#0F766E" />
             ) : (
@@ -599,86 +557,86 @@ export function ProfileScreen({
           </View>
           <View style={styles.menuText}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-              <Text style={styles.menuTitle}>Check for App Updates</Text>
-              <View style={{ backgroundColor: '#CCFBF1', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}>
-                <Text style={{ color: '#0F766E', fontSize: 10, fontWeight: '800' }}>v{currentAppVersion}</Text>
+              <Text style={[styles.menuTitle, { color: headingColor }]}>Check for App Updates</Text>
+              <View style={{ backgroundColor: isDark ? 'rgba(15, 118, 110, 0.25)' : '#CCFBF1', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}>
+                <Text style={{ color: isDark ? '#2DD4BF' : '#0F766E', fontSize: 10, fontWeight: '800' }}>v{currentAppVersion}</Text>
               </View>
             </View>
-            <Text style={styles.menuSubtitle}>
+            <Text style={[styles.menuSubtitle, { color: captionColor }]}>
               {checkingUpdate ? 'Checking server for latest release...' : 'Download latest release & get new features'}
             </Text>
           </View>
-          <MaterialCommunityIcons name="chevron-right" size={20} color="#8A7A84" />
+          <MaterialCommunityIcons name="chevron-right" size={20} color={captionColor} />
         </Pressable>
       </Card>
 
       {/* 6. POLICIES & LEGAL */}
       <SectionTitle title="Policies & Security" />
-      <Card style={styles.menuCard}>
+      <Card style={[styles.menuCard, { backgroundColor: cardBg, borderColor: cardBorder }]}>
         <Pressable style={styles.menuRow} onPress={() => setActivePolicyModal('REFUND')}>
-          <View style={[styles.menuIconBox, { backgroundColor: '#FEF2F2' }]}>
+          <View style={[styles.menuIconBox, { backgroundColor: iconBoxBg('#FEF2F2') }]}>
             <MaterialCommunityIcons name="shield-refresh-outline" size={20} color="#EF4444" />
           </View>
           <View style={styles.menuText}>
-            <Text style={styles.menuTitle}>Refund & Damage Protection Policy</Text>
-            <Text style={styles.menuSubtitle}>100% Free Re-wash & Compensation Guarantee</Text>
+            <Text style={[styles.menuTitle, { color: headingColor }]}>Refund & Damage Protection Policy</Text>
+            <Text style={[styles.menuSubtitle, { color: captionColor }]}>100% Free Re-wash & Compensation Guarantee</Text>
           </View>
-          <MaterialCommunityIcons name="chevron-right" size={20} color="#8A7A84" />
+          <MaterialCommunityIcons name="chevron-right" size={20} color={captionColor} />
         </Pressable>
 
-        <View style={styles.menuDivider} />
+        <View style={[styles.menuDivider, { backgroundColor: dividerBg }]} />
 
         <Pressable style={styles.menuRow} onPress={() => setActivePolicyModal('TERMS')}>
-          <View style={[styles.menuIconBox, { backgroundColor: '#F8FAFC' }]}>
-            <MaterialCommunityIcons name="file-document-outline" size={20} color="#64748B" />
+          <View style={[styles.menuIconBox, { backgroundColor: iconBoxBg('#F8FAFC') }]}>
+            <MaterialCommunityIcons name="file-document-outline" size={20} color={isDark ? '#94A3B8' : '#64748B'} />
           </View>
           <View style={styles.menuText}>
-            <Text style={styles.menuTitle}>Terms & Conditions</Text>
-            <Text style={styles.menuSubtitle}>Pickup rules & slot service standards</Text>
+            <Text style={[styles.menuTitle, { color: headingColor }]}>Terms & Conditions</Text>
+            <Text style={[styles.menuSubtitle, { color: captionColor }]}>Pickup rules & slot service standards</Text>
           </View>
-          <MaterialCommunityIcons name="chevron-right" size={20} color="#8A7A84" />
+          <MaterialCommunityIcons name="chevron-right" size={20} color={captionColor} />
         </Pressable>
 
-        <View style={styles.menuDivider} />
+        <View style={[styles.menuDivider, { backgroundColor: dividerBg }]} />
 
         <Pressable style={styles.menuRow} onPress={() => setActivePolicyModal('PRIVACY')}>
-          <View style={[styles.menuIconBox, { backgroundColor: '#F0FDF4' }]}>
+          <View style={[styles.menuIconBox, { backgroundColor: iconBoxBg('#F0FDF4') }]}>
             <MaterialCommunityIcons name="lock-check-outline" size={20} color="#16A34A" />
           </View>
           <View style={styles.menuText}>
-            <Text style={styles.menuTitle}>Privacy Policy</Text>
-            <Text style={styles.menuSubtitle}>256-bit encrypted data protection</Text>
+            <Text style={[styles.menuTitle, { color: headingColor }]}>Privacy Policy</Text>
+            <Text style={[styles.menuSubtitle, { color: captionColor }]}>256-bit encrypted data protection</Text>
           </View>
-          <MaterialCommunityIcons name="chevron-right" size={20} color="#8A7A84" />
+          <MaterialCommunityIcons name="chevron-right" size={20} color={captionColor} />
         </Pressable>
       </Card>
 
       {/* 7. SIGN OUT BUTTON (Only when logged in) */}
       {session && (
-        <Pressable style={styles.signOutBtn} onPress={logOut}>
+        <Pressable style={[styles.signOutBtn, isDark && { backgroundColor: 'rgba(239, 68, 68, 0.15)', borderColor: 'rgba(239, 68, 68, 0.3)' }]} onPress={logOut}>
           <MaterialCommunityIcons name="logout" size={18} color="#EF4444" />
           <Text style={styles.signOutText}>Sign Out from Device</Text>
         </Pressable>
       )}
 
       {/* APP VERSION */}
-      <Text style={styles.versionText}>
-        LaundryFresh v{Constants.expoConfig?.version ?? '2.4.0'} • Anusha Bazaar Technologies
+      <Text style={[styles.versionText, { color: captionColor }]}>
+        LaundryFresh v{CURRENT_APP_VERSION} (Build {CURRENT_APP_CODE}) • Anusha Bazaar Technologies
       </Text>
 
       {/* --- MODAL 1: EDIT PROFILE (Name & Email) --- */}
       <Modal visible={isEditModalOpen} transparent animationType="slide">
         <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
           style={{ flex: 1 }}
-          keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
         >
           <View style={styles.modalOverlay}>
-            <View style={styles.modalCard}>
-              <View style={styles.modalHeader}>
-                <Text style={styles.modalTitle}>Edit Profile Details</Text>
-                <Pressable onPress={() => setIsEditModalOpen(false)}>
-                  <MaterialCommunityIcons name="close" size={22} color="#1C0B18" />
+            <Pressable style={StyleSheet.absoluteFill} onPress={() => !savingProfile && setIsEditModalOpen(false)} />
+            <View style={[styles.modalCard, { backgroundColor: cardBg }]}>
+              <View style={[styles.modalHeader, { borderBottomColor: dividerBg }]}>
+                <Text style={[styles.modalTitle, { color: headingColor }]}>Edit Profile Details</Text>
+                <Pressable onPress={() => setIsEditModalOpen(false)} hitSlop={12}>
+                  <MaterialCommunityIcons name="close" size={22} color={headingColor} />
                 </Pressable>
               </View>
 
@@ -687,10 +645,11 @@ export function ProfileScreen({
                 keyboardShouldPersistTaps="handled"
                 showsVerticalScrollIndicator={false}
               >
-                <Text style={styles.inputLabel}>Full Name *</Text>
+                <Text style={[styles.inputLabel, { color: headingColor }]}>Full Name *</Text>
                 <TextInput
-                  style={styles.textInput}
+                  style={[styles.textInput, isDark && { backgroundColor: colors.section, borderColor: colors.border, color: headingColor }]}
                   placeholder="Enter your full name"
+                  placeholderTextColor={captionColor}
                   value={editName}
                   onChangeText={(val) => {
                     // Only allow letters, spaces, dots, and hyphens (no numbers)
@@ -700,34 +659,76 @@ export function ProfileScreen({
                   keyboardType="default"
                 />
 
-                <Text style={[styles.inputLabel, { marginTop: 14 }]}>Email Address</Text>
-                <TextInput
-                  style={styles.textInput}
-                  placeholder="e.g. yourname@gmail.com"
-                  keyboardType="email-address"
-                  autoCapitalize="none"
-                  value={editEmail}
-                  onChangeText={setEditEmail}
-                />
+                <Text style={[styles.inputLabel, { marginTop: 14, color: headingColor }]}>Email Address</Text>
+                <View style={styles.emailInputWrap}>
+                  <TextInput
+                    style={[
+                      styles.textInput,
+                      { paddingRight: 36 },
+                      isDark && { backgroundColor: colors.section, borderColor: colors.border, color: headingColor },
+                      isEmailInvalid && { borderColor: '#EF4444', borderWidth: 1.5 },
+                    ]}
+                    placeholder="e.g. yourname@gmail.com"
+                    placeholderTextColor={captionColor}
+                    keyboardType="email-address"
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    value={editEmail}
+                    onChangeText={setEditEmail}
+                  />
+                  {editEmail.length > 0 && (
+                    <Pressable
+                      style={styles.emailClearBtn}
+                      onPress={() => setEditEmail('')}
+                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    >
+                      <MaterialCommunityIcons name="close-circle" size={18} color={captionColor} />
+                    </Pressable>
+                  )}
+                </View>
 
-                <Text style={[styles.inputLabel, { marginTop: 14 }]}>Phone Number (Locked)</Text>
+                {isEmailInvalid && (
+                  <View style={styles.emailErrorRow}>
+                    <MaterialCommunityIcons name="alert-circle-outline" size={14} color="#EF4444" />
+                    <Text style={styles.emailErrorText}>
+                      Please enter a valid email format (e.g. yourname@gmail.com)
+                    </Text>
+                  </View>
+                )}
+
+                {editEmail.trim().length > 0 && !editEmail.includes('@') && (
+                  <View style={styles.domainChipsRow}>
+                    <Text style={[styles.domainChipsHint, { color: captionColor }]}>Quick add:</Text>
+                    {['@gmail.com', '@yahoo.com', '@outlook.com'].map((domain) => (
+                      <Pressable
+                        key={domain}
+                        style={[styles.domainChip, isDark && { backgroundColor: colors.section, borderColor: colors.border }]}
+                        onPress={() => setEditEmail((prev) => prev.trim() + domain)}
+                      >
+                        <Text style={[styles.domainChipText, { color: colors.primary }]}>{domain}</Text>
+                      </Pressable>
+                    ))}
+                  </View>
+                )}
+
+                <Text style={[styles.inputLabel, { marginTop: 14, color: headingColor }]}>Phone Number (Locked)</Text>
                 <TextInput
-                  style={[styles.textInput, styles.disabledInput]}
+                  style={[styles.textInput, styles.disabledInput, isDark && { backgroundColor: colors.border, borderColor: colors.border, color: captionColor }]}
                   value={session?.user.phone ? `+91 ${session.user.phone}` : '+91 8522918866'}
                   editable={false}
                 />
               </ScrollView>
 
-              <View style={styles.modalFooter}>
+              <View style={[styles.modalFooter, { borderTopColor: dividerBg }]}>
                 <Pressable
-                  style={styles.cancelBtn}
+                  style={[styles.cancelBtn, isDark && { borderColor: cardBorder, backgroundColor: colors.section }]}
                   onPress={() => setIsEditModalOpen(false)}
                   disabled={savingProfile}
                 >
-                  <Text style={styles.cancelBtnText}>Cancel</Text>
+                  <Text style={[styles.cancelBtnText, { color: captionColor }]}>Cancel</Text>
                 </Pressable>
                 <Pressable
-                  style={styles.saveBtn}
+                  style={[styles.saveBtn, isEmailInvalid && { opacity: 0.6 }]}
                   onPress={handleSaveProfile}
                   disabled={savingProfile}
                 >
@@ -741,18 +742,19 @@ export function ProfileScreen({
         </KeyboardAvoidingView>
       </Modal>
 
+
       {/* --- MODAL 2: POLICIES VIEWER --- */}
       <Modal visible={activePolicyModal !== null} transparent animationType="slide">
         <View style={styles.modalOverlay}>
-          <View style={styles.modalCard}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>
+          <View style={[styles.modalCard, { backgroundColor: cardBg }]}>
+            <View style={[styles.modalHeader, { borderBottomColor: dividerBg }]}>
+              <Text style={[styles.modalTitle, { color: headingColor }]}>
                 {activePolicyModal === 'REFUND' && 'Refund & Guarantee Policy'}
                 {activePolicyModal === 'TERMS' && 'Terms & Conditions'}
                 {activePolicyModal === 'PRIVACY' && 'Privacy & Data Protection'}
               </Text>
               <Pressable onPress={() => setActivePolicyModal(null)}>
-                <MaterialCommunityIcons name="close" size={22} color="#1C0B18" />
+                <MaterialCommunityIcons name="close" size={22} color={headingColor} />
               </Pressable>
             </View>
 
@@ -1495,7 +1497,7 @@ export function ProfileScreen({
               )}
             </ScrollView>
 
-            <View style={styles.modalFooter}>
+            <View style={[styles.modalFooter, { borderTopColor: dividerBg }]}>
               <Pressable
                 style={styles.saveBtn}
                 onPress={() => setActivePolicyModal(null)}
@@ -1518,7 +1520,7 @@ const styles = StyleSheet.create({
   content: {
     paddingHorizontal: 16,
     paddingTop: 12,  // Small top spacing so content doesn't start at edge
-    paddingBottom: 40,
+    paddingBottom: 130,
   },
   appearanceSection: {
     marginBottom: 16,
@@ -1837,8 +1839,10 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
-    padding: 20,
-    maxHeight: '85%',
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: Platform.OS === 'android' ? 36 : 24,
+    maxHeight: '88%',
   },
   modalHeader: {
     flexDirection: 'row',
@@ -1854,7 +1858,7 @@ const styles = StyleSheet.create({
     color: '#1C0B18',
   },
   modalBody: {
-    paddingVertical: 16,
+    paddingVertical: 14,
   },
   inputLabel: {
     fontSize: 12,
@@ -1868,28 +1872,77 @@ const styles = StyleSheet.create({
     borderColor: '#E5DCD5',
     borderRadius: 12,
     paddingHorizontal: 12,
-    paddingVertical: 10,
-    fontSize: 13,
+    paddingVertical: 11,
+    fontSize: 14,
     color: '#1C0B18',
   },
   disabledInput: {
     backgroundColor: '#F3F4F6',
     color: '#9CA3AF',
   },
+  emailInputWrap: {
+    position: 'relative',
+    justifyContent: 'center',
+  },
+  emailClearBtn: {
+    position: 'absolute',
+    right: 10,
+    height: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 4,
+  },
+  emailErrorRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    marginTop: 6,
+  },
+  emailErrorText: {
+    color: '#EF4444',
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  domainChipsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginTop: 8,
+  },
+  domainChipsHint: {
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  domainChip: {
+    backgroundColor: '#F0FDF4',
+    borderWidth: 1,
+    borderColor: '#BBF7D0',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 8,
+  },
+  domainChipText: {
+    fontSize: 11,
+    fontWeight: '700',
+  },
   modalFooter: {
     flexDirection: 'row',
     gap: 12,
-    paddingTop: 14,
+    paddingTop: 16,
+    paddingBottom: Platform.OS === 'android' ? 8 : 4,
     borderTopWidth: 1,
     borderTopColor: '#F3E8DF',
   },
   cancelBtn: {
     flex: 1,
-    paddingVertical: 12,
+    paddingVertical: 13,
+    minHeight: 48,
     borderRadius: 12,
     borderWidth: 1,
     borderColor: '#E5DCD5',
     alignItems: 'center',
+    justifyContent: 'center',
   },
   cancelBtnText: {
     fontSize: 13,
@@ -1898,10 +1951,12 @@ const styles = StyleSheet.create({
   },
   saveBtn: {
     flex: 2,
-    paddingVertical: 12,
+    paddingVertical: 13,
+    minHeight: 48,
     borderRadius: 12,
     backgroundColor: '#16A34A',
     alignItems: 'center',
+    justifyContent: 'center',
   },
   saveBtnText: {
     fontSize: 13,

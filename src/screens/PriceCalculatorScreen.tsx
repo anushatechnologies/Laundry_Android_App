@@ -12,6 +12,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useApp } from '@/context/AppContext';
 import { Card } from '@/ui/components';
 import { COLORS, money } from '@/ui/theme';
+import { useTheme } from '@/context/ThemeContext';
 import { getGarmentImageUrl } from '@/lib/garment-photos';
 
 interface PriceCalculatorScreenProps {
@@ -89,6 +90,7 @@ const INITIAL_CALC_ITEMS: CalcItem[] = [
 
 export function PriceCalculatorScreen({ onBook }: PriceCalculatorScreenProps) {
   const { addCartItem } = useApp();
+  const { isDark, colors } = useTheme();
   const [items, setItems] = useState<CalcItem[]>(INITIAL_CALC_ITEMS);
 
   const updateQty = (id: string, delta: number) => {
@@ -135,7 +137,7 @@ export function PriceCalculatorScreen({ onBook }: PriceCalculatorScreenProps) {
   };
 
   return (
-    <View style={styles.root}>
+    <View style={[styles.root, { backgroundColor: colors.background }]}>
       <ScrollView style={styles.scrollArea} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         {/* Header Hero Banner */}
         <View style={styles.heroBanner}>
@@ -147,11 +149,11 @@ export function PriceCalculatorScreen({ onBook }: PriceCalculatorScreenProps) {
         </View>
 
         {/* Live Estimate Card */}
-        <Card style={styles.estimateCard}>
+        <Card style={[styles.estimateCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
           <View style={styles.estimateTopRow}>
             <View>
-              <Text style={styles.estimateLabel}>ESTIMATED TOTAL ({totalItemsCount} ITEMS)</Text>
-              <Text style={styles.estimateAmount}>{money(estimatedSubtotal)}</Text>
+              <Text style={[styles.estimateLabel, { color: colors.textCaption }]}>ESTIMATED TOTAL ({totalItemsCount} ITEMS)</Text>
+              <Text style={[styles.estimateAmount, { color: colors.textHeading }]}>{money(estimatedSubtotal)}</Text>
             </View>
             <View style={styles.savingsBadge}>
               <MaterialCommunityIcons name="tag-outline" size={14} color="#16A34A" />
@@ -159,15 +161,15 @@ export function PriceCalculatorScreen({ onBook }: PriceCalculatorScreenProps) {
             </View>
           </View>
 
-          <View style={styles.divider} />
+          <View style={[styles.divider, { backgroundColor: colors.border }]} />
 
           <View style={styles.estimateBottomRow}>
             <View style={styles.comparisonCol}>
-              <Text style={styles.compLabel}>Traditional Dry Cleaners</Text>
+              <Text style={[styles.compLabel, { color: colors.textCaption }]}>Traditional Dry Cleaners</Text>
               <Text style={styles.compOldPrice}>{money(retailEstimate)}</Text>
             </View>
             <View style={styles.comparisonCol}>
-              <Text style={styles.compLabel}>Doorstep Delivery</Text>
+              <Text style={[styles.compLabel, { color: colors.textCaption }]}>Doorstep Delivery</Text>
               <Text style={styles.compFreeText}>FREE</Text>
             </View>
           </View>
@@ -175,14 +177,14 @@ export function PriceCalculatorScreen({ onBook }: PriceCalculatorScreenProps) {
 
         {/* Garments List with Steppers */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Select Garments & Quantities</Text>
+          <Text style={[styles.sectionTitle, { color: colors.textHeading }]}>Select Garments & Quantities</Text>
 
           <View style={styles.itemsStack}>
             {items.map((item) => {
               const imageUrl = getGarmentImageUrl(item.id);
               return (
-                <Card key={item.id} style={styles.itemCard}>
-                  <View style={styles.itemThumbWrap}>
+                <Card key={item.id} style={[styles.itemCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                  <View style={[styles.itemThumbWrap, { backgroundColor: isDark ? colors.section : '#FAF5EF' }]}>
                     {item.isBulk ? (
                       <MaterialCommunityIcons name="scale-bathroom" size={24} color="#F97316" />
                     ) : (
@@ -191,8 +193,8 @@ export function PriceCalculatorScreen({ onBook }: PriceCalculatorScreenProps) {
                   </View>
 
                   <View style={styles.itemInfo}>
-                    <Text style={styles.itemName} numberOfLines={1}>{item.name}</Text>
-                    <Text style={styles.itemService}>{item.serviceName}</Text>
+                    <Text style={[styles.itemName, { color: colors.textHeading }]} numberOfLines={1}>{item.name}</Text>
+                    <Text style={[styles.itemService, { color: colors.textCaption }]}>{item.serviceName}</Text>
                     <Text style={styles.itemRate}>
                       ₹{item.unitPrice} / {item.unit}
                     </Text>
@@ -226,10 +228,10 @@ export function PriceCalculatorScreen({ onBook }: PriceCalculatorScreenProps) {
       </ScrollView>
 
       {/* Sticky Bottom Action */}
-      <View style={styles.stickyFooter}>
+      <View style={[styles.stickyFooter, { backgroundColor: colors.surface, borderColor: colors.border }]}>
         <View style={styles.footerPriceCol}>
-          <Text style={styles.footerPriceLabel}>Total Estimated</Text>
-          <Text style={styles.footerPriceVal}>{money(estimatedSubtotal)}</Text>
+          <Text style={[styles.footerPriceLabel, { color: colors.textCaption }]}>Total Estimated</Text>
+          <Text style={[styles.footerPriceVal, { color: colors.textHeading }]}>{money(estimatedSubtotal)}</Text>
         </View>
 
         <Pressable

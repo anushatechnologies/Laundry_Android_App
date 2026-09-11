@@ -12,14 +12,11 @@ import {
 import Constants from 'expo-constants';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useApp } from '@/context/AppContext';
+import { useToast } from '@/context/ToastContext';
 import { useTheme } from '@/context/ThemeContext';
 import { Card } from '@/ui/components';
-import {
-  type DeliveryInstructions,
-  type FragrancePreference,
-  type PackagingPreference,
-  type StarchLevel,
-} from '@/types/domain';
+import { checkForAppUpdate, CURRENT_APP_VERSION, CURRENT_APP_CODE } from '@/services/app-update/updateChecker';
+import type { CustomerPreferences } from '@/types/domain';
 
 interface SettingsScreenProps {
   onSignIn?: () => void;
@@ -27,7 +24,8 @@ interface SettingsScreenProps {
 
 export function SettingsScreen({ onSignIn }: SettingsScreenProps) {
   const { session, preferences, updatePreferences, updateUserProfile, deleteAccount, signOut } = useApp();
-  const { colors } = useTheme();
+  const { toast } = useToast();
+  const { colors, isDark } = useTheme();
 
   // Edit Name & Email Modal
   const [editingProfile, setEditingProfile] = useState(false);
@@ -36,6 +34,8 @@ export function SettingsScreen({ onSignIn }: SettingsScreenProps) {
 
   // Privacy Policy Modal
   const [showPrivacyModal, setShowPrivacyModal] = useState(false);
+
+  const EMAIL_REGEX = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
 
   const handleSaveProfile = async () => {
     if (!nameInput.trim()) {
@@ -47,13 +47,47 @@ export function SettingsScreen({ onSignIn }: SettingsScreenProps) {
       Alert.alert('Invalid Name', 'Name should only contain letters, spaces, dots, and hyphens.');
       return;
     }
+
+    const cleanEmail = emailInput.trim().toLowerCase();
+    if (cleanEmail && !EMAIL_REGEX.test(cleanEmail)) {
+      Alert.alert(
+        'Invalid Email Format',
+        'Please enter a valid email address (e.g. name@gmail.com) or leave the field blank.'
+      );
+      return;
+    }
+
     try {
-      await updateUserProfile(nameInput.trim(), emailInput.trim());
+      await updateUserProfile(nameInput.trim(), cleanEmail);
       setEditingProfile(false);
       Alert.alert('Profile Updated', 'Your contact details have been updated.');
     } catch {
       Alert.alert('Profile Saved', 'Details updated successfully.');
       setEditingProfile(false);
+    }
+  };
+
+  const handleTogglePreference = async (
+    key: keyof CustomerPreferences,
+    currentVal: boolean,
+    label: string
+  ) => {
+    const nextVal = !currentVal;
+    try {
+      await updatePreferences({ [key]: nextVal });
+      if (nextVal) {
+        toast.success(
+          `${label} Enabled`,
+          `You will receive notifications for ${label.toLowerCase()}.`
+        );
+      } else {
+        toast.info(
+          `${label} Disabled`,
+          `Notifications for ${label.toLowerCase()} turned off.`
+        );
+      }
+    } catch {
+      toast.error('Update Failed', 'Could not update preferences. Please try again.');
     }
   };
 
@@ -101,26 +135,74 @@ export function SettingsScreen({ onSignIn }: SettingsScreenProps) {
     );
   };
 
+  const notificationItems = [
+    {
+      key: 'whatsappUpdates' as const,
+      label: 'WhatsApp Delivery Updates',
+      sub: 'Receive live milestone updates, weigh bills, and out-for-delivery alerts',
+      icon: 'whatsapp' as const,
+      iconColor: '#16A34A',
+      iconBg: '#F0FDF4',
+      active: preferences.whatsappUpdates !== false,
+    },
+    {
+      key: 'pushNotifications' as const,
+      label: 'Push Notifications',
+      sub: 'Instant order progress, pickup alerts, and live tracking updates',
+      icon: 'bell-ring-outline' as const,
+      iconColor: '#7C3AED',
+      iconBg: '#F5F3FF',
+      active: preferences.pushNotifications !== false,
+    },
+    {
+      key: 'promotionalAlerts' as const,
+      label: 'Promotions & Festive Offers',
+      sub: 'Exclusive discounts on silk saree care, blankets & seasonal coupons',
+      icon: 'tag-outline' as const,
+      iconColor: '#2563EB',
+      iconBg: '#EFF6FF',
+      active: Boolean(preferences.promotionalAlerts),
+    },
+    {
+      key: 'emailInvoices' as const,
+      label: 'Email Receipts & Invoices',
+      sub: 'Itemized GST tax invoices, pickup manifests, and digital payment receipts',
+      icon: 'email-outline' as const,
+      iconColor: '#D97706',
+      iconBg: '#FEF3C7',
+      active: preferences.emailInvoices !== false,
+    },
+    {
+      key: 'smsAlerts' as const,
+      label: 'SMS Delivery & OTP Alerts',
+      sub: 'Order confirmation SMS, secure delivery OTP codes, and pickup reminders',
+      icon: 'message-text-outline' as const,
+      iconColor: '#0D9488',
+      iconBg: '#CCFBF1',
+      active: preferences.smsAlerts !== false,
+    },
+  ];
+
   return (
     <ScrollView style={[styles.root, { backgroundColor: colors.background }]} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
       {/* 1. ACCOUNT PROFILE CARD */}
       {session ? (
-        <Card style={styles.profileCard}>
+        <Card style={[styles.profileCard, isDark && { backgroundColor: colors.surface, borderColor: colors.border }]}>
           <View style={styles.avatarRow}>
-            <View style={styles.avatarCircle}>
+            <View style={[styles.avatarCircle, isDark && { backgroundColor: colors.section }]}>
               <Text style={styles.avatarText}>
                 {session.user.name ? session.user.name.charAt(0).toUpperCase() : 'C'}
               </Text>
             </View>
 
             <View style={{ flex: 1 }}>
-              <Text style={styles.userName}>{session.user.name || 'Valued Customer'}</Text>
-              <Text style={styles.userPhone}>+91 {session.user.phone}</Text>
+              <Text style={[styles.userName, isDark && { color: colors.textHeading }]}>{session.user.name || 'Valued Customer'}</Text>
+              <Text style={[styles.userPhone, isDark && { color: colors.textCaption }]}>+91 {session.user.phone}</Text>
               {session.user.email ? <Text style={styles.userEmail}>{session.user.email}</Text> : null}
             </View>
 
             <Pressable
-              style={styles.editProfileBtn}
+              style={[styles.editProfileBtn, isDark && { backgroundColor: colors.section, borderColor: colors.border }]}
               onPress={() => {
                 setNameInput(session.user.name || '');
                 setEmailInput(session.user.email || '');
@@ -133,14 +215,14 @@ export function SettingsScreen({ onSignIn }: SettingsScreenProps) {
           </View>
         </Card>
       ) : (
-        <Card style={styles.guestCard}>
+        <Card style={[styles.guestCard, isDark && { backgroundColor: colors.surface, borderColor: colors.border }]}>
           <View style={styles.avatarRow}>
-            <View style={[styles.avatarCircle, { backgroundColor: '#3D2134' }]}>
+            <View style={[styles.avatarCircle, { backgroundColor: isDark ? colors.section : '#3D2134' }]}>
               <MaterialCommunityIcons name="account-outline" size={26} color="#D6B36A" />
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={styles.userName}>Guest Customer</Text>
-              <Text style={styles.guestSub}>Sign in to save custom laundry preferences & addresses.</Text>
+              <Text style={[styles.userName, isDark && { color: colors.textHeading }]}>Guest Customer</Text>
+              <Text style={[styles.guestSub, isDark && { color: colors.textCaption }]}>Sign in to access your orders and saved addresses.</Text>
             </View>
           </View>
           {onSignIn && (
@@ -154,217 +236,71 @@ export function SettingsScreen({ onSignIn }: SettingsScreenProps) {
 
       {/* 2. NOTIFICATIONS & ALERTS */}
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Notifications & Alerts</Text>
+        <Text style={[styles.sectionTitle, isDark && { color: colors.textHeading }]}>Notifications & Alerts</Text>
 
-        <Card style={styles.toggleGroupCard}>
-          <View style={styles.toggleRow}>
-            <View style={styles.toggleIconCircle}>
-              <MaterialCommunityIcons name="whatsapp" size={20} color="#16A34A" />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.toggleLabel}>WhatsApp Delivery Updates</Text>
-              <Text style={styles.toggleSub}>Receive live milestone updates, weigh bills, and out-for-delivery alerts</Text>
-            </View>
-            <Pressable
-              style={[styles.toggleSwitch, preferences.whatsappUpdates && styles.toggleSwitchActive]}
-              onPress={() => updatePreferences({ whatsappUpdates: !preferences.whatsappUpdates })}
-            >
-              <View style={[styles.toggleThumb, preferences.whatsappUpdates && styles.toggleThumbActive]} />
-            </Pressable>
-          </View>
-
-          <View style={styles.divider} />
-
-          <View style={styles.toggleRow}>
-            <View style={styles.toggleIconCircle}>
-              <MaterialCommunityIcons name="tag-outline" size={20} color="#3B82F6" />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.toggleLabel}>Promotions & Festive Offers</Text>
-              <Text style={styles.toggleSub}>Exclusive discounts on silk saree care, blankets & seasonal coupons</Text>
-            </View>
-            <Pressable
-              style={[styles.toggleSwitch, preferences.promotionalAlerts && styles.toggleSwitchActive]}
-              onPress={() => updatePreferences({ promotionalAlerts: !preferences.promotionalAlerts })}
-            >
-              <View style={[styles.toggleThumb, preferences.promotionalAlerts && styles.toggleThumbActive]} />
-            </Pressable>
-          </View>
+        <Card style={[styles.toggleGroupCard, isDark && { backgroundColor: colors.surface, borderColor: colors.border }]}>
+          {notificationItems.map((item, index) => (
+            <React.Fragment key={item.key}>
+              {index > 0 && <View style={[styles.divider, isDark && { backgroundColor: colors.border }]} />}
+              <Pressable
+                style={styles.toggleRow}
+                onPress={() => handleTogglePreference(item.key, item.active, item.label)}
+                accessibilityRole="switch"
+                accessibilityState={{ checked: item.active }}
+                accessibilityLabel={item.label}
+              >
+                <View
+                  style={[
+                    styles.toggleIconCircle,
+                    { backgroundColor: isDark ? colors.section : item.iconBg },
+                  ]}
+                >
+                  <MaterialCommunityIcons name={item.icon} size={20} color={item.iconColor} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.toggleLabel, isDark && { color: colors.textHeading }]}>
+                    {item.label}
+                  </Text>
+                  <Text style={[styles.toggleSub, isDark && { color: colors.textCaption }]}>
+                    {item.sub}
+                  </Text>
+                </View>
+                <View
+                  style={[
+                    styles.toggleSwitch,
+                    isDark && !item.active && { backgroundColor: colors.section },
+                    item.active && styles.toggleSwitchActive,
+                  ]}
+                >
+                  <View style={[styles.toggleThumb, item.active && styles.toggleThumbActive]} />
+                </View>
+              </Pressable>
+            </React.Fragment>
+          ))}
         </Card>
       </View>
 
-      {/* 3. LAUNDRY & FABRIC CARE PREFERENCES */}
+      {/* 3. PRIVACY & SECURITY */}
       <View style={styles.section}>
-        <View style={styles.sectionTitleRow}>
-          <Text style={styles.sectionTitle}>Laundry & Garment Care</Text>
-          <View style={styles.activeTag}>
-            <Text style={styles.activeTagText}>Saved for all orders</Text>
-          </View>
-        </View>
+        <Text style={[styles.sectionTitle, isDark && { color: colors.textHeading }]}>Privacy & Security</Text>
 
-        {/* 3A. STARCH LEVEL */}
-        <Card style={styles.preferenceCard}>
-          <View style={styles.prefHeader}>
-            <MaterialCommunityIcons name="iron-outline" size={20} color="#F97316" />
-            <View style={{ flex: 1 }}>
-              <Text style={styles.prefTitle}>Starch Level Preference</Text>
-              <Text style={styles.prefSub}>Applied to shirts, kurtas, dhotis & cottons</Text>
-            </View>
-          </View>
-
-          <View style={styles.chipRow}>
-            {([
-              { key: 'NONE', label: 'No Starch', desc: 'Natural soft finish' },
-              { key: 'LIGHT', label: 'Light', desc: 'Mild crispness' },
-              { key: 'MEDIUM', label: 'Medium', desc: 'Classic formal' },
-              { key: 'HEAVY', label: 'Heavy', desc: 'Strict cotton' },
-            ] as const).map(({ key, label }) => {
-              const selected = preferences.starchLevel === key;
-              return (
-                <Pressable
-                  key={key}
-                  style={[styles.chip, selected && styles.chipSelected]}
-                  onPress={() => updatePreferences({ starchLevel: key as StarchLevel })}
-                >
-                  {selected && <MaterialCommunityIcons name="check" size={14} color="#FFFFFF" />}
-                  <Text style={[styles.chipText, selected && styles.chipTextSelected]}>{label}</Text>
-                </Pressable>
-              );
-            })}
-          </View>
-        </Card>
-
-        {/* 3B. PACKAGING PREFERENCE */}
-        <Card style={styles.preferenceCard}>
-          <View style={styles.prefHeader}>
-            <MaterialCommunityIcons name="hanger" size={20} color="#8B5CF6" />
-            <View style={{ flex: 1 }}>
-              <Text style={styles.prefTitle}>Packaging & Finishing Style</Text>
-              <Text style={styles.prefSub}>How you would like garments returned</Text>
-            </View>
-          </View>
-
-          <View style={styles.radioGroup}>
-            <Pressable
-              style={[styles.radioCard, preferences.packagingPreference === 'FOLDED' && styles.radioCardSelected]}
-              onPress={() => updatePreferences({ packagingPreference: 'FOLDED' as PackagingPreference })}
-            >
-              <MaterialCommunityIcons
-                name={preferences.packagingPreference === 'FOLDED' ? 'radiobox-marked' : 'radiobox-blank'}
-                size={20}
-                color={preferences.packagingPreference === 'FOLDED' ? '#8B5CF6' : '#9CA3AF'}
-              />
-              <View style={{ flex: 1 }}>
-                <Text style={styles.radioLabel}>Eco-Friendly Folded</Text>
-                <Text style={styles.radioSub}>Neatly folded in breathable protective paper bags</Text>
-              </View>
-            </Pressable>
-
-            <Pressable
-              style={[styles.radioCard, preferences.packagingPreference === 'HANGER' && styles.radioCardSelected]}
-              onPress={() => updatePreferences({ packagingPreference: 'HANGER' as PackagingPreference })}
-            >
-              <MaterialCommunityIcons
-                name={preferences.packagingPreference === 'HANGER' ? 'radiobox-marked' : 'radiobox-blank'}
-                size={20}
-                color={preferences.packagingPreference === 'HANGER' ? '#8B5CF6' : '#9CA3AF'}
-              />
-              <View style={{ flex: 1 }}>
-                <Text style={styles.radioLabel}>On Premium Hangers</Text>
-                <Text style={styles.radioSub}>Ironed and hung with clear protective garment covers</Text>
-              </View>
-            </Pressable>
-          </View>
-        </Card>
-
-        {/* 3C. DETERGENT & FRAGRANCE */}
-        <Card style={styles.preferenceCard}>
-          <View style={styles.prefHeader}>
-            <MaterialCommunityIcons name="flower-tulip-outline" size={20} color="#EC4899" />
-            <View style={{ flex: 1 }}>
-              <Text style={styles.prefTitle}>Fragrance & Softener</Text>
-              <Text style={styles.prefSub}>Fabric conditioner scent preference</Text>
-            </View>
-          </View>
-
-          <View style={styles.chipRow}>
-            {([
-              { key: 'FRESH', label: 'Morning Breeze', icon: 'weather-sunny' },
-              { key: 'LAVENDER', label: 'Lavender Calming', icon: 'flower' },
-              { key: 'SCENT_FREE', label: 'Zero Fragrance', icon: 'water-off-outline' },
-            ] as const).map(({ key, label, icon }) => {
-              const selected = preferences.fragrancePreference === key;
-              return (
-                <Pressable
-                  key={key}
-                  style={[styles.chip, selected && styles.chipSelected]}
-                  onPress={() => updatePreferences({ fragrancePreference: key as FragrancePreference })}
-                >
-                  <MaterialCommunityIcons
-                    name={icon as any}
-                    size={14}
-                    color={selected ? '#FFFFFF' : '#4B5563'}
-                  />
-                  <Text style={[styles.chipText, selected && styles.chipTextSelected]}>{label}</Text>
-                </Pressable>
-              );
-            })}
-          </View>
-        </Card>
-
-        {/* 3D. DELIVERY DROP INSTRUCTIONS */}
-        <Card style={styles.preferenceCard}>
-          <View style={styles.prefHeader}>
-            <MaterialCommunityIcons name="door-closed-lock" size={20} color="#10B981" />
-            <View style={{ flex: 1 }}>
-              <Text style={styles.prefTitle}>Default Delivery Instructions</Text>
-              <Text style={styles.prefSub}>Automatic handover preference for delivery partner</Text>
-            </View>
-          </View>
-
-          <View style={styles.chipRow}>
-            {([
-              { key: 'RING_BELL', label: 'Ring Doorbell' },
-              { key: 'LEAVE_AT_DOOR', label: 'Leave at Door' },
-              { key: 'CALL_ON_ARRIVAL', label: 'Call on Arrival' },
-            ] as const).map(({ key, label }) => {
-              const selected = preferences.deliveryInstructions === key;
-              return (
-                <Pressable
-                  key={key}
-                  style={[styles.chip, selected && styles.chipSelected]}
-                  onPress={() => updatePreferences({ deliveryInstructions: key as DeliveryInstructions })}
-                >
-                  {selected && <MaterialCommunityIcons name="check" size={14} color="#FFFFFF" />}
-                  <Text style={[styles.chipText, selected && styles.chipTextSelected]}>{label}</Text>
-                </Pressable>
-              );
-            })}
-          </View>
-        </Card>
-      </View>
-
-      {/* 4. PRIVACY & SECURITY */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Privacy & Security</Text>
-
-        <Card style={styles.menuGroupCard}>
+        <Card style={[styles.menuGroupCard, isDark && { backgroundColor: colors.surface, borderColor: colors.border }]}>
           <Pressable style={styles.menuRow} onPress={() => setShowPrivacyModal(true)}>
-            <MaterialCommunityIcons name="shield-account-outline" size={20} color="#1C0B18" />
-            <Text style={styles.menuLabel}>Privacy & Data Protection</Text>
+            <MaterialCommunityIcons name="shield-account-outline" size={20} color={isDark ? colors.textCaption : "#1C0B18"} />
+            <Text style={[styles.menuLabel, isDark && { color: colors.textHeading }]}>Privacy & Data Protection</Text>
             <MaterialCommunityIcons name="chevron-right" size={20} color="#9CA3AF" />
           </Pressable>
 
           {session && (
             <>
-              <View style={styles.divider} />
+              <View style={[styles.divider, isDark && { backgroundColor: colors.border }]} />
               <Pressable style={styles.menuRow} onPress={handleLogOut}>
                 <MaterialCommunityIcons name="logout" size={20} color="#F97316" />
                 <Text style={[styles.menuLabel, { color: '#F97316' }]}>Log Out from Device</Text>
                 <MaterialCommunityIcons name="chevron-right" size={20} color="#F97316" />
               </Pressable>
               
-              <View style={styles.divider} />
+              <View style={[styles.divider, isDark && { backgroundColor: colors.border }]} />
               <Pressable style={styles.menuRow} onPress={handleDeleteAccount}>
                 <MaterialCommunityIcons name="account-remove-outline" size={20} color="#EF4444" />
                 <Text style={[styles.menuLabel, { color: '#EF4444' }]}>Delete Account & Data</Text>
@@ -375,29 +311,34 @@ export function SettingsScreen({ onSignIn }: SettingsScreenProps) {
         </Card>
       </View>
 
-      {/* 5. APP VERSION */}
-      <View style={styles.versionWrap}>
-        <Text style={styles.versionTitle}>LaundryFresh Mobile</Text>
-        <Text style={styles.versionSub}>
-          Version {Constants.expoConfig?.version ?? '2.4.0'} • Anusha Technologies
+      {/* 4. APP VERSION */}
+      <Pressable
+        style={styles.versionWrap}
+        onPress={() => {
+          void checkForAppUpdate({ silentIfUpToDate: false });
+        }}
+      >
+        <Text style={[styles.versionTitle, isDark && { color: colors.textCaption }]}>LaundryFresh Mobile</Text>
+        <Text style={[styles.versionSub, isDark && { color: colors.textCaption }]}>
+          Version {CURRENT_APP_VERSION} (Build {CURRENT_APP_CODE}) • Anusha Technologies
         </Text>
-      </View>
+      </Pressable>
 
       {/* Edit Profile Modal */}
       <Modal visible={editingProfile} transparent animationType="slide">
         <View style={styles.modalOverlay}>
-          <View style={styles.modalSheet}>
+          <View style={[styles.modalSheet, isDark && { backgroundColor: colors.surface }]}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Edit Profile Information</Text>
+              <Text style={[styles.modalTitle, isDark && { color: colors.textHeading }]}>Edit Profile Information</Text>
               <Pressable onPress={() => setEditingProfile(false)}>
-                <MaterialCommunityIcons name="close" size={22} color="#1C0B18" />
+                <MaterialCommunityIcons name="close" size={22} color={isDark ? colors.textCaption : "#1C0B18"} />
               </Pressable>
             </View>
 
             <View style={styles.formGroup}>
-              <Text style={styles.formLabel}>Full Name</Text>
+              <Text style={[styles.formLabel, isDark && { color: colors.textHeading }]}>Full Name</Text>
               <TextInput
-                style={styles.formInput}
+                style={[styles.formInput, isDark && { backgroundColor: colors.section, borderColor: colors.border, color: colors.textHeading }]}
                 placeholder="Full Name"
                 placeholderTextColor="#A1A1AA"
                 value={nameInput}
@@ -409,9 +350,13 @@ export function SettingsScreen({ onSignIn }: SettingsScreenProps) {
                 keyboardType="default"
               />
 
-              <Text style={[styles.formLabel, { marginTop: 10 }]}>Email Address</Text>
+              <Text style={[styles.formLabel, { marginTop: 10 }, isDark && { color: colors.textHeading }]}>Email Address</Text>
               <TextInput
-                style={styles.formInput}
+                style={[
+                  styles.formInput,
+                  isDark && { backgroundColor: colors.section, borderColor: colors.border, color: colors.textHeading },
+                  Boolean(emailInput.trim() && !EMAIL_REGEX.test(emailInput.trim().toLowerCase())) && { borderColor: '#EF4444', borderWidth: 1.5 },
+                ]}
                 placeholder="name@example.com"
                 placeholderTextColor="#A1A1AA"
                 value={emailInput}
@@ -419,6 +364,11 @@ export function SettingsScreen({ onSignIn }: SettingsScreenProps) {
                 keyboardType="email-address"
                 autoCapitalize="none"
               />
+              {Boolean(emailInput.trim() && !EMAIL_REGEX.test(emailInput.trim().toLowerCase())) && (
+                <Text style={{ color: '#EF4444', fontSize: 11, marginTop: 4, fontWeight: '700' }}>
+                  ⚠️ Please enter a valid email format (e.g. yourname@gmail.com)
+                </Text>
+              )}
             </View>
 
             <Pressable style={styles.saveBtn} onPress={handleSaveProfile}>
@@ -431,15 +381,15 @@ export function SettingsScreen({ onSignIn }: SettingsScreenProps) {
       {/* Privacy Policy Modal */}
       <Modal visible={showPrivacyModal} transparent animationType="slide">
         <View style={styles.modalOverlay}>
-          <View style={styles.modalSheet}>
+          <View style={[styles.modalSheet, isDark && { backgroundColor: colors.surface }]}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Privacy & Data Protection</Text>
+              <Text style={[styles.modalTitle, isDark && { color: colors.textHeading }]}>Privacy & Data Protection</Text>
               <Pressable onPress={() => setShowPrivacyModal(false)}>
-                <MaterialCommunityIcons name="close" size={22} color="#1C0B18" />
+                <MaterialCommunityIcons name="close" size={22} color={isDark ? colors.textCaption : "#1C0B18"} />
               </Pressable>
             </View>
             <ScrollView style={{ maxHeight: 300 }} showsVerticalScrollIndicator={false}>
-              <Text style={styles.policyBody}>
+              <Text style={[styles.policyBody, isDark && { color: colors.textBody }]}>
                 • Your personal phone number, location GPS, and laundry order history are 256-bit encrypted.
                 {'\n\n'}
                 • We never sell, rent, or trade your data to third-party ad networks.
@@ -467,7 +417,7 @@ const styles = StyleSheet.create({
   content: {
     paddingHorizontal: 16,
     paddingTop: 0,  // No top padding - header provides spacing
-    paddingBottom: 40,
+    paddingBottom: 80,
     gap: 18,
   },
   profileCard: {
@@ -552,27 +502,11 @@ const styles = StyleSheet.create({
   section: {
     gap: 10,
   },
-  sectionTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
   sectionTitle: {
     fontSize: 17,
     fontWeight: '900',
     color: '#1C0B18',
     letterSpacing: -0.2,
-  },
-  activeTag: {
-    backgroundColor: '#DCFCE7',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
-  },
-  activeTagText: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: '#16A34A',
   },
   toggleGroupCard: {
     backgroundColor: '#FFFFFF',
@@ -588,9 +522,9 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
   },
   toggleIconCircle: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 38,
+    height: 38,
+    borderRadius: 19,
     backgroundColor: '#FAF5EF',
     alignItems: 'center',
     justifyContent: 'center',
@@ -622,6 +556,11 @@ const styles = StyleSheet.create({
     height: 22,
     borderRadius: 11,
     backgroundColor: '#FFFFFF',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.18,
+    shadowRadius: 1.5,
+    elevation: 2,
   },
   toggleThumbActive: {
     alignSelf: 'flex-end',
@@ -630,84 +569,6 @@ const styles = StyleSheet.create({
     height: 1,
     backgroundColor: '#F3E8DF',
     marginVertical: 10,
-  },
-  preferenceCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 18,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: '#F3E8DF',
-    gap: 12,
-  },
-  prefHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  prefTitle: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: '#1C0B18',
-  },
-  prefSub: {
-    fontSize: 12,
-    color: '#8A7A84',
-    marginTop: 2,
-  },
-  chipRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  chip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 10,
-    backgroundColor: '#FAF5EF',
-    borderWidth: 1,
-    borderColor: '#E8DED6',
-  },
-  chipSelected: {
-    backgroundColor: '#1C0B18',
-    borderColor: '#1C0B18',
-  },
-  chipText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#4B5563',
-  },
-  chipTextSelected: {
-    color: '#FFFFFF',
-  },
-  radioGroup: {
-    gap: 8,
-  },
-  radioCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    padding: 10,
-    borderRadius: 12,
-    backgroundColor: '#FAF5EF',
-    borderWidth: 1,
-    borderColor: '#E8DED6',
-  },
-  radioCardSelected: {
-    backgroundColor: '#F5F3FF',
-    borderColor: '#8B5CF6',
-  },
-  radioLabel: {
-    fontSize: 13,
-    fontWeight: '800',
-    color: '#1C0B18',
-  },
-  radioSub: {
-    fontSize: 11,
-    color: '#6B7280',
-    marginTop: 1,
   },
   menuGroupCard: {
     backgroundColor: '#FFFFFF',

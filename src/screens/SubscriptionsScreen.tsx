@@ -128,7 +128,7 @@ function paymentFailureCopy(error: unknown): { title: string; message: string } 
 }
 
 export function SubscriptionsScreen({ onBook, onSignIn }: SubscriptionsScreenProps) {
-    const { colors } = useTheme();
+  const { colors, isDark } = useTheme();
   const insets = useSafeAreaInsets();
   const { session } = useApp();
   const [purchasing, setPurchasing] = useState(false);
@@ -255,69 +255,99 @@ export function SubscriptionsScreen({ onBook, onSignIn }: SubscriptionsScreenPro
     >
       <View style={{ flexDirection: 'row', gap: 12, marginBottom: 16 }}>
         {(['purchased', 'plans'] as const).map((value) => (
-          <Pressable key={value} onPress={() => setTab(value)} accessibilityRole="tab" accessibilityState={{ selected: tab === value }}
-            style={{ flex: 1, padding: 14, borderRadius: 12, backgroundColor: tab === value ? '#16A34A' : '#FFFFFF' }}>
-            <Text style={{ textAlign: 'center', fontWeight: '700', color: tab === value ? '#FFFFFF' : '#111827' }}>
+          <Pressable
+            key={value}
+            onPress={() => setTab(value)}
+            accessibilityRole="tab"
+            accessibilityState={{ selected: tab === value }}
+            style={{
+              flex: 1,
+              padding: 14,
+              borderRadius: 12,
+              backgroundColor: tab === value ? '#16A34A' : colors.surface,
+              borderWidth: 1,
+              borderColor: tab === value ? '#16A34A' : colors.border,
+            }}
+          >
+            <Text style={{ textAlign: 'center', fontWeight: '700', color: tab === value ? '#FFFFFF' : colors.textHeading }}>
               {value === 'purchased' ? 'Purchased Plans' : 'Browse Plans'}
             </Text>
           </Pressable>
         ))}
       </View>
       {tab === 'purchased' && (
-        <View style={styles.heroHeader}>
-          <Text style={styles.heroTitle}>Your Purchased Subscriptions</Text>
-          {!session ? <Pressable onPress={onSignIn}><Text style={styles.heroTagText}>Sign in to view your subscriptions</Text></Pressable> : <>
-            {loadingMemberships && <ActivityIndicator color="#16A34A" />}
-            {!!membershipError && <Text accessibilityRole="alert">{membershipError}</Text>}
-            {!loadingMemberships && !membershipError && memberships.length === 0 && <>
-              <Text style={styles.heroSubtitle}>No purchased subscriptions found for this account.</Text>
-              <Pressable onPress={() => setTab('plans')}><Text style={styles.heroTagText}>Browse plans</Text></Pressable>
-            </>}
-            {[...memberships].sort((a, b) => Number(b.isActive) - Number(a.isActive)).map((membership) => (
-              <View key={membership.id} style={{ marginVertical: 12, padding: 16, backgroundColor: '#F8FAFC', borderRadius: 14 }}>
-                <Text style={styles.heroTitle}>{membership.planName}</Text>
-                <Text style={{ fontWeight: '800', color: membership.isActive ? '#15803D' : '#64748B' }}>
-                  {membership.status.replace(/_/g, ' ')}
-                </Text>
-                <Text style={styles.heroSubtitle}>{membership.remainingKg} of {membership.includedKg} KG remaining</Text>
-                <Text style={styles.heroSubtitle}>Used: {membership.usedKg} KG | Orders: {membership.ordersCount}</Text>
-                <Text style={styles.heroSubtitle}>Valid: {new Date(membership.startDate).toLocaleDateString()} to {new Date(membership.endDate).toLocaleDateString()}</Text>
-                <Text style={styles.heroSubtitle}>INR {membership.amount.toFixed(2)} | Payment: {membership.paymentStatus}</Text>
-                {!!membership.paymentId && <Text selectable style={styles.heroSubtitle}>Payment ID: {membership.paymentId}</Text>}
-                <Text style={styles.heroSubtitle}>{membership.autoRenew ? 'Auto-renew enabled' : 'No automatic renewal'}</Text>
-                {membership.isActive && <Pressable onPress={onBook} style={{ marginTop: 12 }}><Text style={styles.heroTagText}>Book a Pickup</Text></Pressable>}
-              </View>
-            ))}
-            <Pressable disabled={loadingMemberships} onPress={() => void loadMemberships()}><Text style={styles.heroTagText}>Refresh subscriptions</Text></Pressable>
-          </>}
+        <View style={[styles.heroHeader, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+          <Text style={[styles.heroTitle, { color: colors.textHeading }]}>Your Purchased Subscriptions</Text>
+          {!session ? (
+            <Pressable onPress={onSignIn}><Text style={styles.heroTagText}>Sign in to view your subscriptions</Text></Pressable>
+          ) : (
+            <>
+              {loadingMemberships && <ActivityIndicator color="#16A34A" />}
+              {!!membershipError && <Text style={{ color: colors.danger }} accessibilityRole="alert">{membershipError}</Text>}
+              {!loadingMemberships && !membershipError && memberships.length === 0 && (
+                <>
+                  <Text style={[styles.heroSubtitle, { color: colors.textCaption }]}>No purchased subscriptions found for this account.</Text>
+                  <Pressable onPress={() => setTab('plans')}><Text style={styles.heroTagText}>Browse plans</Text></Pressable>
+                </>
+              )}
+              {[...memberships].sort((a, b) => Number(b.isActive) - Number(a.isActive)).map((membership) => (
+                <View
+                  key={membership.id}
+                  style={{
+                    marginVertical: 12,
+                    padding: 16,
+                    backgroundColor: colors.section,
+                    borderRadius: 14,
+                    borderWidth: 1,
+                    borderColor: colors.border,
+                  }}
+                >
+                  <Text style={[styles.heroTitle, { color: colors.textHeading }]}>{membership.planName}</Text>
+                  <Text style={{ fontWeight: '800', color: membership.isActive ? '#16A34A' : colors.textCaption }}>
+                    {membership.status.replace(/_/g, ' ')}
+                  </Text>
+                  <Text style={[styles.heroSubtitle, { color: colors.textBody }]}>{membership.remainingKg} of {membership.includedKg} KG remaining</Text>
+                  <Text style={[styles.heroSubtitle, { color: colors.textBody }]}>Used: {membership.usedKg} KG | Orders: {membership.ordersCount}</Text>
+                  <Text style={[styles.heroSubtitle, { color: colors.textBody }]}>Valid: {new Date(membership.startDate).toLocaleDateString()} to {new Date(membership.endDate).toLocaleDateString()}</Text>
+                  <Text style={[styles.heroSubtitle, { color: colors.textBody }]}>INR {membership.amount.toFixed(2)} | Payment: {membership.paymentStatus}</Text>
+                  {!!membership.paymentId && <Text selectable style={[styles.heroSubtitle, { color: colors.textCaption }]}>Payment ID: {membership.paymentId}</Text>}
+                  <Text style={[styles.heroSubtitle, { color: colors.textBody }]}>{membership.autoRenew ? 'Auto-renew enabled' : 'No automatic renewal'}</Text>
+                  {membership.isActive && (
+                    <Pressable onPress={onBook} style={{ marginTop: 12 }}><Text style={styles.heroTagText}>Book a Pickup</Text></Pressable>
+                  )}
+                </View>
+              ))}
+              <Pressable disabled={loadingMemberships} onPress={() => void loadMemberships()}><Text style={styles.heroTagText}>Refresh subscriptions</Text></Pressable>
+            </>
+          )}
         </View>
       )}
       {tab === 'plans' && <>
       {/* Hero Banner Header */}
-      <View style={styles.heroHeader}>
+      <View style={[styles.heroHeader, { backgroundColor: colors.surface, borderColor: colors.border }]}>
         <View style={styles.heroTag}>
           <MaterialCommunityIcons name="crown" size={14} color="#16A34A" />
           <Text style={styles.heroTagText}>LAUNDRYPASS MEMBERSHIP</Text>
         </View>
-        <Text style={styles.heroTitle}>Smart Monthly Laundry Plans</Text>
-        <Text style={styles.heroSubtitle}>
+        <Text style={[styles.heroTitle, { color: colors.textHeading }]}>Smart Monthly Laundry Plans</Text>
+        <Text style={[styles.heroSubtitle, { color: colors.textCaption }]}>
           Save up to 35% on doorstep laundry. Guaranteed free weekly pickups, priority express turnaround & zero delivery charges.
         </Text>
       </View>
 
       {/* Trust Badges */}
       <View style={styles.badgesRow}>
-        <View style={styles.badgeItem}>
+        <View style={[styles.badgeItem, { backgroundColor: colors.surface, borderColor: colors.border }]}>
           <MaterialCommunityIcons name="truck-delivery-outline" size={18} color="#2563EB" />
-          <Text style={styles.badgeLabel}>Free Pickups</Text>
+          <Text style={[styles.badgeLabel, { color: colors.textBody }]}>Free Pickups</Text>
         </View>
-        <View style={styles.badgeItem}>
+        <View style={[styles.badgeItem, { backgroundColor: colors.surface, borderColor: colors.border }]}>
           <MaterialCommunityIcons name="shield-check-outline" size={18} color="#16A34A" />
-          <Text style={styles.badgeLabel}>Ozone Sterilization</Text>
+          <Text style={[styles.badgeLabel, { color: colors.textBody }]}>Ozone Sterilization</Text>
         </View>
-        <View style={styles.badgeItem}>
+        <View style={[styles.badgeItem, { backgroundColor: colors.surface, borderColor: colors.border }]}>
           <MaterialCommunityIcons name="calendar-sync-outline" size={18} color="#D97706" />
-          <Text style={styles.badgeLabel}>30-Day Validity</Text>
+          <Text style={[styles.badgeLabel, { color: colors.textBody }]}>30-Day Validity</Text>
         </View>
       </View>
 
@@ -330,22 +360,22 @@ export function SubscriptionsScreen({ onBook, onSignIn }: SubscriptionsScreenPro
               key={plan.id}
               style={[
                 styles.planCard,
+                { backgroundColor: colors.surface, borderColor: isSelected ? '#16A34A' : colors.border },
                 plan.popular && styles.popularCardBorder,
-                isSelected && styles.selectedPlanCard,
               ]}
               onPress={() => setSelectedPlanId(plan.id)}
             >
               {/* Popular / Best Value Ribbon */}
               {plan.popular && (
-                <View style={styles.popularRibbon}>
-                  <Text style={styles.popularRibbonText}>⭐ MOST POPULAR • SAVE 35%</Text>
+                <View style={[styles.popularRibbon, { backgroundColor: colors.section, borderBottomColor: colors.border }]}>
+                  <Text style={[styles.popularRibbonText, isDark && { color: '#4ADE80' }]}>⭐ MOST POPULAR • SAVE 35%</Text>
                 </View>
               )}
 
               {/* Plan Header */}
               <View style={styles.planHeader}>
                 <View style={{ flex: 1 }}>
-                  <Text style={styles.planName}>{plan.name}</Text>
+                  <Text style={[styles.planName, { color: colors.textHeading }]}>{plan.name}</Text>
                   {plan.originalPrice && (
                     <Text style={styles.originalPriceText}>Regular: ₹{plan.originalPrice}/mo</Text>
                   )}
@@ -353,38 +383,38 @@ export function SubscriptionsScreen({ onBook, onSignIn }: SubscriptionsScreenPro
 
                 {/* Price Tag */}
                 <View style={styles.priceContainer}>
-                  <Text style={styles.priceCurrency}>₹</Text>
-                  <Text style={styles.priceValue}>{plan.price}</Text>
-                  <Text style={styles.pricePeriod}>/mo</Text>
+                  <Text style={[styles.priceCurrency, { color: colors.textHeading }]}>₹</Text>
+                  <Text style={[styles.priceValue, { color: colors.textHeading }]}>{plan.price}</Text>
+                  <Text style={[styles.pricePeriod, { color: colors.textCaption }]}>/mo</Text>
                 </View>
               </View>
 
               {/* Quotas Pill Bar */}
               <View style={styles.quotasRow}>
                 {plan.includedKg ? (
-                  <View style={styles.quotaPill}>
+                  <View style={[styles.quotaPill, { backgroundColor: colors.section, borderColor: colors.border }]}>
                     <MaterialCommunityIcons name="scale" size={13} color="#2563EB" />
-                    <Text style={styles.quotaPillText}>{plan.includedKg} KG Allowance</Text>
+                    <Text style={[styles.quotaPillText, { color: colors.textBody }]}>{plan.includedKg} KG Allowance</Text>
                   </View>
                 ) : null}
                 {plan.freePickupDelivery ? (
-                  <View style={styles.quotaPill}>
+                  <View style={[styles.quotaPill, { backgroundColor: colors.section, borderColor: colors.border }]}>
                     <MaterialCommunityIcons name="moped" size={13} color="#16A34A" />
-                    <Text style={styles.quotaPillText}>Free Pickups</Text>
+                    <Text style={[styles.quotaPillText, { color: colors.textBody }]}>Free Pickups</Text>
                   </View>
                 ) : null}
-                <View style={styles.quotaPill}>
+                <View style={[styles.quotaPill, { backgroundColor: colors.section, borderColor: colors.border }]}>
                   <MaterialCommunityIcons name="clock-outline" size={13} color="#16A34A" />
-                  <Text style={styles.quotaPillText}>{plan.validityDays} Days</Text>
+                  <Text style={[styles.quotaPillText, { color: colors.textBody }]}>{plan.validityDays} Days</Text>
                 </View>
               </View>
 
               {/* Features List */}
-              <View style={styles.perksList}>
+              <View style={[styles.perksList, { borderTopColor: colors.border }]}>
                 {(plan.features || []).map((feature: string, idx: number) => (
                   <View key={idx} style={styles.perkItem}>
                     <MaterialCommunityIcons name="check-circle" size={15} color="#16A34A" />
-                    <Text style={styles.perkText}>{feature}</Text>
+                    <Text style={[styles.perkText, { color: colors.textBody }]}>{feature}</Text>
                   </View>
                 ))}
               </View>

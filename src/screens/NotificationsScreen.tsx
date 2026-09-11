@@ -93,7 +93,7 @@ function formatNotificationItem(n: InAppNotification): NotificationItem {
 
 export function NotificationsScreen({ onOpenOrder, onOpenOffers }: NotificationsScreenProps) {
   const insets = useSafeAreaInsets();
-  const { colors } = useTheme();
+  const { isDark, colors } = useTheme();
   const {
     inAppNotifications,
     unreadNotificationCount,
@@ -149,40 +149,54 @@ export function NotificationsScreen({ onOpenOrder, onOpenOffers }: Notifications
     return (
       <View style={styles.groupSection}>
         <View style={styles.sectionHeader}>
-          <Text style={styles.sectionHeaderTitle}>{title}</Text>
-          <Text style={styles.sectionHeaderCount}>{items.length}</Text>
+          <Text style={[styles.sectionHeaderTitle, { color: colors.textHeading }]}>{title}</Text>
+          <Text style={[styles.sectionHeaderCount, { color: colors.textCaption }]}>{items.length}</Text>
         </View>
 
         <View style={styles.itemsStack}>
           {items.map((item) => (
             <Pressable
               key={item.id}
-              style={[styles.notifCard, !item.read && styles.notifCardUnread]}
+              style={[
+                styles.notifCard,
+                { backgroundColor: colors.surface, borderColor: colors.border },
+                !item.read && {
+                  borderColor: isDark ? '#F97316' : '#FFEDD5',
+                  backgroundColor: isDark ? 'rgba(249, 115, 22, 0.08)' : '#FFFFFF',
+                },
+              ]}
               onPress={() => handleNotificationPress(item)}
             >
               {/* Unread Indicator Bar */}
               {!item.read && <View style={styles.unreadBar} />}
 
               {/* Icon Container */}
-              <View style={[styles.iconWrap, { backgroundColor: item.iconBg }]}>
+              <View style={[styles.iconWrap, { backgroundColor: isDark ? colors.section : item.iconBg }]}>
                 <MaterialCommunityIcons name={item.icon as any} size={22} color={item.iconColor} />
               </View>
 
               {/* Content Column */}
               <View style={styles.contentCol}>
                 <View style={styles.cardTopRow}>
-                  <Text style={[styles.notifTitle, !item.read && styles.notifTitleUnread]} numberOfLines={1}>
+                  <Text
+                    style={[
+                      styles.notifTitle,
+                      { color: colors.textHeading },
+                      !item.read && styles.notifTitleUnread,
+                    ]}
+                    numberOfLines={1}
+                  >
                     {item.title}
                   </Text>
-                  <Text style={styles.notifTime}>{item.time}</Text>
+                  <Text style={[styles.notifTime, { color: colors.textCaption }]}>{item.time}</Text>
                 </View>
 
-                <Text style={styles.notifMessage} numberOfLines={2}>
+                <Text style={[styles.notifMessage, { color: colors.textBody }]} numberOfLines={2}>
                   {item.message}
                 </Text>
 
                 {item.orderId && (
-                  <View style={styles.orderPill}>
+                  <View style={[styles.orderPill, { backgroundColor: isDark ? 'rgba(37, 99, 235, 0.15)' : '#EFF6FF' }]}>
                     <Text style={styles.orderPillText}>Order #{item.orderId}</Text>
                     <MaterialCommunityIcons name="arrow-right" size={12} color="#2563EB" />
                   </View>
@@ -195,7 +209,7 @@ export function NotificationsScreen({ onOpenOrder, onOpenOffers }: Notifications
                 onPress={() => deleteNotificationItem(item.id)}
                 hitSlop={8}
               >
-                <MaterialCommunityIcons name="close" size={15} color="#94A3B8" />
+                <MaterialCommunityIcons name="close" size={15} color={colors.textCaption} />
               </Pressable>
             </Pressable>
           ))}
@@ -207,9 +221,9 @@ export function NotificationsScreen({ onOpenOrder, onOpenOffers }: Notifications
   return (
     <View style={[styles.root, { paddingTop: insets.top, backgroundColor: colors.background }]}>
       {/* Top Header */}
-      <View style={styles.header}>
+      <View style={[styles.header, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
         <View style={styles.headerTitleRow}>
-          <Text style={styles.headerTitle}>Notifications</Text>
+          <Text style={[styles.headerTitle, { color: colors.textHeading }]}>Notifications</Text>
           {unreadNotificationCount > 0 && (
             <View style={styles.unreadPill}>
               <Text style={styles.unreadPillText}>{unreadNotificationCount} New</Text>
@@ -225,7 +239,7 @@ export function NotificationsScreen({ onOpenOrder, onOpenOffers }: Notifications
       </View>
 
       {/* Filter Tabs */}
-      <View style={styles.tabsRow}>
+      <View style={[styles.tabsRow, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
         {[
           { key: 'ALL', label: 'All' },
           { key: 'ORDERS', label: 'Orders' },
@@ -236,10 +250,20 @@ export function NotificationsScreen({ onOpenOrder, onOpenOffers }: Notifications
           return (
             <Pressable
               key={tab.key}
-              style={[styles.tabChip, isActive && styles.tabChipActive]}
+              style={[
+                styles.tabChip,
+                { backgroundColor: isDark ? colors.section : '#F1F5F9' },
+                isActive && { backgroundColor: isDark ? '#F97316' : '#111827' },
+              ]}
               onPress={() => setFilter(tab.key as NotificationFilter)}
             >
-              <Text style={[styles.tabChipText, isActive && styles.tabChipTextActive]}>
+              <Text
+                style={[
+                  styles.tabChipText,
+                  { color: isActive ? '#FFFFFF' : colors.textCaption },
+                  isActive && styles.tabChipTextActive,
+                ]}
+              >
                 {tab.label}
               </Text>
             </Pressable>
@@ -262,9 +286,9 @@ export function NotificationsScreen({ onOpenOrder, onOpenOffers }: Notifications
       >
         {filtered.length === 0 ? (
           <View style={styles.emptyState}>
-            <MaterialCommunityIcons name="bell-sleep-outline" size={54} color="#CBD5E1" />
-            <Text style={styles.emptyTitle}>No notifications</Text>
-            <Text style={styles.emptySubtitle}>You are all caught up with your orders and offers!</Text>
+            <MaterialCommunityIcons name="bell-sleep-outline" size={54} color={colors.border} />
+            <Text style={[styles.emptyTitle, { color: colors.textHeading }]}>No notifications</Text>
+            <Text style={[styles.emptySubtitle, { color: colors.textCaption }]}>You are all caught up with your orders and offers!</Text>
           </View>
         ) : (
           <>

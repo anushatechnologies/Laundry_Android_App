@@ -18,7 +18,7 @@ interface WelcomeScreenProps {
 
 /** A deliberately quiet first-launch landing screen before location selection. */
 export function WelcomeScreen({ onContinue }: WelcomeScreenProps) {
-  const { colors } = useTheme();
+  const { isDark, colors } = useTheme();
   const { height } = useWindowDimensions();
   const contentOpacity = useRef(new Animated.Value(0)).current;
   const contentScale = useRef(new Animated.Value(0.94)).current;
@@ -83,9 +83,9 @@ export function WelcomeScreen({ onContinue }: WelcomeScreenProps) {
 
   return (
     <SafeAreaView style={[styles.root, { backgroundColor: colors.background }]} edges={['top', 'bottom', 'left', 'right']}>
-      <StatusBar barStyle="dark-content" backgroundColor="#FFF8F1" />
-      <View pointerEvents="none" style={[styles.orb, styles.orbTop]} />
-      <View pointerEvents="none" style={[styles.orb, styles.orbBottom]} />
+      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor={colors.background} />
+      <View pointerEvents="none" style={[styles.orb, styles.orbTop, isDark && { backgroundColor: 'rgba(249, 115, 22, 0.08)' }]} />
+      <View pointerEvents="none" style={[styles.orb, styles.orbBottom, isDark && { backgroundColor: 'rgba(16, 185, 129, 0.06)' }]} />
 
       <Animated.View
         style={[
@@ -97,7 +97,7 @@ export function WelcomeScreen({ onContinue }: WelcomeScreenProps) {
         ]}
         accessibilityLabel="LaundryFresh"
       >
-        <Text style={styles.brandName}>
+        <Text style={[styles.brandName, { color: colors.textHeading }]}>
           Laundry<Text style={styles.brandAccent}>Fresh</Text>
         </Text>
       </Animated.View>

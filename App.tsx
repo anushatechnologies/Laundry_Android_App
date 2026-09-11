@@ -4,15 +4,17 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { StatusBar } from 'expo-status-bar';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as Notifications from 'expo-notifications';
-import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaProvider, SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Appbar, PaperProvider } from 'react-native-paper';
 import { AppProvider, useApp } from '@/context/AppContext';
+import { ToastProvider } from '@/context/ToastContext';
 import { ThemeProvider, useTheme } from '@/context/ThemeContext';
+import { ZeptoToast } from '@/components/ZeptoToast';
 import { AddressesScreen } from '@/screens/AddressesScreen';
 import { AuthScreen } from '@/screens/AuthScreen';
 import { BookScreen } from '@/screens/BookScreen';
 import { BulkLaundryScreen } from '@/screens/BulkLaundryScreen';
-import { CategoryCatalogScreen } from '@/screens/CategoryCatalogScreen';
+import { CategoryCatalogScreen, prefetchCatalog } from '@/screens/CategoryCatalogScreen';
 import { HomeScreen } from '@/screens/HomeScreen';
 import { MapLocationPickerScreen } from '@/screens/MapLocationPickerScreen';
 import { OffersScreen } from '@/screens/OffersScreen';
@@ -39,7 +41,9 @@ import { AppErrorBoundary } from '@/components/AppErrorBoundary';
 import { useCustomerLocation } from '@/services/location/useCustomerLocation';
 import { resolveCustomerLocationCoordinates } from '@/services/location/locationService';
 import { LocationSelectorModal } from '@/components/location/LocationSelectorModal';
+import { FloatingCartBar } from '@/components/FloatingCartBar';
 import type { CustomerLocation } from '@/services/location/types';
+import { checkForAppUpdate } from '@/services/app-update/updateChecker';
 import { createAppTheme, COLORS, CONTROL_SIZES } from '@/ui/theme';
 import './global.css';
 
@@ -110,6 +114,15 @@ const detailBackRoute: Record<DetailRoute, MainTab> = {
   SUBSCRIPTIONS: 'PROFILE',
   PRODUCT_DETAIL: 'HOME',
 };
+
+// Only show the floating cart bar on shopping & catalog screens where users discover and add garments to their bag
+const CART_BAR_VISIBLE_ROUTES: AppRoute[] = [
+  'HOME',
+  'SERVICES',
+  'CATEGORY_CATALOG',
+  'SEARCH',
+  'BULK_LAUNDRY',
+];
 
 function LoadingScreen() {
   const [displayText, setDisplayText] = useState('');
@@ -265,19 +278,20 @@ function LoadingScreen() {
 }
 
 function DetailShell({ title, onBack, children }: { title: string; onBack: () => void; children: ReactNode }) {
+  const { colors, isDark } = useTheme();
   return (
-    <View style={styles.detailRoot}>
-      <View style={styles.detailHeader}>
+    <View style={[styles.detailRoot, { backgroundColor: colors.background }]}>
+      <View style={[styles.detailHeader, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
         <Pressable
-          style={styles.detailBackBtn}
+          style={[styles.detailBackBtn, { backgroundColor: isDark ? colors.section : '#F1F5F9' }]}
           onPress={onBack}
           hitSlop={12}
           accessibilityRole="button"
           accessibilityLabel="Go back"
         >
-          <MaterialCommunityIcons name="arrow-left" size={22} color="#0F172A" />
+          <MaterialCommunityIcons name="arrow-left" size={22} color={colors.textHeading} />
         </Pressable>
-        <Text style={styles.detailTitle} numberOfLines={1}>
+        <Text style={[styles.detailTitle, { color: colors.textHeading }]} numberOfLines={1}>
           {title}
         </Text>
         <View style={styles.detailHeaderSpacer} />
@@ -299,6 +313,7 @@ function AuthenticatedApp() {
     clearPendingNavAction,
   } = useApp();
   const { colors } = useTheme();
+  const insets = useSafeAreaInsets();
   const [navigation, setNavigation] = useState<NavigationState>({ route: 'HOME', history: [] });
   const [permissionsState, setPermissionsState] = useState<{
     completed: boolean;
@@ -385,6 +400,19 @@ function AuthenticatedApp() {
       isMounted = false;
     };
   }, [saveDeliveryLocation]);
+
+  // Check AWS for app updates on every launch
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      void checkForAppUpdate({ silentIfUpToDate: true });
+    }, 1500);
+    return () => clearTimeout(timer);
+  }, []);
+
+  // Pre-warm the live catalog in background immediately on app launch for instant (0ms) category opening
+  useEffect(() => {
+    void prefetchCatalog();
+  }, []);
 
   const { route, history } = navigation;
   const [onboardingStage, setOnboardingStage] = useState<OnboardingStage>('LANDING');
@@ -667,7 +695,7 @@ function AuthenticatedApp() {
   // Show bottom navigation bar on primary discovery tabs.
   // When inside CART and cart has items, hide the floating tab bar so the checkout dock sits cleanly at the bottom without any overlapping tabs!
   const showBottomNav =
-    ['HOME', 'SERVICES', 'CART', 'ORDERS', 'PROFILE'].includes(route) &&
+    ['HOME', 'SERVICES', 'CATEGORY_CATALOG', 'CART', 'ORDERS', 'PROFILE'].includes(route) &&
     (route !== 'CART' || cartSummary.itemCount === 0);
 
   let screen: ReactNode;
@@ -840,6 +868,10 @@ function AuthenticatedApp() {
         <WishlistScreen
           onBook={startBooking}
           onExploreServices={() => navigateTo('SERVICES')}
+          onSelectProduct={(product) => {
+            setSelectedProductForDetail(product);
+            navigateTo('PRODUCT_DETAIL');
+          }}
         />
       </DetailShell>
     );
@@ -849,11 +881,14 @@ function AuthenticatedApp() {
         <BookScreen
           initialCouponCode={couponCode}
           onClearInitialCoupon={() => setCouponCode('')}
+          deliveryLocation={locationState.deliveryLocation}
           onViewOrders={() => navigateTo('ORDERS')}
           onRequireSignIn={startCheckout}
           onBrowseServices={() => navigateTo('SERVICES')}
           resumeCheckout={resumeCheckout}
           onCheckoutResumed={() => setResumeCheckout(false)}
+          hasBottomTabBar={showBottomNav}
+          onStageChange={setCartStage}
         />
       </DetailShell>
     );
@@ -962,7 +997,7 @@ function AuthenticatedApp() {
         </AppErrorBoundary>
       </View>
       {showBottomNav ? (
-        <View style={styles.customTabBarContainer} pointerEvents="box-none">
+        <View style={[styles.customTabBarContainer, { paddingBottom: Math.max(insets.bottom, 12) }]} pointerEvents="box-none">
           {/* MAIN FLOATING PILL TAB BAR (All 5 Discovery Tabs) */}
           <View style={[styles.customTabBar, { backgroundColor: colors.surface, borderColor: colors.border }]}>
             {tabs.map((tab) => {
@@ -978,7 +1013,11 @@ function AuthenticatedApp() {
                   style={[styles.tabItem, isActive && { backgroundColor: colors.primarySoft }]}
                   onPress={() => {
                     if (tab.key === 'SERVICES') {
-                      setSelectedCategoryInfo({ tag: 'ALL', title: 'All Items', serviceCode: 'ALL', serviceName: 'All Services' });
+                      setSelectedCategoryInfo((prev) =>
+                        prev.tag === 'ALL' && prev.serviceCode === 'ALL'
+                          ? prev
+                          : { tag: 'ALL', title: 'All Items', serviceCode: 'ALL', serviceName: 'All Services' }
+                      );
                     }
                     navigateTo(tab.key);
                   }}
@@ -1018,6 +1057,19 @@ function AuthenticatedApp() {
         </View>
       ) : null}
 
+      {/* BLINKIT-STYLE FLOATING CART BAR - only shown on active shopping & catalog screens with clean gap above footer */}
+      <FloatingCartBar
+        visible={CART_BAR_VISIBLE_ROUTES.includes(route)}
+        bottomOffset={
+          showBottomNav
+            ? (Math.max(insets.bottom, 12) + 98)
+            : route === 'BULK_LAUNDRY'
+            ? (Math.max(insets.bottom, 10) + 78)
+            : (Math.max(insets.bottom, 16) + 16)
+        }
+        onViewCart={() => navigateTo('CART')}
+      />
+
       {/* SWIGGY-STYLE LOCATION SELECTOR BOTTOM SHEET / DRAWER */}
       <LocationSelectorModal
         visible={showLocationModal}
@@ -1042,8 +1094,11 @@ function ThemedApp() {
   return (
     <PaperProvider theme={createAppTheme(resolvedMode).theme}>
       <AppProvider>
-        <StatusBar style={resolvedMode === 'dark' ? 'light' : 'dark'} />
-        <AuthenticatedApp />
+        <ToastProvider>
+          <StatusBar style={resolvedMode === 'dark' ? 'light' : 'dark'} />
+          <AuthenticatedApp />
+          <ZeptoToast />
+        </ToastProvider>
       </AppProvider>
     </PaperProvider>
   );

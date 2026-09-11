@@ -32,7 +32,7 @@ interface WalletScreenProps {
 const QUICK_AMOUNTS = [100, 200, 500, 1000];
 
 export function WalletScreen({ onBack, onNavigateReferral, onSignIn }: WalletScreenProps) {
-  const { colors } = useTheme();
+  const { colors, isDark } = useTheme();
   const { session, refreshWallet } = useApp();
   const customerId = session?.user.id;
 
@@ -134,18 +134,18 @@ export function WalletScreen({ onBack, onNavigateReferral, onSignIn }: WalletScr
     return (
       <View style={[styles.root, { backgroundColor: colors.background }]}>
         {onBack && (
-          <View style={styles.navBar}>
+          <View style={[styles.navBar, isDark && { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
             <Pressable onPress={onBack} hitSlop={12} style={styles.backBtn}>
-              <MaterialCommunityIcons name="arrow-left" size={24} color="#1C0B18" />
+              <MaterialCommunityIcons name="arrow-left" size={24} color={isDark ? colors.textHeading : "#1C0B18"} />
             </Pressable>
-            <Text style={styles.navTitle}>LaundryFresh Wallet</Text>
+            <Text style={[styles.navTitle, isDark && { color: colors.textHeading }]}>LaundryFresh Wallet</Text>
             <View style={{ width: 24 }} />
           </View>
         )}
         <View style={styles.guestContainer}>
           <MaterialCommunityIcons name="wallet-outline" size={72} color="#16A34A" />
-          <Text style={styles.guestTitle}>Sign in to Access Your Wallet</Text>
-          <Text style={styles.guestSubtitle}>
+          <Text style={[styles.guestTitle, isDark && { color: colors.textHeading }]}>Sign in to Access Your Wallet</Text>
+          <Text style={[styles.guestSubtitle, isDark && { color: colors.textCaption }]}>
             Enjoy instant ₹100 referral bonuses, seamless 1-tap checkout, and lightning-fast refunds.
           </Text>
           {onSignIn && (
@@ -168,17 +168,17 @@ export function WalletScreen({ onBack, onNavigateReferral, onSignIn }: WalletScr
   return (
     <View style={[styles.root, { backgroundColor: colors.background }]}>
       {/* Navigation Header */}
-      <View style={styles.navBar}>
+      <View style={[styles.navBar, isDark && { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
         {onBack ? (
           <Pressable onPress={onBack} hitSlop={12} style={styles.backBtn}>
-            <MaterialCommunityIcons name="arrow-left" size={24} color="#1C0B18" />
+            <MaterialCommunityIcons name="arrow-left" size={24} color={isDark ? colors.textHeading : "#1C0B18"} />
           </Pressable>
         ) : (
           <View style={{ width: 24 }} />
         )}
-        <Text style={styles.navTitle}>LaundryFresh Wallet</Text>
+        <Text style={[styles.navTitle, isDark && { color: colors.textHeading }]}>LaundryFresh Wallet</Text>
         <Pressable onPress={() => void fetchWallet(true)} hitSlop={12} style={styles.backBtn}>
-          <MaterialCommunityIcons name="refresh" size={22} color="#16A34A" />
+          <MaterialCommunityIcons name="refresh" size={22} color={colors.primary} />
         </Pressable>
       </View>
 
@@ -189,13 +189,14 @@ export function WalletScreen({ onBack, onNavigateReferral, onSignIn }: WalletScr
           <RefreshControl
             refreshing={refreshing}
             onRefresh={() => void fetchWallet(true)}
-            colors={['#16A34A']}
+            colors={[colors.primary]}
+            tintColor={colors.primary}
           />
         }
       >
         {/* Balance Card with Gradient */}
         <LinearGradient
-          colors={['#2A103C', '#160824', '#0D0417']}
+          colors={isDark ? ['#1A2E26', '#14231E', '#0B1410'] : ['#2A103C', '#160824', '#0D0417']}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={styles.balanceCard}
@@ -239,10 +240,10 @@ export function WalletScreen({ onBack, onNavigateReferral, onSignIn }: WalletScr
         </LinearGradient>
 
         {/* Top-up Form */}
-        <View style={styles.sectionCard}>
+        <View style={[styles.sectionCard, isDark && { backgroundColor: colors.surface, borderColor: colors.border }]}>
           <View style={styles.sectionHeader}>
-            <MaterialCommunityIcons name="plus-circle-outline" size={20} color="#16A34A" />
-            <Text style={styles.sectionTitle}>Add Money via Razorpay</Text>
+            <MaterialCommunityIcons name="plus-circle-outline" size={20} color={colors.primary} />
+            <Text style={[styles.sectionTitle, isDark && { color: colors.textHeading }]}>Add Money via Razorpay</Text>
           </View>
 
           {/* Quick Amount Chips */}
@@ -252,10 +253,18 @@ export function WalletScreen({ onBack, onNavigateReferral, onSignIn }: WalletScr
               return (
                 <Pressable
                   key={amt}
-                  style={[styles.chip, isSelected && styles.chipActive]}
+                  style={[
+                    styles.chip,
+                    isDark && { backgroundColor: colors.section, borderColor: colors.border },
+                    isSelected && (isDark ? { backgroundColor: 'rgba(16, 185, 129, 0.2)', borderColor: colors.primary } : styles.chipActive),
+                  ]}
                   onPress={() => setAmountInput(String(amt))}
                 >
-                  <Text style={[styles.chipText, isSelected && styles.chipTextActive]}>
+                  <Text style={[
+                    styles.chipText,
+                    isDark && { color: colors.textBody },
+                    isSelected && (isDark ? { color: colors.primary } : styles.chipTextActive),
+                  ]}>
                     +₹{amt}
                   </Text>
                 </Pressable>
@@ -264,16 +273,16 @@ export function WalletScreen({ onBack, onNavigateReferral, onSignIn }: WalletScr
           </View>
 
           {/* Input & Topup Button */}
-          <View style={styles.inputContainer}>
-            <Text style={styles.inputPrefix}>₹</Text>
+          <View style={[styles.inputContainer, isDark && { backgroundColor: colors.section, borderColor: colors.border }]}>
+            <Text style={[styles.inputPrefix, isDark && { color: colors.textCaption }]}>₹</Text>
             <TextInput
-              style={styles.amountInput}
+              style={[styles.amountInput, isDark && { color: colors.textHeading }]}
               keyboardType="number-pad"
               maxLength={6}
               value={amountInput}
               onChangeText={(t) => setAmountInput(t.replace(/[^0-9]/g, ''))}
               placeholder="Enter amount"
-              placeholderTextColor="#A3A3A3"
+              placeholderTextColor={isDark ? colors.textCaption : "#A3A3A3"}
             />
           </View>
 
@@ -295,8 +304,8 @@ export function WalletScreen({ onBack, onNavigateReferral, onSignIn }: WalletScr
           </Pressable>
 
           <View style={styles.paymentMethodsRow}>
-            <MaterialCommunityIcons name="shield-check-outline" size={14} color="#737373" />
-            <Text style={styles.paymentMethodsText}>
+            <MaterialCommunityIcons name="shield-check-outline" size={14} color={isDark ? colors.textCaption : "#737373"} />
+            <Text style={[styles.paymentMethodsText, isDark && { color: colors.textCaption }]}>
               Powered by Razorpay • UPI, GPay, PhonePe, Cards, NetBanking
             </Text>
           </View>
@@ -306,38 +315,46 @@ export function WalletScreen({ onBack, onNavigateReferral, onSignIn }: WalletScr
         {onNavigateReferral && (
           <Pressable style={styles.referralBanner} onPress={onNavigateReferral}>
             <LinearGradient
-              colors={['#1F2937', '#111827']}
+              colors={isDark ? ['#1E2A3A', '#131C27'] : ['#1F2937', '#111827']}
               style={styles.referralBannerGrad}
             >
               <View style={styles.referralBannerLeft}>
-                <View style={styles.giftIconWrap}>
-                  <MaterialCommunityIcons name="gift-outline" size={24} color="#16A34A" />
+                <View style={[styles.giftIconWrap, isDark && { backgroundColor: 'rgba(16, 185, 129, 0.2)' }]}>
+                  <MaterialCommunityIcons name="gift-outline" size={24} color={colors.primary} />
                 </View>
                 <View style={{ flex: 1 }}>
                   <Text style={styles.referralBannerTitle}>Invite Friends, Get ₹100</Text>
-                  <Text style={styles.referralBannerSubtitle}>
+                  <Text style={[styles.referralBannerSubtitle, isDark && { color: colors.textCaption }]}>
                     Earn ₹100 directly in this wallet for every friend who signs up!
                   </Text>
                 </View>
               </View>
-              <MaterialCommunityIcons name="chevron-right" size={24} color="#9CA3AF" />
+              <MaterialCommunityIcons name="chevron-right" size={24} color={isDark ? colors.textCaption : "#9CA3AF"} />
             </LinearGradient>
           </Pressable>
         )}
 
         {/* Transaction History Section */}
-        <View style={styles.historySection}>
+        <View style={[styles.historySection, isDark && { backgroundColor: colors.surface, borderColor: colors.border }]}>
           <View style={styles.historyHeader}>
-            <Text style={styles.historyTitle}>Transaction History</Text>
+            <Text style={[styles.historyTitle, isDark && { color: colors.textHeading }]}>Transaction History</Text>
             {/* Filter Chips */}
             <View style={styles.filterRow}>
               {(['ALL', 'CREDIT', 'DEBIT'] as const).map((ft) => (
                 <Pressable
                   key={ft}
-                  style={[styles.filterChip, filterType === ft && styles.filterChipActive]}
+                  style={[
+                    styles.filterChip,
+                    isDark && { backgroundColor: colors.section },
+                    filterType === ft && (isDark ? { backgroundColor: colors.primary } : styles.filterChipActive),
+                  ]}
                   onPress={() => setFilterType(ft)}
                 >
-                  <Text style={[styles.filterChipText, filterType === ft && styles.filterChipTextActive]}>
+                  <Text style={[
+                    styles.filterChipText,
+                    isDark && { color: colors.textCaption },
+                    filterType === ft && (isDark ? { color: '#FFFFFF' } : styles.filterChipTextActive),
+                  ]}>
                     {ft === 'ALL' ? 'All' : ft === 'CREDIT' ? 'Added' : 'Spent'}
                   </Text>
                 </Pressable>
@@ -346,12 +363,12 @@ export function WalletScreen({ onBack, onNavigateReferral, onSignIn }: WalletScr
           </View>
 
           {loading && !data ? (
-            <ActivityIndicator color="#16A34A" style={{ marginVertical: 24 }} />
+            <ActivityIndicator color={colors.primary} style={{ marginVertical: 24 }} />
           ) : transactions.length === 0 ? (
             <View style={styles.emptyTransactions}>
-              <MaterialCommunityIcons name="receipt" size={48} color="#D1D5DB" />
-              <Text style={styles.emptyTransactionsTitle}>No transactions found</Text>
-              <Text style={styles.emptyTransactionsDesc}>
+              <MaterialCommunityIcons name="receipt" size={48} color={isDark ? colors.border : "#D1D5DB"} />
+              <Text style={[styles.emptyTransactionsTitle, isDark && { color: colors.textHeading }]}>No transactions found</Text>
+              <Text style={[styles.emptyTransactionsDesc, isDark && { color: colors.textCaption }]}>
                 {filterType === 'ALL'
                   ? 'Add money or invite friends to see transactions here.'
                   : `No ${filterType.toLowerCase()} transactions recorded.`}
@@ -369,11 +386,13 @@ export function WalletScreen({ onBack, onNavigateReferral, onSignIn }: WalletScr
               });
 
               return (
-                <View key={tx.id} style={styles.txRow}>
+                <View key={tx.id} style={[styles.txRow, isDark && { borderBottomColor: colors.border }]}>
                   <View
                     style={[
                       styles.txIconWrap,
-                      isCredit ? styles.txIconWrapCredit : styles.txIconWrapDebit,
+                      isCredit
+                        ? (isDark ? { backgroundColor: 'rgba(16, 185, 129, 0.15)' } : styles.txIconWrapCredit)
+                        : (isDark ? { backgroundColor: 'rgba(239, 68, 68, 0.15)' } : styles.txIconWrapDebit),
                     ]}
                   >
                     <MaterialCommunityIcons
@@ -390,7 +409,7 @@ export function WalletScreen({ onBack, onNavigateReferral, onSignIn }: WalletScr
                   </View>
 
                   <View style={styles.txDetails}>
-                    <Text style={styles.txTitle}>
+                    <Text style={[styles.txTitle, isDark && { color: colors.textHeading }]}>
                       {tx.source === 'REFERRAL_BONUS'
                         ? 'Referral Reward'
                         : tx.source === 'TOPUP'
@@ -401,10 +420,10 @@ export function WalletScreen({ onBack, onNavigateReferral, onSignIn }: WalletScr
                               ? 'Order Refund'
                               : tx.source}
                     </Text>
-                    <Text style={styles.txDescription} numberOfLines={1}>
+                    <Text style={[styles.txDescription, isDark && { color: colors.textCaption }]} numberOfLines={1}>
                       {tx.description || formattedDate}
                     </Text>
-                    <Text style={styles.txDate}>{formattedDate}</Text>
+                    <Text style={[styles.txDate, isDark && { color: colors.textCaption }]}>{formattedDate}</Text>
                   </View>
 
                   <View style={styles.txAmountWrap}>
@@ -420,11 +439,16 @@ export function WalletScreen({ onBack, onNavigateReferral, onSignIn }: WalletScr
                       style={[
                         styles.txStatusTag,
                         tx.status === 'COMPLETED'
-                          ? styles.txStatusSuccess
-                          : styles.txStatusPending,
+                          ? (isDark ? { backgroundColor: 'rgba(16, 185, 129, 0.15)' } : styles.txStatusSuccess)
+                          : (isDark ? { backgroundColor: 'rgba(245, 158, 11, 0.15)' } : styles.txStatusPending),
                       ]}
                     >
-                      <Text style={styles.txStatusText}>{tx.status}</Text>
+                      <Text style={[
+                        styles.txStatusText,
+                        isDark && (tx.status === 'COMPLETED' ? { color: '#10B981' } : { color: '#F59E0B' }),
+                      ]}>
+                        {tx.status}
+                      </Text>
                     </View>
                   </View>
                 </View>

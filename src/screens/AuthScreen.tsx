@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -37,7 +37,7 @@ function normalisePhone(value: string) {
 }
 
 export function AuthScreen({ reason = 'ACCOUNT', onBack }: AuthScreenProps) {
-    const { colors } = useTheme();
+  const { colors, isDark } = useTheme();
   const { signIn, requestOtp, saveAddress } = useApp();
 
   const [mode, setMode] = useState<AuthMode>('LOGIN');
@@ -56,8 +56,48 @@ export function AuthScreen({ reason = 'ACCOUNT', onBack }: AuthScreenProps) {
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  // Unregistered user popup modal
-  const [showNotFoundModal, setShowNotFoundModal] = useState(false);
+  // Unregistered user 3-second redirect toast
+  const [redirectCountdown, setRedirectCountdown] = useState<number | null>(null);
+  const redirectTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const toastAnim = useRef(new Animated.Value(0)).current;
+
+  const cancelRedirect = useCallback(() => {
+    if (redirectTimerRef.current) {
+      clearInterval(redirectTimerRef.current);
+      redirectTimerRef.current = null;
+    }
+    Animated.timing(toastAnim, {
+      toValue: 0,
+      duration: 150,
+      useNativeDriver: true,
+    }).start(() => {
+      setRedirectCountdown(null);
+    });
+  }, [toastAnim]);
+
+  const goToRegisterNow = useCallback(() => {
+    if (redirectTimerRef.current) {
+      clearInterval(redirectTimerRef.current);
+      redirectTimerRef.current = null;
+    }
+    Animated.timing(toastAnim, {
+      toValue: 0,
+      duration: 150,
+      useNativeDriver: true,
+    }).start(() => {
+      setRedirectCountdown(null);
+      setErrorMessage(null);
+      setMode('REGISTER');
+    });
+  }, [toastAnim]);
+
+  useEffect(() => {
+    return () => {
+      if (redirectTimerRef.current) {
+        clearInterval(redirectTimerRef.current);
+      }
+    };
+  }, []);
 
   // Resend OTP countdown timer
   const [countdown, setCountdown] = useState(30);
@@ -183,9 +223,45 @@ export function AuthScreen({ reason = 'ACCOUNT', onBack }: AuthScreenProps) {
       const check = await api.checkPhone(cleanPhone);
 
       if (!check.exists) {
-        // User not registered: Open Register prompt modal
-        setShowNotFoundModal(true);
+        // User not registered: start 3s toast and auto-redirect to Register page
         setLoading(false);
+        setPhone(cleanPhone);
+        if (redirectTimerRef.current) {
+          clearInterval(redirectTimerRef.current);
+          redirectTimerRef.current = null;
+        }
+
+        let secondsLeft = 3;
+        setRedirectCountdown(secondsLeft);
+        toastAnim.setValue(0);
+        Animated.spring(toastAnim, {
+          toValue: 1,
+          friction: 8,
+          tension: 70,
+          useNativeDriver: true,
+        }).start();
+
+        redirectTimerRef.current = setInterval(() => {
+          secondsLeft -= 1;
+          if (secondsLeft <= 0) {
+            if (redirectTimerRef.current) {
+              clearInterval(redirectTimerRef.current);
+              redirectTimerRef.current = null;
+            }
+            Animated.timing(toastAnim, {
+              toValue: 0,
+              duration: 150,
+              useNativeDriver: true,
+            }).start(() => {
+              setRedirectCountdown(null);
+              setMode('REGISTER');
+              setErrorMessage(null);
+            });
+          } else {
+            setRedirectCountdown(secondsLeft);
+          }
+        }, 1000);
+
         return;
       }
 
@@ -219,8 +295,9 @@ export function AuthScreen({ reason = 'ACCOUNT', onBack }: AuthScreenProps) {
       setErrorMessage('Name should only contain letters, spaces, dots, and hyphens.');
       return;
     }
-    if (email.trim() && !email.includes('@')) {
-      setErrorMessage('Please enter a valid email address.');
+    const EMAIL_REGEX = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+    if (email.trim() && !EMAIL_REGEX.test(email.trim().toLowerCase())) {
+      setErrorMessage('Please enter a valid email address (e.g. yourname@gmail.com).');
       return;
     }
 
@@ -338,7 +415,7 @@ export function AuthScreen({ reason = 'ACCOUNT', onBack }: AuthScreenProps) {
   };
 
   const navigateToRegister = () => {
-    setShowNotFoundModal(false);
+    cancelRedirect();
     setErrorMessage(null);
     setMode('REGISTER');
   };
@@ -349,7 +426,7 @@ export function AuthScreen({ reason = 'ACCOUNT', onBack }: AuthScreenProps) {
     <View style={[styles.root, { backgroundColor: colors.background }]}>
       {/* Premium Fresh Green Ambient Header */}
       <LinearGradient
-        colors={['#DCFCE7', '#E8F5E9', '#F0FDF4']}
+        colors={isDark ? ['#161F30', '#111827', '#0B0F17'] : ['#DCFCE7', '#E8F5E9', '#F0FDF4']}
         start={{ x: 0, y: 0 }}
         end={{ x: 0, y: 1 }}
         style={styles.gradientHeader}
@@ -359,18 +436,18 @@ export function AuthScreen({ reason = 'ACCOUNT', onBack }: AuthScreenProps) {
           {onBack ? (
             <Pressable
               onPress={onBack}
-              style={styles.backBtn}
+              style={[styles.backBtn, isDark && { backgroundColor: colors.surface, borderColor: colors.border }]}
               accessibilityRole="button"
               accessibilityLabel="Go back"
             >
-              <MaterialCommunityIcons name="arrow-left" size={22} color="#0F172A" />
+              <MaterialCommunityIcons name="arrow-left" size={22} color={isDark ? colors.textHeading : '#0F172A'} />
             </Pressable>
           ) : (
             <View style={{ width: 42 }} />
           )}
 
           {reason === 'CHECKOUT' ? (
-            <View style={styles.checkoutBadge}>
+            <View style={[styles.checkoutBadge, isDark && { backgroundColor: 'rgba(22, 163, 74, 0.15)', borderColor: 'rgba(22, 163, 74, 0.3)' }]}>
               <MaterialCommunityIcons name="shield-lock-outline" size={14} color="#16A34A" />
               <Text style={styles.checkoutBadgeText}>Secure Checkout</Text>
             </View>
@@ -381,21 +458,21 @@ export function AuthScreen({ reason = 'ACCOUNT', onBack }: AuthScreenProps) {
 
         {/* Brand Identity with Mint Gradient Glow */}
         <View style={styles.brandSection}>
-          <View style={styles.glowOuterCircle}>
-            <View style={styles.logoCircle}>
+          <View style={[styles.glowOuterCircle, isDark && { backgroundColor: 'rgba(22, 163, 74, 0.15)' }]}>
+            <View style={[styles.logoCircle, isDark && { backgroundColor: colors.surface, borderColor: colors.border }]}>
               <Image source={brandLogo} style={styles.logo} resizeMode="contain" />
             </View>
           </View>
-          <Text style={styles.brandTitle}>LaundryFresh</Text>
-          <View style={styles.taglineBadge}>
-            <Text style={styles.brandTagline}>PREMIUM FABRIC CARE</Text>
+          <Text style={[styles.brandTitle, isDark && { color: colors.textHeading }]}>LaundryFresh</Text>
+          <View style={[styles.taglineBadge, isDark && { backgroundColor: colors.section }]}>
+            <Text style={[styles.brandTagline, isDark && { color: '#4ADE80' }]}>PREMIUM FABRIC CARE</Text>
           </View>
         </View>
 
         {/* Tab Switcher (Only for LOGIN/REGISTER, hidden during OTP) */}
         {mode !== 'OTP' && (
           <View
-            style={styles.tabSwitcher}
+            style={[styles.tabSwitcher, isDark && { backgroundColor: colors.surface, borderColor: colors.border }]}
             onLayout={(e) => {
               const { width } = e.nativeEvent.layout;
               if (width > 0) setSwitcherWidth(width);
@@ -428,13 +505,14 @@ export function AuthScreen({ reason = 'ACCOUNT', onBack }: AuthScreenProps) {
             <Pressable
               style={styles.tabButton}
               onPress={() => {
+                cancelRedirect();
                 setMode('LOGIN');
                 setErrorMessage(null);
               }}
               accessibilityRole="tab"
               accessibilityLabel="Login"
             >
-              <Text style={[styles.tabText, mode === 'LOGIN' && styles.tabTextActive]}>
+              <Text style={[styles.tabText, isDark && { color: colors.textCaption }, mode === 'LOGIN' && styles.tabTextActive]}>
                 Sign In
               </Text>
             </Pressable>
@@ -442,13 +520,14 @@ export function AuthScreen({ reason = 'ACCOUNT', onBack }: AuthScreenProps) {
             <Pressable
               style={styles.tabButton}
               onPress={() => {
+                cancelRedirect();
                 setMode('REGISTER');
                 setErrorMessage(null);
               }}
               accessibilityRole="tab"
               accessibilityLabel="Register"
             >
-              <Text style={[styles.tabText, mode === 'REGISTER' && styles.tabTextActive]}>
+              <Text style={[styles.tabText, isDark && { color: colors.textCaption }, mode === 'REGISTER' && styles.tabTextActive]}>
                 Register
               </Text>
             </Pressable>
@@ -470,6 +549,7 @@ export function AuthScreen({ reason = 'ACCOUNT', onBack }: AuthScreenProps) {
           <Animated.View
             style={[
               styles.floatingCard,
+              isDark && { backgroundColor: colors.surface, borderColor: colors.border },
               {
                 opacity: fadeAnim,
                 transform: [{ scale: scaleAnim }],
@@ -480,9 +560,9 @@ export function AuthScreen({ reason = 'ACCOUNT', onBack }: AuthScreenProps) {
             {mode === 'LOGIN' && (
               <View style={styles.formSection}>
                 <View style={styles.headerTextRow}>
-                  <Text style={styles.formTitle}>Welcome Back!</Text>
+                  <Text style={[styles.formTitle, isDark && { color: colors.textHeading }]}>Welcome Back!</Text>
                 </View>
-                <Text style={styles.formSubtitle}>
+                <Text style={[styles.formSubtitle, isDark && { color: colors.textCaption }]}>
                   Sign in to manage your orders and track your pickups.
                 </Text>
 
@@ -495,16 +575,16 @@ export function AuthScreen({ reason = 'ACCOUNT', onBack }: AuthScreenProps) {
 
                 {/* Mobile Phone Input with +91 Selector */}
                 <View style={styles.inputGroup}>
-                  <Text style={styles.inputLabel}>Mobile Number *</Text>
-                  <View style={styles.phoneInputContainer}>
-                    <View style={styles.countryPrefix}>
+                  <Text style={[styles.inputLabel, isDark && { color: colors.textHeading }]}>Mobile Number *</Text>
+                  <View style={[styles.phoneInputContainer, isDark && { backgroundColor: colors.section, borderColor: colors.border }]}>
+                    <View style={[styles.countryPrefix, isDark && { backgroundColor: colors.background, borderRightColor: colors.border }]}>
                       <Text style={styles.flagEmoji}>🇮🇳</Text>
-                      <Text style={styles.countryCode}>+91</Text>
+                      <Text style={[styles.countryCode, isDark && { color: colors.textHeading }]}>+91</Text>
                     </View>
                     <TextInput
-                      style={styles.phoneInput}
+                      style={[styles.phoneInput, isDark && { color: colors.textHeading }]}
                       placeholder="Enter 10-digit mobile"
-                      placeholderTextColor="#94A3B8"
+                      placeholderTextColor={isDark ? colors.textCaption : '#94A3B8'}
                       keyboardType="number-pad"
                       maxLength={10}
                       value={phone}
@@ -518,9 +598,9 @@ export function AuthScreen({ reason = 'ACCOUNT', onBack }: AuthScreenProps) {
                 </View>
 
                 {/* Pure Firebase Phone OTP Notice */}
-                <View style={styles.otpNoticeRow}>
+                <View style={[styles.otpNoticeRow, isDark && { backgroundColor: 'rgba(22, 163, 74, 0.12)', borderColor: 'rgba(22, 163, 74, 0.25)' }]}>
                   <MaterialCommunityIcons name="shield-check" size={18} color="#16A34A" />
-                  <Text style={styles.otpNoticeText}>
+                  <Text style={[styles.otpNoticeText, isDark && { color: '#86EFAC' }]}>
                     Instant sign in with Firebase SMS verification. No password needed!
                   </Text>
                 </View>
@@ -552,9 +632,10 @@ export function AuthScreen({ reason = 'ACCOUNT', onBack }: AuthScreenProps) {
 
                 {/* Bottom Switch Link */}
                 <View style={styles.bottomSwitchRow}>
-                  <Text style={styles.bottomSwitchMuted}>Don't have an account? </Text>
+                  <Text style={[styles.bottomSwitchMuted, isDark && { color: colors.textCaption }]}>Don't have an account? </Text>
                   <Pressable
                     onPress={() => {
+                      cancelRedirect();
                       setMode('REGISTER');
                       setErrorMessage(null);
                     }}
@@ -565,17 +646,17 @@ export function AuthScreen({ reason = 'ACCOUNT', onBack }: AuthScreenProps) {
 
                 {/* Quick Info Benefits */}
                 <View style={styles.benefitsRow}>
-                  <View style={styles.benefitPill}>
+                  <View style={[styles.benefitPill, isDark && { backgroundColor: colors.section, borderColor: colors.border }]}>
                     <MaterialCommunityIcons name="clock-fast" size={14} color="#16A34A" />
-                    <Text style={styles.benefitText}>2-Hour Express</Text>
+                    <Text style={[styles.benefitText, isDark && { color: '#86EFAC' }]}>2-Hour Express</Text>
                   </View>
-                  <View style={styles.benefitPill}>
+                  <View style={[styles.benefitPill, isDark && { backgroundColor: colors.section, borderColor: colors.border }]}>
                     <MaterialCommunityIcons name="shield-check" size={14} color="#10B981" />
-                    <Text style={styles.benefitText}>100% Safe</Text>
+                    <Text style={[styles.benefitText, isDark && { color: '#86EFAC' }]}>100% Safe</Text>
                   </View>
-                  <View style={styles.benefitPill}>
+                  <View style={[styles.benefitPill, isDark && { backgroundColor: colors.section, borderColor: colors.border }]}>
                     <MaterialCommunityIcons name="truck-fast" size={14} color="#16A34A" />
-                    <Text style={styles.benefitText}>Free Pickup</Text>
+                    <Text style={[styles.benefitText, isDark && { color: '#86EFAC' }]}>Free Pickup</Text>
                   </View>
                 </View>
               </View>
@@ -585,9 +666,9 @@ export function AuthScreen({ reason = 'ACCOUNT', onBack }: AuthScreenProps) {
             {mode === 'REGISTER' && (
               <View style={styles.formSection}>
                 <View style={styles.headerTextRow}>
-                  <Text style={styles.formTitle}>Create Your Account</Text>
+                  <Text style={[styles.formTitle, isDark && { color: colors.textHeading }]}>Create Your Account</Text>
                 </View>
-                <Text style={styles.formSubtitle}>
+                <Text style={[styles.formSubtitle, isDark && { color: colors.textCaption }]}>
                   Join thousands of happy customers enjoying fresh, premium laundry care.
                 </Text>
 
@@ -632,13 +713,13 @@ export function AuthScreen({ reason = 'ACCOUNT', onBack }: AuthScreenProps) {
 
                 {/* 1. Full Name */}
                 <View style={styles.inputGroup}>
-                  <Text style={styles.inputLabel}>Full Name *</Text>
-                  <View style={styles.textInputContainer}>
-                    <MaterialCommunityIcons name="account-outline" size={20} color="#64748B" />
+                  <Text style={[styles.inputLabel, isDark && { color: colors.textHeading }]}>Full Name *</Text>
+                  <View style={[styles.textInputContainer, isDark && { backgroundColor: colors.section, borderColor: colors.border }]}>
+                    <MaterialCommunityIcons name="account-outline" size={20} color={isDark ? colors.textCaption : "#64748B"} />
                     <TextInput
-                      style={styles.textInput}
+                      style={[styles.textInput, isDark && { color: colors.textHeading }]}
                       placeholder="Enter your full name"
-                      placeholderTextColor="#94A3B8"
+                      placeholderTextColor={isDark ? colors.textCaption : "#94A3B8"}
                       value={name}
                       onChangeText={(val) => {
                         const filtered = val.replace(/[^a-zA-Z\s.\-]/g, '');
@@ -652,16 +733,16 @@ export function AuthScreen({ reason = 'ACCOUNT', onBack }: AuthScreenProps) {
 
                 {/* 2. Mobile Phone */}
                 <View style={styles.inputGroup}>
-                  <Text style={styles.inputLabel}>Mobile Number *</Text>
-                  <View style={styles.phoneInputContainer}>
-                    <View style={styles.countryPrefix}>
+                  <Text style={[styles.inputLabel, isDark && { color: colors.textHeading }]}>Mobile Number *</Text>
+                  <View style={[styles.phoneInputContainer, isDark && { backgroundColor: colors.section, borderColor: colors.border }]}>
+                    <View style={[styles.countryPrefix, isDark && { backgroundColor: colors.background, borderRightColor: colors.border }]}>
                       <Text style={styles.flagEmoji}>🇮🇳</Text>
-                      <Text style={styles.countryCode}>+91</Text>
+                      <Text style={[styles.countryCode, isDark && { color: colors.textHeading }]}>+91</Text>
                     </View>
                     <TextInput
-                      style={styles.phoneInput}
+                      style={[styles.phoneInput, isDark && { color: colors.textHeading }]}
                       placeholder="Enter 10-digit mobile"
-                      placeholderTextColor="#94A3B8"
+                      placeholderTextColor={isDark ? colors.textCaption : "#94A3B8"}
                       keyboardType="number-pad"
                       maxLength={10}
                       value={phone}
@@ -676,18 +757,19 @@ export function AuthScreen({ reason = 'ACCOUNT', onBack }: AuthScreenProps) {
 
                 {/* 3. Email Address */}
                 <View style={styles.inputGroup}>
-                  <Text style={styles.inputLabel}>
+                  <Text style={[styles.inputLabel, isDark && { color: colors.textHeading }]}>
                     Email Address{' '}
                     <Text style={{ color: '#16A34A', fontSize: 11 }}>(for order confirmations)</Text>
                   </Text>
-                  <View style={styles.textInputContainer}>
-                    <MaterialCommunityIcons name="email-outline" size={20} color="#64748B" />
+                  <View style={[styles.textInputContainer, isDark && { backgroundColor: colors.section, borderColor: colors.border }]}>
+                    <MaterialCommunityIcons name="email-outline" size={20} color={isDark ? colors.textCaption : "#64748B"} />
                     <TextInput
-                      style={styles.textInput}
+                      style={[styles.textInput, isDark && { color: colors.textHeading }]}
                       placeholder="yourname@gmail.com"
-                      placeholderTextColor="#94A3B8"
+                      placeholderTextColor={isDark ? colors.textCaption : "#94A3B8"}
                       keyboardType="email-address"
                       autoCapitalize="none"
+                      autoCorrect={false}
                       value={email}
                       onChangeText={(val) => {
                         setEmail(val);
@@ -695,17 +777,41 @@ export function AuthScreen({ reason = 'ACCOUNT', onBack }: AuthScreenProps) {
                       }}
                       accessibilityLabel="Email address input"
                     />
+                    {email.length > 0 && (
+                      <Pressable onPress={() => setEmail('')} hitSlop={8}>
+                        <MaterialCommunityIcons name="close-circle" size={18} color={isDark ? colors.textCaption : "#94A3B8"} />
+                      </Pressable>
+                    )}
                   </View>
+                  {email.trim().length > 0 && !email.includes('@') && (
+                    <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 6, marginTop: 6 }}>
+                      <Text style={{ fontSize: 11, color: isDark ? colors.textCaption : '#64748B' }}>Quick add:</Text>
+                      {['@gmail.com', '@yahoo.com', '@outlook.com'].map((domain) => (
+                        <Pressable
+                          key={domain}
+                          style={{
+                            backgroundColor: isDark ? colors.section : '#F0FDF4',
+                            borderWidth: 1,
+                            borderColor: isDark ? colors.border : '#BBF7D0',
+                            paddingHorizontal: 8,
+                            paddingVertical: 3,
+                            borderRadius: 6,
+                          }}
+                          onPress={() => setEmail((prev) => prev.trim() + domain)}
+                        >
+                          <Text style={{ fontSize: 11, fontWeight: '700', color: colors.primary }}>{domain}</Text>
+                        </Pressable>
+                      ))}
+                    </View>
+                  )}
                 </View>
-
-
 
                 {/* 6. Referral Code (Optional) with Gold Accent Badge */}
                 <View style={styles.inputGroup}>
                   <View style={styles.referralHeaderRow}>
-                    <Text style={styles.inputLabel}>
+                    <Text style={[styles.inputLabel, isDark && { color: colors.textHeading }]}>
                       🎁 Referral Code{' '}
-                      <Text style={{ color: '#64748B', fontSize: 11 }}>(Optional)</Text>
+                      <Text style={{ color: isDark ? colors.textCaption : '#64748B', fontSize: 11 }}>(Optional)</Text>
                     </Text>
                     <View style={styles.goldBadge}>
                       <MaterialCommunityIcons name="gift-outline" size={12} color="#B45309" />
@@ -715,6 +821,7 @@ export function AuthScreen({ reason = 'ACCOUNT', onBack }: AuthScreenProps) {
                   <View
                     style={[
                       styles.textInputContainer,
+                      isDark && { backgroundColor: colors.section, borderColor: colors.border },
                       autoDetectedReferral && referralCode.length > 0 && styles.textInputContainerDetected,
                     ]}
                   >
@@ -726,10 +833,11 @@ export function AuthScreen({ reason = 'ACCOUNT', onBack }: AuthScreenProps) {
                     <TextInput
                       style={[
                         styles.textInput,
+                        isDark && { color: colors.textHeading },
                         { textTransform: 'uppercase', letterSpacing: 1.5, fontWeight: '700' },
                       ]}
                       placeholder="e.g. LAUND-AB12"
-                      placeholderTextColor="#94A3B8"
+                      placeholderTextColor={isDark ? colors.textCaption : "#94A3B8"}
                       autoCapitalize="characters"
                       maxLength={12}
                       value={referralCode}
@@ -748,14 +856,14 @@ export function AuthScreen({ reason = 'ACCOUNT', onBack }: AuthScreenProps) {
                         }}
                         hitSlop={8}
                       >
-                        <MaterialCommunityIcons name="close-circle" size={18} color="#94A3B8" />
+                        <MaterialCommunityIcons name="close-circle" size={18} color={isDark ? colors.textCaption : "#94A3B8"} />
                       </Pressable>
                     )}
                   </View>
                   {autoDetectedReferral && referralCode.length > 0 && (
-                    <View style={styles.detectedBadge}>
+                    <View style={[styles.detectedBadge, isDark && { backgroundColor: 'rgba(22, 163, 74, 0.15)', borderColor: 'rgba(22, 163, 74, 0.3)' }]}>
                       <MaterialCommunityIcons name="check-circle" size={14} color="#16A34A" />
-                      <Text style={styles.detectedBadgeText}>
+                      <Text style={[styles.detectedBadgeText, isDark && { color: '#86EFAC' }]}>
                         Invite code {referralCode} auto-detected! ₹{detectedBonus} bonus will be credited.
                       </Text>
                     </View>
@@ -789,7 +897,7 @@ export function AuthScreen({ reason = 'ACCOUNT', onBack }: AuthScreenProps) {
 
                 {/* Bottom Switch Link */}
                 <View style={styles.bottomSwitchRow}>
-                  <Text style={styles.bottomSwitchMuted}>Already have an account? </Text>
+                  <Text style={[styles.bottomSwitchMuted, isDark && { color: colors.textCaption }]}>Already have an account? </Text>
                   <Pressable
                     onPress={() => {
                       setMode('LOGIN');
@@ -801,7 +909,7 @@ export function AuthScreen({ reason = 'ACCOUNT', onBack }: AuthScreenProps) {
                 </View>
 
                 {/* Privacy Note */}
-                <Text style={styles.privacyNote}>
+                <Text style={[styles.privacyNote, isDark && { color: colors.textCaption }]}>
                   By continuing, you agree to our Terms of Service & Privacy Policy.
                 </Text>
               </View>
@@ -811,11 +919,11 @@ export function AuthScreen({ reason = 'ACCOUNT', onBack }: AuthScreenProps) {
             {mode === 'OTP' && (
               <View style={styles.formSection}>
                 <View style={styles.otpHeader}>
-                  <View style={styles.otpIconCircle}>
+                  <View style={[styles.otpIconCircle, isDark && { backgroundColor: 'rgba(22, 163, 74, 0.15)', borderColor: 'rgba(22, 163, 74, 0.3)' }]}>
                     <MaterialCommunityIcons name="message-text-lock" size={34} color="#16A34A" />
                   </View>
-                  <Text style={styles.formTitle}>Verify Your Number</Text>
-                  <Text style={styles.formSubtitle}>
+                  <Text style={[styles.formTitle, isDark && { color: colors.textHeading }]}>Verify Your Number</Text>
+                  <Text style={[styles.formSubtitle, isDark && { color: colors.textCaption }]}>
                     Enter the 6-digit verification code sent to{'\n'}
                     <Text style={styles.phoneHighlight}>+91 {phone}</Text>
                   </Text>
@@ -831,9 +939,9 @@ export function AuthScreen({ reason = 'ACCOUNT', onBack }: AuthScreenProps) {
                 {/* 6-Digit OTP Input */}
                 <View style={styles.otpInputWrapper}>
                   <TextInput
-                    style={styles.otpInput}
+                    style={[styles.otpInput, isDark && { backgroundColor: colors.section, color: colors.textHeading }]}
                     placeholder="000000"
-                    placeholderTextColor="#CBD5E1"
+                    placeholderTextColor={isDark ? colors.textCaption : "#CBD5E1"}
                     keyboardType="number-pad"
                     maxLength={6}
                     value={otp}
@@ -889,9 +997,9 @@ export function AuthScreen({ reason = 'ACCOUNT', onBack }: AuthScreenProps) {
                     </Pressable>
                   ) : (
                     <View style={styles.timerRow}>
-                      <MaterialCommunityIcons name="timer-sand" size={16} color="#64748B" />
-                      <Text style={styles.timerText}>
-                        Resend code in <Text style={styles.timerBold}>{countdown}s</Text>
+                      <MaterialCommunityIcons name="timer-sand" size={16} color={isDark ? colors.textCaption : "#64748B"} />
+                      <Text style={[styles.timerText, isDark && { color: colors.textCaption }]}>
+                        Resend code in <Text style={[styles.timerBold, isDark && { color: colors.textHeading }]}>{countdown}s</Text>
                       </Text>
                     </View>
                   )}
@@ -906,8 +1014,8 @@ export function AuthScreen({ reason = 'ACCOUNT', onBack }: AuthScreenProps) {
                     accessibilityRole="button"
                     accessibilityLabel="Change phone number"
                   >
-                    <MaterialCommunityIcons name="pencil" size={14} color="#64748B" />
-                    <Text style={styles.changeNumberText}>Change Number</Text>
+                    <MaterialCommunityIcons name="pencil" size={14} color={isDark ? colors.textCaption : "#64748B"} />
+                    <Text style={[styles.changeNumberText, isDark && { color: colors.textCaption }]}>Change Number</Text>
                   </Pressable>
                 </View>
               </View>
@@ -924,52 +1032,50 @@ export function AuthScreen({ reason = 'ACCOUNT', onBack }: AuthScreenProps) {
         </ScrollView>
       </KeyboardAvoidingView>
 
-      {/* --- NOT FOUND MODAL: Prompt to Register --- */}
-      <Modal visible={showNotFoundModal} transparent animationType="fade">
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalCard}>
-            <View style={styles.modalIconWrap}>
-              <MaterialCommunityIcons name="account-question-outline" size={38} color="#16A34A" />
+      {/* --- 3-SECOND ACCOUNT NOT FOUND TOAST (Auto-redirects to Register) --- */}
+      {redirectCountdown !== null && (
+        <Animated.View style={[styles.redirectToastWrap, { opacity: toastAnim }]}>
+          <View style={[styles.redirectToastCard, isDark && styles.redirectToastCardDark]}>
+            <View style={styles.redirectToastIconWrap}>
+              <MaterialCommunityIcons name="account-search-outline" size={24} color="#16A34A" />
             </View>
 
-            <Text style={styles.modalTitle}>Account Not Found</Text>
-            <Text style={styles.modalSubtitle}>
-              We couldn't find an existing account for{' '}
-              <Text style={styles.modalPhone}>+91 {phone}</Text>.
-            </Text>
-            <Text style={styles.modalNote}>
-              Would you like to register as a new customer? It takes less than 30 seconds.
-            </Text>
+            <View style={styles.redirectToastTextCol}>
+              <View style={styles.redirectToastHeaderRow}>
+                <Text style={[styles.redirectToastTitle, isDark && { color: '#FFFFFF' }]}>
+                  Account Not Found
+                </Text>
+                <View style={styles.redirectBadge}>
+                  <Text style={styles.redirectBadgeText}>{redirectCountdown}s</Text>
+                </View>
+              </View>
 
-            <View style={styles.modalButtons}>
-              <Pressable
-                style={styles.modalPrimaryBtnWrapper}
-                onPress={navigateToRegister}
-                accessibilityRole="button"
-                accessibilityLabel="Create New Account"
-              >
-                <LinearGradient
-                  colors={['#16A34A', '#10B981']}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 0 }}
-                  style={styles.modalPrimaryBtnGradient}
-                >
-                  <Text style={styles.modalPrimaryText}>Create New Account →</Text>
-                </LinearGradient>
-              </Pressable>
-
-              <Pressable
-                style={styles.modalSecondaryBtn}
-                onPress={() => setShowNotFoundModal(false)}
-                accessibilityRole="button"
-                accessibilityLabel="Check Mobile Number"
-              >
-                <Text style={styles.modalSecondaryText}>Check Mobile Number</Text>
-              </Pressable>
+              <Text style={[styles.redirectToastSub, isDark && { color: '#CBD5E1' }]} numberOfLines={2}>
+                No account for +91 {phone}. Going to registration in{' '}
+                <Text style={{ fontWeight: '800', color: isDark ? '#86EFAC' : '#15803D' }}>{redirectCountdown}s</Text>...
+              </Text>
             </View>
+
+            <Pressable
+              style={({ pressed }) => [styles.redirectToastActionBtn, pressed && { opacity: 0.85 }]}
+              onPress={goToRegisterNow}
+              accessibilityRole="button"
+              accessibilityLabel="Register Now"
+            >
+              <Text style={styles.redirectToastActionBtnText}>Register →</Text>
+            </Pressable>
+
+            <Pressable
+              style={styles.redirectToastCloseBtn}
+              onPress={cancelRedirect}
+              hitSlop={8}
+              accessibilityLabel="Cancel redirect"
+            >
+              <MaterialCommunityIcons name="close" size={16} color={isDark ? '#94A3B8' : '#64748B'} />
+            </Pressable>
           </View>
-        </View>
-      </Modal>
+        </Animated.View>
+      )}
     </View>
   );
 }
@@ -1551,6 +1657,98 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
     color: '#16A34A',
+  },
+
+  // ==================== 3-SECOND REDIRECT TOAST ====================
+  redirectToastWrap: {
+    position: 'absolute',
+    top: Platform.OS === 'ios' ? 52 : 24,
+    left: 14,
+    right: 14,
+    zIndex: 9999,
+  },
+  redirectToastCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 18,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    borderWidth: 1.5,
+    borderColor: '#86EFAC',
+    shadowColor: '#16A34A',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 10,
+    elevation: 8,
+  },
+  redirectToastCardDark: {
+    backgroundColor: '#1E293B',
+    borderColor: '#15803D',
+    shadowColor: '#000000',
+  },
+  redirectToastIconWrap: {
+    width: 38,
+    height: 38,
+    borderRadius: 12,
+    backgroundColor: '#DCFCE7',
+    justifyContent: 'center',
+    alignItems: 'center',
+    flexShrink: 0,
+  },
+  redirectToastTextCol: {
+    flex: 1,
+    minWidth: 0,
+  },
+  redirectToastHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  redirectToastTitle: {
+    fontSize: 13.5,
+    fontWeight: '800',
+    color: '#0F172A',
+    letterSpacing: -0.2,
+  },
+  redirectBadge: {
+    backgroundColor: '#DCFCE7',
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    borderRadius: 6,
+  },
+  redirectBadgeText: {
+    fontSize: 10.5,
+    fontWeight: '800',
+    color: '#15803D',
+  },
+  redirectToastSub: {
+    fontSize: 11.5,
+    color: '#64748B',
+    marginTop: 2,
+    lineHeight: 15,
+  },
+  redirectToastActionBtn: {
+    backgroundColor: '#16A34A',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    flexShrink: 0,
+    shadowColor: '#16A34A',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3,
+    elevation: 2,
+  },
+  redirectToastActionBtnText: {
+    fontSize: 11.5,
+    fontWeight: '800',
+    color: '#FFFFFF',
+  },
+  redirectToastCloseBtn: {
+    padding: 4,
+    flexShrink: 0,
   },
 
   // ==================== MODAL (Account Not Found) ====================

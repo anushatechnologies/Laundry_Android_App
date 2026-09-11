@@ -177,7 +177,7 @@ export function AppProvider({ children }: PropsWithChildren) {
     if (!session?.user.id) return;
     setIsRefreshing(true);
     try {
-      const [nextOrders, nextAddresses, nextWishlist, nextPreferences, nextWallet] = await Promise.all([
+      const [nextOrders, nextAddresses, nextWishlist, nextPreferences, nextWallet, latestProfile] = await Promise.all([
         api.getOrders(session.user.id),
         api.getAddresses(session.user.id),
         api.getWishlist(session.user.id).catch(() => []),
@@ -186,9 +186,25 @@ export function AppProvider({ children }: PropsWithChildren) {
           console.warn('[AppContext] getWallet error:', err);
           return null;
         }),
+        api.getProfile(session.user.id).catch(() => null),
       ]);
       setOrders(nextOrders);
       setAddresses(nextAddresses);
+      if (latestProfile && (latestProfile.email !== session.user.email || latestProfile.name !== session.user.name)) {
+        setSession((prev) => {
+          if (!prev) return prev;
+          const updated: AuthSession = {
+            ...prev,
+            user: {
+              ...prev.user,
+              name: latestProfile.name || prev.user.name,
+              email: latestProfile.email !== undefined ? latestProfile.email : prev.user.email,
+            },
+          };
+          void writeSession(updated);
+          return updated;
+        });
+      }
       if (nextWallet) {
         setWallet(nextWallet);
         const bal = Number(nextWallet.balance ?? (nextWallet as any).wallet?.balance ?? 0);
@@ -259,8 +275,8 @@ export function AppProvider({ children }: PropsWithChildren) {
 
   useEffect(() => {
     if (!ready) return;
-    void writeCart(cart).catch(() => undefined);
-  }, [cart, ready]);
+    void writeCart(cart, session?.user?.id).catch(() => undefined);
+  }, [cart, ready, session?.user?.id]);
 
   useEffect(() => {
     if (!ready || !session?.user.id) {
@@ -569,6 +585,9 @@ export function AppProvider({ children }: PropsWithChildren) {
 
         // Restore bag items so customer can retry or switch to COD
         setCart(cartSnapshot);
+
+        // Instantly refresh wallet so reversed wallet money is immediately available in UI
+        await refreshWallet().catch(() => undefined);
 
         const parsed = parsePaymentError(err);
         const forwardErr = new Error(parsed.message);

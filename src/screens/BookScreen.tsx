@@ -139,7 +139,7 @@ export function BookScreen({
   hasBottomTabBar = false,
   onStageChange,
 }: BookScreenProps) {
-    const { colors } = useTheme();
+  const { colors, isDark } = useTheme();
   const insets = useSafeAreaInsets();
   const {
     session,
@@ -253,10 +253,11 @@ export function BookScreen({
   const selectedAddress = safeAddresses.find((a) => a && a.id === selectedAddressId) || safeAddresses.find((a) => a && a.isDefault) || safeAddresses[0];
   const safeSlots = Array.isArray(slots) ? slots : [];
   const selectedSlot = safeSlots.find((s) => s && s.id === selectedSlotId && s.isAvailable && !s.isPast);
+  const safeCart = Array.isArray(cart) ? cart : [];
 
   // Validate serviceability when an address is selected or pre-filled
   useEffect(() => {
-    const pin = selectedAddress?.pincode?.trim();
+    const pin = String(selectedAddress?.pincode || '').trim();
     if (!pin || pin.length < 6) {
       setSelectedAddressServiceable(null);
       setSelectedAddressMessage(null);
@@ -289,8 +290,8 @@ export function BookScreen({
 
   // Validate serviceability for draft address when user is adding/typing a new address
   useEffect(() => {
-    if (!addingAddress && addresses.length > 0) return;
-    const pin = draft.pincode?.trim();
+    if (!addingAddress && safeAddresses.length > 0) return;
+    const pin = String(draft.pincode || '').trim();
     if (!pin || pin.length < 6) {
       setDraftServiceable(null);
       setDraftServiceMessage(null);
@@ -316,10 +317,10 @@ export function BookScreen({
         if (active) setCheckingDraftService(false);
       });
     return () => { active = false; };
-  }, [addingAddress, addresses.length, draft.pincode, validatePincode]);
+  }, [addingAddress, safeAddresses.length, draft.pincode, validatePincode]);
 
   const draftDeliveryCalc = useMemo(() => {
-    const pin = draft.pincode?.trim();
+    const pin = String(draft.pincode || '').trim();
     const lat = typeof draft.latitude === 'number' && !isNaN(draft.latitude) && draft.latitude !== 0 ? draft.latitude : undefined;
     const lng = typeof draft.longitude === 'number' && !isNaN(draft.longitude) && draft.longitude !== 0 ? draft.longitude : undefined;
     return calculateLocalDeliveryFee({
@@ -336,7 +337,7 @@ export function BookScreen({
   // house number. Prefill that checkout form instead of silently creating an
   // incomplete saved address.
   useEffect(() => {
-    if (!deliveryLocation || addresses.length > 0) return;
+    if (!deliveryLocation || safeAddresses.length > 0) return;
 
     const street = deliveryLocation.formattedAddress || deliveryLocation.address || '';
     const landmark = deliveryLocation.areaName || deliveryLocation.locality || '';
@@ -360,7 +361,7 @@ export function BookScreen({
       });
     }
   }, [
-    addresses.length,
+    safeAddresses.length,
     deliveryLocation?.address,
     deliveryLocation?.areaName,
     deliveryLocation?.city,
@@ -387,7 +388,7 @@ export function BookScreen({
       const location = locationResult.location;
 
       // Reverse geocode using backend API (which calls Google Maps) or Expo
-      const pincode = location.pincode || '';
+      const pincode = String(location.pincode || '').trim();
       const street = location.formattedAddress || location.address || '';
       const city = location.city || '';
       const state = location.state || '';
@@ -435,7 +436,7 @@ export function BookScreen({
 
   // Fetch live delivery fee from backend calculation engine based on customer coordinates/pincode
   useEffect(() => {
-    const isAddingNew = addingAddress || addresses.length === 0;
+    const isAddingNew = addingAddress || safeAddresses.length === 0;
     const rawLat = isAddingNew
       ? (draft.latitude || undefined)
       : (selectedAddress?.latitude ?? deliveryLocation?.latitude ?? (draft.latitude || undefined));
@@ -444,7 +445,7 @@ export function BookScreen({
       : (selectedAddress?.longitude ?? deliveryLocation?.longitude ?? (draft.longitude || undefined));
     const lat = typeof rawLat === 'number' && !isNaN(rawLat) && rawLat !== 0 ? rawLat : undefined;
     const lng = typeof rawLng === 'number' && !isNaN(rawLng) && rawLng !== 0 ? rawLng : undefined;
-    const pin = (isAddingNew
+    const pin = String(isAddingNew
       ? draft.pincode
       : (selectedAddress?.pincode || deliveryLocation?.pincode || draft.pincode) || '').trim();
 
@@ -488,7 +489,7 @@ export function BookScreen({
     return () => { active = false; };
   }, [
     addingAddress,
-    addresses.length,
+    safeAddresses.length,
     selectedAddress?.id,
     selectedAddress?.latitude,
     selectedAddress?.longitude,
@@ -524,7 +525,6 @@ export function BookScreen({
 
   // Subscription Weight Quota Calculation (Bulk KG + Garments estimated weight):
   const bulkKg = Number(cartSummary?.totalKg || 0);
-  const safeCart = Array.isArray(cart) ? cart : [];
   const pieceCount = safeCart.filter((item) => item && item.pricingModel !== 'PER_KG').reduce((sum, item) => sum + (Number(item?.quantity) || 0), 0);
   const pieceKg = Number((pieceCount * 0.25).toFixed(1));
   const orderWeightKg = bulkKg > 0 ? Number((bulkKg + pieceKg).toFixed(1)) : Math.max(1, pieceKg);
@@ -554,7 +554,7 @@ export function BookScreen({
   const taxableAmount = Math.max(0, cartSummary.itemTotal - subQuotaDiscount - couponDiscount + deliveryFee + expressCharge);
   const gstCharge = Number((taxableAmount * (taxPercentage / 100)).toFixed(2));
   const preWalletTotal = Math.max(0, Number((taxableAmount + gstCharge).toFixed(2)));
-  const walletDeduction = (useWallet && walletBalance > 0) ? Math.min(walletBalance, preWalletTotal) : 0;
+  const walletDeduction = (useWallet && Number(walletBalance || 0) > 0) ? Math.min(Number(walletBalance || 0), preWalletTotal) : 0;
   const finalPayable = Math.max(0, Number((preWalletTotal - walletDeduction).toFixed(2)));
   const totalSavings = subQuotaDiscount + couponDiscount + (isFreeDelivery ? standardDeliveryFee : 0) + walletDeduction;
 
@@ -575,7 +575,7 @@ export function BookScreen({
   }, [subHasFreeDelivery, isFreeDelivery, liveDeliveryCalc?.breakdown, liveDeliveryCalc?.distanceKm, freeDeliveryThreshold, standardDeliveryFee]);
 
   const handleApplyCoupon = async (code: string, isManual: boolean = true) => {
-    const cleanCode = code.trim().toUpperCase();
+    const cleanCode = String(code || '').trim().toUpperCase();
     if (!cleanCode) {
       if (isManual) setCouponInputError('Please enter a valid coupon code.');
       return;
@@ -621,7 +621,7 @@ export function BookScreen({
   // Safe auto-apply: only runs once per unique coupon code without popup alerts
   useEffect(() => {
     if (initialCouponCode && cartSummary.itemTotal > 0 && !couponApplied && pricingSettings) {
-      const clean = initialCouponCode.trim().toUpperCase();
+      const clean = String(initialCouponCode || '').trim().toUpperCase();
       if (!attemptedCouponRef.current.has(clean)) {
         attemptedCouponRef.current.add(clean);
         onClearInitialCoupon?.();
@@ -682,7 +682,7 @@ export function BookScreen({
   };
 
   const continueToDetails = () => {
-    if (!cart.length) {
+    if (!safeCart.length) {
       Alert.alert('Empty Bag', 'Please add at least one garment or bulk laundry package.');
       return;
     }
@@ -698,7 +698,7 @@ export function BookScreen({
       Alert.alert('Address Required', 'Please select or add a doorstep pickup address.');
       return;
     }
-    const pin = selectedAddress.pincode?.trim();
+    const pin = String(selectedAddress.pincode || '').trim();
     if (pin) {
       try {
         const check = await validatePincode(pin);
@@ -724,7 +724,7 @@ export function BookScreen({
 
   const placeOrder = async (overrideMethod?: PaymentMethod) => {
     if (!selectedAddress || !selectedSlot) return;
-    const pin = selectedAddress.pincode?.trim();
+    const pin = String(selectedAddress.pincode || '').trim();
     if (pin) {
       try {
         const check = await validatePincode(pin);
@@ -769,7 +769,7 @@ export function BookScreen({
         subscriptionDiscount: (useSubscription && activeSubscription && subQuotaDiscount > 0) ? subQuotaDiscount : undefined,
         walletDeduction: walletDeduction > 0 ? walletDeduction : undefined,
         couponCode: couponApplied ? couponCode : undefined,
-        notes: notes.trim() || undefined,
+        notes: String(notes || '').trim() || undefined,
         onLaunchOnlinePayment: !isZeroPayable && !isFullWalletPayment && effectiveMethod === 'ONLINE_RAZORPAY' ? handleLaunchOnlinePayment : undefined,
       });
 
@@ -872,10 +872,10 @@ export function BookScreen({
     >
       <View style={[styles.root, { backgroundColor: colors.background }]}>
         {/* 1. TOP STEP PROGRESS INDICATOR */}
-        <View style={styles.stepHeader}>
+        <View style={[styles.stepHeader, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
           <View style={styles.stepHeaderTopRow}>
             <Pressable
-              style={styles.stepBackBtn}
+              style={[styles.stepBackBtn, { backgroundColor: colors.section }]}
               onPress={() => {
                 if (stage === 'REVIEW') setStage('DETAILS');
                 else if (stage === 'DETAILS') setStage('BAG');
@@ -886,9 +886,9 @@ export function BookScreen({
               accessibilityRole="button"
               accessibilityLabel="Back"
             >
-              <MaterialCommunityIcons name="arrow-left" size={22} color="#0F172A" />
+              <MaterialCommunityIcons name="arrow-left" size={22} color={colors.textHeading} />
             </Pressable>
-            <Text style={styles.stepHeaderMainTitle}>
+            <Text style={[styles.stepHeaderMainTitle, { color: colors.textHeading }]}>
               {stage === 'BAG' ? 'My Bag' : stage === 'DETAILS' ? 'Schedule Pickup' : 'Review & Pay'}
             </Text>
             <View style={{ width: 34 }} />
@@ -896,39 +896,39 @@ export function BookScreen({
 
           <View style={styles.stepsRow}>
             <Pressable
-              style={[styles.stepDot, stage === 'BAG' ? styles.stepDotActive : styles.stepDotCompleted]}
+              style={[styles.stepDot, { borderColor: colors.border }, stage === 'BAG' ? styles.stepDotActive : styles.stepDotCompleted]}
               onPress={() => setStage('BAG')}
             >
-              <Text style={[styles.stepDotNum, (stage === 'BAG' || stage === 'DETAILS' || stage === 'REVIEW') && styles.stepDotNumActive]}>
+              <Text style={[styles.stepDotNum, { color: colors.textCaption }, (stage === 'BAG' || stage === 'DETAILS' || stage === 'REVIEW') && styles.stepDotNumActive]}>
                 1
               </Text>
             </Pressable>
-            <View style={[styles.stepLine, (stage === 'DETAILS' || stage === 'REVIEW') && styles.stepLineActive]} />
+            <View style={[styles.stepLine, { backgroundColor: colors.border }, (stage === 'DETAILS' || stage === 'REVIEW') && styles.stepLineActive]} />
 
             <Pressable
-              style={[styles.stepDot, stage === 'DETAILS' ? styles.stepDotActive : stage === 'REVIEW' ? styles.stepDotCompleted : styles.stepDotPending]}
-              onPress={() => { if (cart.length > 0 && session) setStage('DETAILS'); }}
+              style={[styles.stepDot, { backgroundColor: colors.section, borderColor: colors.border }, stage === 'DETAILS' ? styles.stepDotActive : stage === 'REVIEW' ? styles.stepDotCompleted : styles.stepDotPending]}
+              onPress={() => { if (safeCart.length > 0 && session) setStage('DETAILS'); }}
             >
-              <Text style={[styles.stepDotNum, (stage === 'DETAILS' || stage === 'REVIEW') && styles.stepDotNumActive]}>
+              <Text style={[styles.stepDotNum, { color: colors.textCaption }, (stage === 'DETAILS' || stage === 'REVIEW') && styles.stepDotNumActive]}>
                 2
               </Text>
             </Pressable>
-            <View style={[styles.stepLine, stage === 'REVIEW' && styles.stepLineActive]} />
+            <View style={[styles.stepLine, { backgroundColor: colors.border }, stage === 'REVIEW' && styles.stepLineActive]} />
 
             <Pressable
-              style={[styles.stepDot, stage === 'REVIEW' ? styles.stepDotActive : styles.stepDotPending]}
+              style={[styles.stepDot, { backgroundColor: colors.section, borderColor: colors.border }, stage === 'REVIEW' ? styles.stepDotActive : styles.stepDotPending]}
               onPress={() => { if (selectedAddress && selectedSlot) setStage('REVIEW'); }}
             >
-              <Text style={[styles.stepDotNum, stage === 'REVIEW' && styles.stepDotNumActive]}>
+              <Text style={[styles.stepDotNum, { color: colors.textCaption }, stage === 'REVIEW' && styles.stepDotNumActive]}>
                 3
               </Text>
             </Pressable>
           </View>
 
           <View style={styles.stepLabelsRow}>
-            <Text style={[styles.stepLabelText, stage === 'BAG' && styles.stepLabelTextActive]}>1. Bag</Text>
-            <Text style={[styles.stepLabelText, stage === 'DETAILS' && styles.stepLabelTextActive]}>2. Pickup & Slot</Text>
-            <Text style={[styles.stepLabelText, stage === 'REVIEW' && styles.stepLabelTextActive]}>3. Pay & Review</Text>
+            <Text style={[styles.stepLabelText, { color: colors.textCaption }, stage === 'BAG' && styles.stepLabelTextActive]}>1. Bag</Text>
+            <Text style={[styles.stepLabelText, { color: colors.textCaption }, stage === 'DETAILS' && styles.stepLabelTextActive]}>2. Pickup & Slot</Text>
+            <Text style={[styles.stepLabelText, { color: colors.textCaption }, stage === 'REVIEW' && styles.stepLabelTextActive]}>3. Pay & Review</Text>
           </View>
         </View>
 
@@ -943,11 +943,11 @@ export function BookScreen({
         {stage === 'BAG' && (
           <View style={styles.stageWrap}>
             <View style={styles.stageTitleRow}>
-              <Text style={styles.stageTitle}>Garments in Your Bag ({cartSummary.itemCount})</Text>
-              <Text style={styles.stageSubtitle}>Review items or adjust quantity before scheduling</Text>
+              <Text style={[styles.stageTitle, { color: colors.textHeading }]}>Garments in Your Bag ({cartSummary.itemCount})</Text>
+              <Text style={[styles.stageSubtitle, { color: colors.textCaption }]}>Review items or adjust quantity before scheduling</Text>
             </View>
 
-            {cart.length === 0 ? (
+            {safeCart.length === 0 ? (
               <View style={styles.luxuryEmptyCartWrap}>
                 {/* Visual Icon Badge */}
                 <View style={styles.emptyIconCircle}>
@@ -1027,9 +1027,18 @@ export function BookScreen({
                   }
                   const imageUrl = getGarmentImageUrl(rawClothId || 'cloth-shirt', item.imageUrl, item.categoryName, item.serviceName);
 
+                  const rawName = item.serviceName ? item.serviceName.replace(/\s*\((null|undefined)\)/gi, '').trim() : 'Garment';
+                  let mainTitle = rawName;
+                  let serviceTag = '';
+                  const parenMatch = rawName.match(/^([^(]+?)\s*\((.+)\)\s*$/);
+                  if (parenMatch && parenMatch[1] && parenMatch[2]) {
+                    mainTitle = parenMatch[1].trim();
+                    serviceTag = parenMatch[2].replace(/^\(+/, '').replace(/\)+$/, '').trim().replace(/\s*\(([^)]+)\)/g, ' • $1');
+                  }
+
                   return (
-                    <View key={item.id} style={styles.cartCard}>
-                      <View style={styles.cartCardThumb}>
+                    <View key={item.id} style={[styles.cartCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                      <View style={[styles.cartCardThumb, { backgroundColor: colors.section }]}>
                         <Image
                           source={{ uri: imageUrl }}
                           style={styles.cartImage}
@@ -1038,48 +1047,57 @@ export function BookScreen({
                       </View>
 
                       <View style={styles.cartCardDetails}>
-                        <Text style={styles.cartItemName} numberOfLines={1}>{item.serviceName ? item.serviceName.replace(/\s*\((null|undefined)\)/gi, '').trim() : 'Garment'}</Text>
-                        <Text style={styles.cartItemRate}>₹{item.unitPrice}/{item.unit || (isBulk ? 'KG' : 'Piece')}</Text>
+                        <Text style={[styles.cartItemName, { color: colors.textHeading }]} numberOfLines={1}>
+                          {mainTitle}
+                        </Text>
+                        <Text style={[styles.cartItemRate, { color: colors.textCaption }]} numberOfLines={1}>
+                          ₹{item.unitPrice}/{item.unit || (isBulk ? 'KG' : 'Piece')}{serviceTag ? ` • ${serviceTag}` : ''}
+                        </Text>
 
                         <View style={styles.cartCardActions}>
-                          {/* Trash Delete Action */}
-                          <Pressable
-                            style={{ marginRight: 6 }}
-                            onPress={() => removeFromCart(item.id)}
-                            hitSlop={8}
-                          >
-                            <MaterialCommunityIcons name="trash-can-outline" size={17} color="#94A3B8" />
-                          </Pressable>
+                          <Text style={[styles.cartItemSubtotal, { color: isDark ? '#4ADE80' : '#16A34A' }]}>
+                            {money(item.subtotal)}
+                          </Text>
 
-                          <View style={styles.stepperContainer}>
+                          <View style={styles.cartActionsRight}>
                             <Pressable
-                              style={styles.stepperBtn}
-                              onPress={() => {
-                                if (isBulk && item.quantity <= 3) {
-                                  removeFromCart(item.id);
-                                } else if (item.quantity <= 1) {
-                                  removeFromCart(item.id);
-                                } else {
-                                  setCartQuantity(item.id, item.quantity - 1);
-                                }
-                              }}
+                              style={styles.cartDeleteBtn}
+                              onPress={() => removeFromCart(item.id)}
                               hitSlop={8}
+                              accessibilityRole="button"
+                              accessibilityLabel={`Remove ${mainTitle} from bag`}
                             >
-                              <MaterialCommunityIcons name="minus" size={13} color="#FFFFFF" />
+                              <MaterialCommunityIcons name="trash-can-outline" size={18} color="#94A3B8" />
                             </Pressable>
 
-                            <Text style={styles.stepperCountText}>{item.quantity}{isBulk ? 'kg' : ''}</Text>
+                            <View style={styles.stepperContainer}>
+                              <Pressable
+                                style={styles.stepperBtn}
+                                onPress={() => {
+                                  if (isBulk && item.quantity <= 3) {
+                                    removeFromCart(item.id);
+                                  } else if (item.quantity <= 1) {
+                                    removeFromCart(item.id);
+                                  } else {
+                                    setCartQuantity(item.id, item.quantity - 1);
+                                  }
+                                }}
+                                hitSlop={8}
+                              >
+                                <MaterialCommunityIcons name="minus" size={13} color="#FFFFFF" />
+                              </Pressable>
 
-                            <Pressable
-                              style={styles.stepperBtn}
-                              onPress={() => setCartQuantity(item.id, item.quantity + 1)}
-                              hitSlop={8}
-                            >
-                              <MaterialCommunityIcons name="plus" size={13} color="#FFFFFF" />
-                            </Pressable>
+                              <Text style={styles.stepperCountText}>{item.quantity}{isBulk ? 'kg' : ''}</Text>
+
+                              <Pressable
+                                style={styles.stepperBtn}
+                                onPress={() => setCartQuantity(item.id, item.quantity + 1)}
+                                hitSlop={8}
+                              >
+                                <MaterialCommunityIcons name="plus" size={13} color="#FFFFFF" />
+                              </Pressable>
+                            </View>
                           </View>
-
-                          <Text style={styles.cartItemSubtotal}>{money(item.subtotal)}</Text>
                         </View>
                       </View>
                     </View>
@@ -1089,7 +1107,7 @@ export function BookScreen({
             )}
 
             {/* Dynamic Delivery Autocalculation Progress Bar */}
-            {cart.length > 0 && (
+            {safeCart.length > 0 && (
               <View style={[styles.deliveryProgressCard, isFreeDelivery && styles.deliveryProgressCardFree]}>
                 <View style={styles.deliveryProgressTop}>
                   <View style={[styles.deliveryProgressIconCircle, isFreeDelivery && styles.deliveryProgressIconCircleFree]}>
@@ -1127,7 +1145,7 @@ export function BookScreen({
             )}
 
             {/* ================= BIGBASKET-STYLE COUPONS & OFFERS SECTION ================= */}
-            {cart.length > 0 && (
+            {safeCart.length > 0 && (
               <View style={styles.bbCouponCardContainer}>
                 {!couponApplied ? (
                   <Pressable
@@ -1145,14 +1163,14 @@ export function BookScreen({
                       </View>
                       <View style={{ flex: 1 }}>
                         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                          <Text style={styles.bbCouponTitle}>Avail Offers / Coupons</Text>
+                          <Text style={[styles.bbCouponTitle, { color: colors.textHeading }]}>Avail Offers / Coupons</Text>
                           {activeCouponsList.length > 0 && (
                             <View style={styles.bbCouponCountBadge}>
                               <Text style={styles.bbCouponCountText}>{activeCouponsList.length} OFFERS</Text>
                             </View>
                           )}
                         </View>
-                        <Text style={styles.bbCouponSubtitle} numberOfLines={1}>
+                        <Text style={[styles.bbCouponSubtitle, { color: colors.textCaption }]} numberOfLines={1}>
                           {couponErrorInline ? couponErrorInline : 'Tap to view exclusive promo codes and savings'}
                         </Text>
                       </View>
@@ -1201,10 +1219,10 @@ export function BookScreen({
             )}
 
             {/* UPFRONT BILL BREAKDOWN IN STAGE 1 (BAG) */}
-            {cart.length > 0 && (
-              <Card style={styles.billCard}>
+            {safeCart.length > 0 && (
+              <Card style={[styles.billCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
                 <View style={styles.billCardHeaderRow}>
-                  <Text style={styles.billCardTitle}>Bill Summary</Text>
+                  <Text style={[styles.billCardTitle, { color: colors.textHeading }]}>Bill Summary</Text>
                   <View style={styles.billSecureBadge}>
                     <MaterialCommunityIcons name="calculator-variant-outline" size={13} color="#166534" />
                     <Text style={styles.billSecureText}>Live Backend Rate</Text>
@@ -1214,13 +1232,13 @@ export function BookScreen({
                 {/* 1. Items subtotal */}
                 <View style={styles.billLine}>
                   <View>
-                    <Text style={styles.billLineLabel}>Items Subtotal ({cartSummary.itemCount} items)</Text>
-                    <Text style={styles.billLineSubtext}>Care & dry clean base charges</Text>
+                    <Text style={[styles.billLineLabel, { color: colors.textHeading }]}>Items Total</Text>
+                    <Text style={[styles.billLineSubtext, { color: colors.textCaption }]}>Actual garment rate</Text>
                   </View>
-                  <Text style={styles.billLineVal}>{money(cartSummary.itemTotal)}</Text>
+                  <Text style={[styles.billLineVal, { color: colors.textHeading }]}>{money(cartSummary.itemTotal)}</Text>
                 </View>
 
-                {/* 2. Subscription Quota Applied */}
+                {/* 2. Membership Quota Discount */}
                 {subQuotaDiscount > 0 && (
                   <View style={styles.billLine}>
                     <View style={{ flex: 1, paddingRight: 8 }}>
@@ -1241,8 +1259,8 @@ export function BookScreen({
                 <View style={styles.billLine}>
                   <View style={{ flex: 1, paddingRight: 8 }}>
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-                      <Text style={styles.billLineLabel}>Doorstep Pickup & Delivery</Text>
-                      {liveDeliveryCalc?.distanceKm && liveDeliveryCalc.distanceKm > 0 ? (
+                      <Text style={[styles.billLineLabel, { color: colors.textHeading }]}>Doorstep Pickup & Delivery</Text>
+                      {stage !== 'BAG' && liveDeliveryCalc?.distanceKm && liveDeliveryCalc.distanceKm > 0 ? (
                         <View style={{ backgroundColor: '#E0F2FE', paddingHorizontal: 6, paddingVertical: 1.5, borderRadius: 6 }}>
                           <Text style={{ fontSize: 10, fontWeight: '700', color: '#0369A1' }}>
                             📍 {liveDeliveryCalc.distanceKm} km
@@ -1250,8 +1268,10 @@ export function BookScreen({
                         </View>
                       ) : null}
                     </View>
-                    <Text style={styles.billLineSubtext}>
-                      {deliveryDistanceNote}
+                    <Text style={[styles.billLineSubtext, { color: colors.textCaption }]}>
+                      {stage === 'BAG' && !isFreeDelivery
+                        ? `Standard delivery fee (Free on orders above ${money(freeDeliveryThreshold)})`
+                        : deliveryDistanceNote}
                     </Text>
                   </View>
                   {isFreeDelivery ? (
@@ -1260,7 +1280,7 @@ export function BookScreen({
                       <Text style={[styles.billLineVal, { color: '#16A34A', fontWeight: '800' }]}>FREE</Text>
                     </View>
                   ) : (
-                    <Text style={styles.billLineVal}>{money(deliveryFee)}</Text>
+                    <Text style={[styles.billLineVal, { color: colors.textHeading }]}>{money(deliveryFee)}</Text>
                   )}
                 </View>
 
@@ -1278,12 +1298,12 @@ export function BookScreen({
                 {/* 5. GST */}
                 <View style={styles.billLine}>
                   <View>
-                    <Text style={styles.billLineLabel}>
+                    <Text style={[styles.billLineLabel, { color: colors.textHeading }]}>
                       {!isGstEnabled || taxPercentage === 0 ? 'GST (Temporarily Waived)' : `GST & Taxes (${taxPercentage}%)`}
                     </Text>
-                    <Text style={styles.billLineSubtext}>{!isGstEnabled || taxPercentage === 0 ? 'GST waived by merchant' : `${taxPercentage}% GST on taxable subtotal`}</Text>
+                    <Text style={[styles.billLineSubtext, { color: colors.textCaption }]}>{!isGstEnabled || taxPercentage === 0 ? 'GST waived by merchant' : `${taxPercentage}% GST on taxable subtotal`}</Text>
                   </View>
-                  <Text style={[styles.billLineVal, (!isGstEnabled || taxPercentage === 0) && { color: '#16A34A' }]}>
+                  <Text style={[styles.billLineVal, { color: colors.textHeading }, (!isGstEnabled || taxPercentage === 0) && { color: '#16A34A' }]}>
                     {!isGstEnabled || taxPercentage === 0 ? '₹0 (0%)' : money(gstCharge)}
                   </Text>
                 </View>
@@ -1300,56 +1320,37 @@ export function BookScreen({
                       </Text>
                     </View>
                     <Text style={[styles.billLineVal, { color: '#16A34A', fontWeight: '800' }]}>
-                      -₹{walletDeduction.toFixed(2)}
+                      -₹{Number(walletDeduction || 0).toFixed(2)}
                     </Text>
                   </View>
                 )}
 
-                <View style={styles.billDivider} />
+                <View style={[styles.billDivider, { backgroundColor: colors.border }]} />
 
                 {/* Grand Total Row */}
                 <View style={styles.billFinalRow}>
                   <View>
-                    <Text style={styles.billGrandLabel}>Estimated Total</Text>
+                    <Text style={[styles.billGrandLabel, { color: colors.textHeading }]}>Estimated Total</Text>
                     {totalSavings > 0 && (
                       <Text style={styles.billSavingsText}>🎉 You saved {money(totalSavings)} on this order</Text>
                     )}
                   </View>
-                  <Text style={styles.billGrandVal}>{money(finalPayable)}</Text>
+                  <Text style={[styles.billGrandVal, { color: colors.primaryLight }]}>{money(finalPayable)}</Text>
                 </View>
               </Card>
             )}
 
             {/* Turnaround Quality Assurance Box */}
-            <View style={styles.assuranceBox}>
+            <View style={[styles.assuranceBox, { backgroundColor: colors.surface, borderColor: colors.border }]}>
               <View style={styles.assuranceRow}>
                 <MaterialCommunityIcons name="shield-check" size={18} color="#16A34A" />
-                <Text style={styles.assuranceText}>100% Free Re-wash Guarantee on all dry cleaned garments</Text>
+                <Text style={[styles.assuranceText, { color: colors.textBody }]}>100% Free Re-wash Guarantee on all dry cleaned garments</Text>
               </View>
               <View style={styles.assuranceRow}>
                 <MaterialCommunityIcons name="lightning-bolt" size={18} color="#EA580C" />
-                <Text style={styles.assuranceText}>Standard 24H-48H delivery • 12H Express available at next step</Text>
+                <Text style={[styles.assuranceText, { color: colors.textBody }]}>Standard 24H-48H delivery • 12H Express available at next step</Text>
               </View>
             </View>
-
-            {/* In-Content Bag Proceed CTA */}
-            {cart.length > 0 && (
-              <TouchableOpacity
-                style={styles.inContentProceedBtn}
-                onPress={continueToDetails}
-                activeOpacity={0.88}
-                accessibilityRole="button"
-                accessibilityLabel="Proceed to Pickup and Slots"
-              >
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.inContentProceedBtnTitle}>Proceed to Pickup & Slots</Text>
-                  <Text style={styles.inContentProceedBtnSub}>Select convenient pickup date & time →</Text>
-                </View>
-                <View style={styles.inContentProceedBtnIconWrap}>
-                  <MaterialCommunityIcons name="arrow-right" size={22} color="#FFFFFF" />
-                </View>
-              </TouchableOpacity>
-            )}
           </View>
         )}
 
@@ -1358,11 +1359,11 @@ export function BookScreen({
           <View style={styles.stageWrap}>
             {/* PICKUP ADDRESS SELECTOR */}
             <View style={styles.stageTitleRow}>
-              <Text style={styles.stageTitle}>Doorstep Pickup Address</Text>
-              <Text style={styles.stageSubtitle}>Where should our executive collect your laundry?</Text>
+              <Text style={[styles.stageTitle, { color: colors.textHeading }]}>Doorstep Pickup Address</Text>
+              <Text style={[styles.stageSubtitle, { color: colors.textCaption }]}>Where should our executive collect your laundry?</Text>
             </View>
 
-            {addresses.length === 0 || addingAddress ? (
+            {safeAddresses.length === 0 || addingAddress ? (
               <Card style={styles.addressFormCard}>
                 <View style={styles.formTitleRow}>
                   <Text style={styles.formSectionTitle}>Enter Pickup Address</Text>
@@ -1452,7 +1453,7 @@ export function BookScreen({
                 </View>
 
                 {/* Live Delivery Calculation for New Address */}
-                {draft.pincode.trim().length === 6 && (
+                {String(draft.pincode || '').trim().length === 6 && (
                   <View style={styles.newAddressDeliveryPreview}>
                     {checkingDraftService ? (
                       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
@@ -1497,18 +1498,18 @@ export function BookScreen({
                 )}
 
                 <View style={styles.formBtnRow}>
-                  {addresses.length > 0 && (
+                  {safeAddresses.length > 0 && (
                     <AppButton title="Cancel" variant="outline" compact onPress={() => setAddingAddress(false)} />
                   )}
                   <AppButton
                     title="Save Address"
                     compact
                     onPress={async () => {
-                      if (!draft.street.trim() || !draft.pincode.trim()) {
+                      if (!String(draft.street || '').trim() || !String(draft.pincode || '').trim()) {
                         Alert.alert('Required', 'Please enter street and pincode.');
                         return;
                       }
-                      if (draft.pincode.trim().length !== 6) {
+                      if (String(draft.pincode || '').trim().length !== 6) {
                         Alert.alert('Invalid Pincode', 'Please enter a valid 6-digit pincode.');
                         return;
                       }
@@ -1516,9 +1517,11 @@ export function BookScreen({
                         Alert.alert('Not Serviceable', draftServiceMessage || `PIN ${draft.pincode} is not currently serviceable.`);
                         return;
                       }
-                      const pinCoords = PINCODE_COORDINATES[draft.pincode.trim()];
+                      const pinStr = String(draft.pincode || '').trim();
+                      const pinCoords = PINCODE_COORDINATES[pinStr];
                       const toSave = {
                         ...draft,
+                        pincode: pinStr,
                         latitude: draft.latitude ?? pinCoords?.lat,
                         longitude: draft.longitude ?? pinCoords?.lng,
                         id: `addr_${Date.now()}`,
@@ -1532,7 +1535,7 @@ export function BookScreen({
               </Card>
             ) : (
               <View style={styles.savedAddressesStack}>
-                {addresses.map((item) => {
+                {safeAddresses.map((item) => {
                   const isSelected = (selectedAddressId || selectedAddress?.id) === item.id;
                   const itemCalc = calculateLocalDeliveryFee({
                     customerLat: item.latitude,
@@ -1547,7 +1550,11 @@ export function BookScreen({
                   return (
                     <Pressable
                       key={item.id}
-                      style={[styles.addressSelectCard, isSelected && styles.addressSelectCardActive]}
+                      style={[
+                        styles.addressSelectCard,
+                        { backgroundColor: colors.surface, borderColor: colors.border },
+                        isSelected && { borderColor: '#F97316', borderWidth: 1.5, backgroundColor: 'rgba(249, 115, 22, 0.12)' },
+                      ]}
                       onPress={() => setSelectedAddressId(item.id)}
                     >
                       <View style={styles.addressRadioRow}>
@@ -1561,8 +1568,8 @@ export function BookScreen({
                         </View>
                       </View>
 
-                      <Text style={styles.addressCardName}>{item.contactName} • +91 {item.contactPhone}</Text>
-                      <Text style={styles.addressCardStreet}>{item.street}, {item.city} - {item.pincode}</Text>
+                      <Text style={[styles.addressCardName, { color: colors.textHeading }]}>{item.contactName} • +91 {item.contactPhone}</Text>
+                      <Text style={[styles.addressCardStreet, { color: colors.textCaption }]}>{item.street}, {item.city} - {item.pincode}</Text>
 
                       {isSelected ? (
                         <>
@@ -1633,17 +1640,19 @@ export function BookScreen({
 
             {/* PICKUP DATE CALENDAR TILES */}
             <View style={[styles.stageTitleRow, { marginTop: 20 }]}>
-              <Text style={styles.stageTitle}>Choose Pickup Date</Text>
-              <Text style={styles.stageSubtitle}>Executive will arrive on selected day</Text>
+              <Text style={[styles.stageTitle, { color: colors.textHeading }]}>Choose Pickup Date</Text>
+              <Text style={[styles.stageSubtitle, { color: colors.textCaption }]}>Executive will arrive on selected day</Text>
             </View>
 
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.dateTilesScroll}>
               {pickupDates.map((dateStr, idx) => {
                 const isSelected = slotDate === dateStr;
                 const d = new Date(dateStr);
-                const dayName = idx === 0 ? 'Today' : idx === 1 ? 'Tomorrow' : d.toLocaleDateString('en-US', { weekday: 'short' });
+                const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+                const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+                const dayName = idx === 0 ? 'Today' : idx === 1 ? 'Tomorrow' : (WEEKDAYS[d.getDay()] || '');
                 const dateNum = d.getDate();
-                const monthName = d.toLocaleDateString('en-US', { month: 'short' });
+                const monthName = MONTHS[d.getMonth()] || '';
 
                 return (
                   <Pressable
@@ -1661,12 +1670,12 @@ export function BookScreen({
 
             {/* PICKUP TIME SLOT GRID */}
             <View style={[styles.stageTitleRow, { marginTop: 20 }]}>
-              <Text style={styles.stageTitle}>Select Pickup Time Slot</Text>
-              <Text style={styles.stageSubtitle}>Select 2-hour collection window</Text>
+              <Text style={[styles.stageTitle, { color: colors.textHeading }]}>Select Pickup Time Slot</Text>
+              <Text style={[styles.stageSubtitle, { color: colors.textCaption }]}>Select 2-hour collection window</Text>
             </View>
 
             <View style={styles.slotGrid}>
-              {slots.map((slot) => {
+              {safeSlots.map((slot) => {
                 const isSelected = selectedSlotId === slot.id;
                 const isPast = slot.isPast;
                 const isAvailable = slot.isAvailable && !isPast;
@@ -1677,8 +1686,9 @@ export function BookScreen({
                     disabled={!isAvailable}
                     style={[
                       styles.slotCard,
-                      isSelected && styles.slotCardActive,
-                      !isAvailable && styles.slotCardDisabled,
+                      { backgroundColor: colors.surface, borderColor: colors.border },
+                      isSelected && { borderColor: '#F97316', borderWidth: 1.5, backgroundColor: 'rgba(249, 115, 22, 0.12)' },
+                      !isAvailable && { opacity: 0.5, backgroundColor: colors.section },
                     ]}
                     onPress={() => setSelectedSlotId(slot.id)}
                   >
@@ -1686,7 +1696,7 @@ export function BookScreen({
                       <MaterialCommunityIcons
                         name="clock-time-four-outline"
                         size={16}
-                        color={isSelected ? '#F97316' : !isAvailable ? '#D1D5DB' : '#1C0B18'}
+                        color={isSelected ? '#F97316' : !isAvailable ? '#D1D5DB' : colors.textHeading}
                       />
                       {isAvailable ? (
                         <View style={styles.slotCapBadge}>
@@ -1696,7 +1706,7 @@ export function BookScreen({
                         <Text style={styles.slotFullText}>Full</Text>
                       )}
                     </View>
-                    <Text style={[styles.slotLabel, isSelected && styles.slotLabelActive, !isAvailable && styles.slotLabelDisabled]}>
+                    <Text style={[styles.slotLabel, { color: colors.textHeading }, isSelected && styles.slotLabelActive, !isAvailable && styles.slotLabelDisabled]}>
                       {`${slot.startTime} - ${slot.endTime}`}
                     </Text>
                   </Pressable>
@@ -1705,37 +1715,41 @@ export function BookScreen({
             </View>
 
             {/* 4. CHOOSE DELIVERY SPEED */}
-            <View style={styles.speedSection}>
+            <View style={[styles.speedSection, isDark && { backgroundColor: colors.surface, borderColor: colors.border }]}>
               <View style={styles.speedSectionHeader}>
                 <MaterialCommunityIcons name="lightning-bolt" size={16} color="#EA580C" />
-                <Text style={styles.speedSectionTitle}>CHOOSE DELIVERY SPEED</Text>
+                <Text style={[styles.speedSectionTitle, isDark && { color: colors.textHeading }]}>CHOOSE DELIVERY SPEED</Text>
               </View>
 
               <View style={styles.speedOptionsStack}>
                 {/* 1. REGULAR (48h) */}
                 <Pressable
-                  style={[styles.speedOptionCard, expressTier === 'REGULAR' && styles.speedOptionCardActive]}
+                  style={[
+                    styles.speedOptionCard,
+                    isDark && { backgroundColor: colors.section, borderColor: colors.border },
+                    expressTier === 'REGULAR' && (isDark ? { backgroundColor: 'rgba(22, 163, 74, 0.15)', borderColor: '#16A34A' } : styles.speedOptionCardActive),
+                  ]}
                   onPress={() => setExpressTier('REGULAR')}
                 >
                   <View style={styles.speedOptionRadio}>
                     <MaterialCommunityIcons
                       name={expressTier === 'REGULAR' ? 'radiobox-marked' : 'radiobox-blank'}
                       size={18}
-                      color={expressTier === 'REGULAR' ? '#16A34A' : '#94A3B8'}
+                      color={expressTier === 'REGULAR' ? '#16A34A' : (isDark ? colors.textCaption : '#94A3B8')}
                     />
                   </View>
                   <View style={styles.speedOptionInfo}>
                     <View style={styles.speedOptionTitleRow}>
-                      <Text style={[styles.speedOptionName, expressTier === 'REGULAR' && styles.speedOptionNameActive]}>
+                      <Text style={[styles.speedOptionName, isDark && { color: colors.textHeading }, expressTier === 'REGULAR' && styles.speedOptionNameActive]}>
                         Standard Care (48 Hours)
                       </Text>
-                      <View style={[styles.speedFeeBadge, { backgroundColor: '#F0FDF4', borderColor: '#BBF7D0' }]}>
-                        <Text style={[styles.speedFeeText, { color: '#16A34A' }]}>
+                      <View style={[styles.speedFeeBadge, isDark ? { backgroundColor: 'rgba(22, 163, 74, 0.2)', borderColor: 'rgba(34, 197, 94, 0.3)' } : { backgroundColor: '#F0FDF4', borderColor: '#BBF7D0' }]}>
+                        <Text style={[styles.speedFeeText, { color: isDark ? '#4ADE80' : '#16A34A' }]}>
                           {isFreeDelivery ? 'FREE' : money(standardDeliveryFee)}
                         </Text>
                       </View>
                     </View>
-                    <Text style={styles.speedOptionSub}>
+                    <Text style={[styles.speedOptionSub, isDark && { color: colors.textCaption }]}>
                       Eco wash & industrial steam pressing • 2-day return
                     </Text>
                   </View>
@@ -1743,33 +1757,37 @@ export function BookScreen({
 
                 {/* 2. EXPRESS_24H (24h) */}
                 <Pressable
-                  style={[styles.speedOptionCard, expressTier === 'EXPRESS_24H' && styles.speedOptionCardActiveExpress]}
+                  style={[
+                    styles.speedOptionCard,
+                    isDark && { backgroundColor: colors.section, borderColor: colors.border },
+                    expressTier === 'EXPRESS_24H' && (isDark ? { backgroundColor: 'rgba(234, 88, 12, 0.15)', borderColor: '#EA580C' } : styles.speedOptionCardActiveExpress),
+                  ]}
                   onPress={() => setExpressTier('EXPRESS_24H')}
                 >
                   <View style={styles.speedOptionRadio}>
                     <MaterialCommunityIcons
                       name={expressTier === 'EXPRESS_24H' ? 'radiobox-marked' : 'radiobox-blank'}
                       size={18}
-                      color={expressTier === 'EXPRESS_24H' ? '#EA580C' : '#94A3B8'}
+                      color={expressTier === 'EXPRESS_24H' ? '#EA580C' : (isDark ? colors.textCaption : '#94A3B8')}
                     />
                   </View>
                   <View style={styles.speedOptionInfo}>
                     <View style={styles.speedOptionTitleRow}>
                       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
-                        <Text style={[styles.speedOptionName, expressTier === 'EXPRESS_24H' && styles.speedOptionNameActiveExpress]}>
+                        <Text style={[styles.speedOptionName, isDark && { color: colors.textHeading }, expressTier === 'EXPRESS_24H' && styles.speedOptionNameActiveExpress]}>
                           ⚡ Express 24h Return
                         </Text>
                         <View style={styles.popularSpeedTag}>
                           <Text style={styles.popularSpeedTagText}>POPULAR</Text>
                         </View>
                       </View>
-                      <View style={[styles.speedFeeBadge, { backgroundColor: '#FFF7ED', borderColor: '#FED7AA' }]}>
-                        <Text style={[styles.speedFeeText, { color: '#EA580C' }]}>
+                      <View style={[styles.speedFeeBadge, isDark ? { backgroundColor: 'rgba(234, 88, 12, 0.2)', borderColor: 'rgba(249, 115, 22, 0.3)' } : { backgroundColor: '#FFF7ED', borderColor: '#FED7AA' }]}>
+                        <Text style={[styles.speedFeeText, { color: isDark ? '#FB923C' : '#EA580C' }]}>
                           +{money(expressFeeFromSettings)}
                         </Text>
                       </View>
                     </View>
-                    <Text style={styles.speedOptionSub}>
+                    <Text style={[styles.speedOptionSub, isDark && { color: colors.textCaption }]}>
                       Priority workshop queue • Next-day morning return
                     </Text>
                   </View>
@@ -1777,30 +1795,34 @@ export function BookScreen({
 
                 {/* 3. SAME_DAY (12h) */}
                 <Pressable
-                  style={[styles.speedOptionCard, expressTier === 'SAME_DAY' && styles.speedOptionCardActiveSameDay]}
+                  style={[
+                    styles.speedOptionCard,
+                    isDark && { backgroundColor: colors.section, borderColor: colors.border },
+                    expressTier === 'SAME_DAY' && (isDark ? { backgroundColor: 'rgba(220, 38, 38, 0.15)', borderColor: '#DC2626' } : styles.speedOptionCardActiveSameDay),
+                  ]}
                   onPress={() => setExpressTier('SAME_DAY')}
                 >
                   <View style={styles.speedOptionRadio}>
                     <MaterialCommunityIcons
                       name={expressTier === 'SAME_DAY' ? 'radiobox-marked' : 'radiobox-blank'}
                       size={18}
-                      color={expressTier === 'SAME_DAY' ? '#DC2626' : '#94A3B8'}
+                      color={expressTier === 'SAME_DAY' ? '#DC2626' : (isDark ? colors.textCaption : '#94A3B8')}
                     />
                   </View>
                   <View style={styles.speedOptionInfo}>
                     <View style={styles.speedOptionTitleRow}>
                       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
-                        <Text style={[styles.speedOptionName, expressTier === 'SAME_DAY' && styles.speedOptionNameActiveSameDay]}>
+                        <Text style={[styles.speedOptionName, isDark && { color: colors.textHeading }, expressTier === 'SAME_DAY' && styles.speedOptionNameActiveSameDay]}>
                           🚀 Same-Day Emergency (12h)
                         </Text>
                       </View>
-                      <View style={[styles.speedFeeBadge, { backgroundColor: '#FEF2F2', borderColor: '#FECACA' }]}>
-                        <Text style={[styles.speedFeeText, { color: '#DC2626' }]}>
+                      <View style={[styles.speedFeeBadge, isDark ? { backgroundColor: 'rgba(220, 38, 38, 0.2)', borderColor: 'rgba(239, 68, 68, 0.3)' } : { backgroundColor: '#FEF2F2', borderColor: '#FECACA' }]}>
+                        <Text style={[styles.speedFeeText, { color: isDark ? '#F87171' : '#DC2626' }]}>
                           +{money(sameDayFeeFromSettings)}
                         </Text>
                       </View>
                     </View>
-                    <Text style={styles.speedOptionSub}>
+                    <Text style={[styles.speedOptionSub, isDark && { color: colors.textCaption }]}>
                       Morning pickup • Emergency rush return by tonight
                     </Text>
                   </View>
@@ -1810,11 +1832,11 @@ export function BookScreen({
 
             {/* 5. CARE NOTES */}
             <View style={{ marginTop: 14 }}>
-              <Text style={styles.inputLabel}>Special Care / Stain Instructions (Optional)</Text>
+              <Text style={[styles.inputLabel, { color: colors.textHeading }]}>Special Care / Stain Instructions (Optional)</Text>
               <TextInput
-                style={styles.notesInput}
+                style={[styles.notesInput, isDark && { backgroundColor: colors.surface, borderColor: colors.border, color: colors.textHeading }]}
                 placeholder="e.g. Heavy coffee stain on cuff, please use gentle silk press..."
-                placeholderTextColor="#A1A1AA"
+                placeholderTextColor={isDark ? colors.textCaption : '#A1A1AA'}
                 value={notes}
                 onChangeText={setNotes}
                 multiline
@@ -1827,25 +1849,25 @@ export function BookScreen({
         {stage === 'REVIEW' && (
           <View style={styles.stageWrap}>
             {/* Delivery Overview Card */}
-            <Card style={styles.overviewCard}>
+            <Card style={[styles.overviewCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
               <View style={styles.overviewRow}>
                 <MaterialCommunityIcons name="map-marker" size={18} color="#F97316" />
                 <View style={{ flex: 1 }}>
-                  <Text style={styles.overviewLabel}>Pickup Point</Text>
-                  <Text style={styles.overviewVal}>{selectedAddress?.street ? `${selectedAddress.street}, ${selectedAddress.city || 'Hyderabad'}` : 'Doorstep Pickup Point'}</Text>
+                  <Text style={[styles.overviewLabel, { color: colors.textCaption }]}>Pickup Point</Text>
+                  <Text style={[styles.overviewVal, { color: colors.textHeading }]}>{selectedAddress?.street ? `${selectedAddress.street}, ${selectedAddress.city || 'Hyderabad'}` : 'Doorstep Pickup Point'}</Text>
                 </View>
                 <Pressable onPress={() => setStage('DETAILS')}>
                   <Text style={styles.editLink}>Change</Text>
                 </Pressable>
               </View>
 
-              <View style={styles.overviewDivider} />
+              <View style={[styles.overviewDivider, { backgroundColor: colors.border }]} />
 
               <View style={styles.overviewRow}>
                 <MaterialCommunityIcons name="clock-outline" size={18} color="#16A34A" />
                 <View style={{ flex: 1 }}>
-                  <Text style={styles.overviewLabel}>Scheduled Slot</Text>
-                  <Text style={styles.overviewVal}>{shortDate(slotDate)} • {selectedSlot?.startTime && selectedSlot?.endTime ? `${selectedSlot.startTime} - ${selectedSlot.endTime}` : 'Flexible Collection Window'}</Text>
+                  <Text style={[styles.overviewLabel, { color: colors.textCaption }]}>Scheduled Slot</Text>
+                  <Text style={[styles.overviewVal, { color: colors.textHeading }]}>{shortDate(slotDate)} • {selectedSlot?.startTime && selectedSlot?.endTime ? `${selectedSlot.startTime} - ${selectedSlot.endTime}` : 'Flexible Collection Window'}</Text>
                 </View>
                 <Pressable onPress={() => setStage('DETAILS')}>
                   <Text style={styles.editLink}>Change</Text>
@@ -1854,12 +1876,12 @@ export function BookScreen({
 
               {expressTier === 'EXPRESS_24H' && (
                 <>
-                  <View style={styles.overviewDivider} />
+                  <View style={[styles.overviewDivider, { backgroundColor: colors.border }]} />
                   <View style={styles.overviewRow}>
                     <MaterialCommunityIcons name="lightning-bolt" size={18} color="#EA580C" />
                     <View style={{ flex: 1 }}>
-                      <Text style={styles.overviewLabel}>Speed</Text>
-                      <Text style={styles.overviewVal}>⚡ 24-Hour Express Return</Text>
+                      <Text style={[styles.overviewLabel, { color: colors.textCaption }]}>Speed</Text>
+                      <Text style={[styles.overviewVal, { color: colors.textHeading }]}>⚡ 24-Hour Express Return</Text>
                     </View>
                   </View>
                 </>
@@ -1867,12 +1889,12 @@ export function BookScreen({
 
               {expressTier === 'SAME_DAY' && (
                 <>
-                  <View style={styles.overviewDivider} />
+                  <View style={[styles.overviewDivider, { backgroundColor: colors.border }]} />
                   <View style={styles.overviewRow}>
                     <MaterialCommunityIcons name="rocket-launch" size={18} color="#DC2626" />
                     <View style={{ flex: 1 }}>
-                      <Text style={styles.overviewLabel}>Speed</Text>
-                      <Text style={styles.overviewVal}>🚀 12-Hour Same-Day Rush</Text>
+                      <Text style={[styles.overviewLabel, { color: colors.textCaption }]}>Speed</Text>
+                      <Text style={[styles.overviewVal, { color: colors.textHeading }]}>🚀 12-Hour Same-Day Rush</Text>
                     </View>
                   </View>
                 </>
@@ -1954,7 +1976,11 @@ export function BookScreen({
             <View style={styles.bbCouponCardContainer}>
               {!couponApplied ? (
                 <Pressable
-                  style={({ pressed }) => [styles.bbCouponCard, pressed && { opacity: 0.92 }]}
+                  style={({ pressed }) => [
+                    styles.bbCouponCard,
+                    { backgroundColor: colors.surface, borderColor: colors.border },
+                    pressed && { opacity: 0.92 },
+                  ]}
                   onPress={() => {
                     setCouponInputError('');
                     setShowCouponsModal(true);
@@ -1963,19 +1989,19 @@ export function BookScreen({
                   accessibilityLabel="Avail offers and coupons"
                 >
                   <View style={styles.bbCouponLeft}>
-                    <View style={styles.bbCouponIconCircle}>
+                    <View style={[styles.bbCouponIconCircle, { backgroundColor: colors.section }]}>
                       <MaterialCommunityIcons name="ticket-percent" size={22} color="#16A34A" />
                     </View>
                     <View style={{ flex: 1 }}>
                       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                        <Text style={styles.bbCouponTitle}>Avail Offers / Coupons</Text>
+                        <Text style={[styles.bbCouponTitle, { color: colors.textHeading }]}>Avail Offers / Coupons</Text>
                         {activeCouponsList.length > 0 && (
                           <View style={styles.bbCouponCountBadge}>
                             <Text style={styles.bbCouponCountText}>{activeCouponsList.length} OFFERS</Text>
                           </View>
                         )}
                       </View>
-                      <Text style={styles.bbCouponSubtitle} numberOfLines={1}>
+                      <Text style={[styles.bbCouponSubtitle, { color: colors.textCaption }]} numberOfLines={1}>
                         {couponErrorInline ? couponErrorInline : 'Tap to view exclusive promo codes and savings'}
                       </Text>
                     </View>
@@ -1986,14 +2012,14 @@ export function BookScreen({
                   </View>
                 </Pressable>
               ) : (
-                <View style={styles.bbCouponAppliedCard}>
+                <View style={[styles.bbCouponAppliedCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
                   <View style={styles.bbCouponAppliedLeft}>
-                    <View style={styles.bbCouponAppliedIconCircle}>
+                    <View style={[styles.bbCouponAppliedIconCircle, { backgroundColor: colors.section }]}>
                       <MaterialCommunityIcons name="check-decagram" size={22} color="#16A34A" />
                     </View>
                     <View style={{ flex: 1 }}>
                       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                        <Text style={styles.bbCouponAppliedCode}>{couponCode}</Text>
+                        <Text style={[styles.bbCouponAppliedCode, { color: colors.textHeading }]}>{couponCode}</Text>
                         <View style={styles.bbCouponAppliedBadge}>
                           <Text style={styles.bbCouponAppliedBadgeText}>APPLIED</Text>
                         </View>
@@ -2040,7 +2066,7 @@ export function BookScreen({
                         Use LaundryFresh Wallet
                       </Text>
                       <Text style={{ fontSize: 12, color: '#15803D', marginTop: 2 }}>
-                        Balance: ₹{walletBalance.toFixed(2)} {useWallet && walletDeduction > 0 ? `• Deducting ₹${walletDeduction.toFixed(2)}` : ''}
+                        Balance: ₹{Number(walletBalance || 0).toFixed(2)} {useWallet && walletDeduction > 0 ? `• Deducting ₹${Number(walletDeduction || 0).toFixed(2)}` : ''}
                       </Text>
                     </View>
                   </View>
@@ -2060,7 +2086,7 @@ export function BookScreen({
                   <View style={{ marginTop: 10, backgroundColor: '#EFF6FF', padding: 8, borderRadius: 8, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                     <MaterialCommunityIcons name="swap-horizontal-bold" size={16} color="#2563EB" />
                     <Text style={{ fontSize: 11, fontWeight: '700', color: '#1D4ED8' }}>
-                      Split Payment: ₹{walletDeduction.toFixed(2)} from wallet + remaining ₹{finalPayable.toFixed(2)} below
+                      Split Payment: ₹{Number(walletDeduction || 0).toFixed(2)} from wallet + remaining ₹{Number(finalPayable || 0).toFixed(2)} below
                     </Text>
                   </View>
                 )}
@@ -2085,9 +2111,9 @@ export function BookScreen({
                 </View>
               </View>
             ) : (
-              <View style={styles.paymentSection}>
+              <View style={[styles.paymentSection, { backgroundColor: colors.surface, borderColor: colors.border }]}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-                  <Text style={styles.paymentHeaderTitle}>
+                  <Text style={[styles.paymentHeaderTitle, { color: colors.textHeading }]}>
                     {walletDeduction > 0 ? `Pay Remaining: ${money(finalPayable)}` : 'Payment Method'}
                   </Text>
                   {walletDeduction > 0 && (
@@ -2098,7 +2124,11 @@ export function BookScreen({
                 </View>
 
                 <Pressable
-                  style={[styles.paymentTile, paymentMethod === 'ONLINE_RAZORPAY' && styles.paymentTileActive]}
+                  style={[
+                    styles.paymentTile,
+                    { backgroundColor: colors.section, borderColor: colors.border },
+                    paymentMethod === 'ONLINE_RAZORPAY' && { borderColor: '#F97316', backgroundColor: 'rgba(249, 115, 22, 0.12)' },
+                  ]}
                   onPress={() => setPaymentMethod('ONLINE_RAZORPAY')}
                 >
                   <MaterialCommunityIcons
@@ -2107,8 +2137,8 @@ export function BookScreen({
                     color={paymentMethod === 'ONLINE_RAZORPAY' ? '#F97316' : '#8A7A84'}
                   />
                   <View style={{ flex: 1, marginLeft: 10 }}>
-                    <Text style={styles.paymentTileName}>UPI / Google Pay / PhonePe / Cards</Text>
-                    <Text style={styles.paymentTileSub}>
+                    <Text style={[styles.paymentTileName, { color: colors.textHeading }]}>UPI / Google Pay / PhonePe / Cards</Text>
+                    <Text style={[styles.paymentTileSub, { color: colors.textCaption }]}>
                       {walletDeduction > 0
                         ? `Pay remaining ${money(finalPayable)} via secure Razorpay Gateway`
                         : '256-Bit Encrypted Secure Razorpay Gateway'}
@@ -2118,7 +2148,11 @@ export function BookScreen({
                 </Pressable>
 
                 <Pressable
-                  style={[styles.paymentTile, paymentMethod === 'COD' && styles.paymentTileActive]}
+                  style={[
+                    styles.paymentTile,
+                    { backgroundColor: colors.section, borderColor: colors.border },
+                    paymentMethod === 'COD' && { borderColor: '#F97316', backgroundColor: 'rgba(249, 115, 22, 0.12)' },
+                  ]}
                   onPress={() => setPaymentMethod('COD')}
                 >
                   <MaterialCommunityIcons
@@ -2127,8 +2161,8 @@ export function BookScreen({
                     color={paymentMethod === 'COD' ? '#F97316' : '#8A7A84'}
                   />
                   <View style={{ flex: 1, marginLeft: 10 }}>
-                    <Text style={styles.paymentTileName}>Pay on Delivery (Cash / UPI at Doorstep)</Text>
-                    <Text style={styles.paymentTileSub}>
+                    <Text style={[styles.paymentTileName, { color: colors.textHeading }]}>Pay on Delivery (Cash / UPI at Doorstep)</Text>
+                    <Text style={[styles.paymentTileSub, { color: colors.textCaption }]}>
                       {walletDeduction > 0
                         ? `Pay remaining ${money(finalPayable)} to rider upon delivery`
                         : 'Pay rider after verifying freshly washed clothes'}
@@ -2140,9 +2174,9 @@ export function BookScreen({
             )}
 
             {/* ITEMIZED BILL SUMMARY */}
-            <Card style={styles.billCard}>
+            <Card style={[styles.billCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
               <View style={styles.billCardHeaderRow}>
-                <Text style={styles.billCardTitle}>Bill Breakdown</Text>
+                <Text style={[styles.billCardTitle, { color: colors.textHeading }]}>Bill Breakdown</Text>
                 <View style={styles.billSecureBadge}>
                   <MaterialCommunityIcons name="shield-check" size={13} color="#166534" />
                   <Text style={styles.billSecureText}>100% Transparent</Text>
@@ -2152,10 +2186,10 @@ export function BookScreen({
               {/* 1. Items subtotal */}
               <View style={styles.billLine}>
                 <View>
-                  <Text style={styles.billLineLabel}>Items Subtotal ({cartSummary.itemCount} items)</Text>
-                  <Text style={styles.billLineSubtext}>Care & dry clean base charges</Text>
+                  <Text style={[styles.billLineLabel, { color: colors.textHeading }]}>Items Subtotal ({cartSummary.itemCount} items)</Text>
+                  <Text style={[styles.billLineSubtext, { color: colors.textCaption }]}>Care & dry clean base charges</Text>
                 </View>
-                <Text style={styles.billLineVal}>{money(cartSummary.itemTotal)}</Text>
+                <Text style={[styles.billLineVal, { color: colors.textHeading }]}>{money(cartSummary.itemTotal)}</Text>
               </View>
 
               {/* 2. Subscription Quota Applied */}
@@ -2179,7 +2213,7 @@ export function BookScreen({
               <View style={styles.billLine}>
                 <View style={{ flex: 1, paddingRight: 8 }}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-                    <Text style={styles.billLineLabel}>Doorstep Pickup & Delivery</Text>
+                    <Text style={[styles.billLineLabel, { color: colors.textHeading }]}>Doorstep Pickup & Delivery</Text>
                     {liveDeliveryCalc?.distanceKm && liveDeliveryCalc.distanceKm > 0 ? (
                       <View style={{ backgroundColor: '#E0F2FE', paddingHorizontal: 6, paddingVertical: 1.5, borderRadius: 6 }}>
                         <Text style={{ fontSize: 10, fontWeight: '700', color: '#0369A1' }}>
@@ -2188,7 +2222,7 @@ export function BookScreen({
                       </View>
                     ) : null}
                   </View>
-                  <Text style={styles.billLineSubtext}>
+                  <Text style={[styles.billLineSubtext, { color: colors.textCaption }]}>
                     {deliveryDistanceNote}
                   </Text>
                 </View>
@@ -2200,7 +2234,7 @@ export function BookScreen({
                     </Text>
                   </View>
                 ) : (
-                  <Text style={styles.billLineVal}>{money(deliveryFee)}</Text>
+                  <Text style={[styles.billLineVal, { color: colors.textHeading }]}>{money(deliveryFee)}</Text>
                 )}
               </View>
 
@@ -2208,14 +2242,14 @@ export function BookScreen({
               {expressCharge > 0 && (
                 <View style={styles.billLine}>
                   <View>
-                    <Text style={styles.billLineLabel}>
+                    <Text style={[styles.billLineLabel, { color: colors.textHeading }]}>
                       {expressTier === 'SAME_DAY' ? '12H Same-Day Emergency Surcharge' : '24H Express Delivery Surcharge'}
                     </Text>
-                    <Text style={styles.billLineSubtext}>
+                    <Text style={[styles.billLineSubtext, { color: colors.textCaption }]}>
                       {expressTier === 'SAME_DAY' ? 'Rush processing & emergency courier delivery' : 'Priority queue & 24h express turnaround'}
                     </Text>
                   </View>
-                  <Text style={styles.billLineVal}>+{money(expressCharge)}</Text>
+                  <Text style={[styles.billLineVal, { color: colors.textHeading }]}>+{money(expressCharge)}</Text>
                 </View>
               )}
 
@@ -2233,12 +2267,12 @@ export function BookScreen({
               {/* 6. GST */}
               <View style={styles.billLine}>
                 <View>
-                  <Text style={styles.billLineLabel}>
+                  <Text style={[styles.billLineLabel, { color: colors.textHeading }]}>
                     {!isGstEnabled || taxPercentage === 0 ? 'GST (Temporarily Waived)' : `GST & Taxes (${taxPercentage}%)`}
                   </Text>
-                  <Text style={styles.billLineSubtext}>{!isGstEnabled || taxPercentage === 0 ? 'GST waived by merchant' : `${taxPercentage}% GST on taxable order amount`}</Text>
+                  <Text style={[styles.billLineSubtext, { color: colors.textCaption }]}>{!isGstEnabled || taxPercentage === 0 ? 'GST waived by merchant' : `${taxPercentage}% GST on taxable order amount`}</Text>
                 </View>
-                <Text style={[styles.billLineVal, (!isGstEnabled || taxPercentage === 0) && { color: '#16A34A' }]}>
+                <Text style={[styles.billLineVal, { color: colors.textHeading }, (!isGstEnabled || taxPercentage === 0) && { color: '#16A34A' }]}>
                   {!isGstEnabled || taxPercentage === 0 ? '₹0 (0%)' : money(gstCharge)}
                 </Text>
               </View>
@@ -2251,21 +2285,21 @@ export function BookScreen({
                       LaundryFresh Wallet Used
                     </Text>
                     <Text style={[styles.billLineSubtext, { color: '#15803D' }]}>
-                      Deducted from ₹{walletBalance.toFixed(2)} balance
+                      Deducted from ₹{Number(walletBalance || 0).toFixed(2)} balance
                     </Text>
                   </View>
                   <Text style={[styles.billLineVal, { color: '#16A34A', fontWeight: '800' }]}>
-                    -₹{walletDeduction.toFixed(2)}
+                    -₹{Number(walletDeduction || 0).toFixed(2)}
                   </Text>
                 </View>
               )}
 
-              <View style={styles.billDivider} />
+              <View style={[styles.billDivider, { backgroundColor: colors.border }]} />
 
             {/* Grand Total Row */}
               <View style={styles.billFinalRow}>
                 <View>
-                  <Text style={styles.billGrandLabel}>Total Payable</Text>
+                  <Text style={[styles.billGrandLabel, { color: colors.textHeading }]}>Total Payable</Text>
                   {totalSavings > 0 && (
                     <Text style={styles.billSavingsText}>🎉 You saved {money(totalSavings)} on this order</Text>
                   )}
@@ -2277,93 +2311,124 @@ export function BookScreen({
         )}
       </ScrollView>
 
-      {/* Keep the empty-bag view flush with the app tab bar. Its explore action
-          already appears in the empty state above, so a second footer only creates
-          an empty white strip. */}
-      {!(stage === 'BAG' && cart.length === 0) && (
-      <View
-        style={[
-          styles.stickyFooter,
-          { paddingBottom: Math.max(insets.bottom, 16) },
-          hasBottomTabBar && { bottom: Platform.OS === 'ios' ? 88 : 82, paddingBottom: 14 },
-        ]}
-      >
-        {stage === 'BAG' && cart.length === 0 ? (
-          <Pressable
-            style={({ pressed }) => [styles.footerFullExploreBtn, pressed && { opacity: 0.9 }]}
-            onPress={onBrowseServices}
-          >
-            <MaterialCommunityIcons name="hanger" size={20} color="#FFFFFF" />
-            <Text style={styles.footerFullExploreText}>Browse All Garments & Services</Text>
-            <MaterialCommunityIcons name="arrow-right" size={18} color="#FFFFFF" />
-          </Pressable>
-        ) : (
-          <>
-            <View style={styles.footerPriceCol}>
-              <Text style={styles.footerPriceLabel} numberOfLines={1}>
-                {finalPayable === 0 ? 'Total Due' : walletDeduction > 0 ? 'Payable Now' : 'Final Amount'}
-              </Text>
-              <Text style={styles.footerPriceVal} numberOfLines={1}>{money(finalPayable)}</Text>
-              {subQuotaDiscount > 0 && finalPayable === 0 ? (
-                <Text style={[styles.footerPriceSub, { color: '#16A34A' }]} numberOfLines={1}>
-                  💎 Plan Covered
-                </Text>
-              ) : isFreeDelivery ? (
-                <Text style={[styles.footerPriceSub, { color: '#16A34A' }]} numberOfLines={1}>
-                  {subHasFreeDelivery ? '💎 Member Free' : '🎉 Free Delivery'}
-                </Text>
-              ) : (
-                <Text style={styles.footerPriceSub} numberOfLines={1}>
-                  Incl. {money(deliveryFee)}
-                </Text>
-              )}
-            </View>
-
-            {stage === 'BAG' && (
-              <Pressable
-                style={({ pressed }) => [styles.footerPrimaryBtn, pressed && { opacity: 0.92 }]}
-                onPress={continueToDetails}
-              >
-                <Text style={styles.footerPrimaryBtnText} numberOfLines={1}>Proceed to Slots</Text>
-                <MaterialCommunityIcons name="arrow-right" size={18} color="#FFFFFF" />
-              </Pressable>
-            )}
-          </>
-        )}
-
-        {stage === 'DETAILS' && (
-          <Pressable style={styles.footerPrimaryBtn} onPress={continueToReview}>
-            <Text style={styles.footerPrimaryBtnText} numberOfLines={1}>Review & Pay</Text>
-            <MaterialCommunityIcons name="arrow-right" size={18} color="#FFFFFF" />
-          </Pressable>
-        )}
-
-        {stage === 'REVIEW' && (
-          <Pressable
-            style={[styles.footerPrimaryBtn, isCheckingOut && { opacity: 0.7 }]}
-            onPress={() => placeOrder()}
-            disabled={isCheckingOut}
-          >
-            <MaterialCommunityIcons
-              name={finalPayable === 0 ? 'check-decagram' : 'lock'}
-              size={16}
-              color="#FFFFFF"
-            />
-            <Text style={styles.footerPrimaryBtnText} numberOfLines={1}>
-              {isCheckingOut
-                ? 'Scheduling Pickup...'
-                : finalPayable === 0
-                ? 'Confirm Free Order'
-                : walletDeduction > 0
-                ? `Pay ${money(finalPayable)} & Book`
-                : paymentMethod === 'COD'
-                ? 'Confirm Order (COD)'
-                : `Pay ${money(finalPayable)} & Book`}
+      {/* Sticky Bottom Checkout Footer (Total on left, Proceed action on right) */}
+      {!(stage === 'BAG' && safeCart.length === 0) && (
+        <View
+          style={[
+            styles.stickyFooter,
+            { backgroundColor: colors.surface, borderTopColor: colors.border },
+            { paddingBottom: Math.max(insets.bottom, Platform.OS === 'ios' ? 24 : 14) },
+            hasBottomTabBar && { bottom: Platform.OS === 'ios' ? 88 : 82 },
+          ]}
+        >
+          {/* Left: Total / Payable column */}
+          <View style={styles.footerPriceCol}>
+            <Text style={[styles.footerPriceLabel, { color: colors.textCaption }]} numberOfLines={1}>
+              {finalPayable === 0 ? 'Total Due' : walletDeduction > 0 ? 'Payable Now' : 'Final Amount'}
             </Text>
-            <MaterialCommunityIcons name="arrow-right" size={18} color="#FFFFFF" />
-          </Pressable>
-        )}
-      </View>
+            <Text style={[styles.footerPriceVal, { color: colors.textHeading }]} numberOfLines={1}>
+              {money(finalPayable)}
+            </Text>
+            {subQuotaDiscount > 0 && finalPayable === 0 ? (
+              <Text style={[styles.footerPriceSub, { color: '#16A34A' }]} numberOfLines={1}>
+                💎 Plan Covered
+              </Text>
+            ) : isFreeDelivery ? (
+              <Text style={[styles.footerPriceSub, { color: '#16A34A' }]} numberOfLines={1}>
+                {subHasFreeDelivery ? '💎 Member Free' : '🎉 Free Delivery'}
+              </Text>
+            ) : (
+              <Text style={styles.footerPriceSub} numberOfLines={1}>
+                Incl. {money(deliveryFee)}
+              </Text>
+            )}
+          </View>
+
+          {/* Right: Stage-specific Primary Action Button */}
+          {stage === 'BAG' && (
+            <TouchableOpacity
+              style={styles.footerPrimaryBtn}
+              onPress={continueToDetails}
+              activeOpacity={0.88}
+              accessibilityRole="button"
+              accessibilityLabel="Proceed to Pickup and Slots"
+            >
+              <Text
+                style={styles.footerPrimaryBtnText}
+                numberOfLines={1}
+                adjustsFontSizeToFit
+                minimumFontScale={0.85}
+              >
+                Proceed to Pickup & Slots
+              </Text>
+              <MaterialCommunityIcons name="arrow-right" size={18} color="#FFFFFF" />
+            </TouchableOpacity>
+          )}
+
+          {stage === 'DETAILS' && (
+            <TouchableOpacity
+              style={styles.footerPrimaryBtn}
+              onPress={continueToReview}
+              activeOpacity={0.88}
+              accessibilityRole="button"
+              accessibilityLabel="Review and Pay"
+            >
+              <Text
+                style={styles.footerPrimaryBtnText}
+                numberOfLines={1}
+                adjustsFontSizeToFit
+                minimumFontScale={0.85}
+              >
+                Review & Pay
+              </Text>
+              <MaterialCommunityIcons name="arrow-right" size={18} color="#FFFFFF" />
+            </TouchableOpacity>
+          )}
+
+          {stage === 'REVIEW' && (
+            <TouchableOpacity
+              style={[styles.footerPrimaryBtn, isCheckingOut && { opacity: 0.7 }]}
+              onPress={() => placeOrder()}
+              disabled={isCheckingOut}
+              activeOpacity={0.88}
+              accessibilityRole="button"
+              accessibilityLabel={
+                isCheckingOut
+                  ? 'Scheduling Pickup'
+                  : finalPayable === 0
+                  ? 'Confirm Free Order'
+                  : walletDeduction > 0
+                  ? `Pay ${money(finalPayable)} and Book`
+                  : paymentMethod === 'COD'
+                  ? 'Confirm Order COD'
+                  : `Pay ${money(finalPayable)} and Book`
+              }
+            >
+              <MaterialCommunityIcons
+                name={finalPayable === 0 ? 'check-decagram' : 'lock'}
+                size={16}
+                color="#FFFFFF"
+              />
+              <Text
+                style={styles.footerPrimaryBtnText}
+                numberOfLines={1}
+                adjustsFontSizeToFit
+                minimumFontScale={0.85}
+              >
+                {isCheckingOut
+                  ? 'Scheduling Pickup...'
+                  : finalPayable === 0
+                  ? 'Confirm Free Order'
+                  : walletDeduction > 0
+                  ? `Pay ${money(finalPayable)} & Book`
+                  : paymentMethod === 'COD'
+                  ? 'Confirm Order (COD)'
+                  : `Pay ${money(finalPayable)} & Book`}
+              </Text>
+              <MaterialCommunityIcons name="arrow-right" size={18} color="#FFFFFF" />
+            </TouchableOpacity>
+          )}
+        </View>
       )}
 
       {/* ================= BIGBASKET-STYLE AVAILABLE COUPONS BOTTOM SHEET MODAL ================= */}
@@ -2430,12 +2495,12 @@ export function BookScreen({
                 <Pressable
                   style={[
                     styles.bbInputApplyBtn,
-                    !manualCouponInput.trim() && styles.bbInputApplyBtnDisabled,
+                    !String(manualCouponInput || '').trim() && styles.bbInputApplyBtnDisabled,
                   ]}
-                  disabled={!manualCouponInput.trim() || applyingCode !== null}
-                  onPress={() => handleApplyCoupon(manualCouponInput, true)}
+                  disabled={!String(manualCouponInput || '').trim() || applyingCode !== null}
+                  onPress={() => handleApplyCoupon(String(manualCouponInput || '').trim(), true)}
                 >
-                  {applyingCode === manualCouponInput.trim() ? (
+                  {applyingCode === String(manualCouponInput || '').trim() ? (
                     <ActivityIndicator size="small" color="#FFFFFF" />
                   ) : (
                     <Text style={styles.bbInputApplyText}>APPLY</Text>
@@ -2590,7 +2655,7 @@ export function BookScreen({
             style={styles.payRetryBackdrop}
             onPress={() => setPaymentRetryModalVisible(false)}
           />
-          <View style={styles.payRetrySheet}>
+          <View style={[styles.payRetrySheet, { backgroundColor: colors.surface }]}>
             {/* Sheet Handle */}
             <View style={styles.payRetryHandle} />
 
@@ -2616,40 +2681,40 @@ export function BookScreen({
                   />
                 </View>
 
-                <Text style={styles.payRetryTitle}>
+                <Text style={[styles.payRetryTitle, { color: colors.textHeading }]}>
                   {paymentErrorInfo.title || (paymentErrorInfo.isCancelled ? 'Payment Not Completed' : 'Payment Failed')}
                 </Text>
 
-                <Text style={styles.payRetrySubtitle}>
+                <Text style={[styles.payRetrySubtitle, { color: colors.textCaption }]}>
                   {paymentErrorInfo.message || 'You went back before completing the online payment.'}
                 </Text>
               </View>
 
               {/* Order Snapshot Card */}
-              <View style={styles.payRetryOrderCard}>
+              <View style={[styles.payRetryOrderCard, { backgroundColor: colors.section, borderColor: colors.border }]}>
                 <View style={styles.payRetryOrderRow}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                    <MaterialCommunityIcons name="shopping-outline" size={18} color="#64748B" />
-                    <Text style={styles.payRetryOrderLabel}>Total Order Amount</Text>
+                    <MaterialCommunityIcons name="shopping-outline" size={18} color={colors.textCaption} />
+                    <Text style={[styles.payRetryOrderLabel, { color: colors.textBody }]}>Total Order Amount</Text>
                   </View>
-                  <Text style={styles.payRetryOrderAmount}>{money(finalPayable)}</Text>
+                  <Text style={[styles.payRetryOrderAmount, { color: colors.orange }]}>{money(finalPayable)}</Text>
                 </View>
 
                 <View style={styles.payRetryOrderDivider} />
 
                 <View style={styles.payRetryOrderRow}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                    <MaterialCommunityIcons name="clock-outline" size={18} color="#64748B" />
-                    <Text style={styles.payRetryOrderSublabel}>Pickup Slot</Text>
+                    <MaterialCommunityIcons name="clock-outline" size={18} color={colors.textCaption} />
+                    <Text style={[styles.payRetryOrderSublabel, { color: colors.textCaption }]}>Pickup Slot</Text>
                   </View>
-                  <Text style={styles.payRetryOrderSubval}>
+                  <Text style={[styles.payRetryOrderSubval, { color: colors.textHeading }]}>
                     {shortDate(slotDate)} • {selectedSlot?.startTime && selectedSlot?.endTime ? `${selectedSlot.startTime} - ${selectedSlot.endTime}` : 'Flexible Collection Window'}
                   </Text>
                 </View>
 
-                <View style={styles.payRetrySafePill}>
-                  <MaterialCommunityIcons name="shield-check" size={15} color="#16A34A" />
-                  <Text style={styles.payRetrySafeText}>
+                <View style={[styles.payRetrySafePill, { backgroundColor: colors.successSoft }]}>
+                  <MaterialCommunityIcons name="shield-check" size={15} color={colors.success} />
+                  <Text style={[styles.payRetrySafeText, { color: colors.success }]}>
                     Your laundry bag items are completely safe.
                   </Text>
                 </View>
@@ -2686,6 +2751,7 @@ export function BookScreen({
                 <Pressable
                   style={({ pressed }) => [
                     styles.payRetryCodBtn,
+                    { backgroundColor: colors.successSoft, borderColor: colors.success },
                     pressed && { opacity: 0.9, transform: [{ scale: 0.99 }] },
                     isRetryingOrder && { opacity: 0.6 },
                   ]}
@@ -2697,25 +2763,26 @@ export function BookScreen({
                     }, 250);
                   }}
                 >
-                  <View style={styles.payRetryCodIconCircle}>
-                    <MaterialCommunityIcons name="cash-multiple" size={20} color="#16A34A" />
+                  <View style={[styles.payRetryCodIconCircle, { backgroundColor: colors.primarySoft }]}>
+                    <MaterialCommunityIcons name="cash-multiple" size={20} color={colors.success} />
                   </View>
                   <View style={{ flex: 1 }}>
-                    <Text style={styles.payRetryCodBtnTitle}>Pay on Delivery (COD / UPI)</Text>
-                    <Text style={styles.payRetryCodBtnSub}>Confirm pickup now • Pay pilot at doorstep</Text>
+                    <Text style={[styles.payRetryCodBtnTitle, { color: colors.success }]}>Pay on Delivery (COD / UPI)</Text>
+                    <Text style={[styles.payRetryCodBtnSub, { color: colors.successDark }]}>Confirm pickup now • Pay pilot at doorstep</Text>
                   </View>
-                  <MaterialCommunityIcons name="chevron-right" size={20} color="#16A34A" />
+                  <MaterialCommunityIcons name="chevron-right" size={20} color={colors.success} />
                 </Pressable>
 
                 {/* Option 3: Cancel / Change Payment Method */}
                 <Pressable
                   style={({ pressed }) => [
                     styles.payRetryCancelBtn,
+                    { backgroundColor: colors.section, borderColor: colors.border },
                     pressed && { opacity: 0.8 },
                   ]}
                   onPress={() => setPaymentRetryModalVisible(false)}
                 >
-                  <Text style={styles.payRetryCancelBtnText}>
+                  <Text style={[styles.payRetryCancelBtnText, { color: colors.textBody }]}>
                     Change Payment Method / Review Bag
                   </Text>
                 </Pressable>
@@ -2784,9 +2851,7 @@ const styles = StyleSheet.create({
   billCard: {
     padding: 16,
     borderRadius: 18,
-    backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: '#F3E8DF',
     gap: 10,
     marginTop: 14,
   },
@@ -2872,12 +2937,10 @@ const styles = StyleSheet.create({
     backgroundColor: '#FCF9F7',
   },
   stepHeader: {
-    backgroundColor: '#FFFFFF',
     paddingHorizontal: 20,
     paddingTop: 10,
     paddingBottom: 10,
     borderBottomWidth: 1,
-    borderColor: '#F3E8DF',
   },
   stepHeaderTopRow: {
     flexDirection: 'row',
@@ -2890,14 +2953,12 @@ const styles = StyleSheet.create({
     width: 34,
     height: 34,
     borderRadius: 17,
-    backgroundColor: '#F1F5F9',
     alignItems: 'center',
     justifyContent: 'center',
   },
   stepHeaderMainTitle: {
     fontSize: 16,
     fontWeight: '800',
-    color: '#0F172A',
   },
   stepsRow: {
     flexDirection: 'row',
@@ -2962,17 +3023,17 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingHorizontal: 16,
-    paddingTop: 0,  // No top padding - stage header provides spacing
+    paddingTop: 12,
     paddingBottom: 130,
   },
   stageWrap: {
     gap: 14,
   },
   stageTitleRow: {
-    marginBottom: 4,
+    marginBottom: 12,
   },
   stageTitle: {
-    fontSize: 17,
+    fontSize: 17.5,
     fontWeight: '900',
     color: '#1C0B18',
     letterSpacing: -0.3,
@@ -2980,7 +3041,8 @@ const styles = StyleSheet.create({
   stageSubtitle: {
     fontSize: 12,
     color: '#8A7A84',
-    marginTop: 2,
+    marginTop: 3,
+    lineHeight: 17,
   },
   luxuryEmptyCartWrap: {
     alignItems: 'center',
@@ -3117,28 +3179,25 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   cartItemsStack: {
-    gap: 10,
+    gap: 12,
   },
   cartCard: {
     flexDirection: 'row',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 20,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderRadius: 18,
+    padding: 13,
+    borderWidth: 1.5,
     gap: 12,
     alignItems: 'center',
     shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.07,
-    shadowRadius: 20,
-    elevation: 3,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
   },
   cartCardThumb: {
-    width: 60,
-    height: 60,
-    borderRadius: 12,
-    backgroundColor: '#FAF5EF',
+    width: 62,
+    height: 62,
+    borderRadius: 13,
     overflow: 'hidden',
     alignItems: 'center',
     justifyContent: 'center',
@@ -3149,14 +3208,16 @@ const styles = StyleSheet.create({
   },
   cartCardDetails: {
     flex: 1,
+    minWidth: 0,
   },
   cartItemName: {
     fontSize: 14,
     fontWeight: '800',
     color: '#1C0B18',
+    letterSpacing: -0.2,
   },
   cartItemRate: {
-    fontSize: 11,
+    fontSize: 11.5,
     color: '#8A7A84',
     marginTop: 2,
   },
@@ -3164,35 +3225,43 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginTop: 6,
+    marginTop: 8,
+  },
+  cartActionsRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  cartDeleteBtn: {
+    padding: 2,
   },
   cartItemSubtotal: {
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: '900',
-    color: '#F97316',
+    color: '#16A34A',
   },
   stepperContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#16A34A',
-    borderRadius: 8,
-    paddingHorizontal: 4,
-    paddingVertical: 2,
-    gap: 6,
+    borderRadius: 9,
+    paddingHorizontal: 5,
+    paddingVertical: 3,
+    gap: 7,
   },
   stepperBtn: {
-    width: 20,
-    height: 20,
-    borderRadius: 4,
+    width: 21,
+    height: 21,
+    borderRadius: 5,
     backgroundColor: 'rgba(255, 255, 255, 0.25)',
     alignItems: 'center',
     justifyContent: 'center',
   },
   stepperCountText: {
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: '900',
     color: '#FFFFFF',
-    minWidth: 14,
+    minWidth: 15,
     textAlign: 'center',
   },
   assuranceBox: {
@@ -3234,7 +3303,7 @@ const styles = StyleSheet.create({
   addressFormCard: {
     padding: 16,
     borderRadius: 18,
-    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
     gap: 12,
   },
   formTitleRow: {
@@ -3289,11 +3358,9 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   addressSelectCard: {
-    backgroundColor: '#FFFFFF',
     borderRadius: 16,
     padding: 14,
     borderWidth: 1,
-    borderColor: '#F3E8DF',
     gap: 4,
   },
   addressSelectCardActive: {
@@ -3496,11 +3563,9 @@ const styles = StyleSheet.create({
   },
   slotCard: {
     width: '48%',
-    backgroundColor: '#FFFFFF',
     borderRadius: 14,
     padding: 12,
     borderWidth: 1,
-    borderColor: '#F3E8DF',
     gap: 6,
   },
   slotCardActive: {
@@ -3620,7 +3685,7 @@ const styles = StyleSheet.create({
   overviewCard: {
     padding: 16,
     borderRadius: 18,
-    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
   },
   overviewRow: {
     flexDirection: 'row',
@@ -3648,11 +3713,9 @@ const styles = StyleSheet.create({
     marginVertical: 10,
   },
   couponSection: {
-    backgroundColor: '#FFFFFF',
     borderRadius: 18,
     padding: 16,
     borderWidth: 1,
-    borderColor: '#F3E8DF',
     gap: 10,
   },
   couponHeaderTitle: {
@@ -3737,17 +3800,14 @@ const styles = StyleSheet.create({
     color: '#EA580C',
   },
   paymentSection: {
-    backgroundColor: '#FFFFFF',
     borderRadius: 18,
     padding: 16,
     borderWidth: 1,
-    borderColor: '#F3E8DF',
     gap: 10,
   },
   paymentHeaderTitle: {
     fontSize: 14,
     fontWeight: '800',
-    color: '#1C0B18',
   },
   paymentTile: {
     flexDirection: 'row',
@@ -3755,8 +3815,6 @@ const styles = StyleSheet.create({
     padding: 12,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: '#F3E8DF',
-    backgroundColor: '#FCF9F7',
   },
   paymentTileActive: {
     borderColor: '#F97316',
@@ -3765,7 +3823,6 @@ const styles = StyleSheet.create({
   paymentTileName: {
     fontSize: 13,
     fontWeight: '800',
-    color: '#1C0B18',
   },
   paymentTileSub: {
     fontSize: 11,
@@ -3777,25 +3834,26 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: '#FFFFFF',
+    width: '100%',
     borderTopWidth: 1,
-    borderColor: '#F3E8DF',
     paddingHorizontal: 16,
-    paddingTop: 12,
-    paddingBottom: Platform.OS === 'ios' ? 30 : 16,
+    paddingTop: 10,
+    paddingBottom: Platform.OS === 'ios' ? 24 : 12,
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
+    zIndex: 999,
+    elevation: 10,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: -3 },
     shadowOpacity: 0.08,
     shadowRadius: 8,
-    elevation: 8,
   },
   footerPriceCol: {
     justifyContent: 'center',
     flexShrink: 0,
-    maxWidth: 125,
-    marginRight: 10,
+    minWidth: 90,
+    marginRight: 12,
   },
   footerPriceLabel: {
     fontSize: 11,
@@ -3820,19 +3878,20 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#16A34A',
-    paddingHorizontal: 12,
-    borderRadius: 16,
+    paddingHorizontal: 14,
+    borderRadius: 14,
     gap: 6,
     shadowColor: '#16A34A',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.25,
+    shadowRadius: 6,
     elevation: 4,
   },
   footerPrimaryBtnText: {
-    fontSize: 14,
-    fontWeight: '900',
+    fontSize: 13.5,
+    fontWeight: '800',
     color: '#FFFFFF',
+    letterSpacing: -0.1,
   },
   successContainer: {
     padding: 24,
@@ -4506,7 +4565,7 @@ const styles = StyleSheet.create({
   },
   payRetryHeader: {
     alignItems: 'center',
-    marginBottom: 14,
+    marginBottom: 12,
   },
   payRetryIconCircle: {
     width: 52,
@@ -4538,7 +4597,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#E2E8F0',
     padding: 12,
-    marginBottom: 14,
+    marginBottom: 12,
   },
   payRetryOrderRow: {
     flexDirection: 'row',
@@ -4587,7 +4646,7 @@ const styles = StyleSheet.create({
   },
   payRetryActions: {
     gap: 10,
-    marginTop: 2,
+    marginTop: 0,
   },
   payRetryPrimaryBtn: {
     backgroundColor: '#059669',

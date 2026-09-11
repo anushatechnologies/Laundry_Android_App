@@ -42,6 +42,9 @@ export type DeliveryInstructions = 'RING_BELL' | 'LEAVE_AT_DOOR' | 'CALL_ON_ARRI
 export interface CustomerPreferences {
   whatsappUpdates: boolean;
   promotionalAlerts: boolean;
+  pushNotifications?: boolean;
+  emailInvoices?: boolean;
+  smsAlerts?: boolean;
   starchLevel: StarchLevel;
   packagingPreference: PackagingPreference;
   fragrancePreference: FragrancePreference;
@@ -51,6 +54,9 @@ export interface CustomerPreferences {
 export const DEFAULT_CUSTOMER_PREFERENCES: CustomerPreferences = {
   whatsappUpdates: true,
   promotionalAlerts: false,
+  pushNotifications: true,
+  emailInvoices: true,
+  smsAlerts: true,
   starchLevel: 'NONE',
   packagingPreference: 'FOLDED',
   fragrancePreference: 'FRESH',
