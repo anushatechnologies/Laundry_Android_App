@@ -9,6 +9,7 @@ import {
   TextInput,
   View,
   ActivityIndicator,
+  BackHandler,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -32,6 +33,26 @@ interface SearchScreenProps {
 
 const RECENT_SEARCHES_KEY = '@laundryfresh_recent_searches';
 
+const SEARCH_SYNONYMS: Record<string, string[]> = {
+  'wash': ['washing', 'laundry', 'clean', 'cleaning'],
+  'iron': ['press', 'steam', 'ironing', 'pressing'],
+  'dry clean': ['dryclean', 'dry cleaning', 'drycleaning', 'suit', 'blazer', 'coat', 'saree', 'sherwani', 'lehenga', 'sweater'],
+  'dryclean': ['dry clean', 'dry cleaning'],
+  'dry cleaning': ['dry clean', 'dryclean', 'suit', 'blazer', 'coat', 'saree', 'sherwani', 'lehenga', 'sweater'],
+  'steam press': ['iron', 'press', 'steam'],
+  'press': ['steam press', 'iron'],
+  'winter': ['sweater', 'jacket', 'quilt', 'blanket', 'comforter', 'woolen', 'cardigan', 'hoodie', 'razai', 'shrug'],
+  'winter blanket cleaning': ['blanket', 'quilt', 'comforter', 'razai', 'duvet', 'fleece', 'mink'],
+  'blanket': ['blanket', 'comforter', 'quilt', 'razai', 'duvet', 'fleece', 'mink'],
+  'bedsheet': ['bedsheet', 'bed sheet', 'sheets', 'linen', 'bedcover', 'mattress', 'pillow', 'cushion'],
+  'curtain': ['curtains', 'drapes', 'sheer', 'blackout'],
+  'suit': ['blazer', 'coat', 'formal', 'tuxedo'],
+  'saree': ['sari', 'silk', 'cotton', 'handloom'],
+  'kid': ['kids', 'baby', 'child', 'children', 'romper', 'onesie', 'frock', 'uniform'],
+  'kids': ['kid', 'baby', 'child', 'children', 'romper', 'onesie', 'frock', 'uniform'],
+  'baby': ['romper', 'onesie', 'infant', 'kid'],
+};
+
 export function SearchScreen({ onBook, onBack, onSelectProduct, initialQuery = '', onQueryChange }: SearchScreenProps) {
   const { colors, isDark } = useTheme();
   const insets = useSafeAreaInsets();
@@ -45,10 +66,19 @@ export function SearchScreen({ onBook, onBack, onSelectProduct, initialQuery = '
   };
   const [recentSearches, setRecentSearches] = useState<string[]>([]);
   const [searching, setSearching] = useState(false);
-  const [searchResults, setSearchResults] = useState<any[]>([]);
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [popularSearches, setPopularSearches] = useState<any[]>([]);
   const [trendingSearches, setTrendingSearches] = useState<any[]>([]);
+
+  // Hardware back press on Android always navigates back smoothly
+  useEffect(() => {
+    if (!onBack) return;
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      onBack();
+      return true;
+    });
+    return () => sub.remove();
+  }, [onBack]);
 
   useEffect(() => {
     AsyncStorage.getItem(RECENT_SEARCHES_KEY)
@@ -95,18 +125,42 @@ export function SearchScreen({ onBook, onBack, onSelectProduct, initialQuery = '
     }
   };
 
+  // Garment catalog with dual-matched pricing (ID and garment name) & guaranteed non-zero prices
   const allItems = useMemo(() => {
     if (catalog?.clothTypes && Array.isArray(catalog.clothTypes) && catalog.clothTypes.length > 0) {
       return catalog.clothTypes.map((cloth) => {
-        const prices = Array.isArray(catalog.priceMatrix)
-          ? catalog.priceMatrix.filter((p) => p && p.clothTypeId === cloth.id && p.isActive)
-          : [];
-        const primaryPrice = prices[0];
         const clothName = String(cloth.name || 'Garment');
+        const clothNameLower = clothName.trim().toLowerCase();
         const categoryTag = String(cloth.categoryTag || 'MENS');
-        const srvName = String(primaryPrice?.serviceName || 'Standard Care');
+
+        const prices = Array.isArray(catalog.priceMatrix)
+          ? catalog.priceMatrix.filter(
+              (p) =>
+                p &&
+                (p.clothTypeId === cloth.id ||
+                  (p.clothName && p.clothName.trim().toLowerCase() === clothNameLower)) &&
+                p.isActive !== false
+            )
+          : [];
+
+        prices.sort((a, b) => (Number(a.price) || 0) - (Number(b.price) || 0));
+        const primaryPrice = prices.find((p) => Number(p.price) > 0) || prices[0];
+        const srvName = String(primaryPrice?.serviceName || 'Steam Press');
         const tat = `${primaryPrice?.turnaroundHours || 24}H Care`;
-        const price = Number(primaryPrice?.price || 0);
+
+        const catUpper = categoryTag.toUpperCase();
+        const defaultFallbackPrice = catUpper.includes('KID')
+          ? 15
+          : catUpper.includes('HOME')
+          ? 40
+          : catUpper.includes('PREMIUM') || catUpper.includes('TRADITIONAL')
+          ? 50
+          : 20;
+
+        const price =
+          primaryPrice?.price && Number(primaryPrice.price) > 0
+            ? Number(primaryPrice.price)
+            : defaultFallbackPrice;
 
         return {
           id: String(cloth.id || `cloth-${Math.random()}`),
@@ -114,9 +168,12 @@ export function SearchScreen({ onBook, onBack, onSelectProduct, initialQuery = '
           serviceName: srvName,
           tat,
           price,
-          unit: 'pc',
-          imageUrl: getGarmentImageUrl(cloth.id, cloth.imageUrl || (cloth as any).image, categoryTag),
+          unit: 'Piece',
+          imageUrl: getGarmentImageUrl(cloth.id, cloth.imageUrl || (cloth as any).image, categoryTag, clothName),
           category: categoryTag,
+          categoryLabel: cloth.categoryLabel || categoryTag,
+          subcategory: cloth.subCategory || (cloth as any).subcategory || '',
+          availableServices: prices.map((p) => String(p.serviceName || '').toLowerCase()),
         };
       });
     }
@@ -124,27 +181,68 @@ export function SearchScreen({ onBook, onBack, onSelectProduct, initialQuery = '
     return [];
   }, [catalog]);
 
-  // Fallback local search across loaded catalog
-  const performLocalSearch = useCallback((searchQuery: string) => {
-    const q = searchQuery.toLowerCase().trim();
-    if (!q) {
-      setSearchResults([]);
-      return;
-    }
-    const results = allItems.filter((item) => {
-      const name = String(item.name || '').toLowerCase();
-      const srv = String(item.serviceName || '').toLowerCase();
-      const cat = String(item.category || '').toLowerCase();
-      return name.includes(q) || srv.includes(q) || cat.includes(q);
-    });
-    setSearchResults(results);
-  }, [allItems]);
+  // Zepto-style INSTANT 0ms local search computation
+  const displayResults = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return [];
 
-  // Perform search with backend API, fallback immediately to local catalog
+    const cleanQ = q.replace(/[^a-z0-9\s]/g, ' ').replace(/\s+/g, ' ').trim();
+    const queryWords = cleanQ.split(' ').filter((w) => w.length > 0);
+
+    const expansionTerms = new Set<string>();
+    expansionTerms.add(cleanQ);
+    queryWords.forEach((w) => expansionTerms.add(w));
+
+    Object.entries(SEARCH_SYNONYMS).forEach(([key, syns]) => {
+      if (cleanQ.includes(key) || key.includes(cleanQ) || queryWords.some((w) => key.includes(w))) {
+        syns.forEach((s) => expansionTerms.add(s));
+      }
+    });
+
+    const expansionArr = Array.from(expansionTerms);
+
+    const scored = allItems.map((item) => {
+      const name = item.name.toLowerCase();
+      const srv = item.serviceName.toLowerCase();
+      const cat = item.category.toLowerCase();
+      const sub = (item.subcategory || '').toLowerCase();
+      const srvs = (item.availableServices || []).join(' ');
+
+      let score = 0;
+
+      if (name === cleanQ) score += 200;
+      else if (name.startsWith(cleanQ)) score += 100;
+      else if (name.includes(cleanQ)) score += 60;
+
+      queryWords.forEach((word) => {
+        if (word.length < 2) return;
+        if (name.includes(word)) score += 30;
+        if (srv.includes(word) || srvs.includes(word)) score += 25;
+        if (cat.includes(word) || sub.includes(word)) score += 20;
+      });
+
+      expansionArr.forEach((term) => {
+        if (name.includes(term)) score += 20;
+        if (srv.includes(term) || srvs.includes(term)) score += 15;
+        if (cat.includes(term) || sub.includes(term)) score += 10;
+      });
+
+      return {
+        ...item,
+        score,
+      };
+    });
+
+    const matched = scored.filter((item) => item.score > 0);
+    matched.sort((a, b) => b.score - a.score);
+
+    return matched;
+  }, [allItems, query]);
+
+  // Background search solely for enrichment/suggestions without blocking instant Zepto display
   const performSearch = useCallback(async (searchQuery: string) => {
     const trimmed = searchQuery.trim();
     if (!trimmed || trimmed.length < 2) {
-      setSearchResults([]);
       setSuggestions([]);
       return;
     }
@@ -155,31 +253,26 @@ export function SearchScreen({ onBook, onBack, onSelectProduct, initialQuery = '
         `${api.baseURL}/search?q=${encodeURIComponent(trimmed)}&limit=50`
       );
       const data = await response.json();
-      
-      if (data.success && Array.isArray(data.data?.results) && data.data.results.length > 0) {
-        setSearchResults(data.data.results);
-        setSuggestions(data.data.suggestions || []);
-      } else {
-        performLocalSearch(trimmed);
+
+      if (data.success && Array.isArray(data.data?.suggestions)) {
+        setSuggestions(data.data.suggestions);
       }
-    } catch (error) {
-      console.warn('[Search] Remote search unavailable, using instant local catalog:', error);
-      performLocalSearch(trimmed);
+    } catch {
+      // Remote search unavailable - local search already serving 100% instant results
     } finally {
       setSearching(false);
     }
-  }, [performLocalSearch]);
+  }, []);
 
-  // Debounced search
+  // Debounced search for suggestions only
   useEffect(() => {
     const timer = setTimeout(() => {
       if (query.trim()) {
         void performSearch(query);
       } else {
-        setSearchResults([]);
         setSuggestions([]);
       }
-    }, 250); // 250ms fast debounce
+    }, 250);
 
     return () => clearTimeout(timer);
   }, [query, performSearch]);
@@ -208,66 +301,50 @@ export function SearchScreen({ onBook, onBack, onSelectProduct, initialQuery = '
     }
   };
 
-  // Guaranteed search results from API or catalog
-  const displayResults = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    if (q.length < 2) return [];
-    
-    if (searchResults.length > 0) {
-      return searchResults.map((item) => ({
-        id: String(item.id),
-        name: item.name,
-        serviceName: item.serviceName || 'Standard Care',
-        tat: item.tat || (item.turnaroundHours ? `${item.turnaroundHours}H Care` : '24H Care'),
-        price: Number(item.price || 0),
-        unit: item.unit || 'Piece',
-        imageUrl: item.imageUrl || getGarmentImageUrl(item.id, '', item.categoryTag || item.category),
-        category: item.categoryTag || item.category,
-        relevance: item.relevance,
-      }));
-    }
-
-    // Direct fallback from allItems if searchResults is empty
-    return allItems
-      .filter((item) => {
-        const name = String(item.name || '').toLowerCase();
-        const srv = String(item.serviceName || '').toLowerCase();
-        const cat = String(item.category || '').toLowerCase();
-        return name.includes(q) || srv.includes(q) || cat.includes(q);
-      })
-      .map((item) => ({
-        id: String(item.id),
-        name: item.name,
-        serviceName: item.serviceName || 'Standard Care',
-        tat: item.tat || '24H Care',
-        price: Number(item.price || 0),
-        unit: item.unit || 'Piece',
-        imageUrl: item.imageUrl || getGarmentImageUrl(item.id, '', item.category),
-        category: item.category,
-        relevance: 1,
-      }));
-  }, [searchResults, query, allItems]);
-
   const handleOpenProductDetail = (item: any) => {
     if (!onSelectProduct) return;
 
-    const cloth = catalog?.clothTypes?.find((c: any) => c.id === item.id);
+    const clothNameLower = String(item.name || '').trim().toLowerCase();
+    const cloth = catalog?.clothTypes?.find(
+      (c: any) => c.id === item.id || (c.name && c.name.trim().toLowerCase() === clothNameLower)
+    );
     const matrix = Array.isArray(catalog?.priceMatrix)
-      ? catalog.priceMatrix.filter((p: any) => p && (p.clothTypeId === item.id || p.clothId === item.id) && p.isActive !== false)
+      ? catalog.priceMatrix.filter(
+          (p: any) =>
+            p &&
+            (p.clothTypeId === item.id ||
+              p.clothId === item.id ||
+              (p.clothName && p.clothName.trim().toLowerCase() === clothNameLower)) &&
+            p.isActive !== false
+        )
       : [];
 
     let services: any[] = [];
     if (matrix.length > 0) {
       services = matrix.map((pm: any) => {
-        const sName = pm.serviceName || (pm.serviceCode === 'PRESS' ? 'Steam Press' : pm.serviceCode === 'DRY_CLEAN' ? 'Dry Cleaning' : 'Wash & Iron');
-        const code = pm.serviceCode || (sName.toLowerCase().includes('dry') ? 'DRY_CLEAN' : sName.toLowerCase().includes('wash') ? 'WASH_IRON' : 'PRESS');
+        const sName =
+          pm.serviceName ||
+          (pm.serviceCode === 'PRESS'
+            ? 'Steam Press'
+            : pm.serviceCode === 'DRY_CLEAN'
+            ? 'Dry Cleaning'
+            : 'Wash & Iron');
+        const code =
+          pm.serviceCode ||
+          (sName.toLowerCase().includes('dry')
+            ? 'DRY_CLEAN'
+            : sName.toLowerCase().includes('wash')
+            ? 'WASH_IRON'
+            : 'PRESS');
+        const rawPrice = Number(pm.price);
+        const price = rawPrice > 0 ? rawPrice : Math.max(Number(item.price) || 20, 20);
         return {
           serviceId: pm.serviceId || `srv-${item.id}`,
           serviceName: sName,
           displayName: sName,
           shortLabel: code === 'PRESS' ? 'Press' : code === 'DRY_CLEAN' ? 'Dry Clean' : 'Wash+Iron',
           serviceCode: code,
-          price: Number(pm.price) || item.price,
+          price,
           icon: code === 'PRESS' ? 'iron' : code === 'DRY_CLEAN' ? 'coat-rack' : 'washing-machine',
           unit: pm.unit || item.unit || 'Piece',
           turnaroundHours: Number(pm.turnaroundHours) || 24,
@@ -276,6 +353,7 @@ export function SearchScreen({ onBook, onBack, onSelectProduct, initialQuery = '
     }
 
     if (services.length === 0) {
+      const basePrice = Math.max(Number(item.price) || 0, 25);
       services = [
         {
           serviceId: `srv-${item.id}-press`,
@@ -283,7 +361,7 @@ export function SearchScreen({ onBook, onBack, onSelectProduct, initialQuery = '
           displayName: 'Steam Press',
           shortLabel: 'Press',
           serviceCode: 'PRESS',
-          price: item.price,
+          price: basePrice,
           icon: 'iron',
           unit: item.unit || 'Piece',
           turnaroundHours: 24,
@@ -294,7 +372,7 @@ export function SearchScreen({ onBook, onBack, onSelectProduct, initialQuery = '
           displayName: 'Wash & Iron',
           shortLabel: 'Wash+Iron',
           serviceCode: 'WASH_IRON',
-          price: Math.round(item.price * 1.5),
+          price: Math.round(basePrice * 1.5),
           icon: 'washing-machine',
           unit: item.unit || 'Piece',
           turnaroundHours: 48,
@@ -305,7 +383,7 @@ export function SearchScreen({ onBook, onBack, onSelectProduct, initialQuery = '
           displayName: 'Dry Cleaning',
           shortLabel: 'Dry Clean',
           serviceCode: 'DRY_CLEAN',
-          price: Math.round(item.price * 2.2),
+          price: Math.round(basePrice * 2.2),
           icon: 'coat-rack',
           unit: item.unit || 'Piece',
           turnaroundHours: 48,
@@ -313,17 +391,19 @@ export function SearchScreen({ onBook, onBack, onSelectProduct, initialQuery = '
       ];
     }
 
+    const minPrice = Math.min(...services.map((s: any) => s.price));
+
     const product: ProductItem = {
       id: item.id,
       name: item.name,
       categoryTag: item.category || cloth?.categoryTag || 'MENS',
-      categoryLabel: item.category || cloth?.categoryLabel || "Men's Wear",
-      subcategory: cloth?.subCategory || 'General',
+      categoryLabel: item.categoryLabel || cloth?.categoryLabel || "Men's Wear",
+      subcategory: cloth?.subCategory || (cloth as any)?.subcategory || 'General',
       imageUrl: item.imageUrl || cloth?.imageUrl,
       fallbackImageUrl: getGarmentImageUrl(item.id, undefined, item.category || cloth?.categoryTag, item.name),
-      description: cloth?.description,
+      description: cloth?.description || `Gentle care & finishing for ${item.name}.`,
       services,
-      minPrice: Math.min(...services.map((s: any) => s.price)),
+      minPrice: minPrice > 0 ? minPrice : 20,
     };
 
     onSelectProduct(product);
@@ -334,7 +414,6 @@ export function SearchScreen({ onBook, onBack, onSelectProduct, initialQuery = '
     if (!clean) return;
     setQuery(clean);
     void saveSearchTerm(clean);
-    void performSearch(clean);
   };
 
   return (
@@ -343,13 +422,7 @@ export function SearchScreen({ onBook, onBack, onSelectProduct, initialQuery = '
       <View style={[styles.header, { paddingTop: Math.max(insets.top, 12) + 6 }, isDark && { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
         {onBack ? (
           <Pressable
-            onPress={() => {
-              if (query.trim()) {
-                setQuery('');
-              } else {
-                onBack();
-              }
-            }}
+            onPress={onBack}
             hitSlop={12}
             style={styles.headerBackBtn}
             accessibilityLabel="Back"
@@ -358,7 +431,7 @@ export function SearchScreen({ onBook, onBack, onSelectProduct, initialQuery = '
           </Pressable>
         ) : null}
         <View style={[styles.searchBar, onBack ? { flex: 1 } : null, isDark && { backgroundColor: colors.section, borderColor: colors.border }]}>
-          <MaterialCommunityIcons name="magnify" size={20} color="#0F766E" style={styles.searchIcon} />
+          <MaterialCommunityIcons name="magnify" size={20} color="#059669" style={styles.searchIcon} />
           <TextInput
             style={[styles.searchInput, isDark && { color: colors.textHeading }]}
             placeholder="Search 70+ clothes, fabrics & services..."
@@ -367,11 +440,13 @@ export function SearchScreen({ onBook, onBack, onSelectProduct, initialQuery = '
             onChangeText={setQuery}
             onSubmitEditing={() => {
               saveSearchTerm(query);
-              performSearch(query);
             }}
             autoFocus={!initialQuery}
             clearButtonMode="always"
           />
+          {searching ? (
+            <ActivityIndicator size="small" color="#059669" style={{ marginRight: 6 }} />
+          ) : null}
           {query ? (
             <Pressable onPress={() => setQuery('')} hitSlop={10}>
               <MaterialCommunityIcons name="close-circle" size={18} color="#94A3B8" />
@@ -379,11 +454,11 @@ export function SearchScreen({ onBook, onBack, onSelectProduct, initialQuery = '
           ) : (
             <View style={styles.searchRightIcons}>
               <Pressable onPress={() => handleSelectKeyword('Dry Cleaning')} hitSlop={8}>
-                <MaterialCommunityIcons name="microphone-outline" size={18} color="#2563EB" />
+                <MaterialCommunityIcons name="microphone-outline" size={18} color="#059669" />
               </Pressable>
               <View style={styles.searchBarDivider} />
               <Pressable onPress={() => handleSelectKeyword('Steam Press')} hitSlop={8}>
-                <MaterialCommunityIcons name="qrcode-scan" size={16} color="#0F766E" />
+                <MaterialCommunityIcons name="qrcode-scan" size={16} color="#059669" />
               </Pressable>
             </View>
           )}
@@ -520,19 +595,14 @@ export function SearchScreen({ onBook, onBack, onSelectProduct, initialQuery = '
           <View style={styles.resultsSection}>
             <View style={styles.resultsHeader}>
               <Text style={[styles.resultsCount, isDark && { color: colors.textCaption }]}>
-                {searching ? 'Searching...' : `Found ${displayResults.length} service${displayResults.length === 1 ? '' : 's'}`}
+                {`Found ${displayResults.length} service${displayResults.length === 1 ? '' : 's'}`}
               </Text>
-              {query && !searching && displayResults.length > 0 && (
+              {query.trim().length > 0 && displayResults.length > 0 && (
                 <Text style={[styles.resultsQuery, isDark && { color: colors.textHeading }]}>for "{query}"</Text>
               )}
             </View>
 
-            {searching ? (
-              <View style={styles.loadingContainer}>
-                <ActivityIndicator size="large" color="#2563EB" />
-                <Text style={[styles.loadingText, isDark && { color: colors.textCaption }]}>Searching laundry services...</Text>
-              </View>
-            ) : displayResults.length === 0 ? (
+            {displayResults.length === 0 ? (
               <View style={styles.emptyResults}>
                 <MaterialCommunityIcons name="magnify-close" size={54} color="#D6B36A" />
                 <Text style={[styles.emptyTitle, isDark && { color: colors.textHeading }]}>No Matching Services Found</Text>
