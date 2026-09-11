@@ -92,7 +92,7 @@ export function InvoiceViewerModal({ visible, orderId, onClose }: InvoiceViewerM
               accessibilityRole="button"
               accessibilityLabel="Open invoice in web browser"
             >
-              <MaterialCommunityIcons name="open-in-new" size={20} color={colors.primary} />
+              <MaterialCommunityIcons name="open-in-new" size={20} color={isDark ? colors.primary : '#16A34A'} />
             </Pressable>
 
             <Pressable
@@ -102,7 +102,7 @@ export function InvoiceViewerModal({ visible, orderId, onClose }: InvoiceViewerM
               accessibilityRole="button"
               accessibilityLabel="Share invoice via apps"
             >
-              <MaterialCommunityIcons name="share-variant-outline" size={20} color={colors.primary} />
+              <MaterialCommunityIcons name="share-variant-outline" size={20} color={isDark ? colors.primary : '#16A34A'} />
             </Pressable>
 
             <Pressable
@@ -232,8 +232,8 @@ export function InvoiceActionModal({
                 style={[
                   styles.actionItem,
                   {
-                    backgroundColor: isDark ? '#1E293B' : '#F8FAFC',
-                    borderColor: isDark ? '#334155' : '#E2E8F0',
+                    backgroundColor: isDark ? '#1E293B' : '#FFFFFF',
+                    borderColor: isDark ? '#334155' : '#16A34A',
                   },
                 ]}
               >
@@ -241,14 +241,14 @@ export function InvoiceActionModal({
                   <MaterialCommunityIcons name="eye-outline" size={22} color="#15803D" />
                 </View>
                 <View style={styles.actionItemText}>
-                  <Text style={[styles.actionItemTitle, { color: colors.textHeading }]}>
+                  <Text style={[styles.actionItemTitle, { color: isDark ? colors.textHeading : '#15803D' }]}>
                     View Invoice
                   </Text>
                   <Text style={[styles.actionItemSub, { color: colors.textCaption }]}>
                     View itemized breakdown, taxes & GST receipt
                   </Text>
                 </View>
-                <MaterialCommunityIcons name="chevron-right" size={22} color={colors.textCaption} />
+                <MaterialCommunityIcons name="chevron-right" size={22} color={isDark ? colors.textCaption : '#16A34A'} />
               </View>
             </Pressable>
 
@@ -266,8 +266,8 @@ export function InvoiceActionModal({
                 style={[
                   styles.actionItem,
                   {
-                    backgroundColor: isDark ? '#1E293B' : '#F8FAFC',
-                    borderColor: isDark ? '#334155' : '#E2E8F0',
+                    backgroundColor: isDark ? '#1E293B' : '#FFFFFF',
+                    borderColor: isDark ? '#334155' : '#4338CA',
                   },
                 ]}
               >
@@ -275,14 +275,14 @@ export function InvoiceActionModal({
                   <MaterialCommunityIcons name="download" size={22} color="#4338CA" />
                 </View>
                 <View style={styles.actionItemText}>
-                  <Text style={[styles.actionItemTitle, { color: colors.textHeading }]}>
+                  <Text style={[styles.actionItemTitle, { color: isDark ? colors.textHeading : '#4338CA' }]}>
                     Download PDF
                   </Text>
                   <Text style={[styles.actionItemSub, { color: colors.textCaption }]}>
                     Save official invoice PDF to your device
                   </Text>
                 </View>
-                <MaterialCommunityIcons name="chevron-right" size={22} color={colors.textCaption} />
+                <MaterialCommunityIcons name="chevron-right" size={22} color={isDark ? colors.textCaption : '#4338CA'} />
               </View>
             </Pressable>
 
@@ -300,8 +300,8 @@ export function InvoiceActionModal({
                 style={[
                   styles.actionItem,
                   {
-                    backgroundColor: isDark ? '#1E293B' : '#F8FAFC',
-                    borderColor: isDark ? '#334155' : '#E2E8F0',
+                    backgroundColor: isDark ? '#1E293B' : '#FFFFFF',
+                    borderColor: isDark ? '#334155' : '#B45309',
                   },
                 ]}
               >
@@ -309,24 +309,24 @@ export function InvoiceActionModal({
                   <MaterialCommunityIcons name="share-variant-outline" size={22} color="#B45309" />
                 </View>
                 <View style={styles.actionItemText}>
-                  <Text style={[styles.actionItemTitle, { color: colors.textHeading }]}>
+                  <Text style={[styles.actionItemTitle, { color: isDark ? colors.textHeading : '#B45309' }]}>
                     Share Invoice
                   </Text>
                   <Text style={[styles.actionItemSub, { color: colors.textCaption }]}>
                     Send via WhatsApp, Email, or messages
                   </Text>
                 </View>
-                <MaterialCommunityIcons name="chevron-right" size={22} color={colors.textCaption} />
+                <MaterialCommunityIcons name="chevron-right" size={22} color={isDark ? colors.textCaption : '#B45309'} />
               </View>
             </Pressable>
           </View>
 
           {/* Close Button */}
           <Pressable
-            style={[styles.actionCloseBtn, { backgroundColor: isDark ? '#334155' : '#F1F5F9' }]}
+            style={[styles.actionCloseBtn, { backgroundColor: isDark ? '#334155' : '#E8F5E9' }]}
             onPress={onClose}
           >
-            <Text style={[styles.actionCloseText, { color: colors.textHeading }]}>Cancel</Text>
+            <Text style={[styles.actionCloseText, { color: isDark ? colors.textHeading : '#15803D' }]}>Cancel</Text>
           </Pressable>
         </Pressable>
       </Pressable>
@@ -373,9 +373,11 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 10,
-    backgroundColor: '#F0FDF4',
+    backgroundColor: '#DCFCE7',
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#BBF7D0',
   },
   headerDownloadBtn: {
     flexDirection: 'row',
