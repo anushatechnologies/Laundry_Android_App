@@ -352,8 +352,8 @@ export function LiveChatSupportScreen({ onBack }: LiveChatSupportScreenProps = {
   return (
     <KeyboardAvoidingView
       style={[styles.root, { backgroundColor: colors.background }]}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
+      behavior="padding"
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 80}
     >
       {/* 1. AGENT STATUS & NAVIGATION HEADER */}
       <View style={[styles.agentHeader, { backgroundColor: colors.surface, borderColor: colors.border }]}>
@@ -502,7 +502,7 @@ export function LiveChatSupportScreen({ onBack }: LiveChatSupportScreenProps = {
           {
             backgroundColor: colors.surface,
             borderColor: colors.border,
-            paddingBottom: isKeyboardVisible ? 10 : Math.max(insets.bottom, 12),
+            paddingBottom: Math.max(insets.bottom, 12),
           },
         ]}
       >
