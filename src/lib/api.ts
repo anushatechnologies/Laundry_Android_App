@@ -141,6 +141,86 @@ async function request<T>(path: string, options: RequestInit = {}, authenticated
 
 export const api = {
   baseURL: API_BASE_URL,
+  search: (params: {
+    query: string;
+    category?: string;
+    minPrice?: number;
+    maxPrice?: number;
+    limit?: number;
+  }) => {
+    const qParams = new URLSearchParams();
+    if (params.query) qParams.set('q', params.query);
+    if (params.category && params.category !== 'ALL') qParams.set('category', params.category);
+    if (params.minPrice !== undefined && params.minPrice > 0) qParams.set('minPrice', String(params.minPrice));
+    if (params.maxPrice !== undefined && params.maxPrice < Infinity) qParams.set('maxPrice', String(params.maxPrice));
+    if (params.limit) qParams.set('limit', String(params.limit));
+
+    return request<{
+      query: string;
+      normalizedQuery: string;
+      results: Array<{
+        id: string;
+        name: string;
+        description: string;
+        categoryTag: string;
+        categoryLabel?: string;
+        subcategory: string;
+        imageUrl: string;
+        serviceName: string;
+        serviceId: string;
+        price: number;
+        unit: string;
+        turnaroundHours: number;
+        pricingModel: string;
+        isPopular: boolean;
+        availableServices?: string[];
+        allPrices: Array<{
+          serviceId: string;
+          serviceName: string;
+          price: number;
+          unit: string;
+          turnaroundHours?: number;
+        }>;
+        relevance: number;
+      }>;
+      groupedResults: Record<string, any[]>;
+      totalResults: number;
+      totalMatched: number;
+      suggestions: string[];
+      categories: string[];
+    }>(`/search?${qParams.toString()}`, {}, false);
+  },
+
+  getSearchAutocomplete: (query: string, limit = 10) =>
+    request<{
+      query: string;
+      suggestions: Array<{
+        text: string;
+        type: 'item' | 'service' | 'keyword' | 'popular';
+        category?: string;
+        icon?: string;
+      }>;
+      totalSuggestions: number;
+    }>(`/search/autocomplete?q=${encodeURIComponent(query)}&limit=${limit}`, {}, false),
+
+  getPopularSearches: (limit = 10) =>
+    request<{
+      popularSearches: Array<{
+        text: string;
+        count: number;
+        trend: 'up' | 'down' | 'stable';
+      }>;
+    }>(`/search/popular?limit=${limit}`, {}, false),
+
+  getTrendingSearches: (limit = 6) =>
+    request<{
+      trendingSearches: Array<{
+        text: string;
+        growth: string;
+        emoji: string;
+      }>;
+    }>(`/search/trending?limit=${limit}`, {}, false),
+
   getReferrals: () => request<ReferralSummary>('/referrals/me', {}, true),
   applyReferral: (code: string) => request<ReferralSummary>('/referrals/apply', { method: 'POST', body: JSON.stringify({ code }) }, true),
   detectReferralInstall: async (): Promise<{ detected: boolean; referralCode?: string; bonus?: number }> => {

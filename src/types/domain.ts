@@ -480,6 +480,8 @@ export interface Banner {
   subtitle: string;
   badgeText?: string;
   imageUrl: string;
+  mediaType?: 'IMAGE' | 'VIDEO';
+  videoUrl?: string;
   couponCode?: string;
   discountPercent?: number;
   actionType?: 'CATEGORY' | 'SERVICE' | 'OFFER' | 'BOOK' | 'URL';

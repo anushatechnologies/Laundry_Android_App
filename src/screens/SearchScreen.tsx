@@ -33,25 +33,106 @@ interface SearchScreenProps {
 
 const RECENT_SEARCHES_KEY = '@laundryfresh_recent_searches';
 
-const SEARCH_SYNONYMS: Record<string, string[]> = {
-  'wash': ['washing', 'laundry', 'clean', 'cleaning'],
-  'iron': ['press', 'steam', 'ironing', 'pressing'],
-  'dry clean': ['dryclean', 'dry cleaning', 'drycleaning', 'suit', 'blazer', 'coat', 'saree', 'sherwani', 'lehenga', 'sweater'],
-  'dryclean': ['dry clean', 'dry cleaning'],
-  'dry cleaning': ['dry clean', 'dryclean', 'suit', 'blazer', 'coat', 'saree', 'sherwani', 'lehenga', 'sweater'],
-  'steam press': ['iron', 'press', 'steam'],
-  'press': ['steam press', 'iron'],
-  'winter': ['sweater', 'jacket', 'quilt', 'blanket', 'comforter', 'woolen', 'cardigan', 'hoodie', 'razai', 'shrug'],
-  'winter blanket cleaning': ['blanket', 'quilt', 'comforter', 'razai', 'duvet', 'fleece', 'mink'],
-  'blanket': ['blanket', 'comforter', 'quilt', 'razai', 'duvet', 'fleece', 'mink'],
-  'bedsheet': ['bedsheet', 'bed sheet', 'sheets', 'linen', 'bedcover', 'mattress', 'pillow', 'cushion'],
-  'curtain': ['curtains', 'drapes', 'sheer', 'blackout'],
-  'suit': ['blazer', 'coat', 'formal', 'tuxedo'],
-  'saree': ['sari', 'silk', 'cotton', 'handloom'],
-  'kid': ['kids', 'baby', 'child', 'children', 'romper', 'onesie', 'frock', 'uniform'],
-  'kids': ['kid', 'baby', 'child', 'children', 'romper', 'onesie', 'frock', 'uniform'],
-  'baby': ['romper', 'onesie', 'infant', 'kid'],
+const SEARCH_CATEGORIES = [
+  { key: 'ALL', label: 'All Items', icon: 'view-grid-outline' },
+  { key: 'MENS', label: "Men's", icon: 'tshirt-crew-outline' },
+  { key: 'WOMENS', label: "Women's", icon: 'hanger' },
+  { key: 'KIDS', label: 'Kids & Baby', icon: 'baby-carriage' },
+  { key: 'HOME_TEXTILES', label: 'Home Linen', icon: 'bed-double-outline' },
+  { key: 'FOOTWEAR', label: 'Footwear', icon: 'shoe-sneaker' },
+  { key: 'ACCESSORIES', label: 'Accessories', icon: 'bag-personal-outline' },
+  { key: 'SPECIAL', label: 'Special Care', icon: 'sparkles' },
+];
+
+const GARMENT_SYNONYMS: Record<string, string[]> = {
+  saree: ['saree', 'sari'],
+  shirt: ['shirt', 'tshirt', 't-shirt', 'tee', 'polo'],
+  tshirt: ['tshirt', 't-shirt', 'tee', 'polo', 'shirt'],
+  pant: ['pant', 'trouser', 'chino', 'bottom'],
+  trouser: ['trouser', 'pant', 'chino', 'bottom'],
+  chino: ['chino', 'trouser', 'pant'],
+  jeans: ['jeans', 'jean', 'denim'],
+  suit: ['suit', 'blazer', 'tuxedo'],
+  blazer: ['blazer', 'coat', 'suit'],
+  jacket: ['jacket', 'windcheater', 'shrug'],
+  coat: ['coat', 'overcoat', 'blazer'],
+  kurta: ['kurta', 'kameez', 'kurti'],
+  kurti: ['kurti', 'tunic', 'kurta'],
+  lehenga: ['lehenga', 'ghagra', 'choli'],
+  dress: ['dress', 'frock', 'gown', 'maxi', 'onepiece'],
+  frock: ['frock', 'dress', 'gown'],
+  gown: ['gown', 'maxi', 'dress'],
+  bedsheet: ['bedsheet', 'bed sheet', 'sheet', 'bedcover'],
+  sheet: ['sheet', 'bedsheet', 'bed sheet', 'bedcover'],
+  pillow: ['pillow', 'cushion', 'bolster'],
+  cushion: ['cushion', 'pillow'],
+  blanket: ['blanket', 'quilt', 'razai', 'comforter', 'mink', 'fleece', 'duvet'],
+  quilt: ['quilt', 'blanket', 'razai', 'comforter', 'duvet'],
+  comforter: ['comforter', 'duvet', 'blanket', 'quilt'],
+  razai: ['razai', 'quilt', 'blanket', 'comforter'],
+  curtain: ['curtain', 'drape', 'sheer'],
+  towel: ['towel', 'bathrobe'],
+  sweater: ['sweater', 'cardigan', 'pullover', 'woolen'],
+  cardigan: ['cardigan', 'sweater'],
+  hoodie: ['hoodie', 'sweatshirt'],
+  sweatshirt: ['sweatshirt', 'hoodie'],
+  shoe: ['shoe', 'shoes', 'sneaker', 'sneakers', 'boot', 'footwear'],
+  sneaker: ['sneaker', 'shoes', 'shoe', 'footwear'],
+  sherwani: ['sherwani', 'indo-western', 'achkan'],
+  dhoti: ['dhoti', 'mundu', 'veshti'],
+  top: ['top', 'blouse', 'tunic', 'tee'],
+  blouse: ['blouse', 'top'],
+  skirt: ['skirt', 'pinafore'],
+  shorts: ['shorts', 'bermuda', 'half pant'],
+  uniform: ['uniform', 'school uniform'],
+  romper: ['romper', 'onesie', 'baby suit'],
 };
+
+const SERVICE_KEYWORDS: Record<string, string[]> = {
+  'dry clean': ['dryclean', 'dry cleaning', 'dry-clean'],
+  'steam press': ['iron', 'press', 'steam', 'ironing', 'pressing'],
+  'wash & fold': ['wash and fold', 'wash fold', 'laundry'],
+  'wash & iron': ['wash and iron', 'wash iron'],
+  'saree polish': ['charak', 'polish', 'rolling'],
+  'shoe spa': ['shoe clean', 'sneaker clean', 'shoe spa'],
+};
+
+const CATEGORY_KEYWORDS: Record<string, string[]> = {
+  MENS: ['men', 'mens', 'male', 'gents'],
+  WOMENS: ['women', 'womens', 'ladies', 'female', 'girls'],
+  KIDS: ['kid', 'kids', 'child', 'children', 'baby', 'toddler', 'infant'],
+  HOME_TEXTILES: ['home', 'household', 'bed', 'living', 'linen'],
+  FOOTWEAR: ['shoe', 'shoes', 'sneaker', 'footwear'],
+  ACCESSORIES: ['bag', 'accessory', 'purse', 'wallet'],
+};
+
+function stemWord(raw: string): string {
+  const w = raw.toLowerCase().trim();
+  if (w.length <= 3) return w;
+
+  if (w === 'men' || w === 'mens') return 'man';
+  if (w === 'women' || w === 'womens') return 'woman';
+  if (w === 'children') return 'child';
+  if (w === 'jeans') return 'jeans';
+  if (w === 'chinos') return 'chino';
+  if (w === 'trousers') return 'trouser';
+  if (w === 'shoes') return 'shoe';
+  if (w === 'sarees' || w === 'saris') return 'saree';
+
+  if (w.endsWith('ies') && w.length > 4) {
+    return w.slice(0, -3) + 'y';
+  }
+  if (w.endsWith('ses') || w.endsWith('xes') || w.endsWith('ches') || w.endsWith('shes')) {
+    return w.slice(0, -2);
+  }
+  if (w.endsWith('ees') && w.length > 4) {
+    return w.slice(0, -1);
+  }
+  if (w.endsWith('s') && !w.endsWith('ss') && w.length > 3) {
+    return w.slice(0, -1);
+  }
+  return w;
+}
 
 const DEFAULT_TRENDING_SEARCHES = [
   { text: 'Winter Blanket Cleaning', emoji: '❄️', growth: '+45%' },
@@ -72,18 +153,25 @@ export function SearchScreen({ onBook, onBack, onSelectProduct, initialQuery = '
   const { colors, isDark } = useTheme();
   const insets = useSafeAreaInsets();
   const { cart, cartSummary, addCartItem, setCartQuantity, removeFromCart, catalog } = useApp();
+  
   const [query, setQueryState] = useState(initialQuery);
+  const [selectedCategory, setSelectedCategory] = useState('ALL');
+  const [isSearching, setIsSearching] = useState(false);
+  const [apiResults, setApiResults] = useState<any[] | null>(null);
+  const [apiSuggestions, setApiSuggestions] = useState<string[]>([]);
+  const [autocompleteItems, setAutocompleteItems] = useState<any[]>([]);
 
   const setQuery = (newQuery: string) => {
     setQueryState(newQuery);
     onQueryChange?.(newQuery);
   };
+
   const [recentSearches, setRecentSearches] = useState<string[]>([]);
   const [popularSearches, setPopularSearches] = useState<any[]>(DEFAULT_POPULAR_SEARCHES);
   const [trendingSearches, setTrendingSearches] = useState<any[]>(DEFAULT_TRENDING_SEARCHES);
   const [localCachedCatalog, setLocalCachedCatalog] = useState<Catalog | null>(null);
 
-  // Hardware back press on Android always navigates back smoothly
+  // Hardware back press on Android navigates back smoothly
   useEffect(() => {
     if (!onBack) return;
     const sub = BackHandler.addEventListener('hardwareBackPress', () => {
@@ -93,7 +181,7 @@ export function SearchScreen({ onBook, onBack, onSelectProduct, initialQuery = '
     return () => sub.remove();
   }, [onBack]);
 
-  // Immediately hydrate recent searches and cached catalog from local disk (<5ms)
+  // Hydrate local cache and recent searches immediately (<5ms)
   useEffect(() => {
     AsyncStorage.getItem(RECENT_SEARCHES_KEY)
       .then((data) => {
@@ -121,36 +209,90 @@ export function SearchScreen({ onBook, onBack, onSelectProduct, initialQuery = '
       })
       .catch(() => undefined);
 
-    // Silent background freshness sync
-    loadPopularSearches();
-    loadTrendingSearches();
+    // Dynamic Popular and Trending searches from backend
+    api.getPopularSearches(6)
+      .then((data) => {
+        if (data?.popularSearches?.length) {
+          setPopularSearches(data.popularSearches);
+        }
+      })
+      .catch(() => undefined);
+
+    api.getTrendingSearches(6)
+      .then((data) => {
+        if (data?.trendingSearches?.length) {
+          setTrendingSearches(data.trendingSearches);
+        }
+      })
+      .catch(() => undefined);
   }, []);
 
-  const loadPopularSearches = async () => {
-    try {
-      const response = await fetch(`${api.baseURL}/search/popular?limit=5`);
-      const data = await response.json();
-      if (data.success && Array.isArray(data.data?.popularSearches) && data.data.popularSearches.length > 0) {
-        setPopularSearches(data.data.popularSearches);
-      }
-    } catch {
-      // Keep instant defaults
+  // Live End-to-End Backend Search with 220ms Debouncing
+  useEffect(() => {
+    const trimmed = query.trim();
+    if (!trimmed) {
+      setApiResults(null);
+      setAutocompleteItems([]);
+      setIsSearching(false);
+      return;
     }
-  };
 
-  const loadTrendingSearches = async () => {
-    try {
-      const response = await fetch(`${api.baseURL}/search/trending?limit=4`);
-      const data = await response.json();
-      if (data.success && Array.isArray(data.data?.trendingSearches) && data.data.trendingSearches.length > 0) {
-        setTrendingSearches(data.data.trendingSearches);
+    setIsSearching(true);
+    const timer = setTimeout(async () => {
+      try {
+        const [searchRes, autoRes] = await Promise.allSettled([
+          api.search({
+            query: trimmed,
+            category: selectedCategory !== 'ALL' ? selectedCategory : undefined,
+            limit: 40,
+          }),
+          api.getSearchAutocomplete(trimmed, 6),
+        ]);
+
+        if (searchRes.status === 'fulfilled' && searchRes.value && Array.isArray(searchRes.value.results)) {
+          const mapped = searchRes.value.results.map((item) => {
+            const tat = `${item.turnaroundHours || 24}H Care`;
+            return {
+              id: String(item.id),
+              name: item.name,
+              serviceName: item.serviceName || 'Steam Press',
+              serviceId: item.serviceId || 'srv-m-steam-iron',
+              tat,
+              price: Number(item.price) || 25,
+              unit: item.unit || 'Piece',
+              imageUrl: item.imageUrl || getGarmentImageUrl(item.id, undefined, item.categoryTag, item.name),
+              category: item.categoryTag || 'MENS',
+              categoryLabel: item.categoryLabel || item.categoryTag,
+              subcategory: item.subcategory || '',
+              availableServices: item.availableServices || [],
+              allPrices: item.allPrices || [],
+              score: item.relevance || 100,
+            };
+          });
+          setApiResults(mapped);
+          setApiSuggestions(searchRes.value.suggestions || []);
+        } else {
+          // Gracefully fallback to local search
+          setApiResults(null);
+        }
+
+        if (autoRes.status === 'fulfilled' && autoRes.value && Array.isArray(autoRes.value.suggestions)) {
+          setAutocompleteItems(autoRes.value.suggestions);
+        } else {
+          setAutocompleteItems([]);
+        }
+      } catch {
+        // Fallback gracefully on network interruptions
+        setApiResults(null);
+      } finally {
+        setIsSearching(false);
       }
-    } catch {
-      // Keep instant defaults
-    }
-  };
+    }, 220);
 
-  // Garment catalog with dual-matched pricing & guaranteed non-zero prices
+    return () => clearTimeout(timer);
+  }, [query, selectedCategory]);
+
+  // Garment catalog preparation for instant local fallback
   const allItems = useMemo(() => {
     const activeCatalog = (catalog?.clothTypes && Array.isArray(catalog.clothTypes) && catalog.clothTypes.length > 0)
       ? catalog
@@ -205,6 +347,13 @@ export function SearchScreen({ onBook, onBack, onSelectProduct, initialQuery = '
           categoryLabel: cloth.categoryLabel || categoryTag,
           subcategory: cloth.subCategory || (cloth as any).subcategory || '',
           availableServices: prices.map((p) => String(p.serviceName || '').toLowerCase()),
+          allPrices: prices.map((p) => ({
+            serviceId: p.serviceId,
+            serviceName: p.serviceName,
+            price: Number(p.price) || price,
+            unit: 'Piece',
+            turnaroundHours: p.turnaroundHours || 24,
+          })),
         };
       });
     }
@@ -212,51 +361,130 @@ export function SearchScreen({ onBook, onBack, onSelectProduct, initialQuery = '
     return [];
   }, [catalog, localCachedCatalog]);
 
-  // Zepto-style INSTANT 0ms local search computation capped to top 30 for smooth 60fps
-  const displayResults = useMemo(() => {
+  // Local instant fallback search calculation
+  const localResults = useMemo(() => {
     const q = query.trim().toLowerCase();
     if (!q) return [];
 
     const cleanQ = q.replace(/[^a-z0-9\s]/g, ' ').replace(/\s+/g, ' ').trim();
     const queryWords = cleanQ.split(' ').filter((w) => w.length > 0);
+    if (queryWords.length === 0) return [];
 
-    const expansionTerms = new Set<string>();
-    expansionTerms.add(cleanQ);
-    queryWords.forEach((w) => expansionTerms.add(w));
+    // Filter by selected category first
+    let pool = allItems;
+    if (selectedCategory && selectedCategory !== 'ALL') {
+      const cleanCat = selectedCategory.replace(/[^A-Z]/g, '');
+      pool = pool.filter((item) => {
+        const itemCat = String(item.category || '').toUpperCase().replace(/[^A-Z]/g, '');
+        if (itemCat === cleanCat) return true;
+        if ((cleanCat.includes('HOME') || cleanCat.includes('LINEN')) && (itemCat.includes('HOME') || itemCat.includes('LINEN'))) return true;
+        if ((cleanCat.includes('KID') || cleanCat.includes('BABY')) && (itemCat.includes('KID') || itemCat.includes('BABY'))) return true;
+        if ((cleanCat.includes('SHOE') || cleanCat.includes('FOOTWEAR')) && (itemCat.includes('SHOE') || itemCat.includes('FOOTWEAR'))) return true;
+        return false;
+      });
+    }
 
-    Object.entries(SEARCH_SYNONYMS).forEach(([key, syns]) => {
-      if (cleanQ.includes(key) || key.includes(cleanQ) || queryWords.some((w) => key.includes(w))) {
-        syns.forEach((s) => expansionTerms.add(s));
+    // Garment Intent
+    const targetGarmentKeys = new Set<string>();
+    queryWords.forEach((word) => {
+      const stemmed = stemWord(word);
+      if (GARMENT_SYNONYMS[word]) targetGarmentKeys.add(word);
+      if (GARMENT_SYNONYMS[stemmed]) targetGarmentKeys.add(stemmed);
+      Object.entries(GARMENT_SYNONYMS).forEach(([key, syns]) => {
+        if (syns.includes(word) || syns.includes(stemmed)) {
+          targetGarmentKeys.add(key);
+        }
+      });
+    });
+
+    const hasGarmentIntent = targetGarmentKeys.size > 0;
+    const allowedGarmentTerms = new Set<string>();
+    targetGarmentKeys.forEach((key) => {
+      allowedGarmentTerms.add(key);
+      (GARMENT_SYNONYMS[key] || []).forEach((syn) => {
+        allowedGarmentTerms.add(syn);
+        allowedGarmentTerms.add(stemWord(syn));
+      });
+    });
+
+    // Service Intent
+    const targetServiceTerms = new Set<string>();
+    Object.entries(SERVICE_KEYWORDS).forEach(([srvKey, variants]) => {
+      if (cleanQ.includes(srvKey) || queryWords.some((w) => srvKey.includes(w) && w.length > 3)) {
+        targetServiceTerms.add(srvKey);
+        variants.forEach((v) => targetServiceTerms.add(v));
+      } else {
+        variants.forEach((v) => {
+          if (cleanQ.includes(v) || queryWords.some((w) => v.includes(w) && w.length > 3)) {
+            targetServiceTerms.add(srvKey);
+            targetServiceTerms.add(v);
+          }
+        });
       }
     });
 
-    const expansionArr = Array.from(expansionTerms);
+    const scored = pool.map((item) => {
+      const nameLower = item.name.toLowerCase();
+      const nameWords = nameLower.replace(/[^a-z0-9\s]/g, ' ').split(/\s+/).filter(Boolean);
+      const stemmedNameWords = nameWords.map(stemWord);
+      const categoryTag = (item.category || '').toUpperCase();
+      const subcategoryLower = (item.subcategory || '').toLowerCase();
+      const services = (item.availableServices || []).map((s: string) => s.toLowerCase());
 
-    const scored = allItems.map((item) => {
-      const name = item.name.toLowerCase();
-      const srv = item.serviceName.toLowerCase();
-      const cat = item.category.toLowerCase();
-      const sub = (item.subcategory || '').toLowerCase();
-      const srvs = (item.availableServices || []).join(' ');
+      if (hasGarmentIntent) {
+        const itemMatchesGarment = Array.from(allowedGarmentTerms).some((term) => {
+          const stemmedTerm = stemWord(term);
+          return (
+            nameWords.includes(term) ||
+            nameWords.includes(stemmedTerm) ||
+            stemmedNameWords.includes(term) ||
+            stemmedNameWords.includes(stemmedTerm) ||
+            nameLower.includes(term) ||
+            nameLower.includes(stemmedTerm)
+          );
+        });
+
+        if (!itemMatchesGarment) {
+          return { ...item, score: 0 };
+        }
+      }
 
       let score = 0;
+      if (nameLower === cleanQ) score += 500;
+      else if (nameLower.startsWith(cleanQ)) score += 300;
+      else if (nameLower.includes(cleanQ)) score += 200;
 
-      if (name === cleanQ) score += 200;
-      else if (name.startsWith(cleanQ)) score += 100;
-      else if (name.includes(cleanQ)) score += 60;
-
-      queryWords.forEach((word) => {
-        if (word.length < 2) return;
-        if (name.includes(word)) score += 30;
-        if (srv.includes(word) || srvs.includes(word)) score += 25;
-        if (cat.includes(word) || sub.includes(word)) score += 20;
+      let matchedWords = 0;
+      queryWords.forEach((qWord) => {
+        const sWord = stemWord(qWord);
+        if (nameWords.includes(qWord) || nameWords.includes(sWord)) {
+          score += 150;
+          matchedWords++;
+        } else if (stemmedNameWords.includes(sWord) || stemmedNameWords.includes(qWord)) {
+          score += 120;
+          matchedWords++;
+        } else if (nameLower.includes(qWord) || nameLower.includes(sWord)) {
+          score += 80;
+          matchedWords++;
+        }
       });
 
-      expansionArr.forEach((term) => {
-        if (name.includes(term)) score += 20;
-        if (srv.includes(term) || srvs.includes(term)) score += 15;
-        if (cat.includes(term) || sub.includes(term)) score += 10;
-      });
+      if (queryWords.length > 1 && matchedWords === queryWords.length) {
+        score += 200;
+      }
+
+      if (subcategoryLower && (subcategoryLower.includes(cleanQ) || queryWords.some((w) => subcategoryLower.includes(w)))) {
+        score += 60;
+      }
+
+      if (targetServiceTerms.size > 0) {
+        const matchesService = Array.from(targetServiceTerms).some((srvTerm) =>
+          services.some((s: string) => s.includes(srvTerm)) || item.serviceName.toLowerCase().includes(srvTerm)
+        );
+        if (matchesService) {
+          score += 70;
+        }
+      }
 
       return {
         ...item,
@@ -264,33 +492,39 @@ export function SearchScreen({ onBook, onBack, onSelectProduct, initialQuery = '
       };
     });
 
-    const matched = scored.filter((item) => item.score > 0);
+    const matched = scored.filter((item) => item.score >= 50);
     matched.sort((a, b) => b.score - a.score);
-
     return matched.slice(0, 30);
-  }, [allItems, query]);
+  }, [allItems, query, selectedCategory]);
 
-  // Pure local instant zero-latency suggestions for empty searches (0ms)
+  // Primary display results: Uses backend API results when present, falls back seamlessly to local
+  const displayResults = apiResults !== null ? apiResults : localResults;
+
+  // Fallback suggestions for zero results
   const suggestions = useMemo(() => {
+    if (apiSuggestions.length > 0) return apiSuggestions;
     if (displayResults.length > 0) return [];
     const q = query.trim().toLowerCase();
     if (!q) return [];
 
+    const cleanQ = q.replace(/[^a-z0-9\s]/g, ' ').replace(/\s+/g, ' ').trim();
     const matchedSuggestions = new Set<string>();
-    Object.entries(SEARCH_SYNONYMS).forEach(([key, syns]) => {
-      if (q.includes(key) || key.includes(q)) {
-        syns.forEach((s) => matchedSuggestions.add(s));
+
+    Object.entries(GARMENT_SYNONYMS).forEach(([key, syns]) => {
+      if (cleanQ.includes(key) || key.includes(cleanQ)) {
+        matchedSuggestions.add(key.charAt(0).toUpperCase() + key.slice(1));
+        syns.forEach((s) => matchedSuggestions.add(s.charAt(0).toUpperCase() + s.slice(1)));
       }
     });
 
     if (matchedSuggestions.size === 0) {
-      ['Steam Press', 'Dry Cleaning', 'Saree', 'Shirt', 'Blanket', 'Suit', 'Kurta'].forEach((s) =>
+      ['Saree', 'Shirt', 'T-Shirt', 'Suit', 'Jeans', 'Bedsheet', 'Blanket', 'Kurta', 'Dry Cleaning', 'Steam Press'].forEach((s) =>
         matchedSuggestions.add(s)
       );
     }
 
     return Array.from(matchedSuggestions).slice(0, 6);
-  }, [displayResults.length, query]);
+  }, [apiSuggestions, displayResults.length, query]);
 
   const saveSearchTerm = async (term: string) => {
     try {
@@ -337,6 +571,48 @@ export function SearchScreen({ onBook, onBack, onSelectProduct, initialQuery = '
     let services: any[] = [];
     if (matrix.length > 0) {
       services = matrix.map((pm: any) => {
+        const sName = pm.serviceName || 'Standard Care';
+        const sLower = sName.toLowerCase();
+        let code = pm.serviceCode || '';
+        if (!code) {
+          if (sLower.includes('dry')) code = 'DRY_CLEAN';
+          else if (sLower.includes('fold') || (sLower.includes('wash') && sLower.includes('fold'))) code = 'WASH_FOLD';
+          else if (sLower.includes('wash')) code = 'WASH_IRON';
+          else if (sLower.includes('press') || sLower.includes('steam') || sLower.includes('iron')) code = 'PRESS';
+          else if (sLower.includes('starch')) code = 'STARCH';
+          else if (sLower.includes('saree') || sLower.includes('charak') || sLower.includes('polish')) code = 'SAREE_POLISH';
+          else if (sLower.includes('shoe') || sLower.includes('spa')) code = 'SHOE_SPA';
+          else if (sLower.includes('express')) code = 'EXPRESS';
+          else code = 'PRESS';
+        }
+
+        const rawPrice = Number(pm.price);
+        const price = rawPrice > 0 ? rawPrice : Math.max(Number(item.price) || 20, 20);
+
+        let shortLabel = 'Care';
+        if (code === 'PRESS') shortLabel = 'Press';
+        else if (code === 'DRY_CLEAN') shortLabel = 'Dry Clean';
+        else if (code === 'WASH_FOLD') shortLabel = 'Wash+Fold';
+        else if (code === 'WASH_IRON') shortLabel = 'Wash+Iron';
+        else if (code === 'STARCH') shortLabel = 'Starch';
+        else if (code === 'SAREE_POLISH') shortLabel = 'Polish';
+        else if (code === 'SHOE_SPA') shortLabel = 'Spa';
+        else if (code === 'EXPRESS') shortLabel = 'Express';
+
+        return {
+          serviceId: pm.serviceId || `srv-${item.id}-${code.toLowerCase()}`,
+          serviceName: sName,
+          displayName: sName,
+          shortLabel,
+          serviceCode: code,
+          price,
+          icon: code === 'PRESS' ? 'iron' : code === 'DRY_CLEAN' ? 'coat-rack' : code === 'SHOE_SPA' ? 'shoe-sneaker' : code === 'STARCH' ? 'sparkles' : 'washing-machine',
+          unit: pm.unit || item.unit || 'Piece',
+          turnaroundHours: Number(pm.turnaroundHours) || 24,
+        };
+      });
+    } else if (item.allPrices && Array.isArray(item.allPrices) && item.allPrices.length > 0) {
+      services = item.allPrices.map((pm: any) => {
         const sName = pm.serviceName || 'Standard Care';
         const sLower = sName.toLowerCase();
         let code = pm.serviceCode || '';
@@ -425,7 +701,7 @@ export function SearchScreen({ onBook, onBack, onSelectProduct, initialQuery = '
       name: item.name,
       categoryTag: item.category || cloth?.categoryTag || 'MENS',
       categoryLabel: item.categoryLabel || cloth?.categoryLabel || "Men's Wear",
-      subcategory: cloth?.subCategory || (cloth as any)?.subcategory || 'General',
+      subcategory: item.subcategory || cloth?.subCategory || (cloth as any)?.subcategory || 'General',
       imageUrl: item.imageUrl || cloth?.imageUrl,
       fallbackImageUrl: getGarmentImageUrl(item.id, undefined, item.category || cloth?.categoryTag, item.name),
       description: cloth?.description || `Gentle care & finishing for ${item.name}.`,
@@ -446,7 +722,7 @@ export function SearchScreen({ onBook, onBack, onSelectProduct, initialQuery = '
 
   return (
     <View style={[styles.root, { backgroundColor: colors.background }]}>
-      {/* Top Search Input Bar - sitting cleanly below status bar with no double gap */}
+      {/* Top Search Input Bar */}
       <View style={[styles.header, isDark && { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
         {onBack ? (
           <Pressable
@@ -458,6 +734,7 @@ export function SearchScreen({ onBook, onBack, onSelectProduct, initialQuery = '
             <MaterialCommunityIcons name="arrow-left" size={24} color={isDark ? colors.textHeading : '#0F172A'} />
           </Pressable>
         ) : null}
+
         <View style={[styles.searchBar, onBack ? { flex: 1 } : null, isDark && { backgroundColor: colors.section, borderColor: colors.border }]}>
           <MaterialCommunityIcons name="magnify" size={22} color="#059669" style={styles.searchIcon} />
           <TextInput
@@ -474,6 +751,11 @@ export function SearchScreen({ onBook, onBack, onSelectProduct, initialQuery = '
             clearButtonMode="never"
             returnKeyType="search"
           />
+
+          {isSearching && (
+            <ActivityIndicator size="small" color="#059669" style={{ marginRight: 6 }} />
+          )}
+
           {query ? (
             <Pressable
               onPress={() => {
@@ -489,14 +771,81 @@ export function SearchScreen({ onBook, onBack, onSelectProduct, initialQuery = '
         </View>
       </View>
 
+      {/* Category Filter Pills (Scrollable Horizontal Strip) */}
+      <View style={[styles.categoryPillsWrap, isDark && { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.categoryPillsScroll}
+        >
+          {SEARCH_CATEGORIES.map((cat) => {
+            const isActive = selectedCategory === cat.key;
+            return (
+              <Pressable
+                key={cat.key}
+                style={[
+                  styles.catPill,
+                  isActive ? styles.catPillActive : (isDark ? styles.catPillDark : styles.catPillInactive),
+                ]}
+                onPress={() => setSelectedCategory(cat.key)}
+                accessibilityRole="button"
+                accessibilityLabel={`Filter by ${cat.label}`}
+              >
+                <MaterialCommunityIcons
+                  name={cat.icon as any}
+                  size={14}
+                  color={isActive ? '#FFFFFF' : (isDark ? colors.textCaption : '#64748B')}
+                />
+                <Text
+                  style={[
+                    styles.catPillText,
+                    isActive ? styles.catPillTextActive : (isDark ? { color: colors.textBody } : styles.catPillTextInactive),
+                  ]}
+                >
+                  {cat.label}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </ScrollView>
+      </View>
+
+      {/* Live Autocomplete Suggestions Strip (shown when typing) */}
+      {query.trim().length > 0 && autocompleteItems.length > 0 && (
+        <View style={[styles.autocompleteWrap, isDark && { backgroundColor: colors.section, borderBottomColor: colors.border }]}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.autocompleteScroll}
+          >
+            {autocompleteItems.map((item, idx) => (
+              <Pressable
+                key={`auto-${idx}`}
+                style={[styles.autocompleteChip, isDark && { backgroundColor: colors.surface, borderColor: colors.border }]}
+                onPress={() => {
+                  Keyboard.dismiss();
+                  setQuery(item.text);
+                  void saveSearchTerm(item.text);
+                }}
+              >
+                <Text style={styles.autocompleteIcon}>{item.icon || '🔍'}</Text>
+                <Text style={[styles.autocompleteText, isDark && { color: colors.textHeading }]} numberOfLines={1}>
+                  {item.text}
+                </Text>
+              </Pressable>
+            ))}
+          </ScrollView>
+        </View>
+      )}
+
       <ScrollView
         style={styles.scrollArea}
-        contentContainerStyle={[styles.content, { paddingBottom: Math.max(insets.bottom, 16) + 130 }]}
+        contentContainerStyle={[styles.content, { paddingBottom: Math.max(insets.bottom, 16) + 140 }]}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag"
       >
-        {/* If Query is Empty: Show Recent & Trending Searches */}
+        {/* If Query is Empty: Show Recent & Discovery Sections */}
         {!query.trim() ? (
           <View style={styles.discoveryWrap}>
             {/* Recent Searches */}
@@ -561,7 +910,7 @@ export function SearchScreen({ onBook, onBack, onSelectProduct, initialQuery = '
               </View>
             </View>
 
-            {/* Trending This Week */}
+            {/* Trending Searches from Backend */}
             {trendingSearches.length > 0 && (
               <View style={styles.section}>
                 <View style={styles.sectionTitleRow}>
@@ -579,16 +928,16 @@ export function SearchScreen({ onBook, onBack, onSelectProduct, initialQuery = '
                       ]}
                       onPress={() => handleSelectKeyword(trend.text)}
                     >
-                      <Text style={styles.trendingEmoji}>{trend.emoji}</Text>
+                      <Text style={styles.trendingEmoji}>{trend.emoji || '🔥'}</Text>
                       <Text style={[styles.trendingBadgeText, isDark && { color: colors.textHeading }]}>{trend.text}</Text>
-                      <Text style={styles.trendingGrowth}>{trend.growth}</Text>
+                      {trend.growth ? <Text style={styles.trendingGrowth}>{trend.growth}</Text> : null}
                     </Pressable>
                   ))}
                 </View>
               </View>
             )}
 
-            {/* Popular Searches */}
+            {/* Most Searched Items from Backend */}
             {popularSearches.length > 0 && (
               <View style={styles.section}>
                 <View style={styles.sectionTitleRow}>
@@ -653,11 +1002,31 @@ export function SearchScreen({ onBook, onBack, onSelectProduct, initialQuery = '
           /* Search Results Grid */
           <View style={styles.resultsSection}>
             <View style={styles.resultsHeader}>
-              <Text style={[styles.resultsCount, isDark && { color: colors.textCaption }]}>
-                {`Found ${displayResults.length} service${displayResults.length === 1 ? '' : 's'}`}
-              </Text>
+              <View style={styles.resultsHeaderTitleRow}>
+                <Text style={[styles.resultsCount, isDark && { color: colors.textCaption }]}>
+                  {`Found ${displayResults.length} service${displayResults.length === 1 ? '' : 's'}`}
+                </Text>
+                {isSearching ? (
+                  <View style={styles.searchingBadge}>
+                    <ActivityIndicator size="small" color="#059669" />
+                    <Text style={styles.searchingBadgeText}>Searching…</Text>
+                  </View>
+                ) : apiResults !== null ? (
+                  <View style={styles.liveApiBadge}>
+                    <View style={styles.liveApiDot} />
+                    <Text style={styles.liveApiText}>Live API</Text>
+                  </View>
+                ) : null}
+              </View>
               {query.trim().length > 0 && displayResults.length > 0 && (
-                <Text style={[styles.resultsQuery, isDark && { color: colors.textHeading }]}>for "{query}"</Text>
+                <Text style={[styles.resultsQuery, isDark && { color: colors.textHeading }]}>
+                  for "{query}"
+                  {selectedCategory !== 'ALL' ? (
+                    <Text style={styles.categorySubQuery}>
+                      {` in ${SEARCH_CATEGORIES.find((c) => c.key === selectedCategory)?.label || selectedCategory}`}
+                    </Text>
+                  ) : null}
+                </Text>
               )}
             </View>
 
@@ -716,10 +1085,16 @@ export function SearchScreen({ onBook, onBack, onSelectProduct, initialQuery = '
 
                       <View style={styles.garmentDetails}>
                         <Text style={[styles.garmentName, isDark && { color: colors.textHeading }]} numberOfLines={1}>{item.name}</Text>
-                        <Text style={[styles.garmentService, isDark && { color: colors.textCaption }]}>{item.serviceName}</Text>
+                        <Text style={[styles.garmentService, isDark && { color: colors.textCaption }]} numberOfLines={1}>
+                          {item.categoryLabel ? `${item.categoryLabel} • ` : ''}
+                          {item.subcategory ? `${item.subcategory} • ` : ''}
+                          {item.serviceName}
+                        </Text>
 
                         <View style={styles.garmentBottomRow}>
-                          <Text style={[styles.garmentPrice, isDark && { color: colors.textHeading }]}>₹{item.price}<Text style={[styles.garmentUnit, isDark && { color: colors.textCaption }]}>/{item.unit}</Text></Text>
+                          <Text style={[styles.garmentPrice, isDark && { color: colors.textHeading }]}>
+                            ₹{item.price}<Text style={[styles.garmentUnit, isDark && { color: colors.textCaption }]}>/{item.unit}</Text>
+                          </Text>
 
                           <AnimatedCartButton
                             quantity={qty}
@@ -766,6 +1141,29 @@ export function SearchScreen({ onBook, onBack, onSelectProduct, initialQuery = '
           </View>
         )}
       </ScrollView>
+
+      {/* Floating Bag Bar at bottom when items exist in bag */}
+      {cart.length > 0 && (
+        <View style={[styles.floatingBagBar, { bottom: Math.max(insets.bottom, 16) }]}>
+          <View style={styles.bagInfo}>
+            <Text style={styles.bagCountText}>
+              {cartSummary.itemCount} {cartSummary.itemCount === 1 ? 'item' : 'items'} in bag
+            </Text>
+            <Text style={styles.bagTotalText}>
+              Total {money(cartSummary.itemTotal)}
+            </Text>
+          </View>
+          <Pressable
+            style={styles.bagReviewBtn}
+            onPress={onBook}
+            accessibilityRole="button"
+            accessibilityLabel="Review order"
+          >
+            <Text style={styles.bagReviewBtnText}>View Bag</Text>
+            <MaterialCommunityIcons name="arrow-right" size={16} color="#FFFFFF" />
+          </Pressable>
+        </View>
+      )}
     </View>
   );
 }
@@ -780,7 +1178,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: '#FFFFFF',
     paddingHorizontal: 12,
-    paddingTop: 6,
+    paddingTop: 8,
     paddingBottom: 8,
     borderBottomWidth: 1,
     borderBottomColor: '#F1F5F9',
@@ -818,16 +1216,86 @@ const styles = StyleSheet.create({
     color: '#0F172A',
     fontWeight: '600',
   },
+  categoryPillsWrap: {
+    backgroundColor: '#FFFFFF',
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
+    paddingVertical: 8,
+  },
+  categoryPillsScroll: {
+    paddingHorizontal: 14,
+    gap: 8,
+  },
+  catPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 18,
+    borderWidth: 1,
+  },
+  catPillActive: {
+    backgroundColor: '#059669',
+    borderColor: '#059669',
+  },
+  catPillInactive: {
+    backgroundColor: '#F8FAFC',
+    borderColor: '#E2E8F0',
+  },
+  catPillDark: {
+    backgroundColor: '#1E293B',
+    borderColor: '#334155',
+  },
+  catPillText: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  catPillTextActive: {
+    color: '#FFFFFF',
+  },
+  catPillTextInactive: {
+    color: '#475569',
+  },
+  autocompleteWrap: {
+    backgroundColor: '#F8FAFC',
+    borderBottomWidth: 1,
+    borderBottomColor: '#E2E8F0',
+    paddingVertical: 6,
+  },
+  autocompleteScroll: {
+    paddingHorizontal: 14,
+    gap: 8,
+  },
+  autocompleteChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 16,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+  },
+  autocompleteIcon: {
+    fontSize: 12,
+  },
+  autocompleteText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#1E293B',
+  },
   scrollArea: {
     flex: 1,
   },
   content: {
     paddingHorizontal: 16,
-    paddingTop: 0,
+    paddingTop: 8,
     paddingBottom: 40,
   },
   discoveryWrap: {
-    paddingTop: 12,
+    paddingTop: 8,
     gap: 18,
   },
   section: {
@@ -896,19 +1364,6 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#0F172A',
   },
-  trendingChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    borderWidth: 1,
-    borderRadius: 20,
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-  },
-  trendingChipText: {
-    fontSize: 12.5,
-    fontWeight: '700',
-  },
   fabricChip: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -949,30 +1404,66 @@ const styles = StyleSheet.create({
   },
   resultsSection: {
     gap: 12,
+    paddingTop: 6,
   },
   resultsHeader: {
     gap: 4,
+  },
+  resultsHeaderTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   resultsCount: {
     fontSize: 13,
     fontWeight: '600',
     color: '#64748B',
   },
+  searchingBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#ECFDF5',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 8,
+  },
+  searchingBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#059669',
+  },
+  liveApiBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#F0FDF4',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#BBF7D0',
+  },
+  liveApiDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#16A34A',
+  },
+  liveApiText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#16A34A',
+  },
   resultsQuery: {
     fontSize: 14,
     fontWeight: '700',
     color: '#0F172A',
   },
-  loadingContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 60,
-    gap: 16,
-  },
-  loadingText: {
-    fontSize: 13,
-    color: '#64748B',
-    fontWeight: '500',
+  categorySubQuery: {
+    fontSize: 12.5,
+    fontWeight: '600',
+    color: '#059669',
   },
   emptyResults: {
     alignItems: 'center',
@@ -1143,40 +1634,6 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '500',
     color: '#64748B',
-  },
-  addBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: '#059669',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 5,
-  },
-  addBtnText: {
-    color: '#FFFFFF',
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  stepperContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#059669',
-    borderRadius: 8,
-    height: 28,
-  },
-  stepperBtn: {
-    width: 26,
-    height: 28,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  stepperQtyText: {
-    color: '#FFFFFF',
-    fontSize: 12,
-    fontWeight: '800',
-    minWidth: 16,
-    textAlign: 'center',
   },
   floatingBagBar: {
     position: 'absolute',
