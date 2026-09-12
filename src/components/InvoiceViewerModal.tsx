@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -26,6 +26,17 @@ export function InvoiceViewerModal({ visible, orderId, onClose }: InvoiceViewerM
   const { colors, isDark } = useTheme();
   const [loading, setLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
+  // Unique key to force WebView full remount on each orderId/visible change
+  const webviewKey = useRef(0);
+
+  // Reset state every time the modal opens or orderId changes
+  useEffect(() => {
+    if (visible && orderId) {
+      webviewKey.current += 1;
+      setLoading(true);
+      setHasError(false);
+    }
+  }, [visible, orderId]);
 
   if (!orderId) return null;
 
@@ -134,10 +145,14 @@ export function InvoiceViewerModal({ visible, orderId, onClose }: InvoiceViewerM
             </View>
           ) : (
             <WebView
+              key={webviewKey.current}
               source={{ uri: invoiceUrl }}
               style={styles.webView}
               startInLoadingState
-              onLoadStart={() => setLoading(true)}
+              onLoadStart={() => {
+                setLoading(true);
+                setHasError(false);
+              }}
               onLoadEnd={() => setLoading(false)}
               onError={() => {
                 setLoading(false);
