@@ -1,5 +1,6 @@
 import Constants from 'expo-constants';
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { validateEmail } from '@/lib/validation';
 import {
   ActivityIndicator,
   Alert,
@@ -182,11 +183,13 @@ export function ProfileScreen({
     })();
   }, []);
 
-const EMAIL_REGEX = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+  const emailValidation = useMemo(() => {
+    if (!editEmail.trim()) return { isValid: true };
+    return validateEmail(editEmail.trim());
+  }, [editEmail]);
 
-  const isEmailInvalid = Boolean(
-    editEmail.trim().length > 0 && !EMAIL_REGEX.test(editEmail.trim().toLowerCase())
-  );
+  const isEmailInvalid = Boolean(editEmail.trim().length > 0 && !emailValidation.isValid);
+  const emailErrorMessage = emailValidation.error || 'Please enter a valid email format (e.g. yourname@gmail.com)';
 
   const handleSaveProfile = async () => {
     if (!editName.trim()) {
@@ -200,12 +203,15 @@ const EMAIL_REGEX = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
     }
 
     const cleanEmail = editEmail.trim().toLowerCase();
-    if (cleanEmail && !EMAIL_REGEX.test(cleanEmail)) {
-      Alert.alert(
-        'Invalid Email Format',
-        'Please enter a valid email address (e.g. name@gmail.com) or clear the email field.'
-      );
-      return;
+    if (cleanEmail) {
+      const emailCheck = validateEmail(cleanEmail);
+      if (!emailCheck.isValid) {
+        Alert.alert(
+          'Invalid Email Address',
+          emailCheck.error || 'Please enter a valid email address (e.g. name@gmail.com) or clear the email field.'
+        );
+        return;
+      }
     }
 
     setSavingProfile(true);
@@ -758,7 +764,7 @@ const EMAIL_REGEX = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
                   <View style={styles.emailErrorRow}>
                     <MaterialCommunityIcons name="alert-circle-outline" size={14} color="#EF4444" />
                     <Text style={styles.emailErrorText}>
-                      Please enter a valid email format (e.g. yourname@gmail.com)
+                      {emailErrorMessage}
                     </Text>
                   </View>
                 )}

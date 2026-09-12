@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { validateEmail } from '@/lib/validation';
 import {
   Alert,
   BackHandler,
@@ -76,7 +77,13 @@ export function SettingsScreen({ onSignIn }: SettingsScreenProps) {
     return () => backSub.remove();
   }, [editingProfile, showPrivacyModal]);
 
-  const EMAIL_REGEX = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+  const emailValidation = useMemo(() => {
+    if (!emailInput.trim()) return { isValid: true };
+    return validateEmail(emailInput.trim());
+  }, [emailInput]);
+
+  const isEmailInvalid = Boolean(emailInput.trim() && !emailValidation.isValid);
+  const emailErrorMessage = emailValidation.error || 'Please enter a valid email format (e.g. yourname@gmail.com)';
 
   const handleSaveProfile = async () => {
     if (!nameInput.trim()) {
@@ -90,21 +97,26 @@ export function SettingsScreen({ onSignIn }: SettingsScreenProps) {
     }
 
     const cleanEmail = emailInput.trim().toLowerCase();
-    if (cleanEmail && !EMAIL_REGEX.test(cleanEmail)) {
-      Alert.alert(
-        'Invalid Email Format',
-        'Please enter a valid email address (e.g. name@gmail.com) or leave the field blank.'
-      );
-      return;
+    if (cleanEmail) {
+      const emailCheck = validateEmail(cleanEmail);
+      if (!emailCheck.isValid) {
+        Alert.alert(
+          'Invalid Email Address',
+          emailCheck.error || 'Please enter a valid email address (e.g. name@gmail.com) or leave the field blank.'
+        );
+        return;
+      }
     }
 
     try {
       await updateUserProfile(nameInput.trim(), cleanEmail);
       setEditingProfile(false);
       Alert.alert('Profile Updated', 'Your contact details have been updated.');
-    } catch {
-      Alert.alert('Profile Saved', 'Details updated successfully.');
-      setEditingProfile(false);
+    } catch (err) {
+      Alert.alert(
+        'Update Failed',
+        err instanceof Error ? err.message : 'Could not update profile. Please verify your details and try again.'
+      );
     }
   };
 
@@ -434,7 +446,7 @@ export function SettingsScreen({ onSignIn }: SettingsScreenProps) {
                     style={[
                       styles.formInput,
                       isDark && { backgroundColor: colors.section, borderColor: colors.border, color: colors.textHeading },
-                      Boolean(emailInput.trim() && !EMAIL_REGEX.test(emailInput.trim().toLowerCase())) && { borderColor: '#EF4444', borderWidth: 1.5 },
+                      isEmailInvalid && { borderColor: '#EF4444', borderWidth: 1.5 },
                     ]}
                     placeholder="name@example.com"
                     placeholderTextColor="#A1A1AA"
@@ -443,14 +455,17 @@ export function SettingsScreen({ onSignIn }: SettingsScreenProps) {
                     keyboardType="email-address"
                     autoCapitalize="none"
                   />
-                  {Boolean(emailInput.trim() && !EMAIL_REGEX.test(emailInput.trim().toLowerCase())) && (
+                  {isEmailInvalid && (
                     <Text style={{ color: '#EF4444', fontSize: 11, marginTop: 4, fontWeight: '700' }}>
-                      ⚠️ Please enter a valid email format (e.g. yourname@gmail.com)
+                      ⚠️ {emailErrorMessage}
                     </Text>
                   )}
                 </View>
 
-                <Pressable style={styles.saveBtn} onPress={handleSaveProfile}>
+                <Pressable
+                  style={[styles.saveBtn, isEmailInvalid && { opacity: 0.6 }]}
+                  onPress={handleSaveProfile}
+                >
                   <Text style={styles.saveBtnText}>Save Changes</Text>
                 </Pressable>
               </ScrollView>

@@ -20,6 +20,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useApp } from '@/context/AppContext';
 import { useTheme } from '@/context/ThemeContext';
 import { api } from '@/lib/api';
+import { validateEmail } from '@/lib/validation';
 
 const brandLogo = require('../../assets/brand-logo.png');
 
@@ -295,10 +296,12 @@ export function AuthScreen({ reason = 'ACCOUNT', onBack }: AuthScreenProps) {
       setErrorMessage('Name should only contain letters, spaces, dots, and hyphens.');
       return;
     }
-    const EMAIL_REGEX = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
-    if (email.trim() && !EMAIL_REGEX.test(email.trim().toLowerCase())) {
-      setErrorMessage('Please enter a valid email address (e.g. yourname@gmail.com).');
-      return;
+    if (email.trim()) {
+      const emailCheck = validateEmail(email.trim());
+      if (!emailCheck.isValid) {
+        setErrorMessage(emailCheck.error || 'Please enter a valid email address (e.g. yourname@gmail.com).');
+        return;
+      }
     }
 
     setLoading(true);

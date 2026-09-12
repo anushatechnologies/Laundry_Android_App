@@ -185,29 +185,32 @@ function matchesSubcategoryKeyword(name: string, sub: string): boolean {
   if (s.includes('denim') || s.includes('jean')) {
     return n.includes('jean') || n.includes('denim') || n.includes('jeggings');
   }
+  if (s.includes('short') || s.includes('bermuda')) {
+    return n.includes('short') || n.includes('bermuda');
+  }
   if (s.includes('saree')) {
     return n.includes('saree');
   }
   if (s.includes('kurti') || s.includes('kurta')) {
     return n.includes('kurti') || n.includes('kurta');
   }
-  if (s.includes('salwar') || s.includes('suit')) {
-    return n.includes('salwar') || n.includes('suit') || n.includes('churidar') || n.includes('dupatta');
+  if (s.includes('salwar') || s.includes('suit') || s.includes('blazer')) {
+    return n.includes('salwar') || n.includes('suit') || n.includes('blazer') || n.includes('tuxedo') || n.includes('coat') || n.includes('churidar') || n.includes('dupatta');
   }
   if (s.includes('dress') || s.includes('gown')) {
-    return n.includes('dress') || n.includes('gown') || n.includes('maxi') || n.includes('skirt') || n.includes('top');
+    return n.includes('dress') || n.includes('gown') || n.includes('maxi') || n.includes('skirt') || n.includes('frock');
   }
   if (s.includes('winter') || s.includes('jacket') || s.includes('sweater')) {
-    return n.includes('winter') || n.includes('jacket') || n.includes('sweater') || n.includes('pullover') || n.includes('coat') || n.includes('hoodie') || n.includes('shawl');
+    return n.includes('winter') || n.includes('jacket') || n.includes('sweater') || n.includes('pullover') || n.includes('coat') || n.includes('hoodie') || n.includes('shawl') || n.includes('cardigan');
   }
   if (s.includes('ethnic')) {
-    return n.includes('ethnic') || n.includes('kurta') || n.includes('sherwani') || n.includes('dhoti') || n.includes('pyjama');
+    return n.includes('ethnic') || n.includes('kurta') || n.includes('sherwani') || n.includes('dhoti') || n.includes('lungi') || n.includes('pyjama') || n.includes('indo-western');
   }
   if (s.includes('sport') || s.includes('gym')) {
-    return n.includes('short') || n.includes('bermuda') || n.includes('track') || n.includes('gym') || n.includes('sport');
+    return n.includes('short') || n.includes('bermuda') || n.includes('track') || n.includes('gym') || n.includes('sport') || n.includes('jogger');
   }
-  if (s.includes('bedsheet')) {
-    return n.includes('bedsheet') || n.includes('bed sheet') || n.includes('linen');
+  if (s.includes('bedsheet') || s.includes('bed sheet')) {
+    return n.includes('bedsheet') || n.includes('bed sheet') || n.includes('bed cover') || n.includes('linen');
   }
   if (s.includes('blanket') || s.includes('quilt') || s.includes('comforter')) {
     return n.includes('blanket') || n.includes('quilt') || n.includes('comforter') || n.includes('duvet') || n.includes('razai');
@@ -215,7 +218,87 @@ function matchesSubcategoryKeyword(name: string, sub: string): boolean {
   if (s.includes('curtain')) {
     return n.includes('curtain');
   }
+  if (s.includes('sneaker') || s.includes('sports shoe')) {
+    return n.includes('sneaker') || n.includes('sports shoe') || n.includes('casual');
+  }
+  if (s.includes('formal shoe') || s.includes('leather')) {
+    return n.includes('formal') || n.includes('leather') || n.includes('oxford') || n.includes('derby');
+  }
+  if (s.includes('backpack') || s.includes('school bag')) {
+    return n.includes('backpack') || n.includes('school bag');
+  }
+  if (s.includes('handbag') || s.includes('purse')) {
+    return n.includes('handbag') || n.includes('purse') || n.includes('luxury hand');
+  }
+  if (s.includes('trolley') || s.includes('suitcase') || s.includes('luggage')) {
+    return n.includes('trolley') || n.includes('suitcase') || n.includes('luggage') || n.includes('cabin');
+  }
+  if (s.includes('baby') || s.includes('romper')) {
+    return n.includes('baby') || n.includes('romper') || n.includes('infant') || n.includes('onesie');
+  }
+  if (s.includes('uniform')) {
+    return n.includes('uniform') || n.includes('school');
+  }
   return false;
+}
+
+function resolveGarmentSubcategory(name: string, catTag?: string, currentSub?: string): string {
+  if (currentSub && typeof currentSub === 'string' && currentSub.trim().length > 0 && currentSub !== 'General' && currentSub !== 'NONE') {
+    return currentSub.trim();
+  }
+  const n = (name || '').toLowerCase();
+  const cat = (catTag || '').toUpperCase().replace(/_/g, '-');
+
+  if (cat.includes('MEN') && !cat.includes('WOMEN')) {
+    if (n.includes('shirt') && !n.includes('t-shirt')) return 'Shirts';
+    if (n.includes('t-shirt') || n.includes('polo')) return 'T-Shirts';
+    if (n.includes('jeans') || n.includes('denim') || n.includes('trouser') || n.includes('chino')) return 'Jeans & Trousers';
+    if (n.includes('kurta') || n.includes('dhoti') || n.includes('sherwani') || n.includes('nehru') || n.includes('waistcoat')) return 'Ethnic Wear';
+    if (n.includes('suit') || n.includes('blazer') || n.includes('coat')) return 'Suits & Blazers';
+    if (n.includes('sweater') || n.includes('pullover') || n.includes('winter') || n.includes('jacket')) return 'Winter Wear';
+    if (n.includes('short') || n.includes('bermuda')) return 'Shorts';
+    if (n.includes('track') || n.includes('gym')) return 'Activewear';
+    if (n.includes('tie') || n.includes('pocket square')) return 'Formal Accessories';
+  }
+  if (cat.includes('WOMEN')) {
+    if (n.includes('saree')) return 'Sarees';
+    if (n.includes('blouse')) return 'Blouses';
+    if (n.includes('kurti') || n.includes('salwar') || n.includes('suit') || n.includes('sharara')) return 'Suits & Kurtis';
+    if (n.includes('lehenga') || n.includes('gown') || n.includes('dress') || n.includes('maxi')) return 'Occasion Wear';
+    if (n.includes('top')) return 'Tops & Shirts';
+    if (n.includes('jeans') || n.includes('legging') || n.includes('plazo') || n.includes('jeggings')) return 'Bottoms';
+    if (n.includes('winter') || n.includes('jacket') || n.includes('shrug') || n.includes('shawl')) return 'Winter Wear';
+    if (n.includes('dupatta') || n.includes('stole')) return 'Dupattas & Stoles';
+    if (n.includes('nighty') || n.includes('loungewear')) return 'Loungewear';
+  }
+  if (cat.includes('KID')) {
+    if (n.includes('shirt') || n.includes('top') || n.includes('t-shirt')) return 'Tops & Shirts';
+    if (n.includes('pant') || n.includes('short') || n.includes('trouser') || n.includes('jogger')) return 'Bottoms';
+    if (n.includes('uniform')) return 'School Uniforms';
+    if (n.includes('sweater') || n.includes('cardigan') || n.includes('hoodie')) return 'Winter Wear';
+    if (n.includes('frock') || n.includes('kurta') || n.includes('dhoti') || n.includes('lehenga') || n.includes('sherwani') || n.includes('dress')) return 'Ethnic & Dresses';
+    if (n.includes('romper') || n.includes('onesie') || n.includes('pajama') || n.includes('baby')) return 'Baby Care';
+    if (n.includes('toy') || n.includes('teddy')) return 'Toys & Soft Care';
+  }
+  if (cat.includes('HOME')) {
+    if (n.includes('bedsheet') || n.includes('bed sheet') || n.includes('bed cover')) return 'Bedsheets & Covers';
+    if (n.includes('blanket') || n.includes('quilt') || n.includes('comforter') || n.includes('duvet')) return 'Blankets & Quilts';
+    if (n.includes('curtain')) return 'Curtains & Drapes';
+    if (n.includes('towel')) return 'Bath Linen';
+    if (n.includes('cushion') || n.includes('sofa') || n.includes('pillow')) return 'Cushions & Covers';
+  }
+  if (cat.includes('FOOTWEAR')) {
+    if (n.includes('sneaker') || n.includes('sports')) return 'Sneakers & Sports';
+    if (n.includes('formal') || n.includes('leather')) return 'Formal Shoes';
+    if (n.includes('suede') || n.includes('nubuck') || n.includes('boot')) return 'Boots & Suede';
+  }
+  if (cat.includes('ACCESSORIES')) {
+    if (n.includes('backpack') || n.includes('school bag')) return 'Backpacks';
+    if (n.includes('handbag') || n.includes('luxury')) return 'Handbags';
+    if (n.includes('trolley') || n.includes('suitcase')) return 'Luggage & Travel';
+    if (n.includes('helmet')) return 'Riding Helmets';
+  }
+  return currentSub || 'Garments';
 }
 
 // In-memory catalog cache for INSTANT screen transitions (<16ms)
@@ -411,32 +494,19 @@ const ProductCard = React.memo(function ProductCard({
 
       {/* PRODUCT CARD BODY */}
       <View style={styles.cardBody}>
-        {/* Title & Service Count */}
+        {/* Title & Care Options Subtitle */}
         <Pressable
           onPress={() => onSelectProduct?.(cloth, chosenService.serviceId)}
           accessibilityRole="button"
           accessibilityLabel={`View details for ${cloth.name}`}
+          style={styles.titleWrap}
         >
-          <View style={styles.titleRow}>
-            <Text style={[styles.productCardTitle, { color: colors.textHeading }]} numberOfLines={1}>
-              {cloth.name}
-            </Text>
-            {cloth.services.length > 1 && (
-              <View
-                style={[
-                  styles.serviceCountBadge,
-                  {
-                    backgroundColor: isDark ? 'rgba(34, 197, 94, 0.15)' : '#F0FDF4',
-                    borderColor: isDark ? 'rgba(34, 197, 94, 0.3)' : '#BBF7D0',
-                  },
-                ]}
-              >
-                <Text style={[styles.serviceCountBadgeText, { color: isDark ? '#4ADE80' : '#166534' }]}>
-                  {cloth.services.length} services
-                </Text>
-              </View>
-            )}
-          </View>
+          <Text style={[styles.productCardTitle, { color: colors.textHeading }]} numberOfLines={1}>
+            {cloth.name}
+          </Text>
+          <Text style={[styles.productCardSubtitle, { color: colors.textCaption }]} numberOfLines={1}>
+            {cloth.services.length > 1 ? `${cloth.services.length} care options` : 'Fabric care'}
+          </Text>
         </Pressable>
 
         {/* Service Selector Horizontal Scroll Pills with Icons and Exact Prices */}
@@ -473,7 +543,14 @@ const ProductCard = React.memo(function ProductCard({
                 key={srv.serviceId}
                 style={[
                   styles.serviceMiniPill,
-                  { backgroundColor: colors.section, borderColor: colors.border },
+                  {
+                    backgroundColor: isChosen
+                      ? '#16A34A'
+                      : (isDark ? 'rgba(255, 255, 255, 0.05)' : '#F1F5F9'),
+                    borderColor: isChosen
+                      ? '#15803D'
+                      : (isDark ? 'rgba(255, 255, 255, 0.1)' : '#E2E8F0'),
+                  },
                   isChosen && styles.serviceMiniPillActive,
                 ]}
                 onPress={() => onSelectService(cloth.id, srv.serviceId)}
@@ -486,14 +563,14 @@ const ProductCard = React.memo(function ProductCard({
               >
                 <MaterialCommunityIcons
                   name={srv.icon as any}
-                  size={10}
-                  color={isChosen ? '#FFFFFF' : (isDark ? '#34D399' : '#166534')}
-                  style={{ marginRight: 3 }}
+                  size={10.5}
+                  color={isChosen ? '#FFFFFF' : '#16A34A'}
+                  style={{ marginRight: 3.5 }}
                 />
                 <Text
                   style={[
                     styles.serviceMiniText,
-                    { color: colors.textBody },
+                    { color: isChosen ? '#FFFFFF' : colors.textBody },
                     isChosen && styles.serviceMiniTextActive,
                   ]}
                   numberOfLines={1}
@@ -505,34 +582,22 @@ const ProductCard = React.memo(function ProductCard({
           })}
         </ScrollView>
 
-        {/* Selected Service Name & Confirmation Banner */}
-        <View
-          style={[
-            styles.activeServiceBanner,
-            {
-              backgroundColor: isDark ? 'rgba(22, 163, 74, 0.12)' : '#F0FDF4',
-              borderColor: isDark ? 'rgba(22, 163, 74, 0.28)' : '#DCFCE7',
-            },
-          ]}
-        >
-          <MaterialCommunityIcons name="check-circle" size={11} color="#16A34A" />
-          <Text style={[styles.activeServiceBannerText, { color: isDark ? '#4ADE80' : '#166534' }]} numberOfLines={1}>
-            {chosenService.displayName}
-          </Text>
-          {turnaround ? (
-            <Text style={[styles.activeServiceTatText, { color: isDark ? colors.textCaption : '#64748B' }]}>
-              • {turnaround}
-            </Text>
-          ) : null}
-        </View>
-
         {/* Price & Action Row */}
         <View style={styles.priceAndActionRow}>
           <View style={styles.priceCol}>
-            <Text style={[styles.priceText, { color: colors.textHeading }]}>₹{chosenService.price}</Text>
-            <Text style={[styles.priceUnitText, { color: colors.textCaption }]} numberOfLines={1}>
-              /{chosenService.unit === 'KG' ? 'kg' : 'pc'}
-            </Text>
+            <View style={styles.priceNumberRow}>
+              <Text style={[styles.priceCurrencySymbol, { color: colors.textHeading }]}>₹</Text>
+              <Text style={[styles.priceText, { color: colors.textHeading }]}>{chosenService.price}</Text>
+              <Text style={[styles.priceUnitText, { color: colors.textCaption }]} numberOfLines={1}>
+                /{chosenService.unit === 'KG' ? 'kg' : 'pc'}
+              </Text>
+            </View>
+            <View style={styles.serviceSelectedIndicator}>
+              <View style={styles.greenActiveDot} />
+              <Text style={[styles.chosenServiceCaption, { color: isDark ? '#4ADE80' : '#15803D' }]} numberOfLines={1}>
+                {chosenService.displayName}
+              </Text>
+            </View>
           </View>
 
           <AnimatedCartButton
@@ -543,18 +608,6 @@ const ProductCard = React.memo(function ProductCard({
             isDark={isDark}
           />
         </View>
-
-        {/* Quick Link to Custom Care Options */}
-        <Pressable
-          style={styles.customCareLink}
-          onPress={() => onSelectProduct?.(cloth, chosenService.serviceId)}
-          hitSlop={4}
-        >
-          <Text style={styles.customCareLinkText}>
-            {cloth.services.length > 1 ? `View all ${cloth.services.length} services` : 'Options & custom care'}
-          </Text>
-          <MaterialCommunityIcons name="arrow-right" size={11} color="#16A34A" />
-        </Pressable>
       </View>
     </View>
   );
@@ -870,71 +923,7 @@ export function CategoryCatalogScreen({
     ];
   }, [dynamicCatalog?.categories, catalog?.categories]);
 
-  // Subcategories List extracted dynamically
-  const subcategoriesList = useMemo(() => {
-    const rawSet = new Set<string>();
-    activeClothTypes.forEach((c: any) => {
-      const sub = c.subcategory || c.subCategory;
-      if (sub && typeof sub === 'string' && sub.trim().length > 0) {
-        rawSet.add(sub.trim());
-      }
-    });
-
-    const activeSubs = (dynamicCatalog?.subcategories || catalog?.subcategories || []).filter(
-      (s: any) => s && (activeCategoryTag === 'ALL' || s.categoryTag === activeCategoryTag) && s.isActive !== false
-    );
-    activeSubs.forEach((s: any) => {
-      if (s && s.name && typeof s.name === 'string' && s.name.trim()) {
-        rawSet.add(s.name.trim());
-      }
-    });
-
-    const fallbackList =
-      SUBCATEGORY_MAP[activeCategoryTag.toUpperCase()] ||
-      SUBCATEGORY_MAP[activeCategoryTag.toUpperCase().replace(/_/g, '-')] ||
-      [];
-    const knownSubcategories = fallbackList.filter((fallback) =>
-      Boolean(fallback) && Array.from(rawSet).some((sub) => Boolean(sub) && String(sub).toLowerCase() === String(fallback).toLowerCase())
-    );
-    const remainingSubcategories = Array.from(rawSet)
-      .filter((sub) => Boolean(sub) && !knownSubcategories.some((known) => String(known).toLowerCase() === String(sub).toLowerCase()))
-      .sort((a, b) => String(a || '').localeCompare(String(b || '')));
-
-    const orderedSubcategories = rawSet.size > 0
-      ? [...knownSubcategories, ...remainingSubcategories]
-      : fallbackList;
-
-    return ['ALL', ...orderedSubcategories];
-  }, [activeClothTypes, activeCategoryTag, dynamicCatalog?.subcategories, catalog?.subcategories]);
-
-  // Precomputed subcategory carousel render data
-  const subcategoryRenderData = useMemo(() => {
-    const currentCatObj = categoriesList.find((c) => c.tag === activeCategoryTag);
-    const subObjMap = new Map<string, any>();
-    (dynamicCatalog?.subcategories || catalog?.subcategories || []).forEach((s: any) => {
-      if (s && (activeCategoryTag === 'ALL' || s.categoryTag === activeCategoryTag) && s.name) {
-        subObjMap.set(String(s.name).toLowerCase(), s);
-      }
-    });
-
-    return subcategoriesList.map((sub) => {
-      const isAll = sub === 'ALL';
-      const matchedSubObj = subObjMap.get(String(sub).toLowerCase());
-      const subPhotoUrl = isAll
-        ? getCategoryImageUrl(activeCategoryTag, currentCatObj?.imageUrl)
-        : getSubcategoryImageUrl(sub, matchedSubObj?.categoryTag || activeCategoryTag, matchedSubObj?.imageUrl);
-      const fallbackIcon = getSubcategoryFallbackIcon(sub, activeCategoryTag);
-
-      return {
-        sub,
-        displayName: isAll ? 'All' : sub,
-        subPhotoUrl,
-        fallbackIcon,
-      };
-    });
-  }, [subcategoriesList, activeCategoryTag, categoriesList, dynamicCatalog?.subcategories, catalog?.subcategories]);
-
-  // Build product items with price options
+  // Build product items with price options first so subcategories can be filtered by product presence
   const products: ProductItem[] = useMemo(() => {
     const matrixLookup: Record<string, any[]> = {};
     activePriceMatrix.forEach((pm: any) => {
@@ -990,12 +979,18 @@ export function CategoryCatalogScreen({
       const validPrices = servicesForCloth.map((s) => s.price).filter((p) => p > 0);
       const minPrice = validPrices.length > 0 ? Math.min(...validPrices) : 20;
 
+      const resolvedSub = resolveGarmentSubcategory(
+        cloth.name,
+        cloth.categoryTag || activeCategoryTag,
+        cloth.subcategory || cloth.subCategory
+      );
+
       return {
         id: cloth.id,
         name: cloth.name,
         categoryTag: cloth.categoryTag || activeCategoryTag,
         categoryLabel: cloth.categoryLabel || activeCategoryTitle,
-        subcategory: cloth.subcategory || cloth.subCategory || 'General',
+        subcategory: resolvedSub,
         imageUrl: cloth.imageUrl || cloth.image,
         fallbackImageUrl: getGarmentImageUrl(cloth.id, undefined, cloth.categoryTag, cloth.name),
         description: cloth.description,
@@ -1004,6 +999,87 @@ export function CategoryCatalogScreen({
       };
     }).filter((product) => product.services.length > 0);
   }, [activeClothTypes, activePriceMatrix, activeCategoryTag, activeCategoryTitle, serviceMastersById]);
+
+  // Subcategory matching helper
+  const productMatchesSubcategory = useCallback((p: ProductItem, targetSub: string): boolean => {
+    if (!targetSub || targetSub === 'ALL') return true;
+    const t = targetSub.toLowerCase().trim();
+    const s = String(p.subcategory || '').toLowerCase().trim();
+    const n = String(p.name || '').toLowerCase().trim();
+    return (
+      s === t ||
+      s.includes(t) ||
+      t.includes(s) ||
+      matchesSubcategoryKeyword(n, t)
+    );
+  }, []);
+
+  // Subcategories List: Extracted directly from products so ZERO empty subcategories can ever exist
+  const subcategoriesList = useMemo(() => {
+    const subSet = new Set<string>();
+
+    products.forEach((p) => {
+      const sub = p.subcategory;
+      if (sub && typeof sub === 'string' && sub.trim().length > 0 && sub.trim() !== 'General' && sub.trim() !== 'NONE') {
+        subSet.add(sub.trim());
+      }
+    });
+
+    const fallbackList =
+      SUBCATEGORY_MAP[activeCategoryTag.toUpperCase()] ||
+      SUBCATEGORY_MAP[activeCategoryTag.toUpperCase().replace(/_/g, '-')] ||
+      [];
+
+    const knownSubcategories: string[] = [];
+    fallbackList.forEach((fallback) => {
+      const match = Array.from(subSet).find((sub) => sub.toLowerCase() === fallback.toLowerCase());
+      if (match && !knownSubcategories.includes(match)) {
+        knownSubcategories.push(match);
+      }
+    });
+
+    const remainingSubcategories = Array.from(subSet)
+      .filter((sub) => !knownSubcategories.some((known) => known.toLowerCase() === sub.toLowerCase()))
+      .sort((a, b) => a.localeCompare(b));
+
+    const orderedSubcategories = [...knownSubcategories, ...remainingSubcategories];
+
+    return ['ALL', ...orderedSubcategories];
+  }, [products, activeCategoryTag]);
+
+  // Guard: If currently selected subcategory has no products or is not in list, auto-reset to ALL
+  useEffect(() => {
+    if (selectedSubcategory !== 'ALL' && !subcategoriesList.includes(selectedSubcategory)) {
+      setSelectedSubcategory('ALL');
+    }
+  }, [subcategoriesList, selectedSubcategory]);
+
+  // Precomputed subcategory carousel render data
+  const subcategoryRenderData = useMemo(() => {
+    const currentCatObj = categoriesList.find((c) => c.tag === activeCategoryTag);
+    const subObjMap = new Map<string, any>();
+    (dynamicCatalog?.subcategories || catalog?.subcategories || []).forEach((s: any) => {
+      if (s && (activeCategoryTag === 'ALL' || s.categoryTag === activeCategoryTag) && s.name) {
+        subObjMap.set(String(s.name).toLowerCase(), s);
+      }
+    });
+
+    return subcategoriesList.map((sub) => {
+      const isAll = sub === 'ALL';
+      const matchedSubObj = subObjMap.get(String(sub).toLowerCase());
+      const subPhotoUrl = isAll
+        ? getCategoryImageUrl(activeCategoryTag, currentCatObj?.imageUrl)
+        : getSubcategoryImageUrl(sub, matchedSubObj?.categoryTag || activeCategoryTag, matchedSubObj?.imageUrl);
+      const fallbackIcon = getSubcategoryFallbackIcon(sub, activeCategoryTag);
+
+      return {
+        sub,
+        displayName: isAll ? 'All' : sub,
+        subPhotoUrl,
+        fallbackIcon,
+      };
+    });
+  }, [subcategoriesList, activeCategoryTag, categoriesList, dynamicCatalog?.subcategories, catalog?.subcategories]);
 
   const availableServiceFilters = useMemo(
     () => SERVICE_FILTERS.filter((filter) =>
@@ -1032,17 +1108,7 @@ export function CategoryCatalogScreen({
     let list = products;
 
     if (selectedSubcategory && selectedSubcategory !== 'ALL') {
-      const targetSub = String(selectedSubcategory || '').toLowerCase().trim();
-      list = list.filter((p) => {
-        const itemSub = String(p.subcategory || '').toLowerCase().trim();
-        const itemName = String(p.name || '').toLowerCase().trim();
-        return (
-          itemSub === targetSub ||
-          itemSub.includes(targetSub) ||
-          targetSub.includes(itemSub) ||
-          matchesSubcategoryKeyword(itemName, targetSub)
-        );
-      });
+      list = list.filter((p) => productMatchesSubcategory(p, selectedSubcategory));
     }
 
     if (selectedServiceFilter && selectedServiceFilter !== 'ALL') {
@@ -1076,7 +1142,7 @@ export function CategoryCatalogScreen({
     }
 
     return list;
-  }, [products, selectedSubcategory, selectedServiceFilter, searchQuery, selectedSort, selectedClothServiceMap]);
+  }, [products, selectedSubcategory, selectedServiceFilter, searchQuery, selectedSort, selectedClothServiceMap, productMatchesSubcategory]);
 
   const getSelectedServiceForCloth = useCallback(
     (cloth: ProductItem): ServicePriceOption => {
@@ -1968,31 +2034,22 @@ const styles = StyleSheet.create({
   cardBody: {
     padding: 10,
     justifyContent: 'space-between',
-    minHeight: 126,
+    minHeight: 110,
   },
-  titleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 2,
+  titleWrap: {
+    marginBottom: 4,
   },
   productCardTitle: {
     fontSize: 13.5,
     fontWeight: '800',
     color: '#0F172A',
     letterSpacing: -0.2,
-    flex: 1,
   },
-  serviceCountBadge: {
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 6,
-    borderWidth: 0.8,
-  },
-  serviceCountBadgeText: {
+  productCardSubtitle: {
     fontSize: 9.5,
-    fontWeight: '800',
-    letterSpacing: 0.2,
+    fontWeight: '600',
+    color: '#64748B',
+    marginTop: 1.5,
   },
   serviceChipsScrollWrap: {
     marginVertical: 4,
@@ -2001,16 +2058,16 @@ const styles = StyleSheet.create({
   serviceChipsScroll: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: 5,
     paddingRight: 6,
   },
   serviceMiniPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 7,
-    paddingVertical: 3.5,
-    borderRadius: 6,
-    backgroundColor: '#F1F5F9',
+    paddingHorizontal: 8.5,
+    paddingVertical: 4,
+    borderRadius: 999,
+    backgroundColor: '#F8FAFC',
     borderWidth: 1,
     borderColor: '#E2E8F0',
   },
@@ -2018,10 +2075,10 @@ const styles = StyleSheet.create({
     backgroundColor: '#16A34A',
     borderColor: '#15803D',
     shadowColor: '#16A34A',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.22,
-    shadowRadius: 2,
-    elevation: 2,
+    shadowOffset: { width: 0, height: 1.5 },
+    shadowOpacity: 0.28,
+    shadowRadius: 3,
+    elevation: 2.5,
   },
   serviceMiniText: {
     fontSize: 10,
@@ -2032,48 +2089,55 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontWeight: '800',
   },
-  activeServiceBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 6,
-    paddingVertical: 3,
-    borderRadius: 6,
-    borderWidth: 0.8,
-    marginVertical: 2,
-  },
-  activeServiceBannerText: {
-    fontSize: 10,
-    fontWeight: '700',
-    flexShrink: 1,
-  },
-  activeServiceTatText: {
-    fontSize: 9.5,
-    fontWeight: '600',
-  },
   priceAndActionRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginTop: 3,
+    marginTop: 5,
   },
   priceCol: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
     flex: 1,
     minWidth: 0,
     marginRight: 6,
+    justifyContent: 'center',
+  },
+  priceNumberRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+  },
+  priceCurrencySymbol: {
+    fontSize: 13,
+    fontWeight: '800',
+    marginRight: 1,
   },
   priceText: {
     fontSize: 17,
     fontWeight: '900',
     color: '#0F172A',
-    letterSpacing: -0.3,
+    letterSpacing: -0.4,
   },
   priceUnitText: {
     fontSize: 10,
     color: '#64748B',
     fontWeight: '600',
+    marginLeft: 1.5,
+  },
+  serviceSelectedIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 1.5,
+    gap: 3.5,
+  },
+  greenActiveDot: {
+    width: 5,
+    height: 5,
+    borderRadius: 2.5,
+    backgroundColor: '#16A34A',
+  },
+  chosenServiceCaption: {
+    fontSize: 9.5,
+    fontWeight: '700',
+    color: '#16A34A',
   },
   addBtnCompact: {
     height: 30,
@@ -2122,17 +2186,6 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     minWidth: 20,
     textAlign: 'center',
-  },
-  customCareLink: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 2,
-    marginTop: 4,
-  },
-  customCareLinkText: {
-    fontSize: 10.5,
-    fontWeight: '700',
-    color: '#16A34A',
   },
 
   /* Empty & Loading */
