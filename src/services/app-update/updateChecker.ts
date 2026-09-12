@@ -1,3 +1,4 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Alert, Linking } from 'react-native';
 import Constants from 'expo-constants';
 import { API_BASE_URL } from '@/lib/config';
@@ -15,8 +16,41 @@ export interface AppReleaseInfo {
   createdAt?: string;
 }
 
-export const CURRENT_APP_VERSION = Constants.expoConfig?.version || '1.0.50';
-export const CURRENT_APP_CODE = Constants.expoConfig?.android?.versionCode || 50;
+export const CURRENT_APP_VERSION = Constants.nativeAppVersion || Constants.expoConfig?.version || '1.0.51';
+export const CURRENT_APP_CODE = Number(Constants.nativeBuildVersion || Constants.expoConfig?.android?.versionCode || 51);
+const DISMISSED_UPDATE_KEY = '@laundryfresh_dismissed_update_v2';
+
+function parseSemver(v?: string): number[] {
+  if (!v) return [0, 0, 0];
+  const cleaned = v.replace(/^v/i, '').trim();
+  return cleaned.split('.').map((part) => parseInt(part, 10) || 0);
+}
+
+export function isRemoteVersionNewer(remoteVersion?: string, remoteCode?: number): boolean {
+  const currentVerStr = (CURRENT_APP_VERSION || '1.0.51').replace(/^v/i, '').trim();
+  const remoteVerStr = (remoteVersion || '').replace(/^v/i, '').trim();
+
+  // If version string matches exactly (e.g., 1.0.51 === 1.0.51), it is definitely NOT newer
+  if (remoteVerStr && currentVerStr && remoteVerStr === currentVerStr) {
+    return false;
+  }
+
+  // Compare semver [major, minor, patch]
+  if (remoteVerStr && currentVerStr) {
+    const rParts = parseSemver(remoteVerStr);
+    const cParts = parseSemver(currentVerStr);
+    for (let i = 0; i < Math.max(rParts.length, cParts.length); i++) {
+      const r = rParts[i] ?? 0;
+      const c = cParts[i] ?? 0;
+      if (r > c) return true;
+      if (r < c) return false;
+    }
+  }
+
+  // Fallback to versionCode comparison only if version string wasn't explicitly equal
+  const remoteCodeNum = Number(remoteCode) || 0;
+  return remoteCodeNum > CURRENT_APP_CODE;
+}
 
 /**
  * Checks backend/AWS for the latest published APK release.
@@ -42,7 +76,15 @@ export async function checkForAppUpdate(options?: { silentIfUpToDate?: boolean }
         : `${API_BASE_URL}/app-release/download`;
 
       const latestCode = Number(release.versionCode) || 0;
-      const hasNewer = latestCode > CURRENT_APP_CODE;
+      const hasNewer = isRemoteVersionNewer(release.versionName, latestCode);
+
+      // If silent on launch, check if user already dismissed this specific release
+      if (silent && hasNewer) {
+        const dismissed = await AsyncStorage.getItem(DISMISSED_UPDATE_KEY).catch(() => null);
+        if (dismissed && (dismissed === release.versionName || dismissed === String(release.versionCode))) {
+          return { hasUpdate: false, release };
+        }
+      }
 
       if (hasNewer) {
         const sizeMb = release.fileSizeBytes
@@ -57,16 +99,24 @@ export async function checkForAppUpdate(options?: { silentIfUpToDate?: boolean }
             {
               text: 'Download & Install Now',
               onPress: () => {
+                void AsyncStorage.setItem(DISMISSED_UPDATE_KEY, release.versionName || String(release.versionCode)).catch(() => {});
                 void Linking.openURL(downloadUrl);
               },
             },
           ]);
         } else {
           Alert.alert(title, message, [
-            { text: 'Later', style: 'cancel' },
+            {
+              text: 'Later',
+              style: 'cancel',
+              onPress: () => {
+                void AsyncStorage.setItem(DISMISSED_UPDATE_KEY, release.versionName || String(release.versionCode)).catch(() => {});
+              },
+            },
             {
               text: 'Download & Install',
               onPress: () => {
+                void AsyncStorage.setItem(DISMISSED_UPDATE_KEY, release.versionName || String(release.versionCode)).catch(() => {});
                 void Linking.openURL(downloadUrl);
               },
             },

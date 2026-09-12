@@ -815,45 +815,45 @@ export function BookScreen({
   if (stage === 'SUCCESS') {
     return (
       <ScrollView style={[styles.root, { backgroundColor: colors.background }]} contentContainerStyle={styles.successContainer} showsVerticalScrollIndicator={false}>
-        <View style={styles.successIconBox}>
+        <View style={[styles.successIconBox, isDark && { backgroundColor: 'rgba(22, 163, 74, 0.2)' }]}>
           <MaterialCommunityIcons name="check-decagram" size={64} color="#16A34A" />
         </View>
 
-        <Text style={styles.successTitle}>Pickup Scheduled! 🎉</Text>
-        <Text style={styles.successSubtitle}>
+        <Text style={[styles.successTitle, isDark && { color: colors.textHeading }]}>Pickup Scheduled! 🎉</Text>
+        <Text style={[styles.successSubtitle, isDark && { color: colors.textCaption }]}>
           Order #{completedOrderId} has been confirmed. Our executive will arrive with digital scales at your chosen slot.
         </Text>
 
-        <Card style={styles.successCard}>
+        <Card style={[styles.successCard, isDark && { backgroundColor: colors.surface, borderColor: colors.border }]}>
           <View style={styles.successRow}>
             <MaterialCommunityIcons name="calendar-clock" size={20} color="#F97316" />
             <View style={{ flex: 1 }}>
-              <Text style={styles.successRowLabel}>Pickup Time Slot</Text>
-              <Text style={styles.successRowVal}>
+              <Text style={[styles.successRowLabel, isDark && { color: colors.textCaption }]}>Pickup Time Slot</Text>
+              <Text style={[styles.successRowVal, isDark && { color: colors.textHeading }]}>
                 {shortDate(slotDate)} • {selectedSlot?.startTime && selectedSlot?.endTime ? `${selectedSlot.startTime} - ${selectedSlot.endTime}` : 'Flexible Collection Window'}
               </Text>
             </View>
           </View>
 
-          <View style={styles.successDivider} />
+          <View style={[styles.successDivider, isDark && { backgroundColor: colors.border }]} />
 
           <View style={styles.successRow}>
             <MaterialCommunityIcons name="map-marker-radius" size={20} color="#16A34A" />
             <View style={{ flex: 1 }}>
-              <Text style={styles.successRowLabel}>Pickup Address</Text>
-              <Text style={styles.successRowVal} numberOfLines={2}>
+              <Text style={[styles.successRowLabel, isDark && { color: colors.textCaption }]}>Pickup Address</Text>
+              <Text style={[styles.successRowVal, isDark && { color: colors.textHeading }]} numberOfLines={2}>
                 {selectedAddress?.street}, {selectedAddress?.city} - {selectedAddress?.pincode}
               </Text>
             </View>
           </View>
 
-          <View style={styles.successDivider} />
+          <View style={[styles.successDivider, isDark && { backgroundColor: colors.border }]} />
 
           <View style={styles.successRow}>
             <MaterialCommunityIcons name="credit-card-check" size={20} color="#3B82F6" />
             <View style={{ flex: 1 }}>
-              <Text style={styles.successRowLabel}>Estimated Total</Text>
-              <Text style={styles.successRowVal}>{money(finalPayable)} ({paymentMethod === 'COD' ? 'Pay on Delivery' : 'Online Paid'})</Text>
+              <Text style={[styles.successRowLabel, isDark && { color: colors.textCaption }]}>Estimated Total</Text>
+              <Text style={[styles.successRowVal, isDark && { color: colors.textHeading }]}>{money(finalPayable)} ({paymentMethod === 'COD' ? 'Pay on Delivery' : 'Online Paid'})</Text>
             </View>
           </View>
         </Card>
@@ -866,7 +866,7 @@ export function BookScreen({
 
         {completedOrderId && (
           <Pressable
-            style={[styles.invoiceSuccessBtn, { borderColor: colors.border }]}
+            style={[styles.invoiceSuccessBtn, { borderColor: colors.border, backgroundColor: isDark ? colors.surface : '#FFFFFF' }]}
             onPress={() => {
               void downloadInvoicePdf(completedOrderId).catch(() => {});
             }}
@@ -1310,18 +1310,22 @@ export function BookScreen({
                   </View>
                 )}
 
-                {/* 5. GST */}
-                <View style={styles.billLine}>
-                  <View>
-                    <Text style={[styles.billLineLabel, { color: colors.textHeading }]}>
-                      {!isGstEnabled || taxPercentage === 0 ? 'GST (Temporarily Waived)' : `GST & Taxes (${taxPercentage}%)`}
+                {/* 5. GST - Only shown when GST is enabled in Admin and > 0 */}
+                {isGstEnabled && taxPercentage > 0 && gstCharge > 0 ? (
+                  <View style={styles.billLine}>
+                    <View>
+                      <Text style={[styles.billLineLabel, { color: colors.textHeading }]}>
+                        {`GST & Taxes (${taxPercentage}%)`}
+                      </Text>
+                      <Text style={[styles.billLineSubtext, { color: colors.textCaption }]}>
+                        {`${taxPercentage}% GST on taxable subtotal`}
+                      </Text>
+                    </View>
+                    <Text style={[styles.billLineVal, { color: colors.textHeading }]}>
+                      {money(gstCharge)}
                     </Text>
-                    <Text style={[styles.billLineSubtext, { color: colors.textCaption }]}>{!isGstEnabled || taxPercentage === 0 ? 'GST waived by merchant' : `${taxPercentage}% GST on taxable subtotal`}</Text>
                   </View>
-                  <Text style={[styles.billLineVal, { color: colors.textHeading }, (!isGstEnabled || taxPercentage === 0) && { color: '#16A34A' }]}>
-                    {!isGstEnabled || taxPercentage === 0 ? '₹0 (0%)' : money(gstCharge)}
-                  </Text>
-                </View>
+                ) : null}
 
                 {/* 6. Wallet Deduction */}
                 {walletDeduction > 0 && (
@@ -2309,18 +2313,22 @@ export function BookScreen({
                 </View>
               )}
 
-              {/* 6. GST */}
-              <View style={styles.billLine}>
-                <View>
-                  <Text style={[styles.billLineLabel, { color: colors.textHeading }]}>
-                    {!isGstEnabled || taxPercentage === 0 ? 'GST (Temporarily Waived)' : `GST & Taxes (${taxPercentage}%)`}
+              {/* 6. GST - Only shown when GST is enabled in Admin and > 0 */}
+              {isGstEnabled && taxPercentage > 0 && gstCharge > 0 ? (
+                <View style={styles.billLine}>
+                  <View>
+                    <Text style={[styles.billLineLabel, { color: colors.textHeading }]}>
+                      {`GST & Taxes (${taxPercentage}%)`}
+                    </Text>
+                    <Text style={[styles.billLineSubtext, { color: colors.textCaption }]}>
+                      {`${taxPercentage}% GST on taxable order amount`}
+                    </Text>
+                  </View>
+                  <Text style={[styles.billLineVal, { color: colors.textHeading }]}>
+                    {money(gstCharge)}
                   </Text>
-                  <Text style={[styles.billLineSubtext, { color: colors.textCaption }]}>{!isGstEnabled || taxPercentage === 0 ? 'GST waived by merchant' : `${taxPercentage}% GST on taxable order amount`}</Text>
                 </View>
-                <Text style={[styles.billLineVal, { color: colors.textHeading }, (!isGstEnabled || taxPercentage === 0) && { color: '#16A34A' }]}>
-                  {!isGstEnabled || taxPercentage === 0 ? '₹0 (0%)' : money(gstCharge)}
-                </Text>
-              </View>
+              ) : null}
 
               {/* 7. Wallet */}
               {walletDeduction > 0 && (

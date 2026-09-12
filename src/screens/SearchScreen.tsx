@@ -134,19 +134,15 @@ function stemWord(raw: string): string {
   return w;
 }
 
-const DEFAULT_TRENDING_SEARCHES = [
-  { text: 'Winter Blanket Cleaning', emoji: '❄️', growth: '+45%' },
-  { text: 'Silk Saree Care', emoji: '🧣', growth: '+38%' },
-  { text: 'Express Dry Clean', emoji: '⚡', growth: '+32%' },
-  { text: 'Woolen Garments', emoji: '🧥', growth: '+28%' },
-];
-
-const DEFAULT_POPULAR_SEARCHES = [
-  { text: 'Shirt', count: 1240 },
-  { text: 'Dry Cleaning', count: 980 },
-  { text: 'Saree', count: 860 },
-  { text: 'Steam Press', count: 740 },
-  { text: 'Pants', count: 620 },
+const POPULAR_SEARCH_TAGS = [
+  { label: 'Steam Press', icon: 'iron', color: '#059669' },
+  { label: 'Dry Cleaning', icon: 'hanger', color: '#0D9488' },
+  { label: 'Wash & Fold', icon: 'washing-machine', color: '#0284C7' },
+  { label: 'Saree Charak', icon: 'sparkles', color: '#D97706' },
+  { label: 'Suit & Blazer', icon: 'coat-rack', color: '#4F46E5' },
+  { label: 'Blanket Care', icon: 'bed-double-outline', color: '#0284C7' },
+  { label: 'Shoe Spa', icon: 'shoe-sneaker', color: '#9333EA' },
+  { label: 'Curtain Care', icon: 'curtains', color: '#EA580C' },
 ];
 
 export function SearchScreen({ onBook, onBack, onSelectProduct, initialQuery = '', onQueryChange }: SearchScreenProps) {
@@ -167,8 +163,6 @@ export function SearchScreen({ onBook, onBack, onSelectProduct, initialQuery = '
   };
 
   const [recentSearches, setRecentSearches] = useState<string[]>([]);
-  const [popularSearches, setPopularSearches] = useState<any[]>(DEFAULT_POPULAR_SEARCHES);
-  const [trendingSearches, setTrendingSearches] = useState<any[]>(DEFAULT_TRENDING_SEARCHES);
   const [localCachedCatalog, setLocalCachedCatalog] = useState<Catalog | null>(null);
 
   // Hardware back press on Android navigates back smoothly
@@ -205,23 +199,6 @@ export function SearchScreen({ onBook, onBack, onSelectProduct, initialQuery = '
               setLocalCachedCatalog(parsed);
             }
           } catch {}
-        }
-      })
-      .catch(() => undefined);
-
-    // Dynamic Popular and Trending searches from backend
-    api.getPopularSearches(6)
-      .then((data) => {
-        if (data?.popularSearches?.length) {
-          setPopularSearches(data.popularSearches);
-        }
-      })
-      .catch(() => undefined);
-
-    api.getTrendingSearches(6)
-      .then((data) => {
-        if (data?.trendingSearches?.length) {
-          setTrendingSearches(data.trendingSearches);
         }
       })
       .catch(() => undefined);
@@ -497,8 +474,34 @@ export function SearchScreen({ onBook, onBack, onSelectProduct, initialQuery = '
     return matched.slice(0, 30);
   }, [allItems, query, selectedCategory]);
 
-  // Primary display results: Uses backend API results when present, falls back seamlessly to local
-  const displayResults = apiResults !== null ? apiResults : localResults;
+  // Category-specific items for direct browsing when search query is empty
+  const categoryBrowseItems = useMemo(() => {
+    if (!selectedCategory || selectedCategory === 'ALL') return [];
+    const cleanCat = selectedCategory.replace(/[^A-Z]/g, '');
+    return allItems.filter((item) => {
+      const itemCat = String(item.category || '').toUpperCase().replace(/[^A-Z]/g, '');
+      if (itemCat === cleanCat) return true;
+      if ((cleanCat.includes('HOME') || cleanCat.includes('LINEN')) && (itemCat.includes('HOME') || itemCat.includes('LINEN'))) return true;
+      if ((cleanCat.includes('KID') || cleanCat.includes('BABY')) && (itemCat.includes('KID') || itemCat.includes('BABY'))) return true;
+      if ((cleanCat.includes('SHOE') || cleanCat.includes('FOOTWEAR')) && (itemCat.includes('SHOE') || itemCat.includes('FOOTWEAR'))) return true;
+      if (cleanCat.includes('SPECIAL') && (itemCat.includes('SPECIAL') || itemCat.includes('PREMIUM') || itemCat.includes('TRADITIONAL'))) return true;
+      return false;
+    });
+  }, [allItems, selectedCategory]);
+
+  // Primary display results:
+  // 1. When user has entered text: use API results (or local instant fallback search)
+  // 2. When query is empty and ALL is selected: show all items in the catalog
+  // 3. When query is empty but a specific category pill is selected: show all catalog items in that category
+  const displayResults = useMemo(() => {
+    if (query.trim().length > 0) {
+      return apiResults !== null ? apiResults : localResults;
+    }
+    if (selectedCategory === 'ALL') {
+      return allItems;
+    }
+    return categoryBrowseItems;
+  }, [query, apiResults, localResults, selectedCategory, allItems, categoryBrowseItems]);
 
   // Fallback suggestions for zero results
   const suggestions = useMemo(() => {
@@ -716,14 +719,26 @@ export function SearchScreen({ onBook, onBack, onSelectProduct, initialQuery = '
     const clean = String(term || '').trim();
     if (!clean) return;
     Keyboard.dismiss();
+    setSelectedCategory('ALL');
     setQuery(clean);
     void saveSearchTerm(clean);
   };
 
+  const handleCategoryPress = (catKey: string) => {
+    Keyboard.dismiss();
+    setSelectedCategory((prev) => (prev === catKey ? 'ALL' : catKey));
+  };
+
   return (
     <View style={[styles.root, { backgroundColor: colors.background }]}>
-      {/* Top Search Input Bar */}
-      <View style={[styles.header, isDark && { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
+      {/* Top Search Input Bar with safe area status bar inset */}
+      <View
+        style={[
+          styles.header,
+          { paddingTop: Math.max(insets.top, 16) + 8 },
+          isDark && { backgroundColor: colors.surface, borderBottomColor: colors.border },
+        ]}
+      >
         {onBack ? (
           <Pressable
             onPress={onBack}
@@ -777,6 +792,7 @@ export function SearchScreen({ onBook, onBack, onSelectProduct, initialQuery = '
           horizontal
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.categoryPillsScroll}
+          keyboardShouldPersistTaps="always"
         >
           {SEARCH_CATEGORIES.map((cat) => {
             const isActive = selectedCategory === cat.key;
@@ -787,7 +803,7 @@ export function SearchScreen({ onBook, onBack, onSelectProduct, initialQuery = '
                   styles.catPill,
                   isActive ? styles.catPillActive : (isDark ? styles.catPillDark : styles.catPillInactive),
                 ]}
-                onPress={() => setSelectedCategory(cat.key)}
+                onPress={() => handleCategoryPress(cat.key)}
                 accessibilityRole="button"
                 accessibilityLabel={`Filter by ${cat.label}`}
               >
@@ -845,8 +861,8 @@ export function SearchScreen({ onBook, onBack, onSelectProduct, initialQuery = '
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag"
       >
-        {/* If Query is Empty: Show Recent & Discovery Sections */}
-        {!query.trim() ? (
+        {/* If Query is Empty and Category is ALL: Show Recent Searches & Popular Searches discovery section at top */}
+        {!query.trim() && selectedCategory === 'ALL' && (
           <View style={styles.discoveryWrap}>
             {/* Recent Searches */}
             {recentSearches.length > 0 && (
@@ -880,20 +896,14 @@ export function SearchScreen({ onBook, onBack, onSelectProduct, initialQuery = '
               </View>
             )}
 
-            {/* Popular Services */}
+            {/* Popular Searches */}
             <View style={styles.section}>
               <View style={styles.sectionTitleRow}>
-                <MaterialCommunityIcons name="star-shooting-outline" size={16} color="#059669" />
-                <Text style={[styles.sectionTitle, isDark && { color: colors.textHeading }]}>Popular Services</Text>
+                <MaterialCommunityIcons name="fire" size={17} color="#EA580C" />
+                <Text style={[styles.sectionTitle, isDark && { color: colors.textHeading }]}>Popular Searches</Text>
               </View>
               <View style={styles.chipsRow}>
-                {[
-                  { label: 'Steam Press', icon: 'iron', iconColor: '#059669' },
-                  { label: 'Dry Cleaning', icon: 'hanger', iconColor: '#0D9488' },
-                  { label: 'Wash & Fold', icon: 'washing-machine', iconColor: '#0284C7' },
-                  { label: 'Saree Charak', icon: 'sparkles', iconColor: '#D97706' },
-                  { label: 'Shoe Spa', icon: 'shoe-sneaker', iconColor: '#9333EA' },
-                ].map((item, idx) => (
+                {POPULAR_SEARCH_TAGS.map((item, idx) => (
                   <Pressable
                     key={idx}
                     style={({ pressed }) => [
@@ -903,118 +913,28 @@ export function SearchScreen({ onBook, onBack, onSelectProduct, initialQuery = '
                     ]}
                     onPress={() => handleSelectKeyword(item.label)}
                   >
-                    <MaterialCommunityIcons name={item.icon as any} size={15} color={item.iconColor} />
+                    <MaterialCommunityIcons name={item.icon as any} size={15} color={item.color} />
                     <Text style={[styles.serviceChipText, isDark && { color: colors.textHeading }]}>{item.label}</Text>
                   </Pressable>
                 ))}
               </View>
             </View>
-
-            {/* Trending Searches from Backend */}
-            {trendingSearches.length > 0 && (
-              <View style={styles.section}>
-                <View style={styles.sectionTitleRow}>
-                  <MaterialCommunityIcons name="fire" size={17} color="#EA580C" />
-                  <Text style={[styles.sectionTitle, isDark && { color: colors.textHeading }]}>Trending Searches</Text>
-                </View>
-                <View style={styles.chipsRow}>
-                  {trendingSearches.map((trend, idx) => (
-                    <Pressable
-                      key={idx}
-                      style={({ pressed }) => [
-                        styles.trendingBadge,
-                        isDark && { backgroundColor: colors.section, borderColor: colors.border },
-                        pressed && { opacity: 0.75, transform: [{ scale: 0.98 }] },
-                      ]}
-                      onPress={() => handleSelectKeyword(trend.text)}
-                    >
-                      <Text style={styles.trendingEmoji}>{trend.emoji || '🔥'}</Text>
-                      <Text style={[styles.trendingBadgeText, isDark && { color: colors.textHeading }]}>{trend.text}</Text>
-                      {trend.growth ? <Text style={styles.trendingGrowth}>{trend.growth}</Text> : null}
-                    </Pressable>
-                  ))}
-                </View>
-              </View>
-            )}
-
-            {/* Most Searched Items from Backend */}
-            {popularSearches.length > 0 && (
-              <View style={styles.section}>
-                <View style={styles.sectionTitleRow}>
-                  <MaterialCommunityIcons name="trending-up" size={16} color="#059669" />
-                  <Text style={[styles.sectionTitle, isDark && { color: colors.textHeading }]}>Most Searched Items</Text>
-                </View>
-                <View style={styles.chipsRow}>
-                  {popularSearches.map((popular, idx) => (
-                    <Pressable
-                      key={idx}
-                      style={({ pressed }) => [
-                        styles.popularChip,
-                        isDark && { backgroundColor: colors.section, borderColor: colors.border },
-                        pressed && { opacity: 0.75, transform: [{ scale: 0.98 }] },
-                      ]}
-                      onPress={() => handleSelectKeyword(popular.text)}
-                    >
-                      <MaterialCommunityIcons name="trending-up" size={13} color="#059669" />
-                      <Text style={[styles.popularChipText, isDark && { color: colors.textHeading }]}>{popular.text}</Text>
-                    </Pressable>
-                  ))}
-                </View>
-              </View>
-            )}
-
-            {/* Popular Fabrics */}
-            <View style={styles.section}>
-              <View style={styles.sectionTitleRow}>
-                <MaterialCommunityIcons name="tag-multiple-outline" size={15} color="#64748B" />
-                <Text style={[styles.sectionTitle, isDark && { color: colors.textHeading }]}>Popular Fabrics & Textures</Text>
-              </View>
-              <View style={styles.chipsRow}>
-                {[
-                  'Pure Silk', 'Cotton Handloom', 'Woolen & Pashmina', 'Denim', 'Linen', 'Chiffon & Georgette', 'Velvet'
-                ].map((fabric, idx) => (
-                  <Pressable
-                    key={idx}
-                    style={({ pressed }) => [
-                      styles.fabricChip,
-                      isDark && { backgroundColor: colors.section, borderColor: colors.border },
-                      pressed && { opacity: 0.75, transform: [{ scale: 0.98 }] },
-                    ]}
-                    onPress={() => handleSelectKeyword(fabric)}
-                  >
-                    <MaterialCommunityIcons name="tag-outline" size={13} color={isDark ? '#10B981' : '#059669'} />
-                    <Text style={[styles.fabricChipText, isDark && { color: colors.textBody }]}>{fabric}</Text>
-                  </Pressable>
-                ))}
-              </View>
-            </View>
-
-            {/* Quality Promise Banner */}
-            <View style={styles.promiseCard}>
-              <MaterialCommunityIcons name="shield-check" size={24} color="#16A34A" />
-              <View style={{ flex: 1 }}>
-                <Text style={styles.promiseTitle}>Zero Color-Bleed Guarantee</Text>
-                <Text style={styles.promiseSub}>All delicate fabrics are tested with organic non-solvent solutions.</Text>
-              </View>
-            </View>
           </View>
-        ) : (
-          /* Search Results Grid */
-          <View style={styles.resultsSection}>
+        )}
+
+        {/* Search Results Grid / Catalog Grid (Always rendered!) */}
+        <View style={styles.resultsSection}>
             <View style={styles.resultsHeader}>
               <View style={styles.resultsHeaderTitleRow}>
                 <Text style={[styles.resultsCount, isDark && { color: colors.textCaption }]}>
-                  {`Found ${displayResults.length} service${displayResults.length === 1 ? '' : 's'}`}
+                  {query.trim()
+                    ? `Found ${displayResults.length} service${displayResults.length === 1 ? '' : 's'}`
+                    : `${SEARCH_CATEGORIES.find((c) => c.key === selectedCategory)?.label || selectedCategory} (${displayResults.length} item${displayResults.length === 1 ? '' : 's'})`}
                 </Text>
                 {isSearching ? (
                   <View style={styles.searchingBadge}>
                     <ActivityIndicator size="small" color="#059669" />
                     <Text style={styles.searchingBadgeText}>Searching…</Text>
-                  </View>
-                ) : apiResults !== null ? (
-                  <View style={styles.liveApiBadge}>
-                    <View style={styles.liveApiDot} />
-                    <Text style={styles.liveApiText}>Live API</Text>
                   </View>
                 ) : null}
               </View>
@@ -1033,9 +953,13 @@ export function SearchScreen({ onBook, onBack, onSelectProduct, initialQuery = '
             {displayResults.length === 0 ? (
               <View style={styles.emptyResults}>
                 <MaterialCommunityIcons name="magnify-close" size={54} color="#D6B36A" />
-                <Text style={[styles.emptyTitle, isDark && { color: colors.textHeading }]}>No Matching Services Found</Text>
+                <Text style={[styles.emptyTitle, isDark && { color: colors.textHeading }]}>
+                  {selectedCategory !== 'ALL' ? 'No Items Found in this Category' : 'No Matching Services Found'}
+                </Text>
                 <Text style={[styles.emptySubtitle, isDark && { color: colors.textCaption }]}>
-                  Try searching for keywords like "Suit", "Saree", "Blanket", or "Kurti".
+                  {selectedCategory !== 'ALL'
+                    ? 'Explore other categories or try searching for specific items above.'
+                    : 'Try searching for keywords like "Suit", "Saree", "Blanket", or "Kurti".'}
                 </Text>
                 {suggestions.length > 0 && (
                   <View style={styles.suggestionsWrap}>
@@ -1139,7 +1063,6 @@ export function SearchScreen({ onBook, onBack, onSelectProduct, initialQuery = '
               </View>
             )}
           </View>
-        )}
       </ScrollView>
 
       {/* Floating Bag Bar at bottom when items exist in bag */}
@@ -1177,17 +1100,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#FFFFFF',
-    paddingHorizontal: 12,
-    paddingTop: 8,
-    paddingBottom: 8,
+    paddingHorizontal: 14,
+    paddingBottom: 10,
     borderBottomWidth: 1,
     borderBottomColor: '#F1F5F9',
-    gap: 8,
+    gap: 10,
   },
   headerBackBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1220,19 +1142,20 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderBottomWidth: 1,
     borderBottomColor: '#F1F5F9',
-    paddingVertical: 8,
+    paddingVertical: 10,
   },
   categoryPillsScroll: {
     paddingHorizontal: 14,
     gap: 8,
+    alignItems: 'center',
   },
   catPill: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 18,
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: 20,
     borderWidth: 1,
   },
   catPillActive: {
@@ -1364,44 +1287,6 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#0F172A',
   },
-  fabricChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    borderRadius: 20,
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-  },
-  fabricChipText: {
-    fontSize: 12.5,
-    color: '#475569',
-    fontWeight: '600',
-  },
-  promiseCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    backgroundColor: '#F0FDF4',
-    borderWidth: 1,
-    borderColor: '#BBF7D0',
-    borderRadius: 14,
-    padding: 14,
-    marginTop: 8,
-  },
-  promiseTitle: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#166534',
-    marginBottom: 2,
-  },
-  promiseSub: {
-    fontSize: 11.5,
-    color: '#15803D',
-    lineHeight: 16,
-  },
   resultsSection: {
     gap: 12,
     paddingTop: 6,
@@ -1432,28 +1317,6 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '700',
     color: '#059669',
-  },
-  liveApiBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: '#F0FDF4',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: '#BBF7D0',
-  },
-  liveApiDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: '#16A34A',
-  },
-  liveApiText: {
-    fontSize: 10,
-    fontWeight: '800',
-    color: '#16A34A',
   },
   resultsQuery: {
     fontSize: 14,
@@ -1513,56 +1376,6 @@ const styles = StyleSheet.create({
     fontSize: 12.5,
     fontWeight: '600',
     color: '#0F766E',
-  },
-  trendingBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    borderRadius: 20,
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 2,
-    elevation: 1,
-  },
-  trendingEmoji: {
-    fontSize: 14,
-  },
-  trendingBadgeText: {
-    fontSize: 12.5,
-    fontWeight: '700',
-    color: '#0F172A',
-  },
-  trendingGrowth: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: '#059669',
-    backgroundColor: '#ECFDF5',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 6,
-    overflow: 'hidden',
-  },
-  popularChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: '#F0FDF4',
-    borderWidth: 1,
-    borderColor: '#BBF7D0',
-    borderRadius: 20,
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-  },
-  popularChipText: {
-    fontSize: 12.5,
-    fontWeight: '700',
-    color: '#15803D',
   },
   resultsGrid: {
     gap: 10,

@@ -3,6 +3,7 @@ import {
   ActivityIndicator,
   FlatList,
   Image,
+  Modal,
   Platform,
   Pressable,
   RefreshControl,
@@ -19,7 +20,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useApp } from '@/context/AppContext';
 import { useTheme } from '@/context/ThemeContext';
 import { api } from '@/lib/api';
-import { getGarmentImageUrl } from '@/lib/garment-photos';
+import { getGarmentImageUrl, FALLBACK_PHOTO } from '@/lib/garment-photos';
 import { getCategoryImageUrl, getSubcategoryImageUrl } from '@/lib/category-photos';
 import { AnimatedCartButton } from '@/components/AnimatedCartButton';
 import type { Catalog } from '@/types/domain';
@@ -33,9 +34,13 @@ interface CategoryCatalogScreenProps {
   onViewCart?: () => void;
   onOpenCart?: () => void;
   onOpenBulkLaundry?: () => void;
-  onSelectProduct?: (product: ProductItem, serviceId?: string) => void;
+  onOpenWishlist?: () => void;
+  onSelectProduct?: (product: any, serviceId?: any) => void;
   hasBottomTabBar?: boolean;
 }
+
+export type CatalogSortOption = 'POPULAR' | 'PRICE_LOW' | 'PRICE_HIGH' | 'FASTEST' | 'NAME_AZ';
+export type PriceRangeFilter = 'ALL' | 'UNDER_50' | '50_TO_150' | 'ABOVE_150';
 
 type CatalogServiceCode = 'PRESS' | 'WASH_FOLD' | 'WASH_IRON' | 'DRY_CLEAN' | 'SHOE_SPA' | 'SAREE_POLISH' | 'STARCH' | 'EXPRESS' | 'OTHER';
 type CatalogServiceFilter = 'ALL' | CatalogServiceCode;
@@ -65,17 +70,7 @@ interface ProductItem {
   minPrice: number;
 }
 
-const SUBCATEGORY_MAP: Record<string, string[]> = {
-  MENS: ['Shirts', 'T-Shirts', 'Trousers & Pants', 'Denim', 'Ethnic Wear', 'Suits & Blazers', 'Winter Wear', 'Sports & Gym Wear'],
-  WOMENS: ['Sarees', 'Kurtis & Kurtas', 'Salwar Suits', 'Western Dresses', 'Tops & Shirts', 'Lehengas', 'Gowns', 'Dupattas'],
-  KIDS: ['Baby Clothing', 'Boys Clothing', 'Girls Clothing', 'School Uniforms', 'Party Wear'],
-  HOME_TEXTILES: ['Bedsheets', 'Bed Covers', 'Blankets', 'Comforters & Quilts', 'Curtains', 'Sofa & Cushion Covers', 'Towels'],
-  HOME: ['Bedsheets', 'Bed Covers', 'Blankets', 'Comforters & Quilts', 'Curtains', 'Sofa & Cushion Covers', 'Towels'],
-  FOOTWEAR: ['Sneakers', 'Formal Shoes', 'Leather & Suede', 'Sports Shoes'],
-  ACCESSORIES: ['Backpacks', 'Handbags', 'Belts & Wallets', 'Caps & Hats'],
-  WEDDING: ['Silk Sarees', 'Lehengas', 'Sherwanis', 'Bridal Gowns', 'Designer Dupattas'],
-  BULK: ['Daily Wash & Fold', 'Bed Linen Bulk', 'Express KG Wash'],
-};
+// Subcategories and Categories are loaded dynamically from the backend API (catalog.categories, catalog.subcategories, and clothTypes)
 
 // Available Main Categories
 const MAIN_CATEGORIES: Array<{ tag: string; label: string; icon: string; imageUrl?: string; slug?: string }> = [
@@ -194,14 +189,29 @@ function matchesSubcategoryKeyword(name: string, sub: string): boolean {
   if (s.includes('kurti') || s.includes('kurta')) {
     return n.includes('kurti') || n.includes('kurta');
   }
-  if (s.includes('salwar') || s.includes('suit') || s.includes('blazer')) {
-    return n.includes('salwar') || n.includes('suit') || n.includes('blazer') || n.includes('tuxedo') || n.includes('coat') || n.includes('churidar') || n.includes('dupatta');
+  if (s.includes('salwar') || (s.includes('suit') && !s.includes('blazer'))) {
+    return n.includes('salwar') || n.includes('suit') || n.includes('sharara') || n.includes('gharara') || n.includes('churidar') || n.includes('kurti') || n.includes('kurta');
+  }
+  if (s.includes('suit') && s.includes('blazer')) {
+    return n.includes('blazer') || n.includes('suit') || n.includes('tuxedo') || n.includes('coat');
   }
   if (s.includes('dress') || s.includes('gown')) {
     return n.includes('dress') || n.includes('gown') || n.includes('maxi') || n.includes('skirt') || n.includes('frock');
   }
-  if (s.includes('winter') || s.includes('jacket') || s.includes('sweater')) {
-    return n.includes('winter') || n.includes('jacket') || n.includes('sweater') || n.includes('pullover') || n.includes('coat') || n.includes('hoodie') || n.includes('shawl') || n.includes('cardigan');
+  if (s.includes('lehenga') || s.includes('ghagra')) {
+    return n.includes('lehenga') || n.includes('ghagra') || n.includes('choli') || n.includes('bridal');
+  }
+  if (s.includes('gown')) {
+    return n.includes('gown') || n.includes('maxi');
+  }
+  if (s.includes('jacket') || s.includes('blazer') || s.includes('coat')) {
+    return (n.includes('jacket') || n.includes('blazer') || n.includes('coat') || n.includes('shrug') || n.includes('bomber') || n.includes('windcheater')) && !n.includes('shawl') && !n.includes('sweater');
+  }
+  if (s.includes('winter') || s.includes('sweater') || s.includes('cardigan') || s.includes('pullover')) {
+    return (n.includes('winter') || n.includes('sweater') || n.includes('cardigan') || n.includes('pullover') || n.includes('hoodie') || n.includes('shawl') || n.includes('pashmina') || n.includes('muffler')) && !n.includes('jacket');
+  }
+  if (s.includes('shawl') || s.includes('stole') || s.includes('dupatta')) {
+    return n.includes('shawl') || n.includes('stole') || n.includes('pashmina') || n.includes('dupatta');
   }
   if (s.includes('ethnic')) {
     return n.includes('ethnic') || n.includes('kurta') || n.includes('sherwani') || n.includes('dhoti') || n.includes('lungi') || n.includes('pyjama') || n.includes('indo-western');
@@ -243,11 +253,18 @@ function matchesSubcategoryKeyword(name: string, sub: string): boolean {
 }
 
 function resolveGarmentSubcategory(name: string, catTag?: string, currentSub?: string): string {
-  if (currentSub && typeof currentSub === 'string' && currentSub.trim().length > 0 && currentSub !== 'General' && currentSub !== 'NONE') {
-    return currentSub.trim();
-  }
   const n = (name || '').toLowerCase();
   const cat = (catTag || '').toUpperCase().replace(/_/g, '-');
+
+  if (currentSub && typeof currentSub === 'string' && currentSub.trim().length > 0 && currentSub !== 'General' && currentSub !== 'NONE') {
+    const cleanSub = currentSub.trim();
+    if (cleanSub.toLowerCase() === 'occasion wear' || cleanSub.toLowerCase() === 'party wear') {
+      if (n.includes('lehenga') || n.includes('ghagra') || n.includes('choli')) return 'Lehengas';
+      if (n.includes('gown')) return 'Gowns';
+      if (n.includes('dress') || n.includes('maxi')) return 'Western Dresses';
+    }
+    return cleanSub;
+  }
 
   if (cat.includes('MEN') && !cat.includes('WOMEN')) {
     if (n.includes('shirt') && !n.includes('t-shirt')) return 'Shirts';
@@ -255,7 +272,8 @@ function resolveGarmentSubcategory(name: string, catTag?: string, currentSub?: s
     if (n.includes('jeans') || n.includes('denim') || n.includes('trouser') || n.includes('chino')) return 'Jeans & Trousers';
     if (n.includes('kurta') || n.includes('dhoti') || n.includes('sherwani') || n.includes('nehru') || n.includes('waistcoat')) return 'Ethnic Wear';
     if (n.includes('suit') || n.includes('blazer') || n.includes('coat')) return 'Suits & Blazers';
-    if (n.includes('sweater') || n.includes('pullover') || n.includes('winter') || n.includes('jacket')) return 'Winter Wear';
+    if (n.includes('jacket') || n.includes('windcheater') || n.includes('bomber')) return 'Jackets';
+    if (n.includes('sweater') || n.includes('pullover') || n.includes('winter') || n.includes('cardigan') || n.includes('hoodie')) return 'Winter Wear';
     if (n.includes('short') || n.includes('bermuda')) return 'Shorts';
     if (n.includes('track') || n.includes('gym')) return 'Activewear';
     if (n.includes('tie') || n.includes('pocket square')) return 'Formal Accessories';
@@ -263,12 +281,16 @@ function resolveGarmentSubcategory(name: string, catTag?: string, currentSub?: s
   if (cat.includes('WOMEN')) {
     if (n.includes('saree')) return 'Sarees';
     if (n.includes('blouse')) return 'Blouses';
-    if (n.includes('kurti') || n.includes('salwar') || n.includes('suit') || n.includes('sharara')) return 'Suits & Kurtis';
-    if (n.includes('lehenga') || n.includes('gown') || n.includes('dress') || n.includes('maxi')) return 'Occasion Wear';
+    if (n.includes('kurti') || n.includes('kurta')) return 'Kurtis & Kurtas';
+    if (n.includes('salwar') || n.includes('suit') || n.includes('sharara') || n.includes('gharara') || n.includes('churidar')) return 'Salwar Suits';
+    if (n.includes('lehenga') || n.includes('ghagra') || n.includes('choli')) return 'Lehengas';
+    if (n.includes('gown')) return 'Gowns';
+    if (n.includes('dress') || n.includes('maxi')) return 'Western Dresses';
     if (n.includes('top')) return 'Tops & Shirts';
     if (n.includes('jeans') || n.includes('legging') || n.includes('plazo') || n.includes('jeggings')) return 'Bottoms';
-    if (n.includes('winter') || n.includes('jacket') || n.includes('shrug') || n.includes('shawl')) return 'Winter Wear';
-    if (n.includes('dupatta') || n.includes('stole')) return 'Dupattas & Stoles';
+    if (n.includes('jacket') || n.includes('shrug') || n.includes('coat') || n.includes('blazer')) return 'Jackets';
+    if (n.includes('winter') || n.includes('sweater') || n.includes('shawl') || n.includes('pashmina') || n.includes('cardigan')) return 'Winter Wear';
+    if (n.includes('dupatta') || n.includes('stole')) return 'Dupattas';
     if (n.includes('nighty') || n.includes('loungewear')) return 'Loungewear';
   }
   if (cat.includes('KID')) {
@@ -395,17 +417,20 @@ const ProductCard = React.memo(function ProductCard({
   onDecrement,
 }: ProductCardProps) {
   const [imageLoaded, setImageLoaded] = useState(false);
-  const [imageErrorLevel, setImageErrorLevel] = useState<'none' | 'primary' | 'all'>('none');
+  const [imageErrorLevel, setImageErrorLevel] = useState<'none' | 'primary' | 'fallback' | 'failed'>('none');
 
+  const reliableGarmentPhoto = getGarmentImageUrl(cloth.id, undefined, cloth.categoryTag, cloth.name);
   const primaryPhotoUrl = cloth.imageUrl
     ? getGarmentImageUrl(cloth.id, cloth.imageUrl, cloth.categoryTag, cloth.name)
-    : cloth.fallbackImageUrl;
+    : reliableGarmentPhoto;
 
   const photoUrl =
-    imageErrorLevel === 'all'
+    imageErrorLevel === 'failed'
       ? undefined
+      : imageErrorLevel === 'fallback'
+      ? FALLBACK_PHOTO
       : imageErrorLevel === 'primary'
-      ? cloth.fallbackImageUrl
+      ? reliableGarmentPhoto
       : primaryPhotoUrl;
 
   const turnaround = formatTurnaround(chosenService.turnaroundHours);
@@ -431,14 +456,20 @@ const ProductCard = React.memo(function ProductCard({
         {photoUrl ? (
           <>
             <Image
-              source={{ uri: photoUrl }}
+              source={{ uri: photoUrl, cache: 'force-cache' }}
               style={styles.cardImage}
               resizeMode="cover"
               onLoadEnd={() => setImageLoaded(true)}
               onError={() => {
-                setImageErrorLevel((prev) =>
-                  prev === 'none' && primaryPhotoUrl !== cloth.fallbackImageUrl ? 'primary' : 'all'
-                );
+                setImageErrorLevel((prev) => {
+                  if (prev === 'none' && primaryPhotoUrl !== reliableGarmentPhoto) {
+                    return 'primary';
+                  }
+                  if (prev !== 'fallback' && photoUrl !== FALLBACK_PHOTO) {
+                    return 'fallback';
+                  }
+                  return 'failed';
+                });
                 setImageLoaded(true);
               }}
             />
@@ -450,7 +481,11 @@ const ProductCard = React.memo(function ProductCard({
           </>
         ) : (
           <View style={[styles.cardImageFallback, { backgroundColor: colors.section }]}>
-            <MaterialCommunityIcons name="tshirt-crew" size={34} color={colors.border} />
+            <MaterialCommunityIcons
+              name={getSubcategoryFallbackIcon(cloth.subcategory || '', cloth.categoryTag) as any}
+              size={36}
+              color={colors.border}
+            />
           </View>
         )}
 
@@ -746,7 +781,47 @@ export function CategoryCatalogScreen({
   );
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [isSearchOpen, setIsSearchOpen] = useState<boolean>(false);
-  const [selectedSort, setSelectedSort] = useState<'POPULAR' | 'PRICE_LOW' | 'PRICE_HIGH'>('POPULAR');
+  const [activeSorts, setActiveSorts] = useState<CatalogSortOption[]>(['POPULAR']);
+  const [selectedLetterFilter, setSelectedLetterFilter] = useState<string>('ALL');
+  const [filterTat24h, setFilterTat24h] = useState<boolean>(false);
+  const [priceRangeFilter, setPriceRangeFilter] = useState<PriceRangeFilter>('ALL');
+  const [isSortFilterModalOpen, setIsSortFilterModalOpen] = useState<boolean>(false);
+
+  // Toggle multi-sort options (supports simultaneous Price + Alphabetical sort)
+  const toggleSortOption = useCallback((sortKey: CatalogSortOption) => {
+    setActiveSorts((prev) => {
+      if (sortKey === 'POPULAR') {
+        return ['POPULAR'];
+      }
+      let next = prev.filter((s) => s !== 'POPULAR');
+      if (sortKey === 'PRICE_LOW') {
+        if (next.includes('PRICE_LOW')) {
+          next = next.filter((s) => s !== 'PRICE_LOW');
+        } else {
+          next = next.filter((s) => s !== 'PRICE_HIGH').concat('PRICE_LOW');
+        }
+      } else if (sortKey === 'PRICE_HIGH') {
+        if (next.includes('PRICE_HIGH')) {
+          next = next.filter((s) => s !== 'PRICE_HIGH');
+        } else {
+          next = next.filter((s) => s !== 'PRICE_LOW').concat('PRICE_HIGH');
+        }
+      } else if (sortKey === 'NAME_AZ') {
+        if (next.includes('NAME_AZ')) {
+          next = next.filter((s) => s !== 'NAME_AZ');
+        } else {
+          next = [...next, 'NAME_AZ'];
+        }
+      } else if (sortKey === 'FASTEST') {
+        if (next.includes('FASTEST')) {
+          next = next.filter((s) => s !== 'FASTEST');
+        } else {
+          next = [...next, 'FASTEST'];
+        }
+      }
+      return next.length === 0 ? ['POPULAR'] : next;
+    });
+  }, []);
 
   // Track chosen service per cloth ID
   const [selectedClothServiceMap, setSelectedClothServiceMap] = useState<Record<string, string>>({});
@@ -1043,46 +1118,69 @@ export function CategoryCatalogScreen({
     const t = targetSub.toLowerCase().trim();
     const s = String(p.subcategory || '').toLowerCase().trim();
     const n = String(p.name || '').toLowerCase().trim();
-    return (
-      s === t ||
-      s.includes(t) ||
-      t.includes(s) ||
-      matchesSubcategoryKeyword(n, t)
-    );
+
+    // 1. Exact match
+    if (s === t) return true;
+
+    // 2. Substring match on subcategory (e.g. 'T-Shirts' matching 'T-Shirts & Polos')
+    if (s && (s.includes(t) || t.includes(s))) {
+      // Guard: do not cross-match between 'Jackets' and 'Winter Wear'
+      if (t === 'jackets' && s.includes('winter wear')) return false;
+      if (t.includes('winter') && s === 'jackets') return false;
+      return true;
+    }
+
+    // 3. If product has an explicit distinct subcategory that is not a generic fallback,
+    // NEVER allow loose keyword matching across subcategory boundaries!
+    if (s && s !== 'garments' && s !== 'general' && s !== 'all' && s !== 'none') {
+      return false;
+    }
+
+    // 4. Keyword match for products with missing or generic subcategory
+    return matchesSubcategoryKeyword(n, t);
   }, []);
 
-  // Subcategories List: Extracted directly from products so ZERO empty subcategories can ever exist
+  // Subcategories List: Extracted directly from API subcategories and active products
   const subcategoriesList = useMemo(() => {
-    const subSet = new Set<string>();
+    const apiSubcats = (dynamicCatalog?.subcategories || catalog?.subcategories || []).filter((s: any) => {
+      if (s?.isActive === false) return false;
+      const sTag = (s.categoryTag || '').toUpperCase().replace(/-/g, '_');
+      const activeTag = (activeCategoryTag || '').toUpperCase().replace(/-/g, '_');
+      return (
+        activeCategoryTag === 'ALL' ||
+        sTag === activeTag ||
+        (activeTag === 'MENS' && (sTag === 'MENS' || sTag === 'MEN' || sTag === 'MENS_WEAR')) ||
+        (activeTag === 'WOMENS' && (sTag === 'WOMENS' || sTag === 'WOMEN' || sTag === 'WOMENS_WEAR'))
+      );
+    }).sort((a: any, b: any) => (a.sortOrder || 0) - (b.sortOrder || 0));
 
+    const productSubSet = new Set<string>();
     products.forEach((p) => {
       const sub = p.subcategory;
       if (sub && typeof sub === 'string' && sub.trim().length > 0 && sub.trim() !== 'General' && sub.trim() !== 'NONE') {
-        subSet.add(sub.trim());
+        productSubSet.add(sub.trim());
       }
     });
 
-    const fallbackList =
-      SUBCATEGORY_MAP[activeCategoryTag.toUpperCase()] ||
-      SUBCATEGORY_MAP[activeCategoryTag.toUpperCase().replace(/_/g, '-')] ||
-      [];
-
-    const knownSubcategories: string[] = [];
-    fallbackList.forEach((fallback) => {
-      const match = Array.from(subSet).find((sub) => sub.toLowerCase() === fallback.toLowerCase());
-      if (match && !knownSubcategories.includes(match)) {
-        knownSubcategories.push(match);
+    const orderedSubcategories: string[] = [];
+    apiSubcats.forEach((s: any) => {
+      const match = Array.from(productSubSet).find((sub) => sub.toLowerCase() === s.name.toLowerCase());
+      if (match && !orderedSubcategories.includes(match)) {
+        orderedSubcategories.push(match);
+      } else if (!orderedSubcategories.includes(s.name) && (activeCategoryTag === 'ALL' || productSubSet.size === 0)) {
+        orderedSubcategories.push(s.name);
       }
     });
 
-    const remainingSubcategories = Array.from(subSet)
-      .filter((sub) => !knownSubcategories.some((known) => known.toLowerCase() === sub.toLowerCase()))
-      .sort((a, b) => a.localeCompare(b));
-
-    const orderedSubcategories = [...knownSubcategories, ...remainingSubcategories];
+    // Add any subcategories from products not explicitly listed in API subcategories
+    Array.from(productSubSet).forEach((sub) => {
+      if (!orderedSubcategories.some((existing) => existing.toLowerCase() === sub.toLowerCase())) {
+        orderedSubcategories.push(sub);
+      }
+    });
 
     return ['ALL', ...orderedSubcategories];
-  }, [products, activeCategoryTag]);
+  }, [dynamicCatalog?.subcategories, catalog?.subcategories, products, activeCategoryTag]);
 
   // Guard: If currently selected subcategory has no products or is not in list, auto-reset to ALL
   useEffect(() => {
@@ -1091,12 +1189,19 @@ export function CategoryCatalogScreen({
     }
   }, [subcategoriesList, selectedSubcategory]);
 
-  // Precomputed subcategory carousel render data
+  // Precomputed subcategory carousel render data (100% AWS S3 & API driven)
   const subcategoryRenderData = useMemo(() => {
     const currentCatObj = categoriesList.find((c) => c.tag === activeCategoryTag);
     const subObjMap = new Map<string, any>();
     (dynamicCatalog?.subcategories || catalog?.subcategories || []).forEach((s: any) => {
-      if (s && (activeCategoryTag === 'ALL' || s.categoryTag === activeCategoryTag) && s.name) {
+      const sTag = (s.categoryTag || '').toUpperCase().replace(/-/g, '_');
+      const activeTag = (activeCategoryTag || '').toUpperCase().replace(/-/g, '_');
+      const isTagMatch =
+        activeCategoryTag === 'ALL' ||
+        sTag === activeTag ||
+        (activeTag === 'MENS' && (sTag === 'MENS' || sTag === 'MEN' || sTag === 'MENS_WEAR')) ||
+        (activeTag === 'WOMENS' && (sTag === 'WOMENS' || sTag === 'WOMEN' || sTag === 'WOMENS_WEAR'));
+      if (s && isTagMatch && s.name) {
         subObjMap.set(String(s.name).toLowerCase(), s);
       }
     });
@@ -1104,9 +1209,16 @@ export function CategoryCatalogScreen({
     return subcategoriesList.map((sub) => {
       const isAll = sub === 'ALL';
       const matchedSubObj = subObjMap.get(String(sub).toLowerCase());
+      
+      // Match a product in this subcategory to use its authentic S3 product image
+      const matchingProduct = products.find((p) => productMatchesSubcategory(p, sub));
+      const productPhotoUrl = matchingProduct?.imageUrl || matchingProduct?.fallbackImageUrl;
+
       const subPhotoUrl = isAll
-        ? getCategoryImageUrl(activeCategoryTag, currentCatObj?.imageUrl)
-        : getSubcategoryImageUrl(sub, matchedSubObj?.categoryTag || activeCategoryTag, matchedSubObj?.imageUrl);
+        ? (currentCatObj?.imageUrl || getCategoryImageUrl(activeCategoryTag))
+        : (matchedSubObj?.imageUrl && !matchedSubObj.imageUrl.includes('unsplash')
+            ? matchedSubObj.imageUrl
+            : (productPhotoUrl || getSubcategoryImageUrl(sub, matchedSubObj?.categoryTag || activeCategoryTag)));
       const fallbackIcon = getSubcategoryFallbackIcon(sub, activeCategoryTag);
 
       return {
@@ -1116,7 +1228,7 @@ export function CategoryCatalogScreen({
         fallbackIcon,
       };
     });
-  }, [subcategoriesList, activeCategoryTag, categoriesList, dynamicCatalog?.subcategories, catalog?.subcategories]);
+  }, [subcategoriesList, activeCategoryTag, categoriesList, dynamicCatalog?.subcategories, catalog?.subcategories, products, productMatchesSubcategory]);
 
   const availableServiceFilters = useMemo(
     () => SERVICE_FILTERS.filter((filter) =>
@@ -1164,6 +1276,32 @@ export function CategoryCatalogScreen({
       );
     }
 
+    if (filterTat24h) {
+      list = list.filter((p) =>
+        (p.services || []).some(
+          (s) =>
+            s.serviceCode === 'EXPRESS' ||
+            (s.turnaroundHours && s.turnaroundHours <= 24) ||
+            s.displayName?.toLowerCase().includes('24h') ||
+            s.displayName?.toLowerCase().includes('express') ||
+            s.serviceName?.toLowerCase().includes('24h')
+        )
+      );
+    }
+
+    if (priceRangeFilter === 'UNDER_50') {
+      list = list.filter((p) => p.minPrice < 50);
+    } else if (priceRangeFilter === '50_TO_150') {
+      list = list.filter((p) => p.minPrice >= 50 && p.minPrice <= 150);
+    } else if (priceRangeFilter === 'ABOVE_150') {
+      list = list.filter((p) => p.minPrice > 150);
+    }
+
+    if (selectedLetterFilter && selectedLetterFilter !== 'ALL') {
+      const targetLetter = selectedLetterFilter.toUpperCase().trim();
+      list = list.filter((p) => (p.name || '').trim().toUpperCase().startsWith(targetLetter));
+    }
+
     const priceForSort = (product: ProductItem) => {
       const filterMatch = selectedServiceFilter === 'ALL'
         ? undefined
@@ -1172,14 +1310,54 @@ export function CategoryCatalogScreen({
       return manualMatch?.price ?? filterMatch?.price ?? product.minPrice;
     };
 
-    if (selectedSort === 'PRICE_LOW') {
+    const hasPriceLow = activeSorts.includes('PRICE_LOW');
+    const hasPriceHigh = activeSorts.includes('PRICE_HIGH');
+    const hasNameAz = activeSorts.includes('NAME_AZ');
+    const hasFastest = activeSorts.includes('FASTEST');
+
+    if (hasPriceLow && hasNameAz) {
+      // Both Price: Low-to-High AND Alphabetical (A-Z) applied simultaneously!
+      list = [...list].sort((a, b) => {
+        const pDiff = priceForSort(a) - priceForSort(b);
+        if (pDiff !== 0) return pDiff;
+        return (a.name || '').localeCompare(b.name || '');
+      });
+    } else if (hasPriceHigh && hasNameAz) {
+      // Both Price: High-to-Low AND Alphabetical (A-Z) applied simultaneously!
+      list = [...list].sort((a, b) => {
+        const pDiff = priceForSort(b) - priceForSort(a);
+        if (pDiff !== 0) return pDiff;
+        return (a.name || '').localeCompare(b.name || '');
+      });
+    } else if (hasPriceLow) {
       list = [...list].sort((a, b) => priceForSort(a) - priceForSort(b));
-    } else if (selectedSort === 'PRICE_HIGH') {
+    } else if (hasPriceHigh) {
       list = [...list].sort((a, b) => priceForSort(b) - priceForSort(a));
+    } else if (hasFastest) {
+      list = [...list].sort((a, b) => {
+        const aTat = Math.min(...(a.services.map((s) => s.turnaroundHours || 48)));
+        const bTat = Math.min(...(b.services.map((s) => s.turnaroundHours || 48)));
+        return aTat - bTat;
+      });
+    } else if (hasNameAz) {
+      list = [...list].sort((a, b) => (a.name || '').localeCompare(b.name || ''));
     }
 
     return list;
-  }, [products, selectedSubcategory, selectedServiceFilter, searchQuery, selectedSort, selectedClothServiceMap, productMatchesSubcategory]);
+  }, [products, selectedSubcategory, selectedServiceFilter, searchQuery, activeSorts, selectedLetterFilter, filterTat24h, priceRangeFilter, selectedClothServiceMap, productMatchesSubcategory]);
+
+  // Prefetch first batch of visible garment images into disk/memory cache for seamless rendering
+  useEffect(() => {
+    if (products && products.length > 0) {
+      const topItems = products.slice(0, 30);
+      topItems.forEach((p) => {
+        const url = p.imageUrl || p.fallbackImageUrl;
+        if (url && typeof url === 'string' && url.startsWith('http')) {
+          Image.prefetch(url).catch(() => {});
+        }
+      });
+    }
+  }, [products]);
 
   const getSelectedServiceForCloth = useCallback(
     (cloth: ProductItem): ServicePriceOption => {
@@ -1346,8 +1524,18 @@ export function CategoryCatalogScreen({
 
   return (
     <View style={[styles.root, { backgroundColor: colors.background }]}>
-      {/* 1. TOP APP BAR (Compact 52px height, count badge, search toggle and cart shortcut) */}
-      <View style={[styles.topBar, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
+      {/* 1. TOP APP BAR (Compact height, count badge, search toggle and cart shortcut with safe area inset) */}
+      <View
+        style={[
+          styles.topBar,
+          {
+            paddingTop: Math.max(insets.top, 16) + 4,
+            height: 52 + Math.max(insets.top, 16) + 4,
+            backgroundColor: colors.surface,
+            borderBottomColor: colors.border,
+          },
+        ]}
+      >
         <Pressable
           style={({ pressed }) => [
             styles.backBtn,
@@ -1516,25 +1704,47 @@ export function CategoryCatalogScreen({
         </ScrollView>
       </View>
 
-      {/* 5. INTEGRATED SERVICE FILTERS & SORT ROW (Left pinned Sort + Full-width natural scroll) */}
+      {/* 5. INTEGRATED SERVICE FILTERS & SORT ROW (Left pinned Sort & Filter + Quick Sort Pills + Full-width natural scroll) */}
       <View style={[styles.filterSortBar, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
-        <Pressable
-          style={[styles.sortButtonPill, { backgroundColor: colors.section, borderColor: colors.border }]}
-          onPress={() => {
-            setSelectedSort((prev) =>
-              prev === 'POPULAR' ? 'PRICE_LOW' : prev === 'PRICE_LOW' ? 'PRICE_HIGH' : 'POPULAR'
-            );
-          }}
-          hitSlop={6}
-          accessibilityRole="button"
-          accessibilityLabel="Change sort order"
-        >
-          <MaterialCommunityIcons name="swap-vertical" size={13} color="#16A34A" />
-          <Text style={[styles.sortButtonPillText, { color: colors.textBody }]}>
-            {selectedSort === 'POPULAR' ? 'Sort' : selectedSort === 'PRICE_LOW' ? 'Price ↑' : 'Price ↓'}
-          </Text>
-          <MaterialCommunityIcons name="chevron-down" size={12} color={colors.textCaption} />
-        </Pressable>
+        {(() => {
+          const nonPopularSortCount = activeSorts.filter((s) => s !== 'POPULAR').length;
+          const isLetterFilterActive = selectedLetterFilter !== 'ALL';
+          const isFilterActive =
+            nonPopularSortCount > 0 ||
+            isLetterFilterActive ||
+            filterTat24h ||
+            priceRangeFilter !== 'ALL' ||
+            (selectedServiceFilter && selectedServiceFilter !== 'ALL');
+
+          const activeFilterCount =
+            nonPopularSortCount +
+            (isLetterFilterActive ? 1 : 0) +
+            (filterTat24h ? 1 : 0) +
+            (priceRangeFilter !== 'ALL' ? 1 : 0) +
+            (selectedServiceFilter && selectedServiceFilter !== 'ALL' ? 1 : 0);
+
+          return (
+            <Pressable
+              style={[
+                styles.sortButtonPill,
+                {
+                  backgroundColor: isFilterActive ? (isDark ? '#064E3B' : '#DCFCE7') : colors.section,
+                  borderColor: isFilterActive ? '#16A34A' : colors.border,
+                },
+              ]}
+              onPress={() => setIsSortFilterModalOpen(true)}
+              hitSlop={6}
+              accessibilityRole="button"
+              accessibilityLabel="Open sort and filter options"
+            >
+              <MaterialCommunityIcons name="filter-variant" size={13} color={isFilterActive ? (isDark ? '#4ADE80' : '#16A34A') : '#16A34A'} />
+              <Text style={[styles.sortButtonPillText, { color: isFilterActive ? (isDark ? '#4ADE80' : '#15803D') : colors.textBody, fontWeight: isFilterActive ? '800' : '600' }]}>
+                {isFilterActive ? `Filters (${activeFilterCount})` : 'Sort & Filter'}
+              </Text>
+              <MaterialCommunityIcons name="chevron-down" size={12} color={isFilterActive ? (isDark ? '#4ADE80' : '#15803D') : colors.textCaption} />
+            </Pressable>
+          );
+        })()}
 
         <View style={[styles.filterDivider, { backgroundColor: colors.border }]} />
 
@@ -1544,6 +1754,88 @@ export function CategoryCatalogScreen({
           style={styles.serviceFilterScrollView}
           contentContainerStyle={styles.serviceFilterScroll}
         >
+          {/* Quick Filter Pill: Price Low to High */}
+          {(() => {
+            const isPriceLowActive = activeSorts.includes('PRICE_LOW');
+            return (
+              <Pressable
+                style={[
+                  styles.serviceChipCompact,
+                  isPriceLowActive
+                    ? styles.serviceChipCompactSelected
+                    : [styles.serviceChipCompactUnselected, { backgroundColor: colors.section, borderColor: colors.border }],
+                ]}
+                onPress={() => toggleSortOption('PRICE_LOW')}
+                hitSlop={4}
+                accessibilityRole="button"
+                accessibilityLabel="Filter by lowest price first"
+              >
+                <MaterialCommunityIcons
+                  name={isPriceLowActive ? 'check-bold' : 'arrow-up-thin'}
+                  size={12}
+                  color={isPriceLowActive ? '#16A34A' : colors.textCaption}
+                  style={{ marginRight: 3 }}
+                />
+                <Text
+                  style={[
+                    styles.serviceChipTextCompact,
+                    isPriceLowActive ? styles.serviceChipTextCompactSelected : [styles.serviceChipTextCompactUnselected, { color: colors.textBody }],
+                  ]}
+                >
+                  ₹ Low-High
+                </Text>
+              </Pressable>
+            );
+          })()}
+
+          {/* Quick Filter Pill: Alphabetical A-Z */}
+          {(() => {
+            const isNameAzActive = activeSorts.includes('NAME_AZ');
+            return (
+              <Pressable
+                style={[
+                  styles.serviceChipCompact,
+                  isNameAzActive
+                    ? styles.serviceChipCompactSelected
+                    : [styles.serviceChipCompactUnselected, { backgroundColor: colors.section, borderColor: colors.border }],
+                ]}
+                onPress={() => toggleSortOption('NAME_AZ')}
+                hitSlop={4}
+                accessibilityRole="button"
+                accessibilityLabel="Sort garments alphabetically A to Z"
+              >
+                <MaterialCommunityIcons
+                  name={isNameAzActive ? 'check-bold' : 'sort-alphabetical-ascending'}
+                  size={12}
+                  color={isNameAzActive ? '#16A34A' : colors.textCaption}
+                  style={{ marginRight: 3 }}
+                />
+                <Text
+                  style={[
+                    styles.serviceChipTextCompact,
+                    isNameAzActive ? styles.serviceChipTextCompactSelected : [styles.serviceChipTextCompactUnselected, { color: colors.textBody }],
+                  ]}
+                >
+                  A-Z Name
+                </Text>
+              </Pressable>
+            );
+          })()}
+
+          {/* Active Letter Pill (if filtered by letter) */}
+          {selectedLetterFilter !== 'ALL' && (
+            <Pressable
+              style={[styles.serviceChipCompact, styles.serviceChipCompactSelected]}
+              onPress={() => setSelectedLetterFilter('ALL')}
+              hitSlop={4}
+            >
+              <MaterialCommunityIcons name="close-circle" size={12} color="#16A34A" style={{ marginRight: 3 }} />
+              <Text style={styles.serviceChipTextCompactSelected}>
+                Letter: {selectedLetterFilter}
+              </Text>
+            </Pressable>
+          )}
+
           {availableServiceFilters.map((item) => {
             const isSelected = selectedServiceFilter === item.key;
             return (
@@ -1628,6 +1920,10 @@ export function CategoryCatalogScreen({
                 onPress={() => {
                   setSelectedSubcategory('ALL');
                   setSelectedServiceFilter('ALL');
+                  setActiveSorts(['POPULAR']);
+                  setSelectedLetterFilter('ALL');
+                  setFilterTat24h(false);
+                  setPriceRangeFilter('ALL');
                   setSearchQuery('');
                 }}
               >
@@ -1637,6 +1933,251 @@ export function CategoryCatalogScreen({
           )
         }
       />
+
+      {/* 7. DEDICATED SORT & FILTER MODAL */}
+      <Modal
+        visible={isSortFilterModalOpen}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setIsSortFilterModalOpen(false)}
+      >
+        <View style={styles.modalBackdrop}>
+          <Pressable style={styles.modalBackdropTapArea} onPress={() => setIsSortFilterModalOpen(false)} />
+          <View style={[styles.sortFilterSheet, { backgroundColor: colors.surface }]}>
+            {/* Header */}
+            <View style={[styles.sheetHeader, { borderBottomColor: colors.border }]}>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.sheetTitle, { color: colors.textHeading }]}>Sort & Filter</Text>
+                <Text style={[styles.sheetSubtitle, { color: colors.textCaption }]}>
+                  {filteredProducts.length} items available
+                </Text>
+              </View>
+              {(activeSorts.some((s) => s !== 'POPULAR') || selectedLetterFilter !== 'ALL' || filterTat24h || priceRangeFilter !== 'ALL' || selectedServiceFilter !== 'ALL') && (
+                <Pressable
+                  style={styles.sheetResetBtn}
+                  onPress={() => {
+                    setActiveSorts(['POPULAR']);
+                    setSelectedLetterFilter('ALL');
+                    setFilterTat24h(false);
+                    setPriceRangeFilter('ALL');
+                    setSelectedServiceFilter('ALL');
+                  }}
+                  hitSlop={8}
+                >
+                  <Text style={styles.sheetResetBtnText}>Reset All</Text>
+                </Pressable>
+              )}
+              <Pressable
+                style={[styles.sheetCloseBtn, { backgroundColor: colors.section }]}
+                onPress={() => setIsSortFilterModalOpen(false)}
+                hitSlop={8}
+              >
+                <MaterialCommunityIcons name="close" size={20} color={colors.textHeading} />
+              </Pressable>
+            </View>
+
+            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.sheetScrollContent}>
+              {/* 1. Sort Section */}
+              <View style={styles.sheetSectionHeaderRow}>
+                <Text style={[styles.sheetSectionTitle, { color: colors.textHeading }]}>SORT & ORDER</Text>
+                <Text style={[styles.sheetMultiSelectHint, { color: '#16A34A' }]}>
+                  Select multiple to combine
+                </Text>
+              </View>
+              <View style={styles.sheetSortList}>
+                {[
+                  { key: 'POPULAR' as const, label: 'Recommended & Popular', icon: 'star-outline', desc: 'Curated standard order' },
+                  { key: 'PRICE_LOW' as const, label: 'Price: Low to High', icon: 'arrow-up-thin', desc: 'Budget friendly first' },
+                  { key: 'PRICE_HIGH' as const, label: 'Price: High to Low', icon: 'arrow-down-thin', desc: 'Premium garments first' },
+                  { key: 'NAME_AZ' as const, label: 'Alphabetical (A - Z)', icon: 'sort-alphabetical-ascending', desc: 'Alphabetical order' },
+                  { key: 'FASTEST' as const, label: 'Fastest Delivery', icon: 'lightning-bolt', desc: '24H Express available first' },
+                ].map((opt) => {
+                  const isSelected = activeSorts.includes(opt.key);
+                  return (
+                    <Pressable
+                      key={opt.key}
+                      style={[
+                        styles.sortOptionRow,
+                        {
+                          borderColor: isSelected ? '#16A34A' : colors.border,
+                          backgroundColor: isSelected ? (isDark ? '#064E3B' : '#F0FDF4') : colors.surface,
+                        },
+                      ]}
+                      onPress={() => toggleSortOption(opt.key)}
+                      accessibilityRole="checkbox"
+                      accessibilityState={{ checked: isSelected }}
+                    >
+                      <MaterialCommunityIcons
+                        name={opt.icon as any}
+                        size={18}
+                        color={isSelected ? '#16A34A' : colors.textCaption}
+                        style={{ marginRight: 10 }}
+                      />
+                      <View style={{ flex: 1 }}>
+                        <Text style={[styles.sortOptionLabel, { color: isSelected ? (isDark ? '#4ADE80' : '#15803D') : colors.textHeading, fontWeight: isSelected ? '800' : '600' }]}>
+                          {opt.label}
+                        </Text>
+                        <Text style={[styles.sortOptionDesc, { color: colors.textCaption }]}>
+                          {opt.desc}
+                        </Text>
+                      </View>
+                      <View
+                        style={[
+                          styles.checkboxSquare,
+                          {
+                            borderColor: isSelected ? '#16A34A' : colors.border,
+                            backgroundColor: isSelected ? '#16A34A' : 'transparent',
+                          },
+                        ]}
+                      >
+                        {isSelected && <MaterialCommunityIcons name="check" size={13} color="#FFFFFF" />}
+                      </View>
+                    </Pressable>
+                  );
+                })}
+              </View>
+
+              {/* 2. Alphabetical Initial Letter Filter */}
+              <View style={[styles.sheetSectionHeaderRow, { marginTop: 18 }]}>
+                <Text style={[styles.sheetSectionTitle, { color: colors.textHeading }]}>ALPHABETICAL LETTER FILTER</Text>
+                {selectedLetterFilter !== 'ALL' && (
+                  <Pressable onPress={() => setSelectedLetterFilter('ALL')} hitSlop={6}>
+                    <Text style={{ fontSize: 11, fontWeight: '700', color: '#16A34A' }}>Clear Letter</Text>
+                  </Pressable>
+                )}
+              </View>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6, paddingVertical: 4 }}>
+                {['ALL', ...'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('')].map((letter) => {
+                  const isSelected = selectedLetterFilter === letter;
+                  return (
+                    <Pressable
+                      key={letter}
+                      style={[
+                        styles.letterFilterChip,
+                        {
+                          borderColor: isSelected ? '#16A34A' : colors.border,
+                          backgroundColor: isSelected ? '#16A34A' : (isDark ? colors.surface : colors.section),
+                        },
+                      ]}
+                      onPress={() => setSelectedLetterFilter(letter)}
+                      hitSlop={4}
+                    >
+                      <Text
+                        style={[
+                          styles.letterFilterChipText,
+                          {
+                            color: isSelected ? '#FFFFFF' : colors.textHeading,
+                            fontWeight: isSelected ? '800' : '600',
+                          },
+                        ]}
+                      >
+                        {letter === 'ALL' ? 'All Letters' : letter}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </ScrollView>
+
+              {/* 2. Delivery Speed Filter */}
+              <Text style={[styles.sheetSectionTitle, { color: colors.textHeading, marginTop: 18 }]}>DELIVERY SPEED</Text>
+              <Pressable
+                style={[
+                  styles.filterToggleRow,
+                  {
+                    borderColor: filterTat24h ? '#16A34A' : colors.border,
+                    backgroundColor: filterTat24h ? (isDark ? '#064E3B' : '#F0FDF4') : colors.surface,
+                  },
+                ]}
+                onPress={() => setFilterTat24h((prev) => !prev)}
+              >
+                <MaterialCommunityIcons name="lightning-bolt" size={20} color="#EA580C" style={{ marginRight: 10 }} />
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.filterToggleLabel, { color: colors.textHeading }]}>24H Express Available Only</Text>
+                  <Text style={[styles.filterToggleSub, { color: colors.textCaption }]}>Show garments ready for rapid pickup & delivery</Text>
+                </View>
+                <MaterialCommunityIcons
+                  name={filterTat24h ? 'checkbox-marked' : 'checkbox-blank-outline'}
+                  size={22}
+                  color={filterTat24h ? '#16A34A' : colors.textCaption}
+                />
+              </Pressable>
+
+              {/* 3. Price Range Filter */}
+              <Text style={[styles.sheetSectionTitle, { color: colors.textHeading, marginTop: 18 }]}>PRICE RANGE</Text>
+              <View style={styles.pillGroupRow}>
+                {[
+                  { key: 'ALL' as const, label: 'All Prices' },
+                  { key: 'UNDER_50' as const, label: 'Under ₹50' },
+                  { key: '50_TO_150' as const, label: '₹50 - ₹150' },
+                  { key: 'ABOVE_150' as const, label: 'Above ₹150' },
+                ].map((range) => {
+                  const isSelected = priceRangeFilter === range.key;
+                  return (
+                    <Pressable
+                      key={range.key}
+                      style={[
+                        styles.filterChip,
+                        {
+                          borderColor: isSelected ? '#16A34A' : colors.border,
+                          backgroundColor: isSelected ? '#16A34A' : colors.section,
+                        },
+                      ]}
+                      onPress={() => setPriceRangeFilter(range.key)}
+                    >
+                      <Text style={[styles.filterChipText, { color: isSelected ? '#FFFFFF' : colors.textBody, fontWeight: isSelected ? '700' : '500' }]}>
+                        {range.label}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+
+              {/* 4. Service Type Filter */}
+              <Text style={[styles.sheetSectionTitle, { color: colors.textHeading, marginTop: 18 }]}>SERVICE TYPE</Text>
+              <View style={styles.pillGroupRow}>
+                {SERVICE_FILTERS.map((s) => {
+                  const isSelected = selectedServiceFilter === s.key;
+                  return (
+                    <Pressable
+                      key={s.key}
+                      style={[
+                        styles.filterChip,
+                        {
+                          borderColor: isSelected ? '#16A34A' : colors.border,
+                          backgroundColor: isSelected ? '#16A34A' : colors.section,
+                        },
+                      ]}
+                      onPress={() => setSelectedServiceFilter(s.key)}
+                    >
+                      <MaterialCommunityIcons
+                        name={s.icon as any}
+                        size={13}
+                        color={isSelected ? '#FFFFFF' : colors.textCaption}
+                        style={{ marginRight: 4 }}
+                      />
+                      <Text style={[styles.filterChipText, { color: isSelected ? '#FFFFFF' : colors.textBody, fontWeight: isSelected ? '700' : '500' }]}>
+                        {s.label}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </ScrollView>
+
+            {/* Footer Apply */}
+            <View style={[styles.sheetFooter, { borderTopColor: colors.border, backgroundColor: colors.surface }]}>
+              <Pressable
+                style={styles.sheetApplyBtn}
+                onPress={() => setIsSortFilterModalOpen(false)}
+              >
+                <Text style={styles.sheetApplyBtnText}>
+                  Apply Filters • {filteredProducts.length} Items
+                </Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -2365,5 +2906,175 @@ const styles = StyleSheet.create({
   },
   pressedBtn: {
     opacity: 0.88,
+  },
+
+  /* 7. Sort & Filter Sheet Styles */
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.55)',
+    justifyContent: 'flex-end',
+  },
+  modalBackdropTapArea: {
+    flex: 1,
+  },
+  sortFilterSheet: {
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    maxHeight: '82%',
+    overflow: 'hidden',
+  },
+  sheetHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+  },
+  sheetTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+  },
+  sheetSubtitle: {
+    fontSize: 12,
+    marginTop: 2,
+  },
+  sheetResetBtn: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    marginRight: 8,
+  },
+  sheetResetBtnText: {
+    color: '#DC2626',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  sheetCloseBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  sheetScrollContent: {
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+  },
+  sheetSectionTitle: {
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 0.8,
+    marginBottom: 10,
+  },
+  sheetSortList: {
+    gap: 8,
+  },
+  sortOptionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  sortOptionLabel: {
+    fontSize: 14,
+  },
+  sortOptionDesc: {
+    fontSize: 11,
+    marginTop: 2,
+  },
+  sheetSectionHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 10,
+  },
+  sheetMultiSelectHint: {
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  checkboxSquare: {
+    width: 22,
+    height: 22,
+    borderRadius: 6,
+    borderWidth: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  letterFilterChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 12,
+    borderWidth: 1,
+    minWidth: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  letterFilterChipText: {
+    fontSize: 12,
+  },
+  radioCircle: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    borderWidth: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  radioDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: '#16A34A',
+  },
+  filterToggleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  filterToggleLabel: {
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  filterToggleSub: {
+    fontSize: 11,
+    marginTop: 2,
+  },
+  pillGroupRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  filterChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderRadius: 20,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+  },
+  filterChipText: {
+    fontSize: 12,
+  },
+  sheetFooter: {
+    paddingHorizontal: 20,
+    paddingVertical: 14,
+    borderTopWidth: 1,
+  },
+  sheetApplyBtn: {
+    backgroundColor: '#16A34A',
+    borderRadius: 14,
+    paddingVertical: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  sheetApplyBtnText: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '800',
   },
 });

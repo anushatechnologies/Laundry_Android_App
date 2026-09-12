@@ -260,6 +260,19 @@ export function ProfileScreen({
     );
   };
 
+  // Dynamic policy theme styles for 100% dark/light contrast
+  const policyStyles = useMemo(() => StyleSheet.create({
+    policyHeader: { ...styles.policyHeader, color: headingColor },
+    policyLastUpdated: { ...styles.policyLastUpdated, color: captionColor },
+    policySectionTitle: { ...styles.policySectionTitle, color: headingColor },
+    policySubsectionTitle: { ...styles.policySubsectionTitle, color: headingColor },
+    policyText: { ...styles.policyText, color: bodyColor },
+    policyPoint: styles.policyPoint,
+    policyPointText: { ...styles.policyPointText, color: bodyColor },
+    boldText: { ...styles.boldText, color: headingColor },
+    policyFooterNote: { ...styles.policyFooterNote, color: captionColor, borderTopColor: dividerBg },
+  }), [headingColor, captionColor, bodyColor, dividerBg]);
+
   return (
     <ScrollView
       style={[styles.root, { backgroundColor: colors.background }]}
@@ -801,9 +814,9 @@ export function ProfileScreen({
                   <Text style={[styles.cancelBtnText, { color: captionColor }]}>Cancel</Text>
                 </Pressable>
                 <Pressable
-                  style={[styles.saveBtn, isEmailInvalid && { opacity: 0.6 }]}
+                  style={[styles.saveBtn, (isEmailInvalid || savingProfile) && { opacity: 0.6 }]}
                   onPress={handleSaveProfile}
-                  disabled={savingProfile}
+                  disabled={savingProfile || isEmailInvalid}
                 >
                   <Text style={styles.saveBtnText}>
                     {savingProfile ? 'Saving...' : 'Save Profile'}
@@ -839,122 +852,122 @@ export function ProfileScreen({
             <ScrollView style={styles.policyScroll} showsVerticalScrollIndicator={false}>
               {activePolicyModal === 'REFUND' && (
                 <View style={styles.policyContent}>
-                  <Text style={styles.policyHeader}>Refund & Damage Protection Policy</Text>
-                  <Text style={styles.policyLastUpdated}>Last Updated: August 31, 2026</Text>
+                  <Text style={policyStyles.policyHeader}>Refund & Damage Protection Policy</Text>
+                  <Text style={policyStyles.policyLastUpdated}>Last Updated: August 31, 2026</Text>
 
-                  <Text style={styles.policySectionTitle}>1. Quality Guarantee</Text>
-                  <Text style={styles.policyText}>
+                  <Text style={policyStyles.policySectionTitle}>1. Quality Guarantee</Text>
+                  <Text style={policyStyles.policyText}>
                     At LaundryFresh, we are committed to delivering exceptional laundry services. If you're not 100% satisfied with our service, we offer the following guarantees:
                   </Text>
 
                   <View style={styles.policyPoint}>
                     <MaterialCommunityIcons name="check-circle" size={16} color="#16A34A" />
-                    <Text style={styles.policyPointText}>
-                      <Text style={styles.boldText}>Free Re-wash Guarantee:</Text> If you are not satisfied with the washing, pressing, or dry cleaning of any garment, notify us within 24 hours of delivery. We will re-clean the garment at no additional charge.
+                    <Text style={policyStyles.policyPointText}>
+                      <Text style={policyStyles.boldText}>Free Re-wash Guarantee:</Text> If you are not satisfied with the washing, pressing, or dry cleaning of any garment, notify us within 24 hours of delivery. We will re-clean the garment at no additional charge.
                     </Text>
                   </View>
 
                   <View style={styles.policyPoint}>
                     <MaterialCommunityIcons name="check-circle" size={16} color="#16A34A" />
-                    <Text style={styles.policyPointText}>
-                      <Text style={styles.boldText}>Zero Color Bleed Assurance:</Text> All delicate fabrics, silks, and woolens undergo colorfastness testing. If color bleeding occurs during our process, we will compensate you.
+                    <Text style={policyStyles.policyPointText}>
+                      <Text style={policyStyles.boldText}>Zero Color Bleed Assurance:</Text> All delicate fabrics, silks, and woolens undergo colorfastness testing. If color bleeding occurs during our process, we will compensate you.
                     </Text>
                   </View>
 
-                  <Text style={styles.policySectionTitle}>2. Damage Compensation</Text>
-                  <Text style={styles.policyText}>
+                  <Text style={policyStyles.policySectionTitle}>2. Damage Compensation</Text>
+                  <Text style={policyStyles.policyText}>
                     In the rare event of damage to your garment during our processing:
                   </Text>
 
                   <View style={styles.policyPoint}>
                     <MaterialCommunityIcons name="check-circle" size={16} color="#16A34A" />
-                    <Text style={styles.policyPointText}>
-                      Compensation up to <Text style={styles.boldText}>10x the service cost</Text> of the damaged item will be credited to your LaundryFresh Wallet within 48 hours.
+                    <Text style={policyStyles.policyPointText}>
+                      Compensation up to <Text style={policyStyles.boldText}>10x the service cost</Text> of the damaged item will be credited to your LaundryFresh Wallet within 48 hours.
                     </Text>
                   </View>
 
                   <View style={styles.policyPoint}>
                     <MaterialCommunityIcons name="check-circle" size={16} color="#16A34A" />
-                    <Text style={styles.policyPointText}>
+                    <Text style={policyStyles.policyPointText}>
                       Maximum compensation per garment is ₹5,000 unless proof of higher value is provided (purchase receipt required).
                     </Text>
                   </View>
 
-                  <Text style={styles.policySectionTitle}>3. Refund Policy</Text>
+                  <Text style={policyStyles.policySectionTitle}>3. Refund Policy</Text>
 
                   <View style={styles.policyPoint}>
                     <MaterialCommunityIcons name="check-circle" size={16} color="#16A34A" />
-                    <Text style={styles.policyPointText}>
-                      <Text style={styles.boldText}>Order Cancellation:</Text> Full refund if cancelled before pickup. No refund after pickup has been completed.
+                    <Text style={policyStyles.policyPointText}>
+                      <Text style={policyStyles.boldText}>Order Cancellation:</Text> Full refund if cancelled before pickup. No refund after pickup has been completed.
                     </Text>
                   </View>
 
                   <View style={styles.policyPoint}>
                     <MaterialCommunityIcons name="check-circle" size={16} color="#16A34A" />
-                    <Text style={styles.policyPointText}>
-                      <Text style={styles.boldText}>Service Issues:</Text> Partial or full refund if we fail to deliver within committed timeframe (excluding force majeure events).
+                    <Text style={policyStyles.policyPointText}>
+                      <Text style={policyStyles.boldText}>Service Issues:</Text> Partial or full refund if we fail to deliver within committed timeframe (excluding force majeure events).
                     </Text>
                   </View>
 
                   <View style={styles.policyPoint}>
                     <MaterialCommunityIcons name="check-circle" size={16} color="#16A34A" />
-                    <Text style={styles.policyPointText}>
-                      <Text style={styles.boldText}>Refund Processing:</Text> Online payments refunded to original payment method within 5-7 business days. Wallet credits within 24 hours.
+                    <Text style={policyStyles.policyPointText}>
+                      <Text style={policyStyles.boldText}>Refund Processing:</Text> Online payments refunded to original payment method within 5-7 business days. Wallet credits within 24 hours.
                     </Text>
                   </View>
 
-                  <Text style={styles.policySectionTitle}>4. Lost Garment Policy</Text>
-                  <Text style={styles.policyText}>
+                  <Text style={policyStyles.policySectionTitle}>4. Lost Garment Policy</Text>
+                  <Text style={policyStyles.policyText}>
                     If a garment is lost during processing or delivery, we will compensate you at fair market value (maximum ₹5,000 per item without receipt, actual value with purchase receipt).
                   </Text>
 
-                  <Text style={styles.policySectionTitle}>5. Exclusions</Text>
-                  <Text style={styles.policyText}>
+                  <Text style={policyStyles.policySectionTitle}>5. Exclusions</Text>
+                  <Text style={policyStyles.policyText}>
                     Our guarantee does not cover:
                   </Text>
 
                   <View style={styles.policyPoint}>
                     <MaterialCommunityIcons name="alert-circle" size={16} color="#0F766E" />
-                    <Text style={styles.policyPointText}>
+                    <Text style={policyStyles.policyPointText}>
                       Pre-existing damage, stains, or defects not reported at pickup
                     </Text>
                   </View>
 
                   <View style={styles.policyPoint}>
                     <MaterialCommunityIcons name="alert-circle" size={16} color="#0F766E" />
-                    <Text style={styles.policyPointText}>
+                    <Text style={policyStyles.policyPointText}>
                       Damage due to natural wear and tear or poor garment quality
                     </Text>
                   </View>
 
                   <View style={styles.policyPoint}>
                     <MaterialCommunityIcons name="alert-circle" size={16} color="#0F766E" />
-                    <Text style={styles.policyPointText}>
+                    <Text style={policyStyles.policyPointText}>
                       Items with "dry clean only" tags washed against our advice
                     </Text>
                   </View>
 
                   <View style={styles.policyPoint}>
                     <MaterialCommunityIcons name="alert-circle" size={16} color="#0F766E" />
-                    <Text style={styles.policyPointText}>
+                    <Text style={policyStyles.policyPointText}>
                       Ornamental buttons, sequins, or embellishments (noted during inspection)
                     </Text>
                   </View>
 
-                  <Text style={styles.policySectionTitle}>6. Claim Process</Text>
-                  <Text style={styles.policyText}>
+                  <Text style={policyStyles.policySectionTitle}>6. Claim Process</Text>
+                  <Text style={policyStyles.policyText}>
                     To file a claim:
                   </Text>
 
-                  <Text style={styles.policyText}>
+                  <Text style={policyStyles.policyText}>
                     1. Contact us within 24 hours of delivery via app chat or phone{'\n'}
                     2. Provide order number and photo evidence{'\n'}
                     3. Our quality team will review within 12 hours{'\n'}
                     4. Approved claims processed within 48 hours
                   </Text>
 
-                  <Text style={styles.policySectionTitle}>7. Contact Support</Text>
-                  <Text style={styles.policyText}>
+                  <Text style={policyStyles.policySectionTitle}>7. Contact Support</Text>
+                  <Text style={policyStyles.policyText}>
                     For refund or damage claims, contact:{'\n'}
                     📞 Customer Care: 1800-XXX-XXXX{'\n'}
                     📧 Email: support@laundryfresh.com{'\n'}
@@ -965,217 +978,217 @@ export function ProfileScreen({
 
               {activePolicyModal === 'TERMS' && (
                 <View style={styles.policyContent}>
-                  <Text style={styles.policyHeader}>Terms & Conditions</Text>
-                  <Text style={styles.policyLastUpdated}>Last Updated: August 31, 2026</Text>
+                  <Text style={policyStyles.policyHeader}>Terms & Conditions</Text>
+                  <Text style={policyStyles.policyLastUpdated}>Last Updated: August 31, 2026</Text>
 
-                  <Text style={styles.policySectionTitle}>1. Service Agreement</Text>
-                  <Text style={styles.policyText}>
+                  <Text style={policyStyles.policySectionTitle}>1. Service Agreement</Text>
+                  <Text style={policyStyles.policyText}>
                     By using LaundryFresh services, you agree to these terms and conditions. These terms constitute a legally binding agreement between you and LaundryFresh.
                   </Text>
 
-                  <Text style={styles.policySectionTitle}>2. Service Scope</Text>
+                  <Text style={policyStyles.policySectionTitle}>2. Service Scope</Text>
 
                   <View style={styles.policyPoint}>
                     <MaterialCommunityIcons name="check-circle" size={16} color="#3B82F6" />
-                    <Text style={styles.policyPointText}>
-                      <Text style={styles.boldText}>Wash & Fold:</Text> Regular washing, drying, and folding of everyday garments. Turnaround: 24-36 hours.
+                    <Text style={policyStyles.policyPointText}>
+                      <Text style={policyStyles.boldText}>Wash & Fold:</Text> Regular washing, drying, and folding of everyday garments. Turnaround: 24-36 hours.
                     </Text>
                   </View>
 
                   <View style={styles.policyPoint}>
                     <MaterialCommunityIcons name="check-circle" size={16} color="#3B82F6" />
-                    <Text style={styles.policyPointText}>
-                      <Text style={styles.boldText}>Wash & Iron:</Text> Washing followed by professional pressing. Turnaround: 24-36 hours.
+                    <Text style={policyStyles.policyPointText}>
+                      <Text style={policyStyles.boldText}>Wash & Iron:</Text> Washing followed by professional pressing. Turnaround: 24-36 hours.
                     </Text>
                   </View>
 
                   <View style={styles.policyPoint}>
                     <MaterialCommunityIcons name="check-circle" size={16} color="#3B82F6" />
-                    <Text style={styles.policyPointText}>
-                      <Text style={styles.boldText}>Dry Cleaning:</Text> Chemical-free dry cleaning for delicate garments. Turnaround: 48-72 hours.
+                    <Text style={policyStyles.policyPointText}>
+                      <Text style={policyStyles.boldText}>Dry Cleaning:</Text> Chemical-free dry cleaning for delicate garments. Turnaround: 48-72 hours.
                     </Text>
                   </View>
 
                   <View style={styles.policyPoint}>
                     <MaterialCommunityIcons name="check-circle" size={16} color="#3B82F6" />
-                    <Text style={styles.policyPointText}>
-                      <Text style={styles.boldText}>Express Service:</Text> Expedited service with 12-hour turnaround (additional charges apply).
+                    <Text style={policyStyles.policyPointText}>
+                      <Text style={policyStyles.boldText}>Express Service:</Text> Expedited service with 12-hour turnaround (additional charges apply).
                     </Text>
                   </View>
 
-                  <Text style={styles.policySectionTitle}>3. Booking & Pickup</Text>
+                  <Text style={policyStyles.policySectionTitle}>3. Booking & Pickup</Text>
 
                   <View style={styles.policyPoint}>
                     <MaterialCommunityIcons name="check-circle" size={16} color="#3B82F6" />
-                    <Text style={styles.policyPointText}>
-                      <Text style={styles.boldText}>Doorstep Pickup:</Text> Ensure garments are kept ready at the selected time slot. Pickup window is ±30 minutes from scheduled time.
-                    </Text>
-                  </View>
-
-                  <View style={styles.policyPoint}>
-                    <MaterialCommunityIcons name="check-circle" size={16} color="#3B82F6" />
-                    <Text style={styles.policyPointText}>
-                      <Text style={styles.boldText}>Weight Verification:</Text> For bulk laundry orders, garments are weighed using calibrated digital scales in your presence. You will receive a weight receipt.
+                    <Text style={policyStyles.policyPointText}>
+                      <Text style={policyStyles.boldText}>Doorstep Pickup:</Text> Ensure garments are kept ready at the selected time slot. Pickup window is ±30 minutes from scheduled time.
                     </Text>
                   </View>
 
                   <View style={styles.policyPoint}>
                     <MaterialCommunityIcons name="check-circle" size={16} color="#3B82F6" />
-                    <Text style={styles.policyPointText}>
-                      <Text style={styles.boldText}>Inspection:</Text> Our executive will inspect garments for stains, damage, or special care instructions. Any concerns will be noted.
+                    <Text style={policyStyles.policyPointText}>
+                      <Text style={policyStyles.boldText}>Weight Verification:</Text> For bulk laundry orders, garments are weighed using calibrated digital scales in your presence. You will receive a weight receipt.
                     </Text>
                   </View>
 
                   <View style={styles.policyPoint}>
                     <MaterialCommunityIcons name="check-circle" size={16} color="#3B82F6" />
-                    <Text style={styles.policyPointText}>
-                      <Text style={styles.boldText}>Missed Pickup:</Text> If you miss the pickup slot, please reschedule within the app. No-show charges may apply after 3 consecutive misses.
-                    </Text>
-                  </View>
-
-                  <Text style={styles.policySectionTitle}>4. Pricing & Payment</Text>
-
-                  <View style={styles.policyPoint}>
-                    <MaterialCommunityIcons name="check-circle" size={16} color="#3B82F6" />
-                    <Text style={styles.policyPointText}>
-                      <Text style={styles.boldText}>Transparent Pricing:</Text> All prices are displayed upfront in the app. No hidden charges except for special stain removal (with prior approval).
+                    <Text style={policyStyles.policyPointText}>
+                      <Text style={policyStyles.boldText}>Inspection:</Text> Our executive will inspect garments for stains, damage, or special care instructions. Any concerns will be noted.
                     </Text>
                   </View>
 
                   <View style={styles.policyPoint}>
                     <MaterialCommunityIcons name="check-circle" size={16} color="#3B82F6" />
-                    <Text style={styles.policyPointText}>
-                      <Text style={styles.boldText}>Payment Methods:</Text> We accept online payment (UPI, Cards, Wallets) via Razorpay and Cash on Delivery (COD).
+                    <Text style={policyStyles.policyPointText}>
+                      <Text style={policyStyles.boldText}>Missed Pickup:</Text> If you miss the pickup slot, please reschedule within the app. No-show charges may apply after 3 consecutive misses.
+                    </Text>
+                  </View>
+
+                  <Text style={policyStyles.policySectionTitle}>4. Pricing & Payment</Text>
+
+                  <View style={styles.policyPoint}>
+                    <MaterialCommunityIcons name="check-circle" size={16} color="#3B82F6" />
+                    <Text style={policyStyles.policyPointText}>
+                      <Text style={policyStyles.boldText}>Transparent Pricing:</Text> All prices are displayed upfront in the app. No hidden charges except for special stain removal (with prior approval).
                     </Text>
                   </View>
 
                   <View style={styles.policyPoint}>
                     <MaterialCommunityIcons name="check-circle" size={16} color="#3B82F6" />
-                    <Text style={styles.policyPointText}>
-                      <Text style={styles.boldText}>Payment Timing:</Text> Payment is due at delivery for COD orders. Online payments are processed after pickup confirmation.
+                    <Text style={policyStyles.policyPointText}>
+                      <Text style={policyStyles.boldText}>Payment Methods:</Text> We accept online payment (UPI, Cards, Wallets) via Razorpay and Cash on Delivery (COD).
                     </Text>
                   </View>
 
                   <View style={styles.policyPoint}>
                     <MaterialCommunityIcons name="check-circle" size={16} color="#3B82F6" />
-                    <Text style={styles.policyPointText}>
-                      <Text style={styles.boldText}>GST:</Text> All prices are inclusive of 18% GST. GST invoice will be provided via email within 24 hours.
-                    </Text>
-                  </View>
-
-                  <Text style={styles.policySectionTitle}>5. Delivery</Text>
-
-                  <View style={styles.policyPoint}>
-                    <MaterialCommunityIcons name="check-circle" size={16} color="#3B82F6" />
-                    <Text style={styles.policyPointText}>
-                      <Text style={styles.boldText}>Timely Delivery:</Text> We commit to deliver within the promised timeframe. Delays due to weather, festivals, or force majeure events may occur.
+                    <Text style={policyStyles.policyPointText}>
+                      <Text style={policyStyles.boldText}>Payment Timing:</Text> Payment is due at delivery for COD orders. Online payments are processed after pickup confirmation.
                     </Text>
                   </View>
 
                   <View style={styles.policyPoint}>
                     <MaterialCommunityIcons name="check-circle" size={16} color="#3B82F6" />
-                    <Text style={styles.policyPointText}>
-                      <Text style={styles.boldText}>Delivery Notification:</Text> You will receive SMS and app notifications 30 minutes before delivery.
+                    <Text style={policyStyles.policyPointText}>
+                      <Text style={policyStyles.boldText}>GST:</Text> All prices are inclusive of 18% GST. GST invoice will be provided via email within 24 hours.
+                    </Text>
+                  </View>
+
+                  <Text style={policyStyles.policySectionTitle}>5. Delivery</Text>
+
+                  <View style={styles.policyPoint}>
+                    <MaterialCommunityIcons name="check-circle" size={16} color="#3B82F6" />
+                    <Text style={policyStyles.policyPointText}>
+                      <Text style={policyStyles.boldText}>Timely Delivery:</Text> We commit to deliver within the promised timeframe. Delays due to weather, festivals, or force majeure events may occur.
                     </Text>
                   </View>
 
                   <View style={styles.policyPoint}>
                     <MaterialCommunityIcons name="check-circle" size={16} color="#3B82F6" />
-                    <Text style={styles.policyPointText}>
-                      <Text style={styles.boldText}>Quality Check:</Text> Please inspect your garments upon delivery. Report any issues immediately before our executive leaves.
+                    <Text style={policyStyles.policyPointText}>
+                      <Text style={policyStyles.boldText}>Delivery Notification:</Text> You will receive SMS and app notifications 30 minutes before delivery.
                     </Text>
                   </View>
 
-                  <Text style={styles.policySectionTitle}>6. Customer Responsibilities</Text>
+                  <View style={styles.policyPoint}>
+                    <MaterialCommunityIcons name="check-circle" size={16} color="#3B82F6" />
+                    <Text style={policyStyles.policyPointText}>
+                      <Text style={policyStyles.boldText}>Quality Check:</Text> Please inspect your garments upon delivery. Report any issues immediately before our executive leaves.
+                    </Text>
+                  </View>
+
+                  <Text style={policyStyles.policySectionTitle}>6. Customer Responsibilities</Text>
 
                   <View style={styles.policyPoint}>
                     <MaterialCommunityIcons name="alert-circle" size={16} color="#0F766E" />
-                    <Text style={styles.policyPointText}>
+                    <Text style={policyStyles.policyPointText}>
                       Empty all pockets before handing over garments. LaundryFresh is not responsible for items left in pockets.
                     </Text>
                   </View>
 
                   <View style={styles.policyPoint}>
                     <MaterialCommunityIcons name="alert-circle" size={16} color="#0F766E" />
-                    <Text style={styles.policyPointText}>
+                    <Text style={policyStyles.policyPointText}>
                       Inform us of any special care requirements, stains, or fabric sensitivities at pickup.
                     </Text>
                   </View>
 
                   <View style={styles.policyPoint}>
                     <MaterialCommunityIcons name="alert-circle" size={16} color="#0F766E" />
-                    <Text style={styles.policyPointText}>
+                    <Text style={policyStyles.policyPointText}>
                       Do not send items that are heavily soiled with chemicals, paint, or hazardous substances.
                     </Text>
                   </View>
 
                   <View style={styles.policyPoint}>
                     <MaterialCommunityIcons name="alert-circle" size={16} color="#0F766E" />
-                    <Text style={styles.policyPointText}>
+                    <Text style={policyStyles.policyPointText}>
                       Provide accurate contact information and delivery address to avoid delays.
                     </Text>
                   </View>
 
-                  <Text style={styles.policySectionTitle}>7. Cancellation Policy</Text>
+                  <Text style={policyStyles.policySectionTitle}>7. Cancellation Policy</Text>
 
                   <View style={styles.policyPoint}>
                     <MaterialCommunityIcons name="check-circle" size={16} color="#3B82F6" />
-                    <Text style={styles.policyPointText}>
-                      <Text style={styles.boldText}>Before Pickup:</Text> Free cancellation up to 1 hour before scheduled pickup slot.
+                    <Text style={policyStyles.policyPointText}>
+                      <Text style={policyStyles.boldText}>Before Pickup:</Text> Free cancellation up to 1 hour before scheduled pickup slot.
                     </Text>
                   </View>
 
                   <View style={styles.policyPoint}>
                     <MaterialCommunityIcons name="check-circle" size={16} color="#3B82F6" />
-                    <Text style={styles.policyPointText}>
-                      <Text style={styles.boldText}>After Pickup:</Text> Orders cannot be cancelled once garments are picked up and processing has begun.
+                    <Text style={policyStyles.policyPointText}>
+                      <Text style={policyStyles.boldText}>After Pickup:</Text> Orders cannot be cancelled once garments are picked up and processing has begun.
                     </Text>
                   </View>
 
-                  <Text style={styles.policySectionTitle}>8. Liability Limitations</Text>
-                  <Text style={styles.policyText}>
+                  <Text style={policyStyles.policySectionTitle}>8. Liability Limitations</Text>
+                  <Text style={policyStyles.policyText}>
                     LaundryFresh's liability for any damage, loss, or delay is limited to 10x the service charge or ₹5,000 per garment, whichever is lower (unless proof of higher value is provided).
                   </Text>
 
-                  <Text style={styles.policyText}>
+                  <Text style={policyStyles.policyText}>
                     We are not liable for shrinkage, color fading, or damage due to poor garment quality, pre-existing damage, or manufacturer defects.
                   </Text>
 
-                  <Text style={styles.policySectionTitle}>9. Subscription Terms</Text>
+                  <Text style={policyStyles.policySectionTitle}>9. Subscription Terms</Text>
 
                   <View style={styles.policyPoint}>
                     <MaterialCommunityIcons name="check-circle" size={16} color="#3B82F6" />
-                    <Text style={styles.policyPointText}>
+                    <Text style={policyStyles.policyPointText}>
                       Subscription plans are valid for 30 days from purchase date and are non-refundable.
                     </Text>
                   </View>
 
                   <View style={styles.policyPoint}>
                     <MaterialCommunityIcons name="check-circle" size={16} color="#3B82F6" />
-                    <Text style={styles.policyPointText}>
+                    <Text style={policyStyles.policyPointText}>
                       Unused subscription credits do not roll over to the next month and cannot be transferred.
                     </Text>
                   </View>
 
                   <View style={styles.policyPoint}>
                     <MaterialCommunityIcons name="check-circle" size={16} color="#3B82F6" />
-                    <Text style={styles.policyPointText}>
+                    <Text style={policyStyles.policyPointText}>
                       Auto-renewal can be disabled from account settings at any time before renewal date.
                     </Text>
                   </View>
 
-                  <Text style={styles.policySectionTitle}>10. Governing Law</Text>
-                  <Text style={styles.policyText}>
+                  <Text style={policyStyles.policySectionTitle}>10. Governing Law</Text>
+                  <Text style={policyStyles.policyText}>
                     These terms are governed by the laws of India. Any disputes will be subject to the exclusive jurisdiction of courts in [Your City], India.
                   </Text>
 
-                  <Text style={styles.policySectionTitle}>11. Changes to Terms</Text>
-                  <Text style={styles.policyText}>
+                  <Text style={policyStyles.policySectionTitle}>11. Changes to Terms</Text>
+                  <Text style={policyStyles.policyText}>
                     We reserve the right to modify these terms at any time. Changes will be notified via app or email. Continued use of our services constitutes acceptance of updated terms.
                   </Text>
 
-                  <Text style={styles.policySectionTitle}>12. Contact Information</Text>
-                  <Text style={styles.policyText}>
+                  <Text style={policyStyles.policySectionTitle}>12. Contact Information</Text>
+                  <Text style={policyStyles.policyText}>
                     For questions about these terms:{'\n'}
                     📞 Customer Care: 1800-XXX-XXXX{'\n'}
                     📧 Email: legal@laundryfresh.com{'\n'}
@@ -1186,377 +1199,377 @@ export function ProfileScreen({
 
               {activePolicyModal === 'PRIVACY' && (
                 <View style={styles.policyContent}>
-                  <Text style={styles.policyHeader}>Privacy Policy & Data Protection</Text>
-                  <Text style={styles.policyLastUpdated}>Last Updated: August 31, 2026</Text>
+                  <Text style={policyStyles.policyHeader}>Privacy Policy & Data Protection</Text>
+                  <Text style={policyStyles.policyLastUpdated}>Last Updated: August 31, 2026</Text>
 
-                  <Text style={styles.policySectionTitle}>1. Introduction</Text>
-                  <Text style={styles.policyText}>
+                  <Text style={policyStyles.policySectionTitle}>1. Introduction</Text>
+                  <Text style={policyStyles.policyText}>
                     LaundryFresh ("we", "us", "our") is committed to protecting your privacy and personal data. This Privacy Policy explains how we collect, use, store, and protect your information when you use our mobile application and services.
                   </Text>
 
-                  <Text style={styles.policyText}>
+                  <Text style={policyStyles.policyText}>
                     By using LaundryFresh, you consent to the data practices described in this policy. If you do not agree, please discontinue use of our services.
                   </Text>
 
-                  <Text style={styles.policySectionTitle}>2. Information We Collect</Text>
+                  <Text style={policyStyles.policySectionTitle}>2. Information We Collect</Text>
 
-                  <Text style={styles.policySubsectionTitle}>2.1 Personal Information</Text>
+                  <Text style={policyStyles.policySubsectionTitle}>2.1 Personal Information</Text>
 
                   <View style={styles.policyPoint}>
                     <MaterialCommunityIcons name="check-circle" size={16} color="#16A34A" />
-                    <Text style={styles.policyPointText}>
-                      <Text style={styles.boldText}>Account Details:</Text> Name, phone number, email address when you register
+                    <Text style={policyStyles.policyPointText}>
+                      <Text style={policyStyles.boldText}>Account Details:</Text> Name, phone number, email address when you register
                     </Text>
                   </View>
 
                   <View style={styles.policyPoint}>
                     <MaterialCommunityIcons name="check-circle" size={16} color="#16A34A" />
-                    <Text style={styles.policyPointText}>
-                      <Text style={styles.boldText}>Address Information:</Text> Delivery and pickup addresses, including GPS coordinates for accurate navigation
+                    <Text style={policyStyles.policyPointText}>
+                      <Text style={policyStyles.boldText}>Address Information:</Text> Delivery and pickup addresses, including GPS coordinates for accurate navigation
                     </Text>
                   </View>
 
                   <View style={styles.policyPoint}>
                     <MaterialCommunityIcons name="check-circle" size={16} color="#16A34A" />
-                    <Text style={styles.policyPointText}>
-                      <Text style={styles.boldText}>Payment Information:</Text> Payment method details, transaction history (payment card details are stored securely by our payment partner Razorpay, not by us)
+                    <Text style={policyStyles.policyPointText}>
+                      <Text style={policyStyles.boldText}>Payment Information:</Text> Payment method details, transaction history (payment card details are stored securely by our payment partner Razorpay, not by us)
                     </Text>
                   </View>
 
-                  <Text style={styles.policySubsectionTitle}>2.2 Service Usage Data</Text>
+                  <Text style={policyStyles.policySubsectionTitle}>2.2 Service Usage Data</Text>
 
                   <View style={styles.policyPoint}>
                     <MaterialCommunityIcons name="check-circle" size={16} color="#16A34A" />
-                    <Text style={styles.policyPointText}>
-                      <Text style={styles.boldText}>Order Details:</Text> Garment types, service preferences, special instructions
-                    </Text>
-                  </View>
-
-                  <View style={styles.policyPoint}>
-                    <MaterialCommunityIcons name="check-circle" size={16} color="#16A34A" />
-                    <Text style={styles.policyPointText}>
-                      <Text style={styles.boldText}>Photos:</Text> Garment photos you upload for special care instructions or damage claims
+                    <Text style={policyStyles.policyPointText}>
+                      <Text style={policyStyles.boldText}>Order Details:</Text> Garment types, service preferences, special instructions
                     </Text>
                   </View>
 
                   <View style={styles.policyPoint}>
                     <MaterialCommunityIcons name="check-circle" size={16} color="#16A34A" />
-                    <Text style={styles.policyPointText}>
-                      <Text style={styles.boldText}>Communication:</Text> Chat messages, support tickets, feedback, and ratings
-                    </Text>
-                  </View>
-
-                  <Text style={styles.policySubsectionTitle}>2.3 Technical Information</Text>
-
-                  <View style={styles.policyPoint}>
-                    <MaterialCommunityIcons name="check-circle" size={16} color="#16A34A" />
-                    <Text style={styles.policyPointText}>
-                      <Text style={styles.boldText}>Device Information:</Text> Device type, operating system, app version, device ID
+                    <Text style={policyStyles.policyPointText}>
+                      <Text style={policyStyles.boldText}>Photos:</Text> Garment photos you upload for special care instructions or damage claims
                     </Text>
                   </View>
 
                   <View style={styles.policyPoint}>
                     <MaterialCommunityIcons name="check-circle" size={16} color="#16A34A" />
-                    <Text style={styles.policyPointText}>
-                      <Text style={styles.boldText}>Location Data:</Text> GPS coordinates for pickup/delivery tracking and service availability
+                    <Text style={policyStyles.policyPointText}>
+                      <Text style={policyStyles.boldText}>Communication:</Text> Chat messages, support tickets, feedback, and ratings
+                    </Text>
+                  </View>
+
+                  <Text style={policyStyles.policySubsectionTitle}>2.3 Technical Information</Text>
+
+                  <View style={styles.policyPoint}>
+                    <MaterialCommunityIcons name="check-circle" size={16} color="#16A34A" />
+                    <Text style={policyStyles.policyPointText}>
+                      <Text style={policyStyles.boldText}>Device Information:</Text> Device type, operating system, app version, device ID
                     </Text>
                   </View>
 
                   <View style={styles.policyPoint}>
                     <MaterialCommunityIcons name="check-circle" size={16} color="#16A34A" />
-                    <Text style={styles.policyPointText}>
-                      <Text style={styles.boldText}>Usage Analytics:</Text> App interactions, feature usage, crash reports for improving user experience
-                    </Text>
-                  </View>
-
-                  <Text style={styles.policySectionTitle}>3. How We Use Your Information</Text>
-
-                  <View style={styles.policyPoint}>
-                    <MaterialCommunityIcons name="check-circle" size={16} color="#16A34A" />
-                    <Text style={styles.policyPointText}>
-                      <Text style={styles.boldText}>Service Delivery:</Text> To process your laundry orders, coordinate pickups and deliveries, and provide customer support
+                    <Text style={policyStyles.policyPointText}>
+                      <Text style={policyStyles.boldText}>Location Data:</Text> GPS coordinates for pickup/delivery tracking and service availability
                     </Text>
                   </View>
 
                   <View style={styles.policyPoint}>
                     <MaterialCommunityIcons name="check-circle" size={16} color="#16A34A" />
-                    <Text style={styles.policyPointText}>
-                      <Text style={styles.boldText}>Communication:</Text> To send order updates, delivery notifications, promotional offers, and service announcements via SMS, push notifications, and email
+                    <Text style={policyStyles.policyPointText}>
+                      <Text style={policyStyles.boldText}>Usage Analytics:</Text> App interactions, feature usage, crash reports for improving user experience
+                    </Text>
+                  </View>
+
+                  <Text style={policyStyles.policySectionTitle}>3. How We Use Your Information</Text>
+
+                  <View style={styles.policyPoint}>
+                    <MaterialCommunityIcons name="check-circle" size={16} color="#16A34A" />
+                    <Text style={policyStyles.policyPointText}>
+                      <Text style={policyStyles.boldText}>Service Delivery:</Text> To process your laundry orders, coordinate pickups and deliveries, and provide customer support
                     </Text>
                   </View>
 
                   <View style={styles.policyPoint}>
                     <MaterialCommunityIcons name="check-circle" size={16} color="#16A34A" />
-                    <Text style={styles.policyPointText}>
-                      <Text style={styles.boldText}>Payment Processing:</Text> To process payments, issue invoices, and manage your wallet balance
+                    <Text style={policyStyles.policyPointText}>
+                      <Text style={policyStyles.boldText}>Communication:</Text> To send order updates, delivery notifications, promotional offers, and service announcements via SMS, push notifications, and email
                     </Text>
                   </View>
 
                   <View style={styles.policyPoint}>
                     <MaterialCommunityIcons name="check-circle" size={16} color="#16A34A" />
-                    <Text style={styles.policyPointText}>
-                      <Text style={styles.boldText}>Service Improvement:</Text> To analyze usage patterns, improve our app, and develop new features
+                    <Text style={policyStyles.policyPointText}>
+                      <Text style={policyStyles.boldText}>Payment Processing:</Text> To process payments, issue invoices, and manage your wallet balance
                     </Text>
                   </View>
 
                   <View style={styles.policyPoint}>
                     <MaterialCommunityIcons name="check-circle" size={16} color="#16A34A" />
-                    <Text style={styles.policyPointText}>
-                      <Text style={styles.boldText}>Fraud Prevention:</Text> To detect and prevent fraudulent activities, security breaches, and policy violations
+                    <Text style={policyStyles.policyPointText}>
+                      <Text style={policyStyles.boldText}>Service Improvement:</Text> To analyze usage patterns, improve our app, and develop new features
                     </Text>
                   </View>
 
                   <View style={styles.policyPoint}>
                     <MaterialCommunityIcons name="check-circle" size={16} color="#16A34A" />
-                    <Text style={styles.policyPointText}>
-                      <Text style={styles.boldText}>Legal Compliance:</Text> To comply with legal obligations, respond to lawful requests, and enforce our terms
-                    </Text>
-                  </View>
-
-                  <Text style={styles.policySectionTitle}>4. Data Sharing & Disclosure</Text>
-
-                  <Text style={styles.policySubsectionTitle}>4.1 We DO Share With:</Text>
-
-                  <View style={styles.policyPoint}>
-                    <MaterialCommunityIcons name="check-circle" size={16} color="#16A34A" />
-                    <Text style={styles.policyPointText}>
-                      <Text style={styles.boldText}>Service Partners:</Text> Delivery personnel (name, phone, address for pickup/delivery only)
+                    <Text style={policyStyles.policyPointText}>
+                      <Text style={policyStyles.boldText}>Fraud Prevention:</Text> To detect and prevent fraudulent activities, security breaches, and policy violations
                     </Text>
                   </View>
 
                   <View style={styles.policyPoint}>
                     <MaterialCommunityIcons name="check-circle" size={16} color="#16A34A" />
-                    <Text style={styles.policyPointText}>
-                      <Text style={styles.boldText}>Payment Processors:</Text> Razorpay (RBI-compliant payment gateway) for secure payment processing
+                    <Text style={policyStyles.policyPointText}>
+                      <Text style={policyStyles.boldText}>Legal Compliance:</Text> To comply with legal obligations, respond to lawful requests, and enforce our terms
+                    </Text>
+                  </View>
+
+                  <Text style={policyStyles.policySectionTitle}>4. Data Sharing & Disclosure</Text>
+
+                  <Text style={policyStyles.policySubsectionTitle}>4.1 We DO Share With:</Text>
+
+                  <View style={styles.policyPoint}>
+                    <MaterialCommunityIcons name="check-circle" size={16} color="#16A34A" />
+                    <Text style={policyStyles.policyPointText}>
+                      <Text style={policyStyles.boldText}>Service Partners:</Text> Delivery personnel (name, phone, address for pickup/delivery only)
                     </Text>
                   </View>
 
                   <View style={styles.policyPoint}>
                     <MaterialCommunityIcons name="check-circle" size={16} color="#16A34A" />
-                    <Text style={styles.policyPointText}>
-                      <Text style={styles.boldText}>Cloud Services:</Text> AWS/Firebase for secure data storage and app functionality
+                    <Text style={policyStyles.policyPointText}>
+                      <Text style={policyStyles.boldText}>Payment Processors:</Text> Razorpay (RBI-compliant payment gateway) for secure payment processing
                     </Text>
                   </View>
 
                   <View style={styles.policyPoint}>
                     <MaterialCommunityIcons name="check-circle" size={16} color="#16A34A" />
-                    <Text style={styles.policyPointText}>
-                      <Text style={styles.boldText}>SMS/Email Providers:</Text> For sending order notifications and updates
+                    <Text style={policyStyles.policyPointText}>
+                      <Text style={policyStyles.boldText}>Cloud Services:</Text> AWS/Firebase for secure data storage and app functionality
                     </Text>
                   </View>
 
                   <View style={styles.policyPoint}>
                     <MaterialCommunityIcons name="check-circle" size={16} color="#16A34A" />
-                    <Text style={styles.policyPointText}>
-                      <Text style={styles.boldText}>Legal Authorities:</Text> When required by law or to protect rights, safety, and property
+                    <Text style={policyStyles.policyPointText}>
+                      <Text style={policyStyles.boldText}>SMS/Email Providers:</Text> For sending order notifications and updates
                     </Text>
                   </View>
 
-                  <Text style={styles.policySubsectionTitle}>4.2 We DO NOT Share With:</Text>
+                  <View style={styles.policyPoint}>
+                    <MaterialCommunityIcons name="check-circle" size={16} color="#16A34A" />
+                    <Text style={policyStyles.policyPointText}>
+                      <Text style={policyStyles.boldText}>Legal Authorities:</Text> When required by law or to protect rights, safety, and property
+                    </Text>
+                  </View>
+
+                  <Text style={policyStyles.policySubsectionTitle}>4.2 We DO NOT Share With:</Text>
 
                   <View style={styles.policyPoint}>
                     <MaterialCommunityIcons name="shield-check" size={16} color="#16A34A" />
-                    <Text style={styles.policyPointText}>
-                      <Text style={styles.boldText}>Third-Party Advertisers:</Text> We never sell or rent your personal data to advertisers or marketing companies
-                    </Text>
-                  </View>
-
-                  <View style={styles.policyPoint}>
-                    <MaterialCommunityIcons name="shield-check" size={16} color="#16A34A" />
-                    <Text style={styles.policyPointText}>
-                      <Text style={styles.boldText}>Data Brokers:</Text> We do not share your information with data aggregators or brokers
+                    <Text style={policyStyles.policyPointText}>
+                      <Text style={policyStyles.boldText}>Third-Party Advertisers:</Text> We never sell or rent your personal data to advertisers or marketing companies
                     </Text>
                   </View>
 
                   <View style={styles.policyPoint}>
                     <MaterialCommunityIcons name="shield-check" size={16} color="#16A34A" />
-                    <Text style={styles.policyPointText}>
-                      <Text style={styles.boldText}>Social Media:</Text> We do not share your data with social media platforms without your explicit consent
-                    </Text>
-                  </View>
-
-                  <Text style={styles.policySectionTitle}>5. Data Security</Text>
-
-                  <View style={styles.policyPoint}>
-                    <MaterialCommunityIcons name="shield-lock" size={16} color="#16A34A" />
-                    <Text style={styles.policyPointText}>
-                      <Text style={styles.boldText}>256-bit Encryption:</Text> All personal data is encrypted in transit (HTTPS/TLS) and at rest (AES-256)
+                    <Text style={policyStyles.policyPointText}>
+                      <Text style={policyStyles.boldText}>Data Brokers:</Text> We do not share your information with data aggregators or brokers
                     </Text>
                   </View>
 
                   <View style={styles.policyPoint}>
-                    <MaterialCommunityIcons name="shield-lock" size={16} color="#16A34A" />
-                    <Text style={styles.policyPointText}>
-                      <Text style={styles.boldText}>Secure Payment:</Text> Payment information is tokenized and processed through RBI-compliant Razorpay gateway (PCI DSS Level 1 certified)
+                    <MaterialCommunityIcons name="shield-check" size={16} color="#16A34A" />
+                    <Text style={policyStyles.policyPointText}>
+                      <Text style={policyStyles.boldText}>Social Media:</Text> We do not share your data with social media platforms without your explicit consent
                     </Text>
                   </View>
 
+                  <Text style={policyStyles.policySectionTitle}>5. Data Security</Text>
+
                   <View style={styles.policyPoint}>
                     <MaterialCommunityIcons name="shield-lock" size={16} color="#16A34A" />
-                    <Text style={styles.policyPointText}>
-                      <Text style={styles.boldText}>Access Control:</Text> Only authorized personnel have access to customer data on a need-to-know basis
+                    <Text style={policyStyles.policyPointText}>
+                      <Text style={policyStyles.boldText}>256-bit Encryption:</Text> All personal data is encrypted in transit (HTTPS/TLS) and at rest (AES-256)
                     </Text>
                   </View>
 
                   <View style={styles.policyPoint}>
                     <MaterialCommunityIcons name="shield-lock" size={16} color="#16A34A" />
-                    <Text style={styles.policyPointText}>
-                      <Text style={styles.boldText}>Regular Audits:</Text> We conduct regular security audits and vulnerability assessments
+                    <Text style={policyStyles.policyPointText}>
+                      <Text style={policyStyles.boldText}>Secure Payment:</Text> Payment information is tokenized and processed through RBI-compliant Razorpay gateway (PCI DSS Level 1 certified)
                     </Text>
                   </View>
 
                   <View style={styles.policyPoint}>
                     <MaterialCommunityIcons name="shield-lock" size={16} color="#16A34A" />
-                    <Text style={styles.policyPointText}>
-                      <Text style={styles.boldText}>Secure Infrastructure:</Text> Data hosted on AWS India servers with 99.9% uptime SLA and automatic backups
-                    </Text>
-                  </View>
-
-                  <Text style={styles.policySectionTitle}>6. Your Rights & Choices</Text>
-
-                  <View style={styles.policyPoint}>
-                    <MaterialCommunityIcons name="check-circle" size={16} color="#16A34A" />
-                    <Text style={styles.policyPointText}>
-                      <Text style={styles.boldText}>Access Your Data:</Text> View and download your personal information from account settings
+                    <Text style={policyStyles.policyPointText}>
+                      <Text style={policyStyles.boldText}>Access Control:</Text> Only authorized personnel have access to customer data on a need-to-know basis
                     </Text>
                   </View>
 
                   <View style={styles.policyPoint}>
-                    <MaterialCommunityIcons name="check-circle" size={16} color="#16A34A" />
-                    <Text style={styles.policyPointText}>
-                      <Text style={styles.boldText}>Update Information:</Text> Edit your profile, addresses, and preferences anytime
+                    <MaterialCommunityIcons name="shield-lock" size={16} color="#16A34A" />
+                    <Text style={policyStyles.policyPointText}>
+                      <Text style={policyStyles.boldText}>Regular Audits:</Text> We conduct regular security audits and vulnerability assessments
                     </Text>
                   </View>
 
                   <View style={styles.policyPoint}>
-                    <MaterialCommunityIcons name="check-circle" size={16} color="#16A34A" />
-                    <Text style={styles.policyPointText}>
-                      <Text style={styles.boldText}>Delete Account:</Text> Request account deletion from settings (some data retained for legal/accounting purposes for 7 years)
+                    <MaterialCommunityIcons name="shield-lock" size={16} color="#16A34A" />
+                    <Text style={policyStyles.policyPointText}>
+                      <Text style={policyStyles.boldText}>Secure Infrastructure:</Text> Data hosted on AWS India servers with 99.9% uptime SLA and automatic backups
                     </Text>
                   </View>
 
+                  <Text style={policyStyles.policySectionTitle}>6. Your Rights & Choices</Text>
+
                   <View style={styles.policyPoint}>
                     <MaterialCommunityIcons name="check-circle" size={16} color="#16A34A" />
-                    <Text style={styles.policyPointText}>
-                      <Text style={styles.boldText}>Opt-out Marketing:</Text> Unsubscribe from promotional emails and disable push notifications in settings
+                    <Text style={policyStyles.policyPointText}>
+                      <Text style={policyStyles.boldText}>Access Your Data:</Text> View and download your personal information from account settings
                     </Text>
                   </View>
 
                   <View style={styles.policyPoint}>
                     <MaterialCommunityIcons name="check-circle" size={16} color="#16A34A" />
-                    <Text style={styles.policyPointText}>
-                      <Text style={styles.boldText}>Location Control:</Text> Disable location services in device settings (may affect service quality)
+                    <Text style={policyStyles.policyPointText}>
+                      <Text style={policyStyles.boldText}>Update Information:</Text> Edit your profile, addresses, and preferences anytime
                     </Text>
                   </View>
 
                   <View style={styles.policyPoint}>
                     <MaterialCommunityIcons name="check-circle" size={16} color="#16A34A" />
-                    <Text style={styles.policyPointText}>
-                      <Text style={styles.boldText}>Data Portability:</Text> Request a copy of your data in machine-readable format (CSV/JSON)
+                    <Text style={policyStyles.policyPointText}>
+                      <Text style={policyStyles.boldText}>Delete Account:</Text> Request account deletion from settings (some data retained for legal/accounting purposes for 7 years)
                     </Text>
                   </View>
 
-                  <Text style={styles.policySectionTitle}>7. Data Retention</Text>
-                  <Text style={styles.policyText}>
+                  <View style={styles.policyPoint}>
+                    <MaterialCommunityIcons name="check-circle" size={16} color="#16A34A" />
+                    <Text style={policyStyles.policyPointText}>
+                      <Text style={policyStyles.boldText}>Opt-out Marketing:</Text> Unsubscribe from promotional emails and disable push notifications in settings
+                    </Text>
+                  </View>
+
+                  <View style={styles.policyPoint}>
+                    <MaterialCommunityIcons name="check-circle" size={16} color="#16A34A" />
+                    <Text style={policyStyles.policyPointText}>
+                      <Text style={policyStyles.boldText}>Location Control:</Text> Disable location services in device settings (may affect service quality)
+                    </Text>
+                  </View>
+
+                  <View style={styles.policyPoint}>
+                    <MaterialCommunityIcons name="check-circle" size={16} color="#16A34A" />
+                    <Text style={policyStyles.policyPointText}>
+                      <Text style={policyStyles.boldText}>Data Portability:</Text> Request a copy of your data in machine-readable format (CSV/JSON)
+                    </Text>
+                  </View>
+
+                  <Text style={policyStyles.policySectionTitle}>7. Data Retention</Text>
+                  <Text style={policyStyles.policyText}>
                     We retain your personal data only as long as necessary to provide services and comply with legal obligations:
                   </Text>
 
                   <View style={styles.policyPoint}>
                     <MaterialCommunityIcons name="clock-outline" size={16} color="#3B82F6" />
-                    <Text style={styles.policyPointText}>
-                      <Text style={styles.boldText}>Active Accounts:</Text> Data retained while account is active
+                    <Text style={policyStyles.policyPointText}>
+                      <Text style={policyStyles.boldText}>Active Accounts:</Text> Data retained while account is active
                     </Text>
                   </View>
 
                   <View style={styles.policyPoint}>
                     <MaterialCommunityIcons name="clock-outline" size={16} color="#3B82F6" />
-                    <Text style={styles.policyPointText}>
-                      <Text style={styles.boldText}>Order History:</Text> 7 years (for tax and legal compliance)
+                    <Text style={policyStyles.policyPointText}>
+                      <Text style={policyStyles.boldText}>Order History:</Text> 7 years (for tax and legal compliance)
                     </Text>
                   </View>
 
                   <View style={styles.policyPoint}>
                     <MaterialCommunityIcons name="clock-outline" size={16} color="#3B82F6" />
-                    <Text style={styles.policyPointText}>
-                      <Text style={styles.boldText}>Deleted Accounts:</Text> Personal data anonymized within 30 days (except legal records)
+                    <Text style={policyStyles.policyPointText}>
+                      <Text style={policyStyles.boldText}>Deleted Accounts:</Text> Personal data anonymized within 30 days (except legal records)
                     </Text>
                   </View>
 
                   <View style={styles.policyPoint}>
                     <MaterialCommunityIcons name="clock-outline" size={16} color="#3B82F6" />
-                    <Text style={styles.policyPointText}>
-                      <Text style={styles.boldText}>Photos:</Text> Deleted within 90 days after order completion
+                    <Text style={policyStyles.policyPointText}>
+                      <Text style={policyStyles.boldText}>Photos:</Text> Deleted within 90 days after order completion
                     </Text>
                   </View>
 
-                  <Text style={styles.policySectionTitle}>8. Cookies & Tracking</Text>
-                  <Text style={styles.policyText}>
+                  <Text style={policyStyles.policySectionTitle}>8. Cookies & Tracking</Text>
+                  <Text style={policyStyles.policyText}>
                     We use minimal tracking technologies:
                   </Text>
 
                   <View style={styles.policyPoint}>
                     <MaterialCommunityIcons name="check-circle" size={16} color="#16A34A" />
-                    <Text style={styles.policyPointText}>
-                      <Text style={styles.boldText}>Analytics:</Text> Firebase Analytics to understand app usage (anonymized data)
+                    <Text style={policyStyles.policyPointText}>
+                      <Text style={policyStyles.boldText}>Analytics:</Text> Firebase Analytics to understand app usage (anonymized data)
                     </Text>
                   </View>
 
                   <View style={styles.policyPoint}>
                     <MaterialCommunityIcons name="check-circle" size={16} color="#16A34A" />
-                    <Text style={styles.policyPointText}>
-                      <Text style={styles.boldText}>Crash Reporting:</Text> To identify and fix technical issues
+                    <Text style={policyStyles.policyPointText}>
+                      <Text style={policyStyles.boldText}>Crash Reporting:</Text> To identify and fix technical issues
                     </Text>
                   </View>
 
                   <View style={styles.policyPoint}>
                     <MaterialCommunityIcons name="check-circle" size={16} color="#16A34A" />
-                    <Text style={styles.policyPointText}>
-                      <Text style={styles.boldText}>Session Management:</Text> To keep you logged in securely
+                    <Text style={policyStyles.policyPointText}>
+                      <Text style={policyStyles.boldText}>Session Management:</Text> To keep you logged in securely
                     </Text>
                   </View>
 
-                  <Text style={styles.policyText}>
+                  <Text style={policyStyles.policyText}>
                     We do NOT use third-party advertising cookies or cross-site trackers.
                   </Text>
 
-                  <Text style={styles.policySectionTitle}>9. Children's Privacy</Text>
-                  <Text style={styles.policyText}>
+                  <Text style={policyStyles.policySectionTitle}>9. Children's Privacy</Text>
+                  <Text style={policyStyles.policyText}>
                     LaundryFresh is not intended for users under 18 years of age. We do not knowingly collect data from children. If you believe we have collected information from a minor, contact us immediately for deletion.
                   </Text>
 
-                  <Text style={styles.policySectionTitle}>10. Changes to Privacy Policy</Text>
-                  <Text style={styles.policyText}>
+                  <Text style={policyStyles.policySectionTitle}>10. Changes to Privacy Policy</Text>
+                  <Text style={policyStyles.policyText}>
                     We may update this policy periodically. Material changes will be notified via email or app notification 30 days in advance. Last updated date is shown at the top of this policy.
                   </Text>
 
-                  <Text style={styles.policySectionTitle}>11. Compliance</Text>
-                  <Text style={styles.policyText}>
+                  <Text style={policyStyles.policySectionTitle}>11. Compliance</Text>
+                  <Text style={policyStyles.policyText}>
                     This policy complies with:
                   </Text>
 
                   <View style={styles.policyPoint}>
                     <MaterialCommunityIcons name="check-circle" size={16} color="#16A34A" />
-                    <Text style={styles.policyPointText}>
+                    <Text style={policyStyles.policyPointText}>
                       Information Technology Act, 2000 (India)
                     </Text>
                   </View>
 
                   <View style={styles.policyPoint}>
                     <MaterialCommunityIcons name="check-circle" size={16} color="#16A34A" />
-                    <Text style={styles.policyPointText}>
+                    <Text style={policyStyles.policyPointText}>
                       Digital Personal Data Protection Act, 2023 (India)
                     </Text>
                   </View>
 
                   <View style={styles.policyPoint}>
                     <MaterialCommunityIcons name="check-circle" size={16} color="#16A34A" />
-                    <Text style={styles.policyPointText}>
+                    <Text style={policyStyles.policyPointText}>
                       RBI Payment Guidelines for digital payments
                     </Text>
                   </View>
 
-                  <Text style={styles.policySectionTitle}>12. Contact Us</Text>
-                  <Text style={styles.policyText}>
+                  <Text style={policyStyles.policySectionTitle}>12. Contact Us</Text>
+                  <Text style={policyStyles.policyText}>
                     For privacy-related questions, concerns, or data requests:{'\n\n'}
                     📧 Privacy Officer: privacy@laundryfresh.com{'\n'}
                     📞 Customer Care: 1800-XXX-XXXX{'\n'}
@@ -1568,7 +1581,7 @@ export function ProfileScreen({
                     We aim to respond to all privacy inquiries within 72 hours.
                   </Text>
 
-                  <Text style={styles.policyFooterNote}>
+                  <Text style={policyStyles.policyFooterNote}>
                     By using LaundryFresh, you acknowledge that you have read, understood, and agree to this Privacy Policy.
                   </Text>
                 </View>
@@ -2051,7 +2064,6 @@ const styles = StyleSheet.create({
   policyHeader: {
     fontSize: 18,
     fontWeight: '800',
-    color: '#1C0B18',
     marginBottom: 8,
   },
   policyLastUpdated: {
@@ -2063,20 +2075,17 @@ const styles = StyleSheet.create({
   policySectionTitle: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#1C0B18',
     marginTop: 20,
     marginBottom: 10,
   },
   policySubsectionTitle: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#4A3B45',
     marginTop: 12,
     marginBottom: 8,
   },
   policyText: {
     fontSize: 12,
-    color: '#4A3B45',
     lineHeight: 20,
     marginBottom: 12,
   },
@@ -2089,12 +2098,10 @@ const styles = StyleSheet.create({
   policyPointText: {
     flex: 1,
     fontSize: 12,
-    color: '#4A3B45',
     lineHeight: 19,
   },
   boldText: {
     fontWeight: '700',
-    color: '#1C0B18',
   },
   policyFooterNote: {
     fontSize: 11,

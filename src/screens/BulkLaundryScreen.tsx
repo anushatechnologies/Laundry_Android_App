@@ -208,7 +208,7 @@ export function BulkLaundryScreen({
     
     const { totalPrice, effectiveRate } = calculatePriceForWeight(kg);
     const cartItemId = `bulk-${currentService.id}-${kg}kg`;
-    const bannerUrl = 'https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/banners/banner-4.jpg';
+    const bannerUrl = 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/banners/banner-bulk.jpg';
 
     addCartItem({
       id: cartItemId,
@@ -276,13 +276,10 @@ export function BulkLaundryScreen({
         <View style={[styles.cleanHeroCard, { borderColor: colors.border }]}>
           <Image
             source={{
-              uri: heroImgError
-                ? 'https://images.unsplash.com/photo-1582735689369-4fe89db7114c?auto=format&fit=crop&w=800&q=80'
-                : 'https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/banners/banner-bulk.jpg',
+              uri: 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/banners/banner-bulk.jpg',
             }}
             style={styles.cleanHeroImage}
             resizeMode="cover"
-            onError={() => setHeroImgError(true)}
           />
           <LinearGradient
             colors={['rgba(0,0,0,0.02)', 'rgba(0,0,0,0.65)']}

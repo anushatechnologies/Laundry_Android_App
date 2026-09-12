@@ -20,6 +20,7 @@ import { useApp } from '@/context/AppContext';
 import { useTheme } from '@/context/ThemeContext';
 import { api } from '@/lib/api';
 import { API_BASE_URL } from '@/lib/config';
+import { shortDate } from '@/ui/theme';
 import type { ReferralFriend, ReferralSummary } from '@/types/domain';
 
 interface ReferralScreenProps {
@@ -371,11 +372,7 @@ export function ReferralScreen({ onUseReward, onSignIn, onNavigateWallet, onBack
             </View>
           ) : (
             friends.map((friend, index) => {
-              const formattedDate = new Date(friend.createdAt).toLocaleDateString('en-IN', {
-                day: '2-digit',
-                month: 'short',
-                year: 'numeric',
-              });
+              const formattedDate = shortDate(friend.createdAt);
 
               return (
                 <View key={friend.id || index} style={[styles.friendRow, { borderBottomColor: colors.border }]}>

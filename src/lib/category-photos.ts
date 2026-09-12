@@ -39,112 +39,133 @@ export const CATEGORY_DEFAULT_PHOTOS: Record<string, string> = {
   CORPORATE: 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/garments/cloth-suit-2p.jpg',
 };
 
-const DEFAULT_CATEGORY_FALLBACK = 'https://images.unsplash.com/photo-1617137984095-74e4e5e3613f?auto=format&fit=crop&w=400&q=80';
+const S3_BASE = 'https://anjanilaundry.s3.ap-south-2.amazonaws.com';
+
+const DEFAULT_CATEGORY_FALLBACK = `${S3_BASE}/garments/cloth-shirt.jpg`;
 
 export const SUBCATEGORY_DEFAULT_PHOTOS: Record<string, string> = {
-  all: 'https://images.unsplash.com/photo-1507679799987-c73779587ccf?auto=format&fit=crop&w=300&q=80',
-  't-shirts & polos': 'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?auto=format&fit=crop&w=300&q=80',
-  't-shirts': 'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?auto=format&fit=crop&w=300&q=80',
-  't-shirt': 'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?auto=format&fit=crop&w=300&q=80',
-  tshirts: 'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?auto=format&fit=crop&w=300&q=80',
-  'shirts & t-shirts': 'https://images.unsplash.com/photo-1596755094514-f87e34085b2c?auto=format&fit=crop&w=300&q=80',
-  shirts: 'https://images.unsplash.com/photo-1596755094514-f87e34085b2c?auto=format&fit=crop&w=300&q=80',
-  shirt: 'https://images.unsplash.com/photo-1596755094514-f87e34085b2c?auto=format&fit=crop&w=300&q=80',
-  'trousers & chinos': 'https://images.unsplash.com/photo-1473966968600-fa801b869a1a?auto=format&fit=crop&w=300&q=80',
-  'trousers & pants': 'https://images.unsplash.com/photo-1473966968600-fa801b869a1a?auto=format&fit=crop&w=300&q=80',
-  trousers: 'https://images.unsplash.com/photo-1473966968600-fa801b869a1a?auto=format&fit=crop&w=300&q=80',
-  pants: 'https://images.unsplash.com/photo-1473966968600-fa801b869a1a?auto=format&fit=crop&w=300&q=80',
-  'jeans & denim': 'https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=300&q=80',
-  jeans: 'https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=300&q=80',
-  denim: 'https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=300&q=80',
-  'ethnic wear': 'https://images.unsplash.com/photo-1583391733956-3750e0ff4e8b?auto=format&fit=crop&w=300&q=80',
-  'suits & blazers': 'https://images.unsplash.com/photo-1594938298603-c8148c4dae35?auto=format&fit=crop&w=300&q=80',
-  suits: 'https://images.unsplash.com/photo-1594938298603-c8148c4dae35?auto=format&fit=crop&w=300&q=80',
-  blazers: 'https://images.unsplash.com/photo-1594938298603-c8148c4dae35?auto=format&fit=crop&w=300&q=80',
-  'sports & gym wear': 'https://images.unsplash.com/photo-1518611012118-696072aa579a?auto=format&fit=crop&w=300&q=80',
-  'sports & gym': 'https://images.unsplash.com/photo-1518611012118-696072aa579a?auto=format&fit=crop&w=300&q=80',
-  shorts: 'https://images.unsplash.com/photo-1518611012118-696072aa579a?auto=format&fit=crop&w=300&q=80',
-  bermuda: 'https://images.unsplash.com/photo-1518611012118-696072aa579a?auto=format&fit=crop&w=300&q=80',
-  'winter wear': 'https://images.unsplash.com/photo-1578587018452-892bacefd3f2?auto=format&fit=crop&w=300&q=80',
-  jacket: 'https://images.unsplash.com/photo-1578587018452-892bacefd3f2?auto=format&fit=crop&w=300&q=80',
-  sweater: 'https://images.unsplash.com/photo-1578587018452-892bacefd3f2?auto=format&fit=crop&w=300&q=80',
-  nightwear: 'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?auto=format&fit=crop&w=300&q=80',
-  innerwear: 'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?auto=format&fit=crop&w=300&q=80',
-  accessories: 'https://images.unsplash.com/photo-1553062407-98eeb64c6a62?auto=format&fit=crop&w=300&q=80',
+  all: `${S3_BASE}/garments/cloth-shirt.jpg`,
+  't-shirts & polos': `${S3_BASE}/garments/cloth-tshirt.jpg`,
+  't-shirts': `${S3_BASE}/garments/cloth-tshirt.jpg`,
+  't-shirt': `${S3_BASE}/garments/cloth-tshirt.jpg`,
+  tshirts: `${S3_BASE}/garments/cloth-tshirt.jpg`,
+  'shirts & t-shirts': `${S3_BASE}/garments/cloth-shirt.jpg`,
+  shirts: `${S3_BASE}/garments/cloth-shirt.jpg`,
+  shirt: `${S3_BASE}/garments/cloth-shirt.jpg`,
+  'trousers & chinos': `${S3_BASE}/garments/cloth-trouser.jpg`,
+  'trousers & pants': `${S3_BASE}/garments/cloth-trouser.jpg`,
+  trousers: `${S3_BASE}/garments/cloth-trouser.jpg`,
+  pants: `${S3_BASE}/garments/cloth-trouser.jpg`,
+  'jeans & denim': `${S3_BASE}/garments/cloth-jeans.jpg`,
+  jeans: `${S3_BASE}/garments/cloth-jeans.jpg`,
+  denim: `${S3_BASE}/garments/cloth-jeans.jpg`,
+  'ethnic wear': `${S3_BASE}/garments/cloth-sherwani.jpg`,
+  'mens:ethnic wear': `${S3_BASE}/garments/cloth-sherwani.jpg`,
+  'womens:ethnic wear': `${S3_BASE}/garments/cloth-kurti.jpg`,
+  'suits & blazers': `${S3_BASE}/garments/cloth-blazer.jpg`,
+  'mens:suits & blazers': `${S3_BASE}/garments/cloth-blazer.jpg`,
+  'mens:suits': `${S3_BASE}/garments/cloth-suit-2p.jpg`,
+  'mens:blazers': `${S3_BASE}/garments/cloth-blazer.jpg`,
+  suits: `${S3_BASE}/garments/cloth-suit-2p.jpg`,
+  blazers: `${S3_BASE}/garments/cloth-blazer.jpg`,
+  'sports & gym wear': `${S3_BASE}/garments/cloth-tracksuit-m.jpg`,
+  'sports & gym': `${S3_BASE}/garments/cloth-tracksuit-m.jpg`,
+  shorts: `${S3_BASE}/garments/cloth-shorts-m.jpg`,
+  'winter wear': `${S3_BASE}/garments/cloth-sweater-m.jpg`,
+  jackets: `${S3_BASE}/garments/cloth-jacket.jpg`,
+  jacket: `${S3_BASE}/garments/cloth-jacket.jpg`,
+  shawls: `${S3_BASE}/garments/cloth-shawl.jpg`,
+  shawl: `${S3_BASE}/garments/cloth-shawl.jpg`,
+  pashmina: `${S3_BASE}/garments/cloth-shawl.jpg`,
+  sweater: `${S3_BASE}/garments/cloth-sweater-m.jpg`,
+  nightwear: `${S3_BASE}/garments/cloth-tshirt.jpg`,
+  innerwear: `${S3_BASE}/garments/cloth-tshirt.jpg`,
+  accessories: `${S3_BASE}/garments/cloth-bag-luxury.jpg`,
 
   // Women's Wear
-  sarees: 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?auto=format&fit=crop&w=300&q=80',
-  saree: 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?auto=format&fit=crop&w=300&q=80',
-  blouses: 'https://images.unsplash.com/photo-1564257631407-4deb1f99d992?auto=format&fit=crop&w=300&q=80',
-  blouse: 'https://images.unsplash.com/photo-1564257631407-4deb1f99d992?auto=format&fit=crop&w=300&q=80',
-  kurtis: 'https://images.unsplash.com/photo-1583391733956-3750e0ff4e8b?auto=format&fit=crop&w=300&q=80',
-  'kurtis & kurtas': 'https://images.unsplash.com/photo-1583391733956-3750e0ff4e8b?auto=format&fit=crop&w=300&q=80',
-  kurti: 'https://images.unsplash.com/photo-1583391733956-3750e0ff4e8b?auto=format&fit=crop&w=300&q=80',
-  'salwar & suits': 'https://images.unsplash.com/photo-1617627143750-d86bc21e42bb?auto=format&fit=crop&w=300&q=80',
-  'salwar suits': 'https://images.unsplash.com/photo-1617627143750-d86bc21e42bb?auto=format&fit=crop&w=300&q=80',
-  salwar: 'https://images.unsplash.com/photo-1617627143750-d86bc21e42bb?auto=format&fit=crop&w=300&q=80',
-  'western dresses': 'https://images.unsplash.com/photo-1572804013309-59a88b7e92f1?auto=format&fit=crop&w=300&q=80',
-  dresses: 'https://images.unsplash.com/photo-1572804013309-59a88b7e92f1?auto=format&fit=crop&w=300&q=80',
-  'tops & shirts': 'https://images.unsplash.com/photo-1564257631407-4deb1f99d992?auto=format&fit=crop&w=300&q=80',
-  tops: 'https://images.unsplash.com/photo-1564257631407-4deb1f99d992?auto=format&fit=crop&w=300&q=80',
-  'jeans & pants': 'https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=300&q=80',
-  'skirts & shorts': 'https://images.unsplash.com/photo-1572804013309-59a88b7e92f1?auto=format&fit=crop&w=300&q=80',
-  skirts: 'https://images.unsplash.com/photo-1572804013309-59a88b7e92f1?auto=format&fit=crop&w=300&q=80',
-  lehengas: 'https://images.unsplash.com/photo-1617627143750-d86bc21e42bb?auto=format&fit=crop&w=300&q=80',
-  lehenga: 'https://images.unsplash.com/photo-1617627143750-d86bc21e42bb?auto=format&fit=crop&w=300&q=80',
-  gowns: 'https://images.unsplash.com/photo-1572804013309-59a88b7e92f1?auto=format&fit=crop&w=300&q=80',
-  gown: 'https://images.unsplash.com/photo-1572804013309-59a88b7e92f1?auto=format&fit=crop&w=300&q=80',
-  'dupattas & stoles': 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?auto=format&fit=crop&w=300&q=80',
-  dupattas: 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?auto=format&fit=crop&w=300&q=80',
-  'maternity wear': 'https://images.unsplash.com/photo-1572804013309-59a88b7e92f1?auto=format&fit=crop&w=300&q=80',
+  sarees: `${S3_BASE}/garments/cloth-saree-silk.jpg`,
+  saree: `${S3_BASE}/garments/cloth-saree-silk.jpg`,
+  'silk sarees': `${S3_BASE}/garments/cloth-saree-silk.jpg`,
+  'cotton sarees': `${S3_BASE}/garments/cloth-saree-cotton.jpg`,
+  blouses: `${S3_BASE}/garments/cloth-blouse.jpg`,
+  blouse: `${S3_BASE}/garments/cloth-blouse.jpg`,
+  kurtis: `${S3_BASE}/garments/cloth-kurti.jpg`,
+  'kurtis & kurtas': `${S3_BASE}/garments/cloth-kurti.jpg`,
+  kurti: `${S3_BASE}/garments/cloth-kurti.jpg`,
+  'salwar & suits': `${S3_BASE}/garments/cloth-salwar.jpg`,
+  'salwar suits': `${S3_BASE}/garments/cloth-salwar.jpg`,
+  'suits & kurtis': `${S3_BASE}/garments/cloth-salwar.jpg`,
+  'womens:suits & kurtis': `${S3_BASE}/garments/cloth-salwar.jpg`,
+  'womens:salwar & suits': `${S3_BASE}/garments/cloth-salwar.jpg`,
+  'womens:salwar suits': `${S3_BASE}/garments/cloth-salwar.jpg`,
+  'womens:suits': `${S3_BASE}/garments/cloth-salwar.jpg`,
+  salwar: `${S3_BASE}/garments/cloth-salwar.jpg`,
+  'western dresses': `${S3_BASE}/garments/cloth-gown.jpg`,
+  dresses: `${S3_BASE}/garments/cloth-gown.jpg`,
+  'tops & shirts': `${S3_BASE}/garments/cloth-kurti.jpg`,
+  tops: `${S3_BASE}/garments/cloth-kurti.jpg`,
+  'jeans & pants': `${S3_BASE}/garments/cloth-w-jeans.jpg`,
+  'skirts & shorts': `${S3_BASE}/garments/cloth-gown.jpg`,
+  skirts: `${S3_BASE}/garments/cloth-gown.jpg`,
+  lehengas: `${S3_BASE}/garments/cloth-lehenga.jpg`,
+  lehenga: `${S3_BASE}/garments/cloth-lehenga.jpg`,
+  gowns: `${S3_BASE}/garments/cloth-gown.jpg`,
+  gown: `${S3_BASE}/garments/cloth-gown.jpg`,
+  'dupattas & stoles': `${S3_BASE}/garments/cloth-dupatta.jpg`,
+  dupattas: `${S3_BASE}/garments/cloth-dupatta.jpg`,
+  'maternity wear': `${S3_BASE}/garments/cloth-kurti.jpg`,
 
   // Kids & Baby
-  'baby clothing': 'https://images.unsplash.com/photo-1515488042361-ee00e0ddd4e4?auto=format&fit=crop&w=300&q=80',
-  baby: 'https://images.unsplash.com/photo-1515488042361-ee00e0ddd4e4?auto=format&fit=crop&w=300&q=80',
-  'boys clothing': 'https://images.unsplash.com/photo-1519238263530-99bdd11df2ea?auto=format&fit=crop&w=300&q=80',
-  boys: 'https://images.unsplash.com/photo-1519238263530-99bdd11df2ea?auto=format&fit=crop&w=300&q=80',
-  'girls clothing': 'https://images.unsplash.com/photo-1622290291468-a28f7a7dc6a8?auto=format&fit=crop&w=300&q=80',
-  girls: 'https://images.unsplash.com/photo-1622290291468-a28f7a7dc6a8?auto=format&fit=crop&w=300&q=80',
-  'school uniforms': 'https://images.unsplash.com/photo-1577896851231-70ef18881754?auto=format&fit=crop&w=300&q=80',
-  uniforms: 'https://images.unsplash.com/photo-1577896851231-70ef18881754?auto=format&fit=crop&w=300&q=80',
-  'party wear': 'https://images.unsplash.com/photo-1518831959646-742c3a14ebf7?auto=format&fit=crop&w=300&q=80',
-  'traditional wear': 'https://images.unsplash.com/photo-1583391733956-3750e0ff4e8b?auto=format&fit=crop&w=300&q=80',
+  'baby clothing': `${S3_BASE}/garments/cloth-baby-romper.jpg`,
+  baby: `${S3_BASE}/garments/cloth-baby-romper.jpg`,
+  'boys clothing': `${S3_BASE}/garments/cloth-kid-shirt.jpg`,
+  boys: `${S3_BASE}/garments/cloth-kid-shirt.jpg`,
+  'girls clothing': `${S3_BASE}/garments/cloth-kids-frock.jpg`,
+  girls: `${S3_BASE}/garments/cloth-kids-frock.jpg`,
+  'school uniforms': `${S3_BASE}/categories/cat-school-uniforms.jpg`,
+  uniforms: `${S3_BASE}/categories/cat-school-uniforms.jpg`,
+  'party wear': `${S3_BASE}/garments/cloth-kids-frock.jpg`,
+  'traditional wear': `${S3_BASE}/garments/cloth-kurti.jpg`,
 
   // Home Textiles
-  bedsheets: 'https://images.unsplash.com/photo-1584100936595-c0654b55a2e2?auto=format&fit=crop&w=300&q=80',
-  bedsheet: 'https://images.unsplash.com/photo-1584100936595-c0654b55a2e2?auto=format&fit=crop&w=300&q=80',
-  'bed covers': 'https://images.unsplash.com/photo-1584100936595-c0654b55a2e2?auto=format&fit=crop&w=300&q=80',
-  blankets: 'https://images.unsplash.com/photo-1580301762395-21ce84d00bc6?auto=format&fit=crop&w=300&q=80',
-  blanket: 'https://images.unsplash.com/photo-1580301762395-21ce84d00bc6?auto=format&fit=crop&w=300&q=80',
-  'comforters & quilts': 'https://images.unsplash.com/photo-1580301762395-21ce84d00bc6?auto=format&fit=crop&w=300&q=80',
-  'comforters & duvets': 'https://images.unsplash.com/photo-1580301762395-21ce84d00bc6?auto=format&fit=crop&w=300&q=80',
-  comforters: 'https://images.unsplash.com/photo-1580301762395-21ce84d00bc6?auto=format&fit=crop&w=300&q=80',
-  duvets: 'https://images.unsplash.com/photo-1580301762395-21ce84d00bc6?auto=format&fit=crop&w=300&q=80',
-  'quilts & razai': 'https://images.unsplash.com/photo-1580301762395-21ce84d00bc6?auto=format&fit=crop&w=300&q=80',
-  quilts: 'https://images.unsplash.com/photo-1580301762395-21ce84d00bc6?auto=format&fit=crop&w=300&q=80',
-  curtains: 'https://images.unsplash.com/photo-1513694203232-719a280e022f?auto=format&fit=crop&w=300&q=80',
-  'sofa & cushion covers': 'https://images.unsplash.com/photo-1584100936595-c0654b55a2e2?auto=format&fit=crop&w=300&q=80',
-  towels: 'https://images.unsplash.com/photo-1616627547584-bf28cee262db?auto=format&fit=crop&w=300&q=80',
+  bedsheets: `${S3_BASE}/garments/cloth-bedsheet-king.jpg`,
+  bedsheet: `${S3_BASE}/garments/cloth-bedsheet-king.jpg`,
+  'bed covers': `${S3_BASE}/garments/cloth-bedsheet-king.jpg`,
+  blankets: `${S3_BASE}/garments/cloth-blanket-double.jpg`,
+  blanket: `${S3_BASE}/garments/cloth-blanket-double.jpg`,
+  'comforters & quilts': `${S3_BASE}/garments/cloth-blanket-double.jpg`,
+  'comforters & duvets': `${S3_BASE}/garments/cloth-blanket-double.jpg`,
+  comforters: `${S3_BASE}/garments/cloth-blanket-double.jpg`,
+  duvets: `${S3_BASE}/garments/cloth-blanket-double.jpg`,
+  'quilts & razai': `${S3_BASE}/garments/cloth-blanket-double.jpg`,
+  quilts: `${S3_BASE}/garments/cloth-blanket-double.jpg`,
+  curtains: `${S3_BASE}/garments/cloth-curtain.jpg`,
+  'sofa & cushion covers': `${S3_BASE}/garments/cloth-sofa-cover-3s.jpg`,
+  towels: `${S3_BASE}/garments/cloth-towel.jpg`,
 
   // Footwear & Accessories
-  sneakers: 'https://images.unsplash.com/photo-1549298916-b41d501d3772?auto=format&fit=crop&w=300&q=80',
-  'formal shoes': 'https://images.unsplash.com/photo-1614252235316-8c857d38b5f4?auto=format&fit=crop&w=300&q=80',
-  'leather & suede': 'https://images.unsplash.com/photo-1614252235316-8c857d38b5f4?auto=format&fit=crop&w=300&q=80',
-  'sports shoes': 'https://images.unsplash.com/photo-1549298916-b41d501d3772?auto=format&fit=crop&w=300&q=80',
-  backpacks: 'https://images.unsplash.com/photo-1553062407-98eeb64c6a62?auto=format&fit=crop&w=300&q=80',
-  handbags: 'https://images.unsplash.com/photo-1584917865442-de89df76afd3?auto=format&fit=crop&w=300&q=80',
-  'belts & wallets': 'https://images.unsplash.com/photo-1553062407-98eeb64c6a62?auto=format&fit=crop&w=300&q=80',
-  'caps & hats': 'https://images.unsplash.com/photo-1553062407-98eeb64c6a62?auto=format&fit=crop&w=300&q=80',
+  sneakers: `${S3_BASE}/services/service_shoe_clean.jpg`,
+  'formal shoes': `${S3_BASE}/services/service_shoe_clean.jpg`,
+  'leather & suede': `${S3_BASE}/services/service_shoe_clean.jpg`,
+  'sports shoes': `${S3_BASE}/services/service_shoe_clean.jpg`,
+  backpacks: `${S3_BASE}/garments/cloth-bag-backpack.jpg`,
+  handbags: `${S3_BASE}/garments/cloth-bag-luxury.jpg`,
+  'belts & wallets': `${S3_BASE}/garments/cloth-bag-luxury.jpg`,
+  'caps & hats': `${S3_BASE}/garments/cloth-tshirt.jpg`,
+  'luggage & travel': `${S3_BASE}/garments/cloth-trolley-cabin.jpg`,
+  'luggage & trolley': `${S3_BASE}/garments/cloth-trolley-cabin.jpg`,
+  'riding helmets': `${S3_BASE}/garments/cloth-helmet.jpg`,
+  helmets: `${S3_BASE}/garments/cloth-helmet.jpg`,
 
   // Bulk
-  'daily wash & fold': 'https://images.unsplash.com/photo-1582735689369-4fe89db7114c?auto=format&fit=crop&w=300&q=80',
-  'bed linen bulk': 'https://images.unsplash.com/photo-1584100936595-c0654b55a2e2?auto=format&fit=crop&w=300&q=80',
-  'express kg wash': 'https://images.unsplash.com/photo-1582735689369-4fe89db7114c?auto=format&fit=crop&w=300&q=80',
+  'daily wash & fold': `${S3_BASE}/services/service_wash_fold.jpg`,
+  'bed linen bulk': `${S3_BASE}/garments/cloth-bedsheet-king.jpg`,
+  'express kg wash': `${S3_BASE}/services/delivery_van_driver.jpg`,
 };
 
 export function getCategoryImageUrl(tag: string, customUrl?: string): string {
   if (customUrl && typeof customUrl === 'string' && customUrl.trim().startsWith('http')) {
-    if (!customUrl.includes('1788334884393') && !customUrl.includes('1788337350676') && !customUrl.includes('.svg')) {
+    if (!customUrl.includes('1788334884393') && !customUrl.includes('1788337350676') && !customUrl.includes('.svg') && !customUrl.includes('unsplash.com')) {
       return customUrl.trim();
     }
   }
@@ -158,19 +179,75 @@ export function getCategoryImageUrl(tag: string, customUrl?: string): string {
 }
 
 export function getSubcategoryImageUrl(subName: string, categoryTag?: string, customUrl?: string): string {
+  const normTag = (categoryTag || '').toUpperCase().trim().replace(/_/g, '-');
+  const isMens = ['MENS', 'MEN', 'MENS-WEAR'].includes(normTag);
+  const isWomens = ['WOMENS', 'WOMEN', 'WOMENS-WEAR'].includes(normTag);
+  const key = (subName || 'all').toLowerCase().trim();
+
+  // If customUrl is provided and is a valid S3 / HTTP URL (excluding unsplash stock & 403 accessories.jpg), use it immediately
   if (customUrl && typeof customUrl === 'string' && customUrl.trim().startsWith('http')) {
-    if (!customUrl.includes('1788334884393') && !customUrl.includes('1788337350676') && !customUrl.includes('.svg')) {
+    const isFemaleStock = isMens && (customUrl.includes('cloth-saree') || customUrl.includes('cloth-kurti') || customUrl.includes('cloth-lehenga'));
+    const isCorruptUrl = customUrl.includes('1788334884393') || customUrl.includes('1788337350676') || customUrl.includes('.svg') || customUrl.includes('unsplash.com') || customUrl.includes('accessories.jpg');
+    if (!isFemaleStock && !isCorruptUrl) {
       return customUrl.trim();
     }
   }
-  const key = (subName || 'all').toLowerCase().trim();
-  
-  if (SUBCATEGORY_DEFAULT_PHOTOS[key]) {
-    return SUBCATEGORY_DEFAULT_PHOTOS[key];
+
+  // Tag-scoped explicit match first
+  if (isMens) {
+    if (key.includes('ethnic') || key.includes('kurta') || key.includes('sherwani') || key.includes('dhoti') || key.includes('mundu') || key.includes('lungi')) {
+      return `${S3_BASE}/garments/cloth-sherwani.jpg`;
+    }
+    if (key.includes('suit') || key.includes('blazer') || key.includes('coat') || key.includes('tuxedo')) {
+      return `${S3_BASE}/garments/cloth-blazer.jpg`;
+    }
+    if (key.includes('jacket')) {
+      return `${S3_BASE}/garments/cloth-jacket.jpg`;
+    }
+    if (key.includes('winter') || key.includes('sweater')) {
+      return `${S3_BASE}/garments/cloth-sweater-m.jpg`;
+    }
+    const mensPhoto = SUBCATEGORY_DEFAULT_PHOTOS[`mens:${key}`];
+    if (mensPhoto) {
+      return mensPhoto;
+    }
+  } else if (isWomens) {
+    if (key.includes('suit') || key.includes('kurti') || key.includes('salwar') || key.includes('sharara') || key.includes('churidar') || key.includes('ethnic') || key.includes('traditional')) {
+      return `${S3_BASE}/garments/cloth-salwar.jpg`;
+    }
+    if (key.includes('saree')) {
+      return `${S3_BASE}/garments/cloth-saree-silk.jpg`;
+    }
+    if (key.includes('lehenga')) {
+      return `${S3_BASE}/garments/cloth-lehenga.jpg`;
+    }
+    if (key.includes('gown') || key.includes('dress')) {
+      return `${S3_BASE}/garments/cloth-gown.jpg`;
+    }
+    if (key.includes('jacket') || key.includes('coat') || key.includes('shrug')) {
+      return `${S3_BASE}/garments/cloth-jacket.jpg`;
+    }
+    if (key.includes('winter') || key.includes('shawl') || key.includes('sweater') || key.includes('pashmina')) {
+      return `${S3_BASE}/garments/cloth-shawl.jpg`;
+    }
+    const womensPhoto = SUBCATEGORY_DEFAULT_PHOTOS[`womens:${key}`];
+    if (womensPhoto) {
+      return womensPhoto;
+    }
+  }
+
+  const defaultPhoto = SUBCATEGORY_DEFAULT_PHOTOS[key];
+  if (defaultPhoto) {
+    return defaultPhoto;
   }
 
   // Check matching substrings
   for (const [subKey, url] of Object.entries(SUBCATEGORY_DEFAULT_PHOTOS)) {
+    if (subKey.includes(':')) continue;
+    // Strict Guard: never match men's business suit photos for women's subcategories
+    if (isWomens && (subKey === 'suits' || subKey === 'blazers' || subKey === 'suits & blazers')) {
+      continue;
+    }
     if (key.includes(subKey) || subKey.includes(key)) {
       return url;
     }

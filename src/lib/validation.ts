@@ -14,6 +14,39 @@ const BLOCKED_EMAIL_EXTENSIONS = new Set([
   'tmp', 'temp', 'old', 'swp', 'md', 'markdown', 'lock',
 ]);
 
+// Well-known consumer email providers with their legitimate domain extensions
+const COMMON_EMAIL_PROVIDERS: Record<string, string[]> = {
+  gmail: ['com'],
+  icloud: ['com'],
+  rediffmail: ['com'],
+  aol: ['com'],
+  yahoo: ['com', 'in', 'co.in', 'co.uk', 'ca', 'fr', 'de', 'com.au'],
+  outlook: ['com', 'in', 'co', 'co.uk', 'com.au'],
+  hotmail: ['com', 'co.uk', 'fr', 'de', 'es', 'it'],
+  zoho: ['com', 'in'],
+  proton: ['me', 'com'],
+  protonmail: ['com', 'ch'],
+};
+
+// Recognized generic and country-code top-level domains (IANA verified)
+const KNOWN_TLDS = new Set([
+  // Core generic TLDs
+  'com', 'org', 'net', 'edu', 'gov', 'mil', 'int', 'info', 'biz', 'name', 'pro',
+  // Modern popular gTLDs
+  'app', 'dev', 'tech', 'io', 'ai', 'co', 'me', 'online', 'store', 'site', 'club',
+  'shop', 'xyz', 'care', 'live', 'work', 'today', 'agency', 'global', 'cloud',
+  'digital', 'world', 'space', 'group', 'design', 'media', 'life', 'solutions',
+  'company', 'center', 'team', 'network', 'systems', 'services', 'expert', 'academy',
+  'studio', 'email', 'link', 'click', 'news', 'one', 'city', 'zone', 'clothing',
+  'cleaning', 'laundry', 'top', 'vip', 'fit', 'tv', 'cc', 'to', 'is', 'ch',
+  // Country code TLDs (ccTLDs)
+  'in', 'us', 'uk', 'ca', 'au', 'de', 'fr', 'jp', 'cn', 'sg', 'ae', 'sa', 'eu',
+  'nl', 'es', 'it', 'ru', 'br', 'za', 'nz', 'se', 'no', 'fi', 'dk', 'be', 'at',
+  'ie', 'pl', 'pt', 'gr', 'cz', 'ro', 'hu', 'kr', 'hk', 'tw', 'my', 'id', 'th',
+  'vn', 'ph', 'pk', 'bd', 'lk', 'np', 'mx', 'ar', 'cl', 'pe', 'tr', 'eg', 'ng',
+  'ke', 'il', 'ua', 'by', 'kz', 'uz', 'qa', 'kw', 'om', 'bh', 'lu', 'mt', 'cy'
+]);
+
 export interface EmailValidationResult {
   isValid: boolean;
   error?: string;
@@ -21,7 +54,7 @@ export interface EmailValidationResult {
 
 /**
  * Validates whether an email string is well-formed, contains a real domain,
- * and does not use file extensions like .yml, .yaml, .xml, etc.
+ * has a valid recognized TLD, and is not a corrupted/typo address.
  */
 export function validateEmail(email: string): EmailValidationResult {
   const trimmed = email.trim();
@@ -85,25 +118,57 @@ export function validateEmail(email: string): EmailValidationResult {
     }
   }
 
+  const provider = (domainLabels[0] || '').toLowerCase();
   const rawTld = domainLabels[domainLabels.length - 1];
   if (!rawTld) {
     return { isValid: false, error: 'Email domain extension is missing.' };
   }
   const tld = rawTld.toLowerCase();
+  const fullExt = domainLabels.slice(1).join('.').toLowerCase();
 
-  // TLD must only be alphabetic characters
-  if (!/^[a-zA-Z]{2,24}$/.test(tld)) {
-    return {
-      isValid: false,
-      error: `Invalid domain extension ".${tld}". Top-level domain must contain only letters.`,
-    };
+  // 1. Check known email providers (e.g. gmail must end in .com, not .ghkljksd)
+  if (COMMON_EMAIL_PROVIDERS[provider]) {
+    const validExtensions = COMMON_EMAIL_PROVIDERS[provider];
+    const matchesFull = validExtensions.includes(fullExt);
+    const matchesTld = validExtensions.includes(tld);
+    if (!matchesFull && !matchesTld) {
+      const preferred = validExtensions[0];
+      return {
+        isValid: false,
+        error: `Invalid domain extension for ${provider}. Did you mean @${provider}.${preferred}?`,
+      };
+    }
   }
 
-  // Reject file extensions and disallowed extensions
+  // 2. Reject file extensions and disallowed extensions
   if (BLOCKED_EMAIL_EXTENSIONS.has(tld)) {
     return {
       isValid: false,
       error: `".${tld}" is a file extension, not a valid email domain. Please use a valid email (e.g. name@gmail.com).`,
+    };
+  }
+
+  // 3. TLD must only be alphabetic characters and between 2 and 12 chars
+  if (!/^[a-zA-Z]{2,12}$/.test(tld)) {
+    return {
+      isValid: false,
+      error: `Invalid domain extension ".${tld}". Top-level domain must be 2-12 letters.`,
+    };
+  }
+
+  // 4. Real TLDs must contain at least one vowel (rejects consonant spam like "ghkljksd")
+  if (!/[aeiouy]/.test(tld)) {
+    return {
+      isValid: false,
+      error: `Invalid domain extension ".${tld}". Please enter a valid email address (e.g. name@gmail.com).`,
+    };
+  }
+
+  // 5. Check against recognized TLD database
+  if (!KNOWN_TLDS.has(tld)) {
+    return {
+      isValid: false,
+      error: `Unrecognized domain extension ".${tld}". Please enter a valid email address (e.g. name@gmail.com).`,
     };
   }
 

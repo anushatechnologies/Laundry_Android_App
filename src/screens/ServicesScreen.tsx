@@ -16,7 +16,7 @@ import { useApp } from '@/context/AppContext';
 import { useTheme } from '@/context/ThemeContext';
 import { money } from '@/ui/theme';
 import { getGarmentImageUrl } from '@/lib/garment-photos';
-import { CATEGORY_DEFAULT_PHOTOS } from '@/lib/category-photos';
+import { CATEGORY_DEFAULT_PHOTOS, getCategoryImageUrl } from '@/lib/category-photos';
 import type { ClothType, ServicePriceItem } from '@/types/domain';
 
 interface ServicesScreenProps {
@@ -54,7 +54,7 @@ interface DynamicProduct {
   imageUrl: string;
 }
 
-const CATEGORY_METAS: Record<string, {
+const CATEGORY_META: Record<string, {
   name: string;
   shortName: string;
   icon: string;
@@ -70,7 +70,7 @@ const CATEGORY_METAS: Record<string, {
     iconBg: '#EFF6FF',
     iconColor: '#2563EB',
     tagline: 'Formal Shirts, Suits, Trousers & Kurtas',
-    bannerImage: 'https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/garments/cloth-shirt.jpg',
+    bannerImage: 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/garments/cloth-shirt.jpg',
   },
   'WOMENS': {
     name: "Women's Designer Wear",
@@ -79,7 +79,7 @@ const CATEGORY_METAS: Record<string, {
     iconBg: '#FFF1F2',
     iconColor: '#DB2777',
     tagline: 'Silk Sarees, Kurtis, Dresses & Tops',
-    bannerImage: 'https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/garments/cloth-saree-silk.jpg',
+    bannerImage: 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/garments/cloth-saree-silk.jpg',
   },
   'KIDS': {
     name: 'Kids & Infants Care',
@@ -88,7 +88,7 @@ const CATEGORY_METAS: Record<string, {
     iconBg: '#F5F3FF',
     iconColor: '#7C3AED',
     tagline: 'Gentle Hypoallergenic Sanitized Wash',
-    bannerImage: 'https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/garments/cloth-baby_toy.jpg',
+    bannerImage: 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/categories/cat-school-uniforms.jpg',
   },
   'HOME_TEXTILES': {
     name: 'Home, Living & Linen',
@@ -97,7 +97,7 @@ const CATEGORY_METAS: Record<string, {
     iconBg: '#F0FDF4',
     iconColor: '#16A34A',
     tagline: 'Blankets, Quilts, Bedsheets & Curtains',
-    bannerImage: 'https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/garments/cloth-bedsheet-s.jpg',
+    bannerImage: 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/garments/cloth-bedsheet-king.jpg',
   },
   'FOOTWEAR': {
     name: 'Shoe & Sneaker Spa',
@@ -106,7 +106,7 @@ const CATEGORY_METAS: Record<string, {
     iconBg: '#ECFDF5',
     iconColor: '#059669',
     tagline: 'Sneakers, Formal & Suede Shoes',
-    bannerImage: 'https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/garments/cloth-shoes-sneaker.jpg',
+    bannerImage: 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/services/service_shoe_clean.jpg',
   },
   'ACCESSORIES': {
     name: 'Bags & Accessories',
@@ -115,7 +115,7 @@ const CATEGORY_METAS: Record<string, {
     iconBg: '#FDF2F8',
     iconColor: '#E11D48',
     tagline: 'Backpacks, Handbags & Leather Goods',
-    bannerImage: 'https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/garments/cloth-handbag.jpg',
+    bannerImage: 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/categories/accessories.jpg',
   },
   'BULK': {
     name: 'Daily Wash & Steam Press (KG)',
@@ -124,7 +124,7 @@ const CATEGORY_METAS: Record<string, {
     iconBg: '#F0FDF4',
     iconColor: '#16A34A',
     tagline: 'Bulk Everyday Laundry by Weight',
-    bannerImage: 'https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/banners/banner-bulk.jpg',
+    bannerImage: 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/banners/banner-bulk.jpg',
   },
 };
 
@@ -279,8 +279,8 @@ export function ServicesScreen({ onBook, onOpenBulkLaundry }: ServicesScreenProp
     });
 
     const categoryBuckets: Record<string, { meta: any; items: DynamicProduct[] }> = {};
-    Object.entries(CATEGORY_METAS).forEach(([k, v]) => {
-      categoryBuckets[k] = { meta: { id: k, ...v }, items: [] };
+    Object.entries(CATEGORY_META).forEach(([k, v]) => {
+      categoryBuckets[k] = { meta: { id: k, ...(v as object) }, items: [] };
     });
 
     const allProducts: DynamicProduct[] = [];
@@ -303,7 +303,7 @@ export function ServicesScreen({ onBook, onOpenBulkLaundry }: ServicesScreenProp
       if (rawTag === 'SHOES') rawTag = 'FOOTWEAR';
       if (rawTag === 'BAGS') rawTag = 'ACCESSORIES';
 
-      let targetCatKey = CATEGORY_METAS[rawTag] ? rawTag : 'MENS';
+      let targetCatKey = CATEGORY_META[rawTag] ? rawTag : 'MENS';
       let subCat = cloth.name;
 
       const productItem: DynamicProduct = {
@@ -344,7 +344,7 @@ export function ServicesScreen({ onBook, onOpenBulkLaundry }: ServicesScreenProp
         tat: `${(pkg as any).turnaroundHours || 24}H Express`,
         price: pkg.baseKgPrice || 49,
         unit: 'KG',
-        imageUrl: 'https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/banners/banner-4.jpg',
+        imageUrl: 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/banners/banner-bulk.jpg',
       };
       allProducts.push(productItem);
       if (categoryBuckets['BULK']) { categoryBuckets['BULK']!.items.push(productItem); }
@@ -383,7 +383,7 @@ export function ServicesScreen({ onBook, onOpenBulkLaundry }: ServicesScreenProp
           iconBg: meta.iconBg || '#EFF6FF',
           iconColor: meta.iconColor || '#2563EB',
           tagline: meta.tagline || 'Executive Care',
-          bannerImage: dynamicImage || 'https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/categories/mens-wear.jpg',
+          bannerImage: dynamicImage || 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/categories/mens-wear.jpg',
           startPrice: minPrice,
           itemCount: bucket.items.length,
           items: bucket.items,
@@ -404,7 +404,7 @@ export function ServicesScreen({ onBook, onOpenBulkLaundry }: ServicesScreenProp
       iconBg: '#EFF6FF',
       iconColor: '#2563EB',
       tagline: 'Executive Care',
-      bannerImage: 'https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/banners/banner-1.jpg',
+      bannerImage: 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/banners/banner-bulk.jpg',
       startPrice: 99,
       itemCount: 0,
       items: [],
@@ -573,7 +573,7 @@ export function ServicesScreen({ onBook, onOpenBulkLaundry }: ServicesScreenProp
                   <Image
                     source={{
                       uri: imgErrors[cat.id]
-                        ? (CATEGORY_DEFAULT_PHOTOS[cat.id] || 'https://images.unsplash.com/photo-1507679799987-c73779587ccf?auto=format&fit=crop&w=400&q=80')
+                        ? getCategoryImageUrl(cat.id)
                         : cat.bannerImage
                     }}
                     style={styles.circleAvatarImg}
@@ -603,7 +603,7 @@ export function ServicesScreen({ onBook, onOpenBulkLaundry }: ServicesScreenProp
                   <Image
                     source={{
                       uri: imgErrors[cat.id]
-                        ? (CATEGORY_DEFAULT_PHOTOS[cat.id] || 'https://images.unsplash.com/photo-1507679799987-c73779587ccf?auto=format&fit=crop&w=400&q=80')
+                        ? getCategoryImageUrl(cat.id)
                         : cat.bannerImage
                     }}
                     style={styles.circleAvatarImg}

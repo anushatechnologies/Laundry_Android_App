@@ -89,7 +89,7 @@ export function BannerCarousel({ banners, onSelectBanner }: BannerCarouselProps)
           }, 100);
         }}
         renderItem={({ item }) => {
-          const fallbackUri = 'https://images.unsplash.com/photo-1545173168-9f1947eebb7f?auto=format&fit=crop&w=1200&q=80';
+          const fallbackUri = 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/banners/banner-bulk.jpg';
           const hasError = imageErrors[item.id];
           const imageUri = (!hasError && item.imageUrl)
             ? item.imageUrl

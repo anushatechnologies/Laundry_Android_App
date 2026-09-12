@@ -1,5 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useColorScheme } from 'react-native';
+import { Appearance, useColorScheme } from 'react-native';
 import React, { createContext, useContext, useEffect, useMemo, useState, type PropsWithChildren } from 'react';
 import { createAppTheme, type ThemePalette } from '@/ui/theme';
 
@@ -17,8 +17,27 @@ const THEME_MODE_STORAGE_KEY = '@laundryfresh/theme-mode';
 const ThemeContext = createContext<ThemeContextValue | null>(null);
 
 export function ThemeProvider({ children }: PropsWithChildren) {
-  const systemScheme = useColorScheme();
+  const hookScheme = useColorScheme();
+  const [systemScheme, setSystemScheme] = useState<'light' | 'dark'>(() => {
+    const direct = Appearance.getColorScheme();
+    return direct === 'dark' || hookScheme === 'dark' ? 'dark' : 'light';
+  });
   const [mode, setModeState] = useState<ThemeMode>('system');
+
+  useEffect(() => {
+    const listener = Appearance.addChangeListener(({ colorScheme }) => {
+      if (colorScheme === 'dark' || colorScheme === 'light') {
+        setSystemScheme(colorScheme);
+      }
+    });
+    return () => listener.remove();
+  }, []);
+
+  useEffect(() => {
+    if (hookScheme === 'dark' || hookScheme === 'light') {
+      setSystemScheme(hookScheme);
+    }
+  }, [hookScheme]);
 
   useEffect(() => {
     AsyncStorage.getItem(THEME_MODE_STORAGE_KEY)
@@ -31,7 +50,7 @@ export function ThemeProvider({ children }: PropsWithChildren) {
   }, []);
 
   const resolvedMode = mode === 'system'
-    ? systemScheme === 'dark' ? 'dark' : 'light'
+    ? (systemScheme === 'dark' ? 'dark' : 'light')
     : mode;
 
   const value = useMemo<ThemeContextValue>(() => ({

@@ -293,18 +293,44 @@ export function statusTone(status: OrderStatus | string | undefined, palette: Th
   return { backgroundColor: palette.warningSoft, color: palette.warning, borderColor: palette.borderDark };
 }
 
+/**
+ * Safely parses API / database timestamps.
+ * Backend timestamps generated via `new Date().toISOString().replace('T', ' ').substring(0, 16)`
+ * are UTC representations lacking the 'Z' timezone marker.
+ * We normalize these to valid UTC ISO strings so they are accurately converted to local time (IST).
+ */
+export function parseAppDate(value: string | undefined): Date | null {
+  if (!value) return null;
+  let str = String(value).trim();
+  if (!str) return null;
+
+  // Handles "YYYY-MM-DD HH:mm", "YYYY-MM-DD HH:mm:ss", "YYYY-MM-DDTHH:mm:ss" without offset/Z
+  if (/^\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}(:\d{2})?$/.test(str)) {
+    str = str.replace(' ', 'T') + 'Z';
+  }
+
+  const date = new Date(str);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
 export function shortDate(value: string | undefined) {
   if (!value) return 'Flexible';
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
-  return date.toLocaleDateString('en-IN', { month: 'short', day: 'numeric', weekday: 'short' });
+  const date = parseAppDate(value);
+  if (!date) return value;
+  return date.toLocaleDateString('en-IN', {
+    timeZone: 'Asia/Kolkata',
+    month: 'short',
+    day: 'numeric',
+    weekday: 'short',
+  });
 }
 
 export function dateTime(value: string | undefined) {
   if (!value) return '';
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
+  const date = parseAppDate(value);
+  if (!date) return value;
   return date.toLocaleString('en-IN', {
+    timeZone: 'Asia/Kolkata',
     month: 'short',
     day: 'numeric',
     hour: 'numeric',

@@ -92,9 +92,11 @@ const ORDER_MILESTONES = [
 ];
 
 function milestoneIndexForStatus(status: string): number {
+  const norm = String(status || '').toUpperCase();
+  if (norm === 'CANCELLED') return -1;
   for (let i = ORDER_MILESTONES.length - 1; i >= 0; i--) {
     const milestone = ORDER_MILESTONES[i];
-    if (milestone && milestone.statuses.includes(status)) return i;
+    if (milestone && milestone.statuses.includes(norm)) return i;
   }
   return 0;
 }
@@ -151,7 +153,12 @@ export function OrderDetailScreen({
     };
   }, [orderId, orders, trackOrder]);
 
-  const currentMilestoneIdx = order ? milestoneIndexForStatus(order.currentStatus) : 0;
+  const isOrderCancelled =
+    String(order?.currentStatus || '').toUpperCase() === 'CANCELLED' ||
+    String((order as any)?.status || '').toUpperCase() === 'CANCELLED' ||
+    String(order?.paymentStatus || '').toUpperCase() === 'CANCELLED' ||
+    String(tracking?.currentStatus || '').toUpperCase() === 'CANCELLED';
+  const currentMilestoneIdx = order && !isOrderCancelled ? milestoneIndexForStatus(order.currentStatus) : -1;
   const isDelivered = order ? ['DELIVERED', 'COMPLETED'].includes(order.currentStatus) : false;
 
   const handleReorder = () => {
@@ -242,10 +249,10 @@ export function OrderDetailScreen({
             </View>
             <View style={styles.headerInvoiceTextCol}>
               <Text style={[styles.headerInvoiceTitle, isDark && styles.headerInvoiceTitleDark]} numberOfLines={1}>
-                Tax Invoice (GST PDF)
+                {order.taxAmount > 0 ? 'Tax Invoice (GST PDF)' : 'Order Receipt (PDF)'}
               </Text>
               <Text style={[styles.headerInvoiceSub, isDark && styles.headerInvoiceSubDark]} numberOfLines={1}>
-                Official itemized receipt
+                {order.taxAmount > 0 ? 'Official itemized tax receipt' : 'Official itemized receipt'}
               </Text>
             </View>
           </Pressable>
@@ -284,75 +291,89 @@ export function OrderDetailScreen({
         </View>
       </Card>
 
-      {/* 2. 5-STAGE MILESTONE TRACKER */}
-      <Card style={[styles.milestoneCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-        <Text style={[styles.cardSectionTitle, { color: colors.textHeading }]}>Live Order Milestones</Text>
+      {/* 2. 5-STAGE MILESTONE TRACKER — replaced with cancellation notice for cancelled orders */}
+      {isOrderCancelled ? (
+        <Card style={[styles.milestoneCard, { backgroundColor: colors.surface, borderColor: '#FECACA' }]}>
+          <View style={{ alignItems: 'center', paddingVertical: 12, gap: 8 }}>
+            <View style={{ width: 52, height: 52, borderRadius: 26, backgroundColor: '#FEF2F2', alignItems: 'center', justifyContent: 'center' }}>
+              <MaterialCommunityIcons name="close-circle-outline" size={30} color="#DC2626" />
+            </View>
+            <Text style={{ fontSize: 16, fontWeight: '900', color: '#DC2626' }}>Order Cancelled</Text>
+            <Text style={{ fontSize: 12, color: colors.textCaption, textAlign: 'center', lineHeight: 17, paddingHorizontal: 16 }}>
+              This order was cancelled. Any paid amount has been refunded to your LaundryFresh Wallet.
+            </Text>
+          </View>
+        </Card>
+      ) : (
+        <Card style={[styles.milestoneCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+          <Text style={[styles.cardSectionTitle, { color: colors.textHeading }]}>Live Order Milestones</Text>
 
-        <View style={styles.timelineList}>
-          {ORDER_MILESTONES.map((milestone, idx) => {
-            const isPast = idx < currentMilestoneIdx;
-            const isCurrent = idx === currentMilestoneIdx;
-            const isUpcoming = idx > currentMilestoneIdx;
+          <View style={styles.timelineList}>
+            {ORDER_MILESTONES.map((milestone, idx) => {
+              const isPast = idx < currentMilestoneIdx;
+              const isCurrent = idx === currentMilestoneIdx;
+              const isUpcoming = idx > currentMilestoneIdx;
 
-            return (
-              <View key={milestone.key} style={styles.milestoneRow}>
-                {/* Node & Connector */}
-                <View style={styles.nodeCol}>
-                  <View
-                    style={[
-                      styles.nodeDot,
-                      isPast && styles.nodeDotDone,
-                      isCurrent && styles.nodeDotCurrent,
-                      isUpcoming && (isDark ? { backgroundColor: colors.border } : styles.nodeDotPending),
-                    ]}
-                  >
-                    <MaterialCommunityIcons
-                      name={milestone.icon as any}
-                      size={15}
-                      color={isUpcoming ? '#9CA3AF' : '#FFFFFF'}
-                    />
-                  </View>
-
-                  {idx < ORDER_MILESTONES.length - 1 && (
+              return (
+                <View key={milestone.key} style={styles.milestoneRow}>
+                  {/* Node & Connector */}
+                  <View style={styles.nodeCol}>
                     <View
                       style={[
-                        styles.nodeLine,
-                        isDark && { backgroundColor: colors.border },
-                        idx < currentMilestoneIdx && styles.nodeLineActive,
+                        styles.nodeDot,
+                        isPast && styles.nodeDotDone,
+                        isCurrent && styles.nodeDotCurrent,
+                        isUpcoming && (isDark ? { backgroundColor: colors.border } : styles.nodeDotPending),
                       ]}
-                    />
-                  )}
-                </View>
-
-                {/* Details */}
-                <View style={styles.milestoneDetails}>
-                  <Text
-                    style={[
-                      styles.milestoneTitle,
-                      { color: isUpcoming ? colors.textCaption : colors.textHeading },
-                      isCurrent && styles.milestoneTitleCurrent,
-                      isUpcoming && styles.milestoneTitlePending,
-                    ]}
-                  >
-                    {milestone.label}
-                  </Text>
-                  <Text style={[styles.milestoneSubtitle, { color: colors.textCaption }]}>{milestone.subtitle}</Text>
-
-                  {isCurrent ? (
-                    <View style={styles.livePulse}>
-                      <View style={styles.livePulseDot} />
-                      <Text style={styles.livePulseText}>In Progress Right Now</Text>
+                    >
+                      <MaterialCommunityIcons
+                        name={milestone.icon as any}
+                        size={15}
+                        color={isUpcoming ? '#9CA3AF' : '#FFFFFF'}
+                      />
                     </View>
-                  ) : null}
-                </View>
-              </View>
-            );
-          })}
-        </View>
-      </Card>
 
-      {/* 3. ASSIGNED RIDER & SUPPORT CARD */}
-      {(() => {
+                    {idx < ORDER_MILESTONES.length - 1 && (
+                      <View
+                        style={[
+                          styles.nodeLine,
+                          isDark && { backgroundColor: colors.border },
+                          idx < currentMilestoneIdx && styles.nodeLineActive,
+                        ]}
+                      />
+                    )}
+                  </View>
+
+                  {/* Details */}
+                  <View style={styles.milestoneDetails}>
+                    <Text
+                      style={[
+                        styles.milestoneTitle,
+                        { color: isUpcoming ? colors.textCaption : colors.textHeading },
+                        isCurrent && styles.milestoneTitleCurrent,
+                        isUpcoming && styles.milestoneTitlePending,
+                      ]}
+                    >
+                      {milestone.label}
+                    </Text>
+                    <Text style={[styles.milestoneSubtitle, { color: colors.textCaption }]}>{milestone.subtitle}</Text>
+
+                    {isCurrent ? (
+                      <View style={styles.livePulse}>
+                        <View style={styles.livePulseDot} />
+                        <Text style={styles.livePulseText}>In Progress Right Now</Text>
+                      </View>
+                    ) : null}
+                  </View>
+                </View>
+              );
+            })}
+          </View>
+        </Card>
+      )}
+
+      {/* 3. ASSIGNED RIDER & SUPPORT CARD (Only if not cancelled) */}
+      {!isOrderCancelled && (() => {
         const assignedDriver = (order as any).assignedDeliveryAgent || (order as any).assignedPickupAgent || tracking?.assignedDeliveryAgent || tracking?.assignedPickupAgent;
         const isDelivery = ['DELIVERY_ASSIGNED', 'OUT_FOR_DELIVERY', 'DELIVERED', 'COMPLETED'].includes(order.currentStatus);
         const hasAssignedDriver = Boolean(assignedDriver && assignedDriver.name);
@@ -536,20 +557,20 @@ export function OrderDetailScreen({
           </View>
         )}
 
-        <View style={styles.billLine}>
-          <Text style={[styles.billLabel, { color: colors.textCaption }]}>
-            {order.taxAmount > 0 ? 'GST (5%)' : 'GST (Waived)'}
-          </Text>
-          <Text style={[styles.billVal, { color: colors.textHeading }, order.taxAmount === 0 && { color: '#16A34A' }]}>
-            {order.taxAmount > 0 ? money(order.taxAmount) : '₹0'}
-          </Text>
-        </View>
+        {order.taxAmount > 0 ? (
+          <View style={styles.billLine}>
+            <Text style={[styles.billLabel, { color: colors.textCaption }]}>GST / Taxes</Text>
+            <Text style={[styles.billVal, { color: colors.textHeading }]}>{money(order.taxAmount)}</Text>
+          </View>
+        ) : null}
 
         <View style={[styles.divider, { backgroundColor: colors.border }]} />
 
         <View style={styles.billFinalRow}>
           <View>
-            <Text style={[styles.billFinalLabel, { color: colors.textHeading }]}>Total Amount (Paid)</Text>
+            <Text style={[styles.billFinalLabel, { color: colors.textHeading }]}>
+              {order.taxAmount > 0 ? 'Total Amount (Paid, Inc. GST)' : 'Total Amount (Paid)'}
+            </Text>
             <Text style={[styles.billPaymentMethod, { color: colors.textCaption }]}>
               Paid via {order.paymentMethod === 'COD' ? 'Cash on Delivery' : 'Online Razorpay'}
             </Text>
@@ -570,10 +591,10 @@ export function OrderDetailScreen({
             </View>
             <View style={styles.billInvoiceTextWrap}>
               <Text style={[styles.billInvoiceTitle, isDark && styles.billInvoiceTitleDark]}>
-                Tax Invoice (GST PDF)
+                {order.taxAmount > 0 ? 'Tax Invoice (GST PDF)' : 'Order Receipt (PDF)'}
               </Text>
               <Text style={[styles.billInvoiceSubtitle, isDark && styles.billInvoiceSubtitleDark]}>
-                Itemized official invoice & payment receipt
+                {order.taxAmount > 0 ? 'Itemized official tax invoice & payment receipt' : 'Itemized official invoice & payment receipt'}
               </Text>
             </View>
           </Pressable>

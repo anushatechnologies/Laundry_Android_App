@@ -4,7 +4,7 @@
  */
 
 const S3_GARMENTS = 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/garments';
-const FALLBACK_PHOTO = `${S3_GARMENTS}/cloth-shirt.jpg`;
+export const FALLBACK_PHOTO = `${S3_GARMENTS}/cloth-shirt.jpg`;
 
 const GARMENT_PHOTO_MAP: Record<string, string> = {
   // Shirts & Tops
@@ -65,6 +65,10 @@ const GARMENT_PHOTO_MAP: Record<string, string> = {
   'cloth-indo-western': `${S3_GARMENTS}/cloth-sherwani.jpg`,
   'cloth-nehru': `${S3_GARMENTS}/cloth-nehru.jpg`,
   'cloth-dhoti': `${S3_GARMENTS}/cloth-dhoti.jpg`,
+  'dhoti': `${S3_GARMENTS}/cloth-dhoti.jpg`,
+  'lungi': `${S3_GARMENTS}/cloth-dhoti.jpg`,
+  'mundu': `${S3_GARMENTS}/cloth-dhoti.jpg`,
+  'cloth-kids-ethnic': `${S3_GARMENTS}/cloth-kids-ethnic.jpg`,
   'cloth-tracksuit': `${S3_GARMENTS}/cloth-tracksuit-m.jpg`,
   
   // Sarees & Blouses
@@ -148,7 +152,12 @@ const GARMENT_PHOTO_MAP: Record<string, string> = {
 export function getGarmentImageUrl(clothId: string, customUrl?: string, categoryTag?: string, clothName?: string): string {
   // 1. If explicit working URL (not 404 S3 bucket or invalid svg)
   if (customUrl && typeof customUrl === 'string' && customUrl.trim().startsWith('http')) {
-    if (!customUrl.includes('1788334884393') && !customUrl.includes('1788337350676') && !customUrl.includes('.svg')) {
+    if (
+      !customUrl.includes('1788334884393') &&
+      !customUrl.includes('1788337350676') &&
+      !customUrl.includes('.svg') &&
+      !customUrl.includes('accessories.jpg')
+    ) {
       return customUrl.trim();
     }
   }
@@ -173,6 +182,20 @@ export function getGarmentImageUrl(clothId: string, customUrl?: string, category
 
   if (cleanId.startsWith('bulk') || searchStr.includes('bulk') || searchStr.includes('kg') || cleanCategory.includes('BULK')) {
     return GARMENT_PHOTO_MAP['bulk'] || FALLBACK_PHOTO;
+  }
+  if (searchStr.includes('helmet')) {
+    return GARMENT_PHOTO_MAP['cloth-helmet'] || FALLBACK_PHOTO;
+  }
+  if (searchStr.includes('shawl') || searchStr.includes('pashmina')) {
+    return GARMENT_PHOTO_MAP['cloth-shawl'] || FALLBACK_PHOTO;
+  }
+  if (searchStr.includes('handbag') || searchStr.includes('purse')) {
+    return GARMENT_PHOTO_MAP['cloth-bag-luxury'] || FALLBACK_PHOTO;
+  }
+  if (searchStr.includes('trolley') || searchStr.includes('suitcase') || searchStr.includes('luggage')) {
+    return (searchStr.includes('large') || searchStr.includes('28'))
+      ? (GARMENT_PHOTO_MAP['cloth-trolley-large'] || FALLBACK_PHOTO)
+      : (GARMENT_PHOTO_MAP['cloth-trolley-cabin'] || FALLBACK_PHOTO);
   }
   if (searchStr.includes('short') || searchStr.includes('bermuda')) {
     if (searchStr.includes('kid') || searchStr.includes('child')) {
@@ -204,7 +227,15 @@ export function getGarmentImageUrl(clothId: string, customUrl?: string, category
   if (searchStr.includes('sherwani') || searchStr.includes('indo-western') || searchStr.includes('indowestern')) {
     return GARMENT_PHOTO_MAP['cloth-sherwani'] || FALLBACK_PHOTO;
   }
+  if (searchStr.includes('dhoti') || searchStr.includes('lungi') || searchStr.includes('mundu')) {
+    return (searchStr.includes('kid') || searchStr.includes('child'))
+      ? (GARMENT_PHOTO_MAP['cloth-kids-ethnic'] || GARMENT_PHOTO_MAP['cloth-dhoti'] || FALLBACK_PHOTO)
+      : (GARMENT_PHOTO_MAP['cloth-dhoti'] || FALLBACK_PHOTO);
+  }
   if (searchStr.includes('kurta')) {
+    if (searchStr.includes('kid') || searchStr.includes('child')) {
+      return GARMENT_PHOTO_MAP['cloth-kids-ethnic'] || GARMENT_PHOTO_MAP['cloth-kurta-m'] || FALLBACK_PHOTO;
+    }
     return GARMENT_PHOTO_MAP['cloth-kurta-m'] || FALLBACK_PHOTO;
   }
   if (searchStr.includes('kurti') || searchStr.includes('tunic')) {

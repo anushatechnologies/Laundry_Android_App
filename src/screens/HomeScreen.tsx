@@ -423,13 +423,13 @@ export function HomeScreen({
     // Fallback images based on slug & serviceCode
     const slug = service.slug?.toLowerCase() || '';
     const code = (service.serviceCode || '').toUpperCase();
-    if (slug.includes('dry-clean') || code === 'DRY_CLEAN') return 'https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/services/service_dry_cleaning.jpg';
-    if (slug.includes('wash-fold') || slug.includes('wash-and-fold') || code === 'WASH_FOLD') return 'https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/services/service_wash_fold.jpg';
-    if (slug.includes('wash-iron') || slug.includes('wash-and-iron') || code === 'WASH_IRON') return 'https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/services/service_wash_iron.jpg';
-    if (slug.includes('iron') || slug.includes('press') || code === 'PRESS') return 'https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/services/service_steam_press.jpg';
-    if (slug.includes('spa') || slug.includes('shoe') || code === 'SHOE_SPA') return 'https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/services/service_shoe_clean.jpg';
-    if (slug.includes('express') || slug.includes('emergency') || code === 'EXPRESS') return 'https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/services/delivery_van_driver.jpg';
-    return 'https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/services/service_wash_iron.jpg';
+    if (slug.includes('dry-clean') || code === 'DRY_CLEAN') return 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/services/service_dry_cleaning.jpg';
+    if (slug.includes('wash-fold') || slug.includes('wash-and-fold') || code === 'WASH_FOLD') return 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/services/service_wash_fold.jpg';
+    if (slug.includes('wash-iron') || slug.includes('wash-and-iron') || code === 'WASH_IRON') return 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/services/service_wash_iron.jpg';
+    if (slug.includes('iron') || slug.includes('press') || code === 'PRESS') return 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/services/service_steam_press.jpg';
+    if (slug.includes('spa') || slug.includes('shoe') || code === 'SHOE_SPA') return 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/services/service_shoe_clean.jpg';
+    if (slug.includes('express') || slug.includes('emergency') || code === 'EXPRESS') return 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/services/delivery_van_driver.jpg';
+    return 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/services/service_wash_iron.jpg';
   };
 
   // Helper: Clean, elegant, readable category names that fit neatly in 4-column layout
@@ -473,8 +473,8 @@ export function HomeScreen({
         tatColor: '#2563EB',
         badge: 'Daily Fresh',
         accent: '#2563EB',
-        imageUrl: washFoldMaster?.imageUrl || 'https://images.unsplash.com/photo-1582735689369-4fe89db7114c?auto=format&fit=crop&w=300&q=80',
-        fallbackUrl: 'https://images.unsplash.com/photo-1582735689369-4fe89db7114c?auto=format&fit=crop&w=300&q=80',
+        imageUrl: washFoldMaster?.imageUrl || 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/services/service_wash_fold.jpg',
+        fallbackUrl: 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/services/service_wash_fold.jpg',
         priceText: washFoldMaster ? formatPricing(washFoldMaster) : 'From ₹60/kg',
         pricingType: 'PER_KG',
         serviceCode: 'WASH_FOLD',
@@ -489,8 +489,8 @@ export function HomeScreen({
         tatColor: '#7C3AED',
         badge: 'Crease-Free',
         accent: '#7C3AED',
-        imageUrl: washIronMaster?.imageUrl || 'https://images.unsplash.com/photo-1596755094514-f87e34085b2c?auto=format&fit=crop&w=300&q=80',
-        fallbackUrl: 'https://images.unsplash.com/photo-1596755094514-f87e34085b2c?auto=format&fit=crop&w=300&q=80',
+        imageUrl: washIronMaster?.imageUrl || 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/services/service_wash_iron.jpg',
+        fallbackUrl: 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/services/service_wash_iron.jpg',
         priceText: washIronMaster ? formatPricing(washIronMaster) : 'From ₹85/kg',
         pricingType: 'PER_KG',
         serviceCode: 'WASH_IRON',
@@ -505,8 +505,8 @@ export function HomeScreen({
         tatColor: '#D97706',
         badge: 'Zero Wrinkles',
         accent: '#D97706',
-        imageUrl: pressMaster?.imageUrl || 'https://images.unsplash.com/photo-1489274495757-95c7c837b101?auto=format&fit=crop&w=300&q=80',
-        fallbackUrl: 'https://images.unsplash.com/photo-1489274495757-95c7c837b101?auto=format&fit=crop&w=300&q=80',
+        imageUrl: pressMaster?.imageUrl || 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/services/service_steam_press.jpg',
+        fallbackUrl: 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/services/service_steam_press.jpg',
         priceText: pressMaster ? formatPricing(pressMaster) : 'From ₹120/kg',
         pricingType: 'PER_ITEM',
         serviceCode: 'PRESS',
@@ -521,8 +521,8 @@ export function HomeScreen({
         tatColor: '#2563EB',
         badge: 'Ozone Sanitized',
         accent: '#2563EB',
-        imageUrl: dryCleanMaster?.imageUrl || 'https://images.unsplash.com/photo-1594938298603-c8148c4dae35?auto=format&fit=crop&w=300&q=80',
-        fallbackUrl: 'https://images.unsplash.com/photo-1594938298603-c8148c4dae35?auto=format&fit=crop&w=300&q=80',
+        imageUrl: dryCleanMaster?.imageUrl || 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/services/service_dry_cleaning.jpg',
+        fallbackUrl: 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/services/service_dry_cleaning.jpg',
         priceText: dryCleanMaster ? formatPricing(dryCleanMaster) : 'From ₹35',
         pricingType: 'PER_ITEM',
         serviceCode: 'DRY_CLEAN',
@@ -736,7 +736,7 @@ export function HomeScreen({
         slug: 'mens-wear',
         tag: 'MENS',
         label: "Men's Wear",
-        imageUrl: 'https://images.unsplash.com/photo-1594938298603-c8148c4dae35?auto=format&fit=crop&w=300&q=80',
+        imageUrl: getCategoryImageUrl('MENS'),
         count: getCount('MENS', '16 Items'),
         accent: '#0F766E',
       },
@@ -745,7 +745,7 @@ export function HomeScreen({
         slug: 'womens-wear',
         tag: 'WOMENS',
         label: "Women's Wear",
-        imageUrl: 'https://images.unsplash.com/photo-1583391733956-3750e0ff4e8b?auto=format&fit=crop&w=300&q=80',
+        imageUrl: getCategoryImageUrl('WOMENS'),
         count: getCount('WOMENS', '19 Items'),
         accent: '#DB2777',
       },
@@ -754,7 +754,7 @@ export function HomeScreen({
         slug: 'kids-wear',
         tag: 'KIDS',
         label: 'Kids & Baby',
-        imageUrl: 'https://images.unsplash.com/photo-1515488042361-ee00e0ddd4e4?auto=format&fit=crop&w=300&q=80',
+        imageUrl: getCategoryImageUrl('KIDS'),
         count: getCount('KIDS', '24 Items'),
         accent: '#10B981',
       },
@@ -763,7 +763,7 @@ export function HomeScreen({
         slug: 'home-textiles',
         tag: 'HOME_TEXTILES',
         label: 'Home Linen',
-        imageUrl: 'https://images.unsplash.com/photo-1584100936595-c0654b55a2e2?auto=format&fit=crop&w=300&q=80',
+        imageUrl: getCategoryImageUrl('HOME-TEXTILES'),
         count: getCount('HOME-TEXTILES', '41 Items'),
         accent: '#0D9488',
       },
@@ -772,7 +772,7 @@ export function HomeScreen({
         slug: 'footwear',
         tag: 'FOOTWEAR',
         label: 'Footwear &\nShoes',
-        imageUrl: 'https://images.unsplash.com/photo-1549298916-b41d501d3772?auto=format&fit=crop&w=300&q=80',
+        imageUrl: getCategoryImageUrl('FOOTWEAR'),
         count: getCount('FOOTWEAR', '3 Items'),
         accent: '#0891B2',
       },
@@ -781,7 +781,7 @@ export function HomeScreen({
         slug: 'bags-accessories',
         tag: 'ACCESSORIES',
         label: 'Bags &\nAccessories',
-        imageUrl: 'https://images.unsplash.com/photo-1584917865442-de89df76afd3?auto=format&fit=crop&w=300&q=80',
+        imageUrl: getCategoryImageUrl('ACCESSORIES'),
         count: getCount('ACCESSORIES', '5 Items'),
         accent: '#7C3AED',
       },
@@ -790,7 +790,7 @@ export function HomeScreen({
         slug: 'wedding-wear',
         tag: 'WEDDING',
         label: 'Wedding &\nSilk',
-        imageUrl: 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?auto=format&fit=crop&w=300&q=80',
+        imageUrl: getCategoryImageUrl('WEDDING'),
         count: getCount('WEDDING', '6 Items'),
         accent: '#E11D48',
       },
@@ -799,7 +799,7 @@ export function HomeScreen({
         slug: 'bulk-laundry',
         tag: 'BULK',
         label: 'Bulk\nLaundry',
-        imageUrl: 'https://images.unsplash.com/photo-1582735689369-4fe89db7114c?auto=format&fit=crop&w=300&q=80',
+        imageUrl: getCategoryImageUrl('BULK'),
         count: minBulkKgPrice ? `₹${minBulkKgPrice}/KG` : '₹55/KG',
         accent: '#16A34A',
       },
@@ -844,7 +844,7 @@ export function HomeScreen({
       // Initialize Razorpay Checkout
       const options = {
         description: `${orderResponse.planName} - ${orderResponse.includedKg} KG, ${orderResponse.validityDays} Days`,
-        image: 'https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/brand/logo.png',
+        image: 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/brand/logo.png',
         currency: orderResponse.currency,
         key: orderResponse.key || orderResponse.keyId,
         amount: Math.round(orderResponse.amount * 100),

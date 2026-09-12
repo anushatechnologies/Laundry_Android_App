@@ -29,7 +29,7 @@ interface OrdersScreenProps {
   onOpenOrderDetail?: (orderId: string) => void;
 }
 
-type OrderFilter = 'ALL' | 'ACTIVE' | 'COMPLETED';
+type OrderFilter = 'ALL' | 'ACTIVE' | 'COMPLETED' | 'CANCELLED';
 
 // 5-Stage Live Laundry Milestones - each milestone maps to one or more backend statuses
 const ORDER_MILESTONES = [
@@ -67,9 +67,11 @@ const ORDER_MILESTONES = [
 
 /** Returns the milestone index the given order status maps to (0-based). */
 function milestoneIndexForStatus(status: string): number {
+  const norm = String(status || '').toUpperCase();
+  if (norm === 'CANCELLED') return -1;
   for (let i = ORDER_MILESTONES.length - 1; i >= 0; i--) {
     const milestone = ORDER_MILESTONES[i];
-    if (milestone && milestone.statuses.includes(status)) return i;
+    if (milestone && milestone.statuses.includes(norm)) return i;
   }
   return 0;
 }
@@ -93,7 +95,7 @@ export function OrdersScreen({ onBook, onSignIn, onBrowseServices, onOpenOrderDe
     if (!order) return;
     const paidAmount = (order.paymentStatus === 'PAID' ? Number(order.totalAmount || 0) : 0) + Number(order.walletDeduction || 0);
     const hasKg = Number(order.subscriptionKgUsed || 0) > 0;
-    
+
     let promptDetails = 'Are you sure you want to cancel this order?\n';
     if (paidAmount > 0) {
       promptDetails += `\n• Paid amount of ₹${paidAmount.toFixed(2)} will be refunded directly to your LaundryFresh Wallet.`;
@@ -189,9 +191,13 @@ export function OrdersScreen({ onBook, onSignIn, onBrowseServices, onOpenOrderDe
   }, [selectedOrder, trackOrder]);
 
   const filteredOrders = orders.filter((order) => {
-    const isCompleted = ['COMPLETED', 'DELIVERED', 'CANCELLED'].includes(order.currentStatus);
-    if (filter === 'ACTIVE') return !isCompleted;
-    if (filter === 'COMPLETED') return isCompleted;
+    const isCancelled = order.currentStatus === 'CANCELLED';
+    const isDeliveredOrCompleted = ['COMPLETED', 'DELIVERED'].includes(order.currentStatus);
+    if (filter === 'ACTIVE') return !isDeliveredOrCompleted && !isCancelled;
+    // "Delivered" tab should only show delivered/completed — NEVER cancelled
+    if (filter === 'COMPLETED') return isDeliveredOrCompleted;
+    // "Cancelled" tab shows only cancelled orders
+    if (filter === 'CANCELLED') return isCancelled;
     return true;
   });
 
@@ -225,7 +231,7 @@ export function OrdersScreen({ onBook, onSignIn, onBrowseServices, onOpenOrderDe
 
         <View style={[styles.guestBenefitsCard, isDark && { backgroundColor: colors.surface, borderColor: colors.border }]}>
           <Text style={[styles.guestBenefitsHeader, isDark && { color: colors.textHeading }]}>What you get with an account:</Text>
-          
+
           <View style={styles.guestBenefitRow}>
             <MaterialCommunityIcons name="moped" size={20} color="#16A34A" />
             <Text style={[styles.guestBenefitText, isDark && { color: colors.textBody }]}>Real-time 30-min pickup & delivery tracking</Text>
@@ -269,28 +275,28 @@ export function OrdersScreen({ onBook, onSignIn, onBrowseServices, onOpenOrderDe
     );
   }
 
-function cleanItemDisplayName(item: any): string {
-  if (item?.clothName && !item.clothName.includes('null') && item.clothName !== 'null') {
-    const sName = item?.serviceName && !item.serviceName.includes('null') ? item.serviceName : 'Steam Care & Press';
-    const cleanServiceName = sName.replace(/^\s*\((.*)\)\s*$/, '$1').trim();
-    return `${item.clothName} • ${cleanServiceName}`;
-  }
-  const raw = item?.serviceName || item?.name || item?.clothName || '';
-  if (!raw || raw.includes('null') || raw.trim() === '(null)' || raw.trim() === 'null') {
-    if (item?.pricingModel === 'PER_KG' || item?.unit === 'KG') {
-      return 'Everyday Wash & Fold (Bulk)';
+  function cleanItemDisplayName(item: any): string {
+    if (item?.clothName && !item.clothName.includes('null') && item.clothName !== 'null') {
+      const sName = item?.serviceName && !item.serviceName.includes('null') ? item.serviceName : 'Steam Care & Press';
+      const cleanServiceName = sName.replace(/^\s*\((.*)\)\s*$/, '$1').trim();
+      return `${item.clothName} • ${cleanServiceName}`;
     }
-    return item?.categoryName ? `${item.categoryName} Garment Care` : 'Premium Garment Care';
+    const raw = item?.serviceName || item?.name || item?.clothName || '';
+    if (!raw || raw.includes('null') || raw.trim() === '(null)' || raw.trim() === 'null') {
+      if (item?.pricingModel === 'PER_KG' || item?.unit === 'KG') {
+        return 'Everyday Wash & Fold (Bulk)';
+      }
+      return item?.categoryName ? `${item.categoryName} Garment Care` : 'Premium Garment Care';
+    }
+    let cleaned = raw.replace(/null\s*\(null\)/gi, 'Premium Garment Care').replace(/\(null\)/gi, '').trim();
+    const matchParen = cleaned.match(/^([^(]+?)\s*\((.+)\)\s*$/);
+    if (matchParen) {
+      const garment = matchParen[1].trim();
+      const service = matchParen[2].trim();
+      return `${garment} • ${service}`;
+    }
+    return cleaned;
   }
-  let cleaned = raw.replace(/null\s*\(null\)/gi, 'Premium Garment Care').replace(/\(null\)/gi, '').trim();
-  const matchParen = cleaned.match(/^([^(]+?)\s*\((.+)\)\s*$/);
-  if (matchParen) {
-    const garment = matchParen[1].trim();
-    const service = matchParen[2].trim();
-    return `${garment} • ${service}`;
-  }
-  return cleaned;
-}
 
   // --- DETAIL VIEW: Tracking Modal / Sheet ---
   if (selectedOrder) {
@@ -327,6 +333,11 @@ function cleanItemDisplayName(item: any): string {
     const taxAmount = selectedOrder.taxAmount || 0;
     const discountAmount = selectedOrder.discountAmount || 0;
     const grandTotal = (selectedOrder as any).pricing?.finalTotal || selectedOrder.totalAmount || (garmentsSubtotal + deliveryFee + expressFee + taxAmount - discountAmount);
+    const isOrderCancelled =
+      String(selectedOrder.currentStatus || '').toUpperCase() === 'CANCELLED' ||
+      String((selectedOrder as any).status || '').toUpperCase() === 'CANCELLED' ||
+      String(selectedOrder.paymentStatus || '').toUpperCase() === 'CANCELLED' ||
+      String(tracking?.currentStatus || '').toUpperCase() === 'CANCELLED';
 
     return (
       <>
@@ -335,396 +346,703 @@ function cleanItemDisplayName(item: any): string {
           contentContainerStyle={[styles.content, { paddingBottom: scrollBottomClearance }]}
           showsVerticalScrollIndicator={false}
         >
-        {/* Top Navigation Row */}
-        <Pressable style={styles.backBtn} onPress={() => setSelectedOrder(null)}>
-          <MaterialCommunityIcons name="arrow-left" size={20} color={COLORS.plumDark} />
-          <Text style={styles.backBtnText}>Back to All Orders</Text>
-        </Pressable>
+          {/* Top Navigation Row */}
+          <Pressable style={styles.backBtn} onPress={() => setSelectedOrder(null)}>
+            <MaterialCommunityIcons name="arrow-left" size={20} color={COLORS.plumDark} />
+            <Text style={styles.backBtnText}>Back to All Orders</Text>
+          </Pressable>
 
-        {/* Order Header Summary */}
-        <Card style={styles.orderHeaderCard}>
-          <View style={styles.orderHeaderTop}>
-            <View style={{ flex: 1, minWidth: 0, paddingRight: 10 }}>
-              <Text style={[styles.orderIdText, isDark && { color: colors.textHeading }]} numberOfLines={1} ellipsizeMode="middle">Order #{selectedOrder.id}</Text>
-              <Text style={[styles.orderPlacedTime, isDark && { color: colors.textCaption }]}>Placed on {dateTime(selectedOrder.createdAt)}</Text>
-            </View>
+          {/* Order Header Summary */}
+          <Card style={styles.orderHeaderCard}>
+            <View style={styles.orderHeaderTop}>
+              <View style={{ flex: 1, minWidth: 0, paddingRight: 10 }}>
+                <Text style={[styles.orderIdText, isDark && { color: colors.textHeading }]} numberOfLines={1} ellipsizeMode="middle">Order #{selectedOrder.id}</Text>
+                <Text style={[styles.orderPlacedTime, isDark && { color: colors.textCaption }]}>Placed on {dateTime(selectedOrder.createdAt)}</Text>
+              </View>
               <View style={[styles.statusBadge, { backgroundColor: statusTone(selectedOrder.currentStatus, colors).backgroundColor }]}>
                 <Text style={[styles.statusBadgeText, { color: statusTone(selectedOrder.currentStatus, colors).color }]}>
-                {statusLabel(selectedOrder.currentStatus)}
-              </Text>
+                  {statusLabel(selectedOrder.currentStatus)}
+                </Text>
+              </View>
             </View>
-          </View>
 
-          {(selectedOrder as any).assignedHub ? (
-            <View style={styles.hubInfoRow}>
-              <MaterialCommunityIcons name="office-building-marker" size={16} color={COLORS.plum} />
-              <Text style={styles.hubInfoText}>
-                Processing Hub: <Text style={{ fontWeight: '800' }}>{(selectedOrder as any).assignedHub.name}</Text>
-              </Text>
-            </View>
-          ) : null}
+            {(selectedOrder as any).assignedHub ? (
+              <View style={styles.hubInfoRow}>
+                <MaterialCommunityIcons name="office-building-marker" size={16} color={COLORS.plum} />
+                <Text style={styles.hubInfoText}>
+                  Processing Hub: <Text style={{ fontWeight: '800' }}>{(selectedOrder as any).assignedHub.name}</Text>
+                </Text>
+              </View>
+            ) : null}
 
-          {/* Quick Header Tax Invoice Action with View and Download */}
-          <View
-            style={[
-              styles.headerInvoiceBar,
-              isDark && styles.headerInvoiceBarDark,
-            ]}
-          >
-            <Pressable
-              style={styles.headerInvoiceLeft}
-              onPress={() => handleViewInvoice(selectedOrder.id)}
-              accessibilityRole="button"
-              accessibilityLabel="View Tax Invoice"
+            {/* Quick Header Tax Invoice Action with View and Download */}
+            <View
+              style={[
+                styles.headerInvoiceBar,
+                isDark && styles.headerInvoiceBarDark,
+              ]}
             >
-              <View style={[styles.headerInvoiceIconCircle, isDark && styles.headerInvoiceIconCircleDark]}>
-                <MaterialCommunityIcons name="file-pdf-box" size={20} color={isDark ? '#4ADE80' : '#16A34A'} />
-              </View>
-              <View style={styles.headerInvoiceTextCol}>
-                <Text style={[styles.headerInvoiceTitle, isDark && styles.headerInvoiceTitleDark]} numberOfLines={1}>
-                  Tax Invoice (GST PDF)
-                </Text>
-                <Text style={[styles.headerInvoiceSub, isDark && styles.headerInvoiceSubDark]} numberOfLines={1}>
-                  Official itemized receipt
-                </Text>
-              </View>
-            </Pressable>
-
-            <View style={styles.headerInvoiceActionsGroup}>
               <Pressable
-                style={({ pressed }) => [
-                  styles.headerInvoiceViewBtn,
-                  isDark && styles.headerInvoiceViewBtnDark,
-                  pressed && { opacity: 0.8 },
-                ]}
-                onPress={() => handleViewInvoice(selectedOrder.id)}
-                hitSlop={6}
-                accessibilityRole="button"
-                accessibilityLabel="View Tax Invoice"
-              >
-                <MaterialCommunityIcons name="eye-outline" size={13} color={isDark ? '#86EFAC' : '#15803D'} />
-                <Text style={[styles.headerInvoiceViewBtnText, isDark && styles.headerInvoiceViewBtnTextDark]}>View</Text>
-              </Pressable>
-
-              <Pressable
-                style={({ pressed }) => [
-                  styles.headerInvoiceBadge,
-                  isDark && styles.headerInvoiceBadgeDark,
-                  pressed && { opacity: 0.85, transform: [{ scale: 0.98 }] },
-                ]}
-                onPress={() => setInvoiceOptionsOrder(selectedOrder)}
-                hitSlop={6}
-                accessibilityRole="button"
-                accessibilityLabel="Invoice download and share options"
-              >
-                <MaterialCommunityIcons name="download" size={13} color={isDark ? '#064E3B' : '#FFFFFF'} />
-                <Text style={[styles.headerInvoiceBadgeText, isDark && styles.headerInvoiceBadgeTextDark]}>PDF</Text>
-              </Pressable>
-            </View>
-          </View>
-        </Card>
-
-        {/* LIVE 5-STAGE MILESTONE TIMELINE */}
-        <Card style={styles.milestoneCard}>
-          <Text style={[styles.milestoneSectionTitle, isDark && { color: colors.textHeading }]}>Live Order Milestones</Text>
-
-          <View style={styles.timelineWrapper}>
-            {ORDER_MILESTONES.map((milestone, idx) => {
-              const isPast = idx < currentMilestoneIdx;
-              const isCurrent = idx === currentMilestoneIdx;
-              const isUpcoming = idx > currentMilestoneIdx;
-
-              return (
-                <View key={milestone.key} style={styles.milestoneRow}>
-                  {/* Left Icon with Connector Line */}
-                  <View style={styles.timelineLeftCol}>
-                    <View
-                      style={[
-                        styles.milestoneDot,
-                        isPast && styles.milestoneDotCompleted,
-                        isCurrent && styles.milestoneDotCurrent,
-                        isUpcoming && styles.milestoneDotPending,
-                      ]}
-                    >
-                      <MaterialCommunityIcons
-                        name={milestone.icon as any}
-                        size={16}
-                        color={isUpcoming ? '#9CA3AF' : '#FFFFFF'}
-                      />
-                    </View>
-
-                    {idx < ORDER_MILESTONES.length - 1 && (
-                      <View
-                        style={[
-                          styles.timelineConnector,
-                          idx < currentMilestoneIdx && styles.timelineConnectorActive,
-                        ]}
-                      />
-                    )}
-                  </View>
-
-                  {/* Right Label & Subtext */}
-                  <View style={styles.milestoneRightCol}>
-                    <Text
-                      style={[
-                        styles.milestoneLabel,
-                        isCurrent && styles.milestoneLabelCurrent,
-                        isUpcoming && styles.milestoneLabelPending,
-                        !isCurrent && !isUpcoming && isDark && { color: colors.textBody },
-                      ]}
-                    >
-                      {milestone.label}
-                    </Text>
-
-                    {isCurrent ? (
-                      <View style={styles.livePulseRow}>
-                        <View style={styles.pulseDot} />
-                        <Text style={styles.livePulseText}>In Progress Right Now</Text>
-                      </View>
-                    ) : null}
-                  </View>
-                </View>
-              );
-            })}
-          </View>
-        </Card>
-
-        {/* ASSIGNED DRIVER / VALET PILOT CARD */}
-        <Card style={styles.driverCard}>
-          <View style={styles.driverHeader}>
-            <View style={styles.driverAvatarWrap}>
-              <MaterialCommunityIcons name={isDeliveryStage ? 'truck-delivery' : 'moped'} size={24} color="#16A34A" />
-            </View>
-            <View style={{ flex: 1 }}>
-              <View style={styles.driverNameRow}>
-                <Text style={[styles.driverNameText, isDark && { color: colors.textHeading }]}>
-                  {hasDriver ? driverName : 'Assigning Pilot Shortly'}
-                </Text>
-                {hasDriver ? (
-                  <View style={styles.driverRatingBadge}>
-                    <MaterialCommunityIcons name="star" size={12} color="#D97706" />
-                    <Text style={styles.driverRatingText}>{driverRating}</Text>
-                  </View>
-                ) : null}
-              </View>
-              <Text style={styles.driverRoleSubtext}>
-                {isDeliveryStage ? 'Assigned Doorstep Delivery Partner' : 'Assigned Doorstep Pickup Executive'}
-              </Text>
-              <Text style={[styles.driverVehicleText, isDark && { color: colors.textCaption }]}>
-                {hasDriver ? driverVehicle : 'Dispatch Hub allocating nearest verified pilot'}
-              </Text>
-            </View>
-          </View>
-
-          {hasDriver ? (
-            <View style={styles.driverActionsRow}>
-              <Pressable style={styles.driverCallActionBtn} onPress={callDriver}>
-                <MaterialCommunityIcons name="phone" size={16} color="#FFFFFF" />
-                <Text style={styles.driverCallActionText}>Call Pilot</Text>
-              </Pressable>
-
-              <Pressable style={styles.driverWhatsAppActionBtn} onPress={whatsAppDriver}>
-                <MaterialCommunityIcons name="whatsapp" size={16} color="#FFFFFF" />
-                <Text style={styles.driverWhatsAppActionText}>WhatsApp Pilot</Text>
-              </Pressable>
-            </View>
-          ) : null}
-        </Card>
-
-        {/* Rider & Support Action Box */}
-        <Card style={styles.supportCard}>
-          <Text style={[styles.supportCardTitle, isDark && { color: colors.textHeading }]}>Need Quick Assistance?</Text>
-          <Text style={[styles.supportCardSubtitle, isDark && { color: colors.textCaption }]}>
-            Our dispatch coordinator and rider are on standby for your pickup & delivery.
-          </Text>
-
-          <View style={styles.supportButtonsRow}>
-            <Pressable style={styles.supportBtnWhatsApp} onPress={openWhatsAppSupport}>
-              <MaterialCommunityIcons name="whatsapp" size={18} color="#FFFFFF" />
-              <Text style={styles.supportBtnTextWhite}>WhatsApp Support</Text>
-            </Pressable>
-
-            <Pressable style={styles.supportBtnCall} onPress={callSupport}>
-              <MaterialCommunityIcons name="phone-outline" size={18} color={COLORS.plumDark} />
-              <Text style={styles.supportBtnTextDark}>Call Support</Text>
-            </Pressable>
-          </View>
-        </Card>
-
-        {/* Items in Bag List */}
-        {selectedOrder.items && selectedOrder.items.length > 0 ? (
-          <Card style={styles.itemsCard}>
-            <Text style={[styles.itemsSectionTitle, isDark && { color: colors.textHeading }]}>Garments & Services ({selectedOrder.items.length})</Text>
-            {selectedOrder.items.map((item, idx) => {
-              const displayName = cleanItemDisplayName(item);
-              const isBulk = item.pricingModel === 'PER_KG';
-              const itemImageUrl = (item as any).imageUrl || getGarmentImageUrl(
-                item.clothId || item.id,
-                (item as any).imageUrl,
-                item.categoryName,
-                displayName
-              );
-
-              return (
-                <View key={item.id || idx} style={styles.itemRow}>
-                  <View style={styles.itemThumbWrap}>
-                    {isBulk ? (
-                      <MaterialCommunityIcons name="scale-bathroom" size={22} color="#16A34A" />
-                    ) : (
-                      <Image
-                        source={{ uri: itemImageUrl }}
-                        style={styles.itemThumbImage}
-                        resizeMode="cover"
-                      />
-                    )}
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={[styles.itemName, isDark && { color: colors.textHeading }]} numberOfLines={2}>{displayName}</Text>
-                    <Text style={[styles.itemDetail, isDark && { color: colors.textCaption }]}>
-                      {item.quantity} {item.unit || (isBulk ? 'KG' : 'Piece')} × {money(item.unitPrice)}
-                    </Text>
-                  </View>
-                  <Text style={[styles.itemSubtotal, isDark && { color: colors.textHeading }]}>{money(item.subtotal)}</Text>
-                </View>
-              );
-            })}
-          </Card>
-        ) : null}
-
-        {/* Itemized Bill Breakdown & Tax Invoice - ALWAYS SHOWN */}
-        <Card style={styles.billCard}>
-          <View style={styles.billBreakdownSection}>
-            <Text style={[styles.billSectionHeader, isDark && { color: colors.textHeading }]}>Bill Breakdown</Text>
-
-            <View style={styles.billLineItem}>
-              <Text style={[styles.billLineLabel, isDark && { color: colors.textCaption }]}>Garments Subtotal</Text>
-              <Text style={[styles.billLineValue, isDark && { color: colors.textHeading }]}>{money(garmentsSubtotal)}</Text>
-            </View>
-
-            <View style={styles.billLineItem}>
-              <Text style={[styles.billLineLabel, isDark && { color: colors.textCaption }]}>Doorstep Pickup & Delivery</Text>
-              {deliveryFee > 0 ? (
-                <Text style={styles.billLineValue}>{money(deliveryFee)}</Text>
-              ) : (
-                <Text style={[styles.billLineValue, { color: '#16A34A', fontWeight: '800' }]}>FREE</Text>
-              )}
-            </View>
-
-            {expressFee > 0 ? (
-              <View style={styles.billLineItem}>
-                <Text style={[styles.billLineLabel, isDark && { color: colors.textCaption }]}>Express Care Surcharge</Text>
-                <Text style={[styles.billLineValue, isDark && { color: colors.textHeading }]}>+{money(expressFee)}</Text>
-              </View>
-            ) : null}
-
-            {discountAmount > 0 ? (
-              <View style={styles.billLineItem}>
-                <Text style={[styles.billLineLabel, { color: '#16A34A' }]}>
-                  Discount {selectedOrder.couponCode ? `(${selectedOrder.couponCode})` : ''}
-                </Text>
-                <Text style={[styles.billLineValue, { color: '#16A34A', fontWeight: '800' }]}>
-                  -{money(discountAmount)}
-                </Text>
-              </View>
-            ) : null}
-
-            <View style={styles.billLineItem}>
-              <Text style={[styles.billLineLabel, isDark && { color: colors.textCaption }]}>GST / Taxes (5%)</Text>
-              <Text style={[styles.billLineValue, isDark && { color: colors.textHeading }]}>{taxAmount > 0 ? money(taxAmount) : '₹0'}</Text>
-            </View>
-
-            <View style={styles.billGrandRow}>
-              <View>
-                <Text style={[styles.billGrandLabel, isDark && { color: colors.textHeading }]}>Total Amount (Inc. GST)</Text>
-                <Text style={styles.billPaymentStatusSub}>
-                  {selectedOrder.paymentStatus === 'PAID' ? '✓ Paid Online via Razorpay' : 'Pay on Delivery / Pending'}
-                </Text>
-              </View>
-              <Text style={styles.billGrandValue}>{money(grandTotal)}</Text>
-            </View>
-
-            {/* Tax Invoice & Official Payment Receipt Section */}
-            <View style={[styles.billInvoiceBox, isDark && styles.billInvoiceBoxDark]}>
-              <Pressable
-                style={styles.billInvoiceHeaderRow}
+                style={styles.headerInvoiceLeft}
                 onPress={() => handleViewInvoice(selectedOrder.id)}
                 accessibilityRole="button"
                 accessibilityLabel="View Tax Invoice"
               >
-                <View style={[styles.billInvoiceIconBadge, isDark && styles.billInvoiceIconBadgeDark]}>
-                  <MaterialCommunityIcons name="file-pdf-box" size={22} color={isDark ? '#4ADE80' : '#16A34A'} />
+                <View style={[styles.headerInvoiceIconCircle, isDark && styles.headerInvoiceIconCircleDark]}>
+                  <MaterialCommunityIcons name="file-pdf-box" size={20} color={isDark ? '#4ADE80' : '#16A34A'} />
                 </View>
-                <View style={styles.billInvoiceTextWrap}>
-                  <Text style={[styles.billInvoiceTitle, isDark && styles.billInvoiceTitleDark]}>
-                    Tax Invoice (GST PDF)
+                <View style={styles.headerInvoiceTextCol}>
+                  <Text style={[styles.headerInvoiceTitle, isDark && styles.headerInvoiceTitleDark]} numberOfLines={1}>
+                    {taxAmount > 0 ? 'Tax Invoice (GST PDF)' : 'Order Receipt (PDF)'}
                   </Text>
-                  <Text style={[styles.billInvoiceSubtitle, isDark && styles.billInvoiceSubtitleDark]}>
-                    Itemized official invoice & payment receipt
+                  <Text style={[styles.headerInvoiceSub, isDark && styles.headerInvoiceSubDark]} numberOfLines={1}>
+                    {taxAmount > 0 ? 'Official itemized tax receipt' : 'Official itemized receipt'}
                   </Text>
                 </View>
               </Pressable>
 
-              <View style={styles.billInvoiceActionsRow}>
+              <View style={styles.headerInvoiceActionsGroup}>
                 <Pressable
                   style={({ pressed }) => [
-                    styles.billInvoiceViewBtn,
-                    isDark && styles.billInvoiceViewBtnDark,
-                    pressed && { opacity: 0.8, transform: [{ scale: 0.98 }] },
+                    styles.headerInvoiceViewBtn,
+                    isDark && styles.headerInvoiceViewBtnDark,
+                    pressed && { opacity: 0.8 },
                   ]}
                   onPress={() => handleViewInvoice(selectedOrder.id)}
+                  hitSlop={6}
                   accessibilityRole="button"
-                  accessibilityLabel="View Tax Invoice in app"
+                  accessibilityLabel="View Tax Invoice"
                 >
-                  <MaterialCommunityIcons name="eye-outline" size={15} color={isDark ? '#86EFAC' : '#15803D'} />
-                  <Text style={[styles.billInvoiceViewBtnText, isDark && styles.billInvoiceViewBtnTextDark]}>
-                    View Invoice
-                  </Text>
+                  <MaterialCommunityIcons name="eye-outline" size={13} color={isDark ? '#86EFAC' : '#15803D'} />
+                  <Text style={[styles.headerInvoiceViewBtnText, isDark && styles.headerInvoiceViewBtnTextDark]}>View</Text>
                 </Pressable>
 
                 <Pressable
                   style={({ pressed }) => [
-                    styles.billInvoiceDownloadBtn,
-                    isDark && styles.billInvoiceDownloadBtnDark,
+                    styles.headerInvoiceBadge,
+                    isDark && styles.headerInvoiceBadgeDark,
                     pressed && { opacity: 0.85, transform: [{ scale: 0.98 }] },
                   ]}
                   onPress={() => setInvoiceOptionsOrder(selectedOrder)}
+                  hitSlop={6}
                   accessibilityRole="button"
                   accessibilityLabel="Invoice download and share options"
                 >
-                  <MaterialCommunityIcons name="download" size={15} color={isDark ? '#064E3B' : '#FFFFFF'} />
-                  <Text style={[styles.billInvoiceDownloadBtnText, isDark && styles.billInvoiceDownloadBtnTextDark]}>
-                    PDF Options
-                  </Text>
+                  <MaterialCommunityIcons name="download" size={13} color={isDark ? '#064E3B' : '#FFFFFF'} />
+                  <Text style={[styles.headerInvoiceBadgeText, isDark && styles.headerInvoiceBadgeTextDark]}>PDF</Text>
                 </Pressable>
               </View>
             </View>
-          </View>
-        </Card>
+          </Card>
 
-        {/* Cancel Order Action - available before pickup */}
-        {['ORDER_PLACED', 'PICKUP_ASSIGNED'].includes(selectedOrder.currentStatus) ? (
-          <View style={{ marginTop: 14, marginBottom: 20, paddingHorizontal: 4 }}>
-            <Pressable
-              style={({ pressed }) => [
-                styles.cancelOrderBtn,
-                pressed && { opacity: 0.85, transform: [{ scale: 0.99 }] },
-                cancellingOrderId === selectedOrder.id && { opacity: 0.6 },
-              ]}
-              onPress={() => handleCancelOrder(selectedOrder)}
-              disabled={cancellingOrderId === selectedOrder.id}
-              accessibilityRole="button"
-              accessibilityLabel="Cancel this order"
-            >
-              <MaterialCommunityIcons name="close-circle-outline" size={18} color="#DC2626" />
-              <Text style={styles.cancelOrderBtnText}>
-                {cancellingOrderId === selectedOrder.id ? 'Cancelling Order...' : 'Cancel Order'}
-              </Text>
-            </Pressable>
-            <Text style={[styles.cancelOrderSubtext, isDark && { color: colors.textCaption }]}>
-              Free cancellation before pickup. Any paid amount is credited to your wallet instantly.
+          {/* LIVE 5-STAGE MILESTONE TIMELINE OR CANCELLATION NOTICE */}
+          {isOrderCancelled ? (
+            <Card style={[styles.milestoneCard, { backgroundColor: colors.surface, borderColor: '#FECACA' }]}>
+              <View style={{ alignItems: 'center', paddingVertical: 14, gap: 8 }}>
+                <View style={{ width: 52, height: 52, borderRadius: 26, backgroundColor: '#FEF2F2', alignItems: 'center', justifyContent: 'center' }}>
+                  <MaterialCommunityIcons name="close-circle-outline" size={30} color="#DC2626" />
+                </View>
+                <Text style={{ fontSize: 16, fontWeight: '900', color: '#DC2626' }}>Order Cancelled</Text>
+                <Text style={{ fontSize: 12.5, color: colors.textCaption, textAlign: 'center', lineHeight: 18, paddingHorizontal: 16 }}>
+                  This order was cancelled. Any paid amount has been refunded to your LaundryFresh Wallet.
+                </Text>
+              </View>
+            </Card>
+          ) : (
+            <Card style={styles.milestoneCard}>
+              <Text style={[styles.milestoneSectionTitle, isDark && { color: colors.textHeading }]}>Live Order Milestones</Text>
+
+              <View style={styles.timelineWrapper}>
+                {ORDER_MILESTONES.map((milestone, idx) => {
+                  const isPast = idx < currentMilestoneIdx;
+                  const isCurrent = idx === currentMilestoneIdx;
+                  const isUpcoming = idx > currentMilestoneIdx;
+
+                  return (
+                    <View key={milestone.key} style={styles.milestoneRow}>
+                      {/* Left Icon with Connector Line */}
+                      <View style={styles.timelineLeftCol}>
+                        <View
+                          style={[
+                            styles.milestoneDot,
+                            isPast && styles.milestoneDotCompleted,
+                            isCurrent && styles.milestoneDotCurrent,
+                            isUpcoming && styles.milestoneDotPending,
+                          ]}
+                        >
+                          <MaterialCommunityIcons
+                            name={milestone.icon as any}
+                            size={16}
+                            color={isUpcoming ? '#9CA3AF' : '#FFFFFF'}
+                          />
+                        </View>
+
+                        {idx < ORDER_MILESTONES.length - 1 && (
+                          <View
+                            style={[
+                              styles.timelineConnector,
+                              idx < currentMilestoneIdx && styles.timelineConnectorActive,
+                            ]}
+                          />
+                        )}
+                      </View>
+
+                      {/* Right Label & Subtext */}
+                      <View style={styles.milestoneRightCol}>
+                        <Text
+                          style={[
+                            styles.milestoneLabel,
+                            isCurrent && styles.milestoneLabelCurrent,
+                            isUpcoming && styles.milestoneLabelPending,
+                            !isCurrent && !isUpcoming && isDark && { color: colors.textBody },
+                          ]}
+                        >
+                          {milestone.label}
+                        </Text>
+
+                        {isCurrent ? (
+                          <View style={styles.livePulseRow}>
+                            <View style={styles.pulseDot} />
+                            <Text style={styles.livePulseText}>In Progress Right Now</Text>
+                          </View>
+                        ) : null}
+                      </View>
+                    </View>
+                  );
+                })}
+              </View>
+            </Card>
+          )}
+
+          {/* ASSIGNED DRIVER / VALET PILOT CARD - Only for active / non-cancelled orders */}
+          {!isOrderCancelled && (
+            <Card style={styles.driverCard}>
+              <View style={styles.driverHeader}>
+                <View style={styles.driverAvatarWrap}>
+                  <MaterialCommunityIcons name={isDeliveryStage ? 'truck-delivery' : 'moped'} size={24} color="#16A34A" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <View style={styles.driverNameRow}>
+                    <Text style={[styles.driverNameText, isDark && { color: colors.textHeading }]}>
+                      {hasDriver ? driverName : 'Assigning Pilot Shortly'}
+                    </Text>
+                    {hasDriver ? (
+                      <View style={styles.driverRatingBadge}>
+                        <MaterialCommunityIcons name="star" size={12} color="#D97706" />
+                        <Text style={styles.driverRatingText}>{driverRating}</Text>
+                      </View>
+                    ) : null}
+                  </View>
+                  <Text style={styles.driverRoleSubtext}>
+                    {isDeliveryStage ? 'Assigned Doorstep Delivery Partner' : 'Assigned Doorstep Pickup Executive'}
+                  </Text>
+                  <Text style={[styles.driverVehicleText, isDark && { color: colors.textCaption }]}>
+                    {hasDriver ? driverVehicle : 'Dispatch Hub allocating nearest verified pilot'}
+                  </Text>
+                </View>
+              </View>
+
+              {hasDriver ? (
+                <View style={styles.driverActionsRow}>
+                  <Pressable style={styles.driverCallActionBtn} onPress={callDriver}>
+                    <MaterialCommunityIcons name="phone" size={16} color="#FFFFFF" />
+                    <Text style={styles.driverCallActionText}>Call Pilot</Text>
+                  </Pressable>
+
+                  <Pressable style={styles.driverWhatsAppActionBtn} onPress={whatsAppDriver}>
+                    <MaterialCommunityIcons name="whatsapp" size={16} color="#FFFFFF" />
+                    <Text style={styles.driverWhatsAppActionText}>WhatsApp Pilot</Text>
+                  </Pressable>
+                </View>
+              ) : null}
+            </Card>
+          )}
+
+          {/* Rider & Support Action Box */}
+          <Card style={styles.supportCard}>
+            <Text style={[styles.supportCardTitle, isDark && { color: colors.textHeading }]}>Need Quick Assistance?</Text>
+            <Text style={[styles.supportCardSubtitle, isDark && { color: colors.textCaption }]}>
+              Our dispatch coordinator and rider are on standby for your pickup & delivery.
             </Text>
+
+            <View style={styles.supportButtonsRow}>
+              <Pressable style={styles.supportBtnWhatsApp} onPress={openWhatsAppSupport}>
+                <MaterialCommunityIcons name="whatsapp" size={18} color="#FFFFFF" />
+                <Text style={styles.supportBtnTextWhite}>WhatsApp Support</Text>
+              </Pressable>
+
+              <Pressable style={styles.supportBtnCall} onPress={callSupport}>
+                <MaterialCommunityIcons name="phone-outline" size={18} color={COLORS.plumDark} />
+                <Text style={styles.supportBtnTextDark}>Call Support</Text>
+              </Pressable>
+            </View>
+          </Card>
+
+          {/* Items in Bag List */}
+          {selectedOrder.items && selectedOrder.items.length > 0 ? (
+            <Card style={styles.itemsCard}>
+              <Text style={[styles.itemsSectionTitle, isDark && { color: colors.textHeading }]}>Garments & Services ({selectedOrder.items.length})</Text>
+              {selectedOrder.items.map((item, idx) => {
+                const displayName = cleanItemDisplayName(item);
+                const isBulk = item.pricingModel === 'PER_KG';
+                const itemImageUrl = (item as any).imageUrl || getGarmentImageUrl(
+                  item.clothId || item.id,
+                  (item as any).imageUrl,
+                  item.categoryName,
+                  displayName
+                );
+
+                return (
+                  <View key={item.id || idx} style={styles.itemRow}>
+                    <View style={styles.itemThumbWrap}>
+                      {isBulk ? (
+                        <MaterialCommunityIcons name="scale-bathroom" size={22} color="#16A34A" />
+                      ) : (
+                        <Image
+                          source={{ uri: itemImageUrl }}
+                          style={styles.itemThumbImage}
+                          resizeMode="cover"
+                        />
+                      )}
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={[styles.itemName, isDark && { color: colors.textHeading }]} numberOfLines={2}>{displayName}</Text>
+                      <Text style={[styles.itemDetail, isDark && { color: colors.textCaption }]}>
+                        {item.quantity} {item.unit || (isBulk ? 'KG' : 'Piece')} × {money(item.unitPrice)}
+                      </Text>
+                    </View>
+                    <Text style={[styles.itemSubtotal, isDark && { color: colors.textHeading }]}>{money(item.subtotal)}</Text>
+                  </View>
+                );
+              })}
+            </Card>
+          ) : null}
+
+          {/* Itemized Bill Breakdown & Tax Invoice - ALWAYS SHOWN */}
+          <Card style={styles.billCard}>
+            <View style={styles.billBreakdownSection}>
+              <Text style={[styles.billSectionHeader, isDark && { color: colors.textHeading }]}>Bill Breakdown</Text>
+
+              <View style={styles.billLineItem}>
+                <Text style={[styles.billLineLabel, isDark && { color: colors.textCaption }]}>Garments Subtotal</Text>
+                <Text style={[styles.billLineValue, isDark && { color: colors.textHeading }]}>{money(garmentsSubtotal)}</Text>
+              </View>
+
+              <View style={styles.billLineItem}>
+                <Text style={[styles.billLineLabel, isDark && { color: colors.textCaption }]}>Doorstep Pickup & Delivery</Text>
+                {deliveryFee > 0 ? (
+                  <Text style={styles.billLineValue}>{money(deliveryFee)}</Text>
+                ) : (
+                  <Text style={[styles.billLineValue, { color: '#16A34A', fontWeight: '800' }]}>FREE</Text>
+                )}
+              </View>
+
+              {expressFee > 0 ? (
+                <View style={styles.billLineItem}>
+                  <Text style={[styles.billLineLabel, isDark && { color: colors.textCaption }]}>Express Care Surcharge</Text>
+                  <Text style={[styles.billLineValue, isDark && { color: colors.textHeading }]}>+{money(expressFee)}</Text>
+                </View>
+              ) : null}
+
+              {discountAmount > 0 ? (
+                <View style={styles.billLineItem}>
+                  <Text style={[styles.billLineLabel, { color: '#16A34A' }]}>
+                    Discount {selectedOrder.couponCode ? `(${selectedOrder.couponCode})` : ''}
+                  </Text>
+                  <Text style={[styles.billLineValue, { color: '#16A34A', fontWeight: '800' }]}>
+                    -{money(discountAmount)}
+                  </Text>
+                </View>
+              ) : null}
+
+              {taxAmount > 0 ? (
+                <View style={styles.billLineItem}>
+                  <Text style={[styles.billLineLabel, isDark && { color: colors.textCaption }]}>GST / Taxes</Text>
+                  <Text style={[styles.billLineValue, isDark && { color: colors.textHeading }]}>{money(taxAmount)}</Text>
+                </View>
+              ) : null}
+
+              <View style={styles.billGrandRow}>
+                <View>
+                  <Text style={[styles.billGrandLabel, isDark && { color: colors.textHeading }]}>
+                    {taxAmount > 0 ? 'Total Amount (Inc. GST)' : 'Total Amount'}
+                  </Text>
+                  <Text style={styles.billPaymentStatusSub}>
+                    {selectedOrder.paymentStatus === 'PAID' ? '✓ Paid Online via Razorpay' : 'Pay on Delivery / Pending'}
+                  </Text>
+                </View>
+                <Text style={styles.billGrandValue}>{money(grandTotal)}</Text>
+              </View>
+
+              {/* Tax Invoice & Official Payment Receipt Section */}
+              <View style={[styles.billInvoiceBox, isDark && styles.billInvoiceBoxDark]}>
+                <Pressable
+                  style={styles.billInvoiceHeaderRow}
+                  onPress={() => handleViewInvoice(selectedOrder.id)}
+                  accessibilityRole="button"
+                  accessibilityLabel="View Tax Invoice"
+                >
+                  <View style={[styles.billInvoiceIconBadge, isDark && styles.billInvoiceIconBadgeDark]}>
+                    <MaterialCommunityIcons name="file-pdf-box" size={22} color={isDark ? '#4ADE80' : '#16A34A'} />
+                  </View>
+                  <View style={styles.billInvoiceTextWrap}>
+                    <Text style={[styles.billInvoiceTitle, isDark && styles.billInvoiceTitleDark]}>
+                      {taxAmount > 0 ? 'Tax Invoice (GST PDF)' : 'Order Receipt (PDF)'}
+                    </Text>
+                    <Text style={[styles.billInvoiceSubtitle, isDark && styles.billInvoiceSubtitleDark]}>
+                      {taxAmount > 0 ? 'Itemized official tax invoice & payment receipt' : 'Itemized official invoice & payment receipt'}
+                    </Text>
+                  </View>
+                </Pressable>
+
+                <View style={styles.billInvoiceActionsRow}>
+                  <Pressable
+                    style={({ pressed }) => [
+                      styles.billInvoiceViewBtn,
+                      isDark && styles.billInvoiceViewBtnDark,
+                      pressed && { opacity: 0.8, transform: [{ scale: 0.98 }] },
+                    ]}
+                    onPress={() => handleViewInvoice(selectedOrder.id)}
+                    accessibilityRole="button"
+                    accessibilityLabel="View Tax Invoice in app"
+                  >
+                    <MaterialCommunityIcons name="eye-outline" size={15} color={isDark ? '#86EFAC' : '#15803D'} />
+                    <Text style={[styles.billInvoiceViewBtnText, isDark && styles.billInvoiceViewBtnTextDark]}>
+                      View Invoice
+                    </Text>
+                  </Pressable>
+
+                  <Pressable
+                    style={({ pressed }) => [
+                      styles.billInvoiceDownloadBtn,
+                      isDark && styles.billInvoiceDownloadBtnDark,
+                      pressed && { opacity: 0.85, transform: [{ scale: 0.98 }] },
+                    ]}
+                    onPress={() => setInvoiceOptionsOrder(selectedOrder)}
+                    accessibilityRole="button"
+                    accessibilityLabel="Invoice download and share options"
+                  >
+                    <MaterialCommunityIcons name="download" size={15} color={isDark ? '#064E3B' : '#FFFFFF'} />
+                    <Text style={[styles.billInvoiceDownloadBtnText, isDark && styles.billInvoiceDownloadBtnTextDark]}>
+                      PDF Options
+                    </Text>
+                  </Pressable>
+                </View>
+              </View>
+            </View>
+          </Card>
+
+          {/* Cancel Order Action - available before pickup */}
+          {['ORDER_PLACED', 'PICKUP_ASSIGNED'].includes(selectedOrder.currentStatus) ? (
+            <View style={{ marginTop: 14, marginBottom: 20, paddingHorizontal: 4 }}>
+              <Pressable
+                style={({ pressed }) => [
+                  styles.cancelOrderBtn,
+                  pressed && { opacity: 0.85, transform: [{ scale: 0.99 }] },
+                  cancellingOrderId === selectedOrder.id && { opacity: 0.6 },
+                ]}
+                onPress={() => handleCancelOrder(selectedOrder)}
+                disabled={cancellingOrderId === selectedOrder.id}
+                accessibilityRole="button"
+                accessibilityLabel="Cancel this order"
+              >
+                <MaterialCommunityIcons name="close-circle-outline" size={18} color="#DC2626" />
+                <Text style={styles.cancelOrderBtnText}>
+                  {cancellingOrderId === selectedOrder.id ? 'Cancelling Order...' : 'Cancel Order'}
+                </Text>
+              </Pressable>
+              <Text style={[styles.cancelOrderSubtext, isDark && { color: colors.textCaption }]}>
+                Free cancellation before pickup. Any paid amount is credited to your wallet instantly.
+              </Text>
+            </View>
+          ) : null}
+        </ScrollView>
+
+        {/* In-App Invoice Viewer Modal */}
+        <InvoiceViewerModal
+          visible={!!viewingInvoiceOrderId}
+          orderId={viewingInvoiceOrderId}
+          onClose={() => setViewingInvoiceOrderId(null)}
+        />
+
+        {/* Invoice Options Action Sheet Modal */}
+        <InvoiceActionModal
+          visible={!!invoiceOptionsOrder}
+          order={invoiceOptionsOrder}
+          onClose={() => setInvoiceOptionsOrder(null)}
+          onView={handleViewInvoice}
+          onDownload={handleDownloadInvoice}
+          onShare={handleShareInvoice}
+        />
+      </>
+    );
+  }
+
+  // --- ALL ORDERS LIST VIEW (Authenticated) ---
+  return (
+    <>
+      <ScrollView
+        style={[styles.root, { backgroundColor: colors.background }]}
+        contentContainerStyle={[styles.content, { paddingBottom: scrollBottomClearance }]}
+        showsVerticalScrollIndicator={false}
+        stickyHeaderIndices={[0]}
+        refreshControl={
+          <RefreshControl
+            refreshing={isRefreshing}
+            onRefresh={handleRefresh}
+            colors={['#0F766E', '#16A34A']}
+            tintColor="#0F766E"
+          />
+        }
+      >
+        {/* Sticky Top Header: Title, Subtitle, Refresh & Horizontal Filter Tabs */}
+        <View style={[styles.topHeaderSection, { backgroundColor: colors.background }]}>
+          <View style={styles.header}>
+            <View style={styles.headerTextCol}>
+              <Text style={[styles.headerTitle, isDark && { color: colors.textHeading }]}>My Orders</Text>
+              <Text style={[styles.headerSubtitle, isDark && { color: colors.textCaption }]} numberOfLines={1}>
+                Track pickups, washes, and doorstep deliveries
+              </Text>
+            </View>
           </View>
-        ) : null}
+
+          {/* Horizontal Filter Tabs (All Orders / Active Pickups / Delivered / Cancelled) */}
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.filterRow}
+          >
+            {(['ALL', 'ACTIVE', 'COMPLETED', 'CANCELLED'] as OrderFilter[]).map((tab) => {
+              const isSelected = filter === tab;
+              const label =
+                tab === 'ALL'
+                  ? 'All Orders'
+                  : tab === 'ACTIVE'
+                  ? 'Active Pickups'
+                  : tab === 'COMPLETED'
+                  ? 'Delivered'
+                  : 'Cancelled';
+              return (
+                <Pressable
+                  key={tab}
+                  style={[
+                    styles.filterChip,
+                    isDark && styles.filterChipDark,
+                    isSelected && (isDark ? styles.filterChipActiveDark : styles.filterChipActive),
+                  ]}
+                  onPress={() => setFilter(tab)}
+                  accessibilityRole="tab"
+                  accessibilityState={{ selected: isSelected }}
+                  accessibilityLabel={`Show ${label}`}
+                >
+                  <Text
+                    style={[
+                      styles.filterChipText,
+                      isDark && styles.filterChipTextDark,
+                      isSelected && styles.filterChipTextActive,
+                    ]}
+                    numberOfLines={1}
+                  >
+                    {label}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </ScrollView>
+        </View>
+
+        {/* Order Cards List */}
+        {filteredOrders.length === 0 ? (
+          <View style={styles.emptyWrap}>
+            <MaterialCommunityIcons name="shopping-outline" size={54} color="#D6B36A" />
+            <Text style={[styles.emptyTitle, isDark && { color: colors.textHeading }]}>
+              {filter === 'ACTIVE'
+                ? 'No Active Orders'
+                : filter === 'COMPLETED'
+                ? 'No Delivered Orders'
+                : filter === 'CANCELLED'
+                ? 'No Cancelled Orders'
+                : 'No Orders Found'}
+            </Text>
+            <Text style={[styles.emptySubtitle, isDark && { color: colors.textCaption }]}>
+              {filter === 'ACTIVE'
+                ? 'You do not have any ongoing laundry orders right now.'
+                : filter === 'COMPLETED'
+                ? 'Delivered and completed orders will appear here once fulfilled.'
+                : filter === 'CANCELLED'
+                ? 'You do not have any cancelled orders.'
+                : 'Schedule a premium wash & steam press pickup today.'}
+            </Text>
+            <View style={{ flexDirection: 'row', gap: 10, marginTop: 14, justifyContent: 'center', flexWrap: 'wrap' }}>
+              {onBrowseServices && (
+                <Pressable
+                  style={{
+                    flexDirection: 'row', alignItems: 'center', gap: 6,
+                    backgroundColor: colors.primary, borderRadius: 12,
+                    paddingHorizontal: 16, paddingVertical: 11,
+                    elevation: 3, shadowColor: colors.primary,
+                    shadowOffset: { width: 0, height: 2 },
+                    shadowOpacity: 0.3, shadowRadius: 4,
+                  }}
+                  onPress={onBrowseServices}
+                  accessibilityRole="button"
+                  accessibilityLabel="Browse laundry services"
+                >
+                  <MaterialCommunityIcons name="hanger" size={16} color="#FFFFFF" />
+                  <Text style={{ fontSize: 13, fontWeight: '700', color: '#FFFFFF' }}>Browse Services</Text>
+                </Pressable>
+              )}
+              <Pressable
+                style={{
+                  flexDirection: 'row', alignItems: 'center', gap: 6,
+                  backgroundColor: colors.orange, borderRadius: 12,
+                  paddingHorizontal: 16, paddingVertical: 11,
+                  elevation: 3, shadowColor: colors.orange,
+                  shadowOffset: { width: 0, height: 2 },
+                  shadowOpacity: 0.3, shadowRadius: 4,
+                }}
+                onPress={onBook}
+                accessibilityRole="button"
+                accessibilityLabel="Book a laundry pickup"
+              >
+                <MaterialCommunityIcons name="calendar-plus" size={16} color="#FFFFFF" />
+                <Text style={{ fontSize: 13, fontWeight: '700', color: '#FFFFFF' }}>Book a Pickup</Text>
+              </Pressable>
+            </View>
+          </View>
+        ) : (
+          <View style={styles.ordersStack}>
+            {filteredOrders.map((order) => {
+              const milestoneIdx = milestoneIndexForStatus(order.currentStatus);
+              const isDelivered = ['DELIVERED', 'COMPLETED'].includes(order.currentStatus);
+
+              return (
+                <Pressable
+                  key={order.id}
+                  style={[styles.orderCard, { backgroundColor: colors.surface, borderColor: colors.border }]}
+                  onPress={() => setSelectedOrder(order)}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Order ${order.id}, ${statusLabel(order.currentStatus)}, total ${money((order as any).pricing?.finalTotal || order.totalAmount)}. Open order details.`}
+                >
+                  {/* Top Row: ID + Status Badge */}
+                  <View style={styles.cardTopRow}>
+                    <View style={{ flex: 1, minWidth: 0, paddingRight: 8 }}>
+                      <Text style={[styles.cardOrderId, isDark && { color: colors.textHeading }]} numberOfLines={1} ellipsizeMode="middle">Order #{order.id}</Text>
+                      <Text style={[styles.cardDate, isDark && { color: colors.textCaption }]}>{dateTime(order.createdAt)}</Text>
+                    </View>
+
+                    <View style={[styles.statusBadge, { backgroundColor: statusTone(order.currentStatus, colors).backgroundColor }]}>
+                      <Text style={[styles.statusBadgeText, { color: statusTone(order.currentStatus, colors).color }]}>
+                        {statusLabel(order.currentStatus)}
+                      </Text>
+                    </View>
+                  </View>
+
+                  {/* Progress Bar (0 to 4 steps) — hidden for cancelled orders */}
+                  {order.currentStatus !== 'CANCELLED' && (
+                    <View style={styles.progressBarWrapper}>
+                      {[0, 1, 2, 3, 4].map((step) => (
+                        <View
+                          key={step}
+                          style={[
+                            styles.progressBarSegment,
+                            { backgroundColor: colors.section },
+                            step <= milestoneIdx && styles.progressBarSegmentActive,
+                            isDelivered && styles.progressBarSegmentDelivered,
+                          ]}
+                        />
+                      ))}
+                    </View>
+                  )}
+
+                  {/* Current Stage Highlight — hide for cancelled orders */}
+                  {order.currentStatus === 'CANCELLED' ? (
+                    <View style={[styles.stageHighlightRow, { backgroundColor: '#FEF2F2', borderColor: '#FECACA' }]}>
+                      <MaterialCommunityIcons name="close-circle-outline" size={16} color="#DC2626" />
+                      <Text style={[styles.stageHighlightText, { color: '#DC2626' }]} numberOfLines={1}>
+                        Order Cancelled
+                      </Text>
+                    </View>
+                  ) : (
+                    <View style={[styles.stageHighlightRow, { backgroundColor: colors.primarySoft, borderColor: colors.border }]}>
+                      <MaterialCommunityIcons
+                        name={ORDER_MILESTONES[milestoneIdx]?.icon as any || 'washing-machine'}
+                        size={16}
+                        color={colors.primaryLight}
+                      />
+                      <Text style={[styles.stageHighlightText, { color: colors.primaryLight }]} numberOfLines={1}>
+                        {ORDER_MILESTONES[milestoneIdx]?.label || statusLabel(order.currentStatus)}
+                      </Text>
+                    </View>
+                  )}
+
+                  {/* Bottom Row: Total & Action Chevron */}
+                  <View style={styles.cardBottomRow}>
+                    <Text style={[styles.cardTotal, { color: colors.textCaption }]}>
+                      Total: <Text style={[styles.cardTotalBold, { color: colors.textHeading }]}>{money((order as any).pricing?.finalTotal || order.totalAmount)}</Text>
+                    </Text>
+
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                      {['ORDER_PLACED', 'PICKUP_ASSIGNED'].includes(order.currentStatus) ? (
+                        <Pressable
+                          style={({ pressed }) => [styles.cardCancelBtn, pressed && { opacity: 0.8 }]}
+                          onPress={(e) => {
+                            e.stopPropagation?.();
+                            handleCancelOrder(order);
+                          }}
+                          hitSlop={8}
+                          accessibilityLabel={`Cancel Order #${order.id}`}
+                        >
+                          <MaterialCommunityIcons name="close-circle-outline" size={14} color="#DC2626" />
+                          <Text style={styles.cardCancelBtnText}>Cancel</Text>
+                        </Pressable>
+                      ) : null}
+
+                      <Pressable
+                        style={({ pressed }) => [
+                          styles.cardInvoiceBtn,
+                          isDark && styles.cardInvoiceBtnDark,
+                          pressed && { opacity: 0.8 },
+                        ]}
+                        onPress={(e) => {
+                          e.stopPropagation?.();
+                          setInvoiceOptionsOrder(order);
+                        }}
+                        hitSlop={8}
+                        accessibilityLabel={`Invoice options for Order #${order.id}`}
+                      >
+                        <MaterialCommunityIcons
+                          name="receipt-text-outline"
+                          size={15}
+                          color={isDark ? '#86EFAC' : '#059669'}
+                        />
+                        <Text style={[styles.cardInvoiceBtnText, isDark && styles.cardInvoiceBtnTextDark]}>
+                          Invoice
+                        </Text>
+                      </Pressable>
+
+                      <View style={styles.viewDetailLink}>
+                        <Text
+                          style={[
+                            styles.viewDetailText,
+                            order.currentStatus === 'CANCELLED' && { color: colors.textCaption },
+                          ]}
+                        >
+                          {order.currentStatus === 'CANCELLED' ? 'View Details' : 'Track Live Status'}
+                        </Text>
+                        <MaterialCommunityIcons
+                          name="chevron-right"
+                          size={16}
+                          color={order.currentStatus === 'CANCELLED' ? colors.textCaption : '#16A34A'}
+                        />
+                      </View>
+                    </View>
+                  </View>
+                </Pressable>
+              );
+            })}
+          </View>
+        )}
       </ScrollView>
 
       {/* In-App Invoice Viewer Modal */}
@@ -743,251 +1061,6 @@ function cleanItemDisplayName(item: any): string {
         onDownload={handleDownloadInvoice}
         onShare={handleShareInvoice}
       />
-      </>
-    );
-  }
-
-  // --- ALL ORDERS LIST VIEW (Authenticated) ---
-  return (
-    <>
-    <ScrollView
-      style={[styles.root, { backgroundColor: colors.background }]}
-      contentContainerStyle={[styles.content, { paddingBottom: scrollBottomClearance }]}
-      showsVerticalScrollIndicator={false}
-      stickyHeaderIndices={[0]}
-      refreshControl={
-        <RefreshControl
-          refreshing={isRefreshing}
-          onRefresh={handleRefresh}
-          colors={['#0F766E', '#16A34A']}
-          tintColor="#0F766E"
-        />
-      }
-    >
-      {/* Sticky Top Header: Title, Subtitle, Refresh & Horizontal Filter Tabs */}
-      <View style={[styles.topHeaderSection, { backgroundColor: colors.background }]}>
-        <View style={styles.header}>
-          <View style={styles.headerTextCol}>
-            <Text style={[styles.headerTitle, isDark && { color: colors.textHeading }]}>My Orders</Text>
-            <Text style={[styles.headerSubtitle, isDark && { color: colors.textCaption }]} numberOfLines={1}>
-              Track pickups, washes, and doorstep deliveries
-            </Text>
-          </View>
-        </View>
-
-        {/* Horizontal Filter Tabs (All Orders / Active Pickups / Delivered) */}
-        <View style={styles.filterRow}>
-          {(['ALL', 'ACTIVE', 'COMPLETED'] as OrderFilter[]).map((tab) => {
-            const isSelected = filter === tab;
-            return (
-              <Pressable
-                key={tab}
-                style={[
-                  styles.filterChip,
-                  isDark && styles.filterChipDark,
-                  isSelected && (isDark ? styles.filterChipActiveDark : styles.filterChipActive),
-                ]}
-                onPress={() => setFilter(tab)}
-                accessibilityRole="tab"
-                accessibilityState={{ selected: isSelected }}
-                accessibilityLabel={`Show ${tab === 'ALL' ? 'all orders' : tab === 'ACTIVE' ? 'active pickups' : 'delivered orders'}`}
-              >
-                <Text
-                  style={[
-                    styles.filterChipText,
-                    isDark && styles.filterChipTextDark,
-                    isSelected && styles.filterChipTextActive,
-                  ]}
-                  numberOfLines={1}
-                  adjustsFontSizeToFit
-                  minimumFontScale={0.82}
-                >
-                  {tab === 'ALL' ? 'All Orders' : tab === 'ACTIVE' ? 'Active Pickups' : 'Delivered'}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </View>
-      </View>
-
-      {/* Order Cards List */}
-      {filteredOrders.length === 0 ? (
-        <View style={styles.emptyWrap}>
-          <MaterialCommunityIcons name="shopping-outline" size={54} color="#D6B36A" />
-          <Text style={styles.emptyTitle}>
-            {filter === 'ACTIVE' ? 'No Active Orders' : 'No Orders Found'}
-          </Text>
-          <Text style={styles.emptySubtitle}>
-            {filter === 'ACTIVE'
-              ? 'You do not have any ongoing laundry orders right now.'
-              : 'Schedule a premium wash & steam press pickup today.'}
-          </Text>
-          <View style={{ flexDirection: 'row', gap: 10, marginTop: 14, justifyContent: 'center', flexWrap: 'wrap' }}>
-            {onBrowseServices && (
-              <Pressable
-                style={{
-                  flexDirection: 'row', alignItems: 'center', gap: 6,
-                  backgroundColor: colors.primary, borderRadius: 12,
-                  paddingHorizontal: 16, paddingVertical: 11,
-                  elevation: 3, shadowColor: colors.primary,
-                  shadowOffset: { width: 0, height: 2 },
-                  shadowOpacity: 0.3, shadowRadius: 4,
-                }}
-                onPress={onBrowseServices}
-                accessibilityRole="button"
-                accessibilityLabel="Browse laundry services"
-              >
-                <MaterialCommunityIcons name="hanger" size={16} color="#FFFFFF" />
-                <Text style={{ fontSize: 13, fontWeight: '700', color: '#FFFFFF' }}>Browse Services</Text>
-              </Pressable>
-            )}
-            <Pressable
-              style={{
-                flexDirection: 'row', alignItems: 'center', gap: 6,
-                backgroundColor: colors.orange, borderRadius: 12,
-                paddingHorizontal: 16, paddingVertical: 11,
-                elevation: 3, shadowColor: colors.orange,
-                shadowOffset: { width: 0, height: 2 },
-                shadowOpacity: 0.3, shadowRadius: 4,
-              }}
-              onPress={onBook}
-              accessibilityRole="button"
-              accessibilityLabel="Book a laundry pickup"
-            >
-              <MaterialCommunityIcons name="calendar-plus" size={16} color="#FFFFFF" />
-              <Text style={{ fontSize: 13, fontWeight: '700', color: '#FFFFFF' }}>Book a Pickup</Text>
-            </Pressable>
-          </View>
-        </View>
-      ) : (
-        <View style={styles.ordersStack}>
-          {filteredOrders.map((order) => {
-            const milestoneIdx = milestoneIndexForStatus(order.currentStatus);
-            const isDelivered = ['DELIVERED', 'COMPLETED'].includes(order.currentStatus);
-
-            return (
-              <Pressable
-                key={order.id}
-                style={[styles.orderCard, { backgroundColor: colors.surface, borderColor: colors.border }]}
-                onPress={() => setSelectedOrder(order)}
-                accessibilityRole="button"
-                accessibilityLabel={`Order ${order.id}, ${statusLabel(order.currentStatus)}, total ${money((order as any).pricing?.finalTotal || order.totalAmount)}. Open order details.`}
-              >
-                {/* Top Row: ID + Status Badge */}
-                <View style={styles.cardTopRow}>
-                  <View style={{ flex: 1, minWidth: 0, paddingRight: 8 }}>
-                    <Text style={[styles.cardOrderId, isDark && { color: colors.textHeading }]} numberOfLines={1} ellipsizeMode="middle">Order #{order.id}</Text>
-                    <Text style={[styles.cardDate, isDark && { color: colors.textCaption }]}>{dateTime(order.createdAt)}</Text>
-                  </View>
-
-                  <View style={[styles.statusBadge, { backgroundColor: statusTone(order.currentStatus, colors).backgroundColor }]}>
-                    <Text style={[styles.statusBadgeText, { color: statusTone(order.currentStatus, colors).color }]}>
-                      {statusLabel(order.currentStatus)}
-                    </Text>
-                  </View>
-                </View>
-
-                {/* Progress Bar (0 to 4 steps) */}
-                <View style={styles.progressBarWrapper}>
-                  {[0, 1, 2, 3, 4].map((step) => (
-                    <View
-                      key={step}
-                      style={[
-                        styles.progressBarSegment,
-                        { backgroundColor: colors.section },
-                        step <= milestoneIdx && styles.progressBarSegmentActive,
-                        isDelivered && styles.progressBarSegmentDelivered,
-                      ]}
-                    />
-                  ))}
-                </View>
-
-                {/* Current Stage Highlight */}
-                <View style={[styles.stageHighlightRow, { backgroundColor: colors.primarySoft, borderColor: colors.border }]}>
-                  <MaterialCommunityIcons
-                    name={ORDER_MILESTONES[milestoneIdx]?.icon as any || 'washing-machine'}
-                    size={16}
-                    color={colors.primaryLight}
-                  />
-                    <Text style={[styles.stageHighlightText, { color: colors.primaryLight }]} numberOfLines={1}>
-                    {ORDER_MILESTONES[milestoneIdx]?.label || statusLabel(order.currentStatus)}
-                  </Text>
-                </View>
-
-                {/* Bottom Row: Total & Action Chevron */}
-                <View style={styles.cardBottomRow}>
-                  <Text style={[styles.cardTotal, { color: colors.textCaption }]}>
-                    Total: <Text style={[styles.cardTotalBold, { color: colors.textHeading }]}>{money((order as any).pricing?.finalTotal || order.totalAmount)}</Text>
-                  </Text>
-
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                    {['ORDER_PLACED', 'PICKUP_ASSIGNED'].includes(order.currentStatus) ? (
-                      <Pressable
-                        style={({ pressed }) => [styles.cardCancelBtn, pressed && { opacity: 0.8 }]}
-                        onPress={(e) => {
-                          e.stopPropagation?.();
-                          handleCancelOrder(order);
-                        }}
-                        hitSlop={8}
-                        accessibilityLabel={`Cancel Order #${order.id}`}
-                      >
-                        <MaterialCommunityIcons name="close-circle-outline" size={14} color="#DC2626" />
-                        <Text style={styles.cardCancelBtnText}>Cancel</Text>
-                      </Pressable>
-                    ) : null}
-
-                    <Pressable
-                      style={({ pressed }) => [
-                        styles.cardInvoiceBtn,
-                        isDark && styles.cardInvoiceBtnDark,
-                        pressed && { opacity: 0.8 },
-                      ]}
-                      onPress={(e) => {
-                        e.stopPropagation?.();
-                        setInvoiceOptionsOrder(order);
-                      }}
-                      hitSlop={8}
-                      accessibilityLabel={`Invoice options for Order #${order.id}`}
-                    >
-                      <MaterialCommunityIcons
-                        name="receipt-text-outline"
-                        size={15}
-                        color={isDark ? '#86EFAC' : '#059669'}
-                      />
-                      <Text style={[styles.cardInvoiceBtnText, isDark && styles.cardInvoiceBtnTextDark]}>
-                        Invoice
-                      </Text>
-                    </Pressable>
-
-                    <View style={styles.viewDetailLink}>
-                      <Text style={styles.viewDetailText}>Track Live Status</Text>
-                      <MaterialCommunityIcons name="chevron-right" size={16} color="#16A34A" />
-                    </View>
-                  </View>
-                </View>
-              </Pressable>
-            );
-          })}
-        </View>
-      )}
-    </ScrollView>
-
-    {/* In-App Invoice Viewer Modal */}
-    <InvoiceViewerModal
-      visible={!!viewingInvoiceOrderId}
-      orderId={viewingInvoiceOrderId}
-      onClose={() => setViewingInvoiceOrderId(null)}
-    />
-
-    {/* Invoice Options Action Sheet Modal */}
-    <InvoiceActionModal
-      visible={!!invoiceOptionsOrder}
-      order={invoiceOptionsOrder}
-      onClose={() => setInvoiceOptionsOrder(null)}
-      onView={handleViewInvoice}
-      onDownload={handleDownloadInvoice}
-      onShare={handleShareInvoice}
-    />
     </>
   );
 }
@@ -1157,13 +1230,13 @@ const styles = StyleSheet.create({
   filterRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    width: '100%',
     gap: 8,
+    paddingHorizontal: 2,
+    paddingBottom: 2,
   },
   filterChip: {
-    flex: 1,
-    paddingVertical: 10,
-    paddingHorizontal: 4,
+    paddingVertical: 8.5,
+    paddingHorizontal: 15,
     borderRadius: 12,
     backgroundColor: '#FFFFFF',
     borderWidth: 1.5,
@@ -1860,23 +1933,22 @@ const styles = StyleSheet.create({
   },
   billInvoiceActionsRow: {
     flexDirection: 'row',
-    alignItems: 'stretch',
+    alignItems: 'center',
     gap: 8,
-    minHeight: 40,
   },
   billInvoiceViewBtn: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    flexWrap: 'nowrap',
     gap: 6,
     backgroundColor: '#FFFFFF',
     borderWidth: 1.5,
     borderColor: '#16A34A',
-    paddingVertical: 10,
+    paddingVertical: 9,
     paddingHorizontal: 6,
     borderRadius: 10,
-    minWidth: 100,
   },
   billInvoiceViewBtnDark: {
     backgroundColor: '#14532D',
@@ -1895,19 +1967,19 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    flexWrap: 'nowrap',
     gap: 6,
     backgroundColor: '#16A34A',
     borderWidth: 1.5,
     borderColor: '#15803D',
-    paddingVertical: 10,
+    paddingVertical: 9,
     paddingHorizontal: 6,
     borderRadius: 10,
-    minWidth: 110,
     shadowColor: '#16A34A',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,
     shadowRadius: 4,
-    elevation: 3,
+    elevation: 2,
   },
   billInvoiceDownloadBtnDark: {
     backgroundColor: '#10B981',

@@ -3,6 +3,8 @@
  * ServicesScreen, and WishlistScreen. Import from here instead of duplicating data.
  */
 
+const S3_BASE = 'https://anjanilaundry.s3.ap-south-2.amazonaws.com';
+
 export interface StaticCatalogItem {
   id: string;
   name: string;
@@ -28,7 +30,7 @@ export const STATIC_CATALOG_ITEMS: StaticCatalogItem[] = [
     tat: '24H',
     price: 99,
     unit: 'pc',
-    imageUrl: 'https://images.unsplash.com/photo-1594938298603-c8148c4dae35?auto=format&fit=crop&w=600&q=80',
+    imageUrl: `${S3_BASE}/garments/cloth-shirt.jpg`,
     description: 'Crisp collar shaping, zero-bleed steam pressing, and wrinkle-free hanger packaging.',
   },
   {
@@ -40,7 +42,7 @@ export const STATIC_CATALOG_ITEMS: StaticCatalogItem[] = [
     tat: '48H',
     price: 349,
     unit: 'set',
-    imageUrl: 'https://images.unsplash.com/photo-1507679799987-c73779587ccf?auto=format&fit=crop&w=600&q=80',
+    imageUrl: `${S3_BASE}/garments/cloth-suit-2p.jpg`,
     description: 'Blazer & trouser fabric sanitization, anti-moth treatment, and dust-proof garment bag.',
   },
   {
@@ -52,7 +54,7 @@ export const STATIC_CATALOG_ITEMS: StaticCatalogItem[] = [
     tat: '24H',
     price: 119,
     unit: 'pc',
-    imageUrl: 'https://images.unsplash.com/photo-1542272604-780c96856592?auto=format&fit=crop&w=600&q=80',
+    imageUrl: `${S3_BASE}/garments/cloth-jeans.jpg`,
     description: 'Enzyme stain removal, color lock treatment, and heavy steam press.',
   },
   {
@@ -64,7 +66,7 @@ export const STATIC_CATALOG_ITEMS: StaticCatalogItem[] = [
     tat: '48H',
     price: 189,
     unit: 'pc',
-    imageUrl: 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?auto=format&fit=crop&w=600&q=80',
+    imageUrl: `${S3_BASE}/garments/cloth-sherwani.jpg`,
     description: 'Gentle organic wash, zari preservation, and smooth roll press.',
   },
 
@@ -78,7 +80,7 @@ export const STATIC_CATALOG_ITEMS: StaticCatalogItem[] = [
     tat: '48H',
     price: 249,
     unit: 'pc',
-    imageUrl: 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?auto=format&fit=crop&w=600&q=80',
+    imageUrl: `${S3_BASE}/garments/cloth-saree-silk.jpg`,
     description: 'Traditional starch roll finishing, zero-wrinkle wooden roll packaging.',
   },
   {
@@ -90,7 +92,7 @@ export const STATIC_CATALOG_ITEMS: StaticCatalogItem[] = [
     tat: '48H',
     price: 299,
     unit: 'pc',
-    imageUrl: 'https://images.unsplash.com/photo-1583391733956-3750e0ff4e8b?auto=format&fit=crop&w=600&q=80',
+    imageUrl: `${S3_BASE}/garments/cloth-salwar.jpg`,
     description: 'Hand cleaning for stones, sequins, embroidery, and delicate dupatta.',
   },
   {
@@ -102,7 +104,7 @@ export const STATIC_CATALOG_ITEMS: StaticCatalogItem[] = [
     tat: '24H',
     price: 89,
     unit: 'pc',
-    imageUrl: 'https://images.unsplash.com/photo-1547143453-f5b77af36e44?auto=format&fit=crop&w=600&q=80',
+    imageUrl: `${S3_BASE}/garments/cloth-kurti.jpg`,
     description: 'Everyday gentle wash, anti-bacterial steam press, and soft fold.',
   },
   {
@@ -114,7 +116,7 @@ export const STATIC_CATALOG_ITEMS: StaticCatalogItem[] = [
     tat: '48H',
     price: 399,
     unit: 'pc',
-    imageUrl: 'https://images.unsplash.com/photo-1566174053879-31528523f8ae?auto=format&fit=crop&w=600&q=80',
+    imageUrl: `${S3_BASE}/garments/cloth-gown.jpg`,
     description: 'Chiffon, satin, and velvet specialized treatment with moisture barrier bag.',
   },
 
@@ -128,7 +130,7 @@ export const STATIC_CATALOG_ITEMS: StaticCatalogItem[] = [
     tat: '72H',
     price: 899,
     unit: 'set',
-    imageUrl: 'https://images.unsplash.com/photo-1570799588337-7e2bf68d6e5c?auto=format&fit=crop&w=600&q=80',
+    imageUrl: `${S3_BASE}/garments/cloth-lehenga.jpg`,
     description: 'Museum-grade preservation, individual stone inspection, and bridal box packing.',
   },
   {
@@ -140,7 +142,7 @@ export const STATIC_CATALOG_ITEMS: StaticCatalogItem[] = [
     tat: '48H',
     price: 599,
     unit: 'set',
-    imageUrl: 'https://images.unsplash.com/photo-1594938298603-c8148c4dae35?auto=format&fit=crop&w=600&q=80',
+    imageUrl: `${S3_BASE}/garments/cloth-sherwani.jpg`,
     description: 'Velvet stole & safa detailing, high-pressure steam, and rigid hanger support.',
   },
   {
@@ -152,7 +154,7 @@ export const STATIC_CATALOG_ITEMS: StaticCatalogItem[] = [
     tat: '48H',
     price: 349,
     unit: 'pc',
-    imageUrl: 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?auto=format&fit=crop&w=600&q=80',
+    imageUrl: `${S3_BASE}/garments/cloth-saree-silk.jpg`,
     description: 'Shine restoration, gold thread brightening, and acid-free tissue wrapping.',
   },
   {
@@ -164,7 +166,7 @@ export const STATIC_CATALOG_ITEMS: StaticCatalogItem[] = [
     tat: '48H',
     price: 279,
     unit: 'pc',
-    imageUrl: 'https://images.unsplash.com/photo-1522771739844-6a9f6d5f14af?auto=format&fit=crop&w=600&q=80',
+    imageUrl: `${S3_BASE}/garments/cloth-blanket-single.jpg`,
     description: 'No shrinkage guarantee, lanolin nourishment wash, and lint removal.',
   },
 
@@ -178,7 +180,7 @@ export const STATIC_CATALOG_ITEMS: StaticCatalogItem[] = [
     tat: '24H',
     price: 49,
     unit: 'kg',
-    imageUrl: 'https://images.unsplash.com/photo-1545173168-9f1947eebb7f?auto=format&fit=crop&w=600&q=80',
+    imageUrl: `${S3_BASE}/services/service_wash_fold.jpg`,
     description: 'Everyday casuals, t-shirts, shorts & towels washed with premium detergent and neatly folded.',
   },
   {
@@ -190,7 +192,7 @@ export const STATIC_CATALOG_ITEMS: StaticCatalogItem[] = [
     tat: '24H',
     price: 79,
     unit: 'kg',
-    imageUrl: 'https://images.unsplash.com/photo-1582735689369-4fe89db7114c?auto=format&fit=crop&w=600&q=80',
+    imageUrl: `${S3_BASE}/services/service_wash_iron.jpg`,
     description: 'Full cycle wash plus professional commercial steam pressing on rigid hangers.',
   },
   {
@@ -202,7 +204,7 @@ export const STATIC_CATALOG_ITEMS: StaticCatalogItem[] = [
     tat: '24H',
     price: 59,
     unit: 'kg',
-    imageUrl: 'https://images.unsplash.com/photo-1512436991641-6745cdb1723f?auto=format&fit=crop&w=600&q=80',
+    imageUrl: `${S3_BASE}/banners/banner-bulk.jpg`,
     description: 'Medical-grade ozone sterilization killing 99.9% germs, bacteria, and stubborn odors.',
   },
   {
@@ -214,7 +216,7 @@ export const STATIC_CATALOG_ITEMS: StaticCatalogItem[] = [
     tat: '24H',
     price: 45,
     unit: 'kg',
-    imageUrl: 'https://images.unsplash.com/photo-1545173168-9f1947eebb7f?auto=format&fit=crop&w=600&q=80',
+    imageUrl: `${S3_BASE}/banners/banner-bulk.jpg`,
     description: 'Eco-friendly detergent and fabric softener treatment for hostel everyday wear.',
   },
 
@@ -228,7 +230,7 @@ export const STATIC_CATALOG_ITEMS: StaticCatalogItem[] = [
     tat: '48H',
     price: 179,
     unit: 'set',
-    imageUrl: 'https://images.unsplash.com/photo-1522771739844-6a9f6d5f14af?auto=format&fit=crop&w=600&q=80',
+    imageUrl: `${S3_BASE}/garments/cloth-bedsheet-king.jpg`,
     description: '60°C thermal wash eliminating allergens and dust mites with crisp press.',
   },
   {
@@ -240,7 +242,7 @@ export const STATIC_CATALOG_ITEMS: StaticCatalogItem[] = [
     tat: '48H',
     price: 299,
     unit: 'pc',
-    imageUrl: 'https://images.unsplash.com/photo-1580301762395-21ce84d00bc6?auto=format&fit=crop&w=600&q=80',
+    imageUrl: `${S3_BASE}/garments/cloth-blanket-double.jpg`,
     description: 'Fiber plumping, micro-fiber dust extraction, and breathable zipped bag.',
   },
   {
@@ -252,7 +254,7 @@ export const STATIC_CATALOG_ITEMS: StaticCatalogItem[] = [
     tat: '48H',
     price: 149,
     unit: 'panel',
-    imageUrl: 'https://images.unsplash.com/photo-1513694203232-719a280e022f?auto=format&fit=crop&w=600&q=80',
+    imageUrl: `${S3_BASE}/garments/cloth-curtain-long.jpg`,
     description: 'Heavy steam dust extraction without color fading or fabric shrinkage.',
   },
   {
@@ -264,7 +266,7 @@ export const STATIC_CATALOG_ITEMS: StaticCatalogItem[] = [
     tat: '24H',
     price: 69,
     unit: 'pc',
-    imageUrl: 'https://images.unsplash.com/photo-1582735689369-4fe89db7114c?auto=format&fit=crop&w=600&q=80',
+    imageUrl: `${S3_BASE}/garments/cloth-towel-bath.jpg`,
     description: 'Softener-rich fluff cycle and quick-dry treatment for plush towels.',
   },
 ];
@@ -274,12 +276,12 @@ export const STATIC_CATALOG_MAP: Record<string, StaticCatalogItem> = Object.from
   STATIC_CATALOG_ITEMS.map((item) => [item.id, item]),
 );
 
-/** Items grouped by categorySlug for HomeScreen category showcase */
 export const STATIC_ITEMS_BY_CATEGORY: Record<string, StaticCatalogItem[]> = STATIC_CATALOG_ITEMS.reduce<Record<string, StaticCatalogItem[]>>(
   (acc, item) => {
-    const key = item.categorySlug;
-    if (!acc[key]) acc[key] = [];
-    acc[key].push(item);
+    if (!acc[item.categorySlug]) {
+      acc[item.categorySlug] = [];
+    }
+    acc[item.categorySlug]!.push(item);
     return acc;
   },
   {},

@@ -34,7 +34,7 @@ const SHOWCASE_DATA: ShowcaseItem[] = [
     afterResult: 'Zero-bleed organic herbal spa, zari shine revival & smooth roll finish.',
     badge: '100% Zari Revival',
     icon: 'crown-outline',
-    imageUrl: 'https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/garments/cloth-saree-silk.jpg',
+    imageUrl: 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/garments/cloth-saree-silk.jpg',
   },
   {
     id: 'executive-suit',
@@ -46,7 +46,7 @@ const SHOWCASE_DATA: ShowcaseItem[] = [
     afterResult: 'Enzyme stain extraction, anti-moth sanitization & 3D form steam pressing.',
     badge: 'Zero-Crease Shaping',
     icon: 'hanger',
-    imageUrl: 'https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/garments/cloth-suit-3p.jpg',
+    imageUrl: 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/garments/cloth-suit-3p.jpg',
   },
   {
     id: 'formal-shirt',
@@ -58,7 +58,7 @@ const SHOWCASE_DATA: ShowcaseItem[] = [
     afterResult: 'Oxygen fiber brightening, stain lift & crisp commercial starch press.',
     badge: 'Oxygen Whitening',
     icon: 'tshirt-crew-outline',
-    imageUrl: 'https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/garments/cloth-shirt.jpg',
+    imageUrl: 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/garments/cloth-shirt.jpg',
   },
 ];
 

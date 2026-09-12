@@ -21,6 +21,7 @@ import { useApp } from '@/context/AppContext';
 import { useTheme } from '@/context/ThemeContext';
 import { api } from '@/lib/api';
 import { payRazorpayCustom } from '@/lib/payments';
+import { dateTime } from '@/ui/theme';
 import type { WalletData, WalletTransaction } from '@/types/domain';
 
 interface WalletScreenProps {
@@ -377,13 +378,7 @@ export function WalletScreen({ onBack, onNavigateReferral, onSignIn }: WalletScr
           ) : (
             transactions.map((tx) => {
               const isCredit = tx.type === 'CREDIT';
-              const formattedDate = new Date(tx.createdAt).toLocaleDateString('en-IN', {
-                day: '2-digit',
-                month: 'short',
-                year: 'numeric',
-                hour: '2-digit',
-                minute: '2-digit',
-              });
+              const formattedDate = dateTime(tx.createdAt);
 
               return (
                 <View key={tx.id} style={[styles.txRow, isDark && { borderBottomColor: colors.border }]}>
