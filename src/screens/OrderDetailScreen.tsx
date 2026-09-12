@@ -245,7 +245,7 @@ export function OrderDetailScreen({
                 Tax Invoice (GST PDF)
               </Text>
               <Text style={[styles.headerInvoiceSub, isDark && styles.headerInvoiceSubDark]} numberOfLines={1}>
-                Itemized official receipt & breakdown
+                Official itemized receipt
               </Text>
             </View>
           </Pressable>
@@ -254,10 +254,7 @@ export function OrderDetailScreen({
             <Pressable
               style={({ pressed }) => [
                 styles.headerInvoiceViewBtn,
-                {
-                  backgroundColor: isDark ? '#064E3B' : '#FFFFFF',
-                  borderColor: isDark ? '#10B981' : '#059669',
-                },
+                isDark && styles.headerInvoiceViewBtnDark,
                 pressed && { opacity: 0.8 },
               ]}
               onPress={() => handleViewInvoice(order.id)}
@@ -265,16 +262,14 @@ export function OrderDetailScreen({
               accessibilityRole="button"
               accessibilityLabel="View Tax Invoice"
             >
-              <MaterialCommunityIcons name="eye-outline" size={13} color={isDark ? '#86EFAC' : '#059669'} />
-              <Text style={[styles.headerInvoiceViewBtnText, { color: isDark ? '#86EFAC' : '#059669' }]}>View</Text>
+              <MaterialCommunityIcons name="eye-outline" size={13} color={isDark ? '#86EFAC' : '#15803D'} />
+              <Text style={[styles.headerInvoiceViewBtnText, isDark && styles.headerInvoiceViewBtnTextDark]}>View</Text>
             </Pressable>
 
             <Pressable
               style={({ pressed }) => [
                 styles.headerInvoiceBadge,
-                {
-                  backgroundColor: isDark ? '#10B981' : '#059669',
-                },
+                isDark && styles.headerInvoiceBadgeDark,
                 pressed && { opacity: 0.85, transform: [{ scale: 0.98 }] },
               ]}
               onPress={() => setInvoiceOptionsOrder(order)}
@@ -282,8 +277,8 @@ export function OrderDetailScreen({
               accessibilityRole="button"
               accessibilityLabel="Invoice download and share options"
             >
-              <MaterialCommunityIcons name="download" size={13} color="#FFFFFF" />
-              <Text style={[styles.headerInvoiceBadgeText, { color: '#FFFFFF' }]}>PDF</Text>
+              <MaterialCommunityIcons name="download" size={13} color={isDark ? '#064E3B' : '#FFFFFF'} />
+              <Text style={[styles.headerInvoiceBadgeText, isDark && styles.headerInvoiceBadgeTextDark]}>PDF</Text>
             </Pressable>
           </View>
         </View>
@@ -587,18 +582,15 @@ export function OrderDetailScreen({
             <Pressable
               style={({ pressed }) => [
                 styles.billInvoiceViewBtn,
-                {
-                  backgroundColor: isDark ? '#064E3B' : '#FFFFFF',
-                  borderColor: isDark ? '#10B981' : '#059669',
-                },
+                isDark && styles.billInvoiceViewBtnDark,
                 pressed && { opacity: 0.8, transform: [{ scale: 0.98 }] },
               ]}
               onPress={() => handleViewInvoice(order.id)}
               accessibilityRole="button"
               accessibilityLabel="View Tax Invoice in app"
             >
-              <MaterialCommunityIcons name="eye-outline" size={15} color={isDark ? '#86EFAC' : '#059669'} />
-              <Text style={[styles.billInvoiceViewBtnText, { color: isDark ? '#86EFAC' : '#059669' }]}>
+              <MaterialCommunityIcons name="eye-outline" size={15} color={isDark ? '#86EFAC' : '#15803D'} />
+              <Text style={[styles.billInvoiceViewBtnText, isDark && styles.billInvoiceViewBtnTextDark]}>
                 View Invoice
               </Text>
             </Pressable>
@@ -606,17 +598,17 @@ export function OrderDetailScreen({
             <Pressable
               style={({ pressed }) => [
                 styles.billInvoiceDownloadBtn,
-                {
-                  backgroundColor: isDark ? '#10B981' : '#059669',
-                },
+                isDark && styles.billInvoiceDownloadBtnDark,
                 pressed && { opacity: 0.85, transform: [{ scale: 0.98 }] },
               ]}
               onPress={() => setInvoiceOptionsOrder(order)}
               accessibilityRole="button"
               accessibilityLabel="Invoice download and share options"
             >
-              <MaterialCommunityIcons name="download" size={15} color="#FFFFFF" />
-              <Text style={[styles.billInvoiceDownloadBtnText, { color: '#FFFFFF' }]}>PDF Options</Text>
+              <MaterialCommunityIcons name="download" size={15} color={isDark ? '#064E3B' : '#FFFFFF'} />
+              <Text style={[styles.billInvoiceDownloadBtnText, isDark && styles.billInvoiceDownloadBtnTextDark]}>
+                PDF Options
+              </Text>
             </Pressable>
           </View>
         </View>
@@ -1100,30 +1092,39 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    flexWrap: 'nowrap',
     gap: 6,
     backgroundColor: '#FFFFFF',
     borderWidth: 1.5,
-    borderColor: '#86EFAC',
+    borderColor: '#16A34A',
     paddingVertical: 9,
+    paddingHorizontal: 6,
     borderRadius: 10,
   },
   billInvoiceViewBtnDark: {
     backgroundColor: '#14532D',
-    borderColor: '#15803D',
+    borderColor: '#10B981',
   },
   billInvoiceViewBtnText: {
     fontSize: 12,
     fontWeight: '800',
     color: '#15803D',
   },
+  billInvoiceViewBtnTextDark: {
+    color: '#86EFAC',
+  },
   billInvoiceDownloadBtn: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    flexWrap: 'nowrap',
     gap: 6,
     backgroundColor: '#16A34A',
+    borderWidth: 1.5,
+    borderColor: '#15803D',
     paddingVertical: 9,
+    paddingHorizontal: 6,
     borderRadius: 10,
     shadowColor: '#16A34A',
     shadowOffset: { width: 0, height: 2 },
@@ -1131,11 +1132,19 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 2,
   },
+  billInvoiceDownloadBtnDark: {
+    backgroundColor: '#10B981',
+    borderColor: '#34D399',
+    shadowColor: '#000000',
+  },
   billInvoiceDownloadBtnText: {
     fontSize: 12,
     fontWeight: '900',
     color: '#FFFFFF',
     letterSpacing: 0.2,
+  },
+  billInvoiceDownloadBtnTextDark: {
+    color: '#064E3B',
   },
   headerInvoiceBar: {
     flexDirection: 'row',
@@ -1147,13 +1156,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     marginTop: 14,
     borderWidth: 1.5,
-    borderColor: '#DCFCE7',
+    borderColor: '#86EFAC',
     shadowColor: '#16A34A',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.08,
     shadowRadius: 4,
     elevation: 2,
-    gap: 10,
+    gap: 8,
   },
   headerInvoiceBarDark: {
     backgroundColor: '#064E3B',
@@ -1163,7 +1172,7 @@ const styles = StyleSheet.create({
   headerInvoiceLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: 8,
     flex: 1,
     minWidth: 0,
   },
@@ -1175,9 +1184,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     flexShrink: 0,
+    borderWidth: 1,
+    borderColor: '#BBF7D0',
   },
   headerInvoiceIconCircleDark: {
     backgroundColor: '#14532D',
+    borderColor: '#16A34A',
   },
   headerInvoiceTextCol: {
     flex: 1,
@@ -1185,7 +1197,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   headerInvoiceTitle: {
-    fontSize: 13.5,
+    fontSize: 13,
     fontWeight: '800',
     color: '#15803D',
     letterSpacing: 0.1,
@@ -1194,7 +1206,7 @@ const styles = StyleSheet.create({
     color: '#F0FDF4',
   },
   headerInvoiceSub: {
-    fontSize: 11,
+    fontSize: 10.5,
     fontWeight: '500',
     color: '#16A34A',
     marginTop: 1,
@@ -1205,23 +1217,35 @@ const styles = StyleSheet.create({
   headerInvoiceBadge: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
+    flexWrap: 'nowrap',
     gap: 4,
     backgroundColor: '#16A34A',
-    paddingHorizontal: 10,
+    borderWidth: 1.5,
+    borderColor: '#15803D',
+    paddingHorizontal: 9,
     paddingVertical: 6,
     borderRadius: 8,
     flexShrink: 0,
     shadowColor: '#16A34A',
     shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.3,
-    shadowRadius: 3,
+    shadowOpacity: 0.25,
+    shadowRadius: 2,
     elevation: 2,
+  },
+  headerInvoiceBadgeDark: {
+    backgroundColor: '#10B981',
+    borderColor: '#34D399',
+    shadowColor: '#000000',
   },
   headerInvoiceBadgeText: {
     fontSize: 11.5,
     fontWeight: '900',
     color: '#FFFFFF',
     letterSpacing: 0.5,
+  },
+  headerInvoiceBadgeTextDark: {
+    color: '#064E3B',
   },
   headerInvoiceActionsGroup: {
     flexDirection: 'row',
@@ -1232,10 +1256,12 @@ const styles = StyleSheet.create({
   headerInvoiceViewBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 3,
-    backgroundColor: '#DCFCE7',
-    borderWidth: 1,
-    borderColor: '#86EFAC',
+    justifyContent: 'center',
+    flexWrap: 'nowrap',
+    gap: 4,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1.5,
+    borderColor: '#16A34A',
     paddingHorizontal: 9,
     paddingVertical: 6,
     borderRadius: 8,
@@ -1243,12 +1269,15 @@ const styles = StyleSheet.create({
   },
   headerInvoiceViewBtnDark: {
     backgroundColor: '#14532D',
-    borderColor: '#15803D',
+    borderColor: '#10B981',
   },
   headerInvoiceViewBtnText: {
     fontSize: 11.5,
     fontWeight: '800',
     color: '#15803D',
+  },
+  headerInvoiceViewBtnTextDark: {
+    color: '#86EFAC',
   },
   feedbackCard: {
     borderRadius: 20,
