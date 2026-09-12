@@ -16,8 +16,8 @@ export interface AppReleaseInfo {
   createdAt?: string;
 }
 
-export const CURRENT_APP_VERSION = Constants.nativeAppVersion || Constants.expoConfig?.version || '1.0.51';
-export const CURRENT_APP_CODE = Number(Constants.nativeBuildVersion || Constants.expoConfig?.android?.versionCode || 51);
+export const CURRENT_APP_VERSION = Constants.nativeAppVersion || Constants.expoConfig?.version || '1.0.52';
+export const CURRENT_APP_CODE = Number(Constants.nativeBuildVersion || Constants.expoConfig?.android?.versionCode || 52);
 const DISMISSED_UPDATE_KEY = '@laundryfresh_dismissed_update_v2';
 
 function parseSemver(v?: string): number[] {
@@ -27,10 +27,10 @@ function parseSemver(v?: string): number[] {
 }
 
 export function isRemoteVersionNewer(remoteVersion?: string, remoteCode?: number): boolean {
-  const currentVerStr = (CURRENT_APP_VERSION || '1.0.51').replace(/^v/i, '').trim();
+  const currentVerStr = (CURRENT_APP_VERSION || '1.0.52').replace(/^v/i, '').trim();
   const remoteVerStr = (remoteVersion || '').replace(/^v/i, '').trim();
 
-  // If version string matches exactly (e.g., 1.0.51 === 1.0.51), it is definitely NOT newer
+  // If version string matches exactly (e.g., 1.0.52 === 1.0.52), it is definitely NOT newer
   if (remoteVerStr && currentVerStr && remoteVerStr === currentVerStr) {
     return false;
   }
