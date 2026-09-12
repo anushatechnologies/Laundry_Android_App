@@ -32,7 +32,7 @@ export function BannerCarousel({ banners, onSelectBanner }: BannerCarouselProps)
 
   const activeBanners = banners && banners.length > 0 ? banners.filter((b) => b.isActive) : [];
 
-  // Auto-scroll every 5.5 seconds for video/image viewing comfort
+  // Auto-scroll every 7.5 seconds so customers can comfortably watch the 6-8s video loop
   useEffect(() => {
     if (activeBanners.length <= 1) return;
     const interval = setInterval(() => {
@@ -48,7 +48,7 @@ export function BannerCarousel({ banners, onSelectBanner }: BannerCarouselProps)
         }
         return next;
       });
-    }, 5500);
+    }, 7500);
 
     return () => clearInterval(interval);
   }, [activeBanners.length]);
@@ -109,7 +109,7 @@ export function BannerCarousel({ banners, onSelectBanner }: BannerCarouselProps)
                 accessibilityRole="button"
                 accessibilityLabel={`Promotion: ${item.title}`}
               >
-                {/* PURE BANNER IMAGE OR SEAMLESS VIDEO - ZERO CLUTTER */}
+                {/* PURE BANNER IMAGE OR SEAMLESS AUTOPLAYING VIDEO */}
                 <View style={[styles.card, { width: cardWidth }]}>
                   <Image
                     source={{ uri: imageUri }}
@@ -120,7 +120,7 @@ export function BannerCarousel({ banners, onSelectBanner }: BannerCarouselProps)
                     }}
                   />
 
-                  {/* Looping Silent HTML5 Video for Video Banners */}
+                  {/* Guaranteed Silent Autoplaying HTML5 Video for Video Banners */}
                   {isVideo && (
                     <View style={[StyleSheet.absoluteFill, { borderRadius: 20, overflow: 'hidden' }]} pointerEvents="none">
                       <WebView
@@ -129,36 +129,106 @@ export function BannerCarousel({ banners, onSelectBanner }: BannerCarouselProps)
                             <!DOCTYPE html>
                             <html>
                             <head>
+                              <meta charset="utf-8">
                               <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
                               <style>
                                 * { margin: 0; padding: 0; box-sizing: border-box; }
-                                html, body { width: 100%; height: 100%; background: #0F172A; overflow: hidden; }
-                                video { width: 100%; height: 100%; object-fit: cover; display: block; }
+                                html, body {
+                                  width: 100%;
+                                  height: 100%;
+                                  background-color: #0F172A;
+                                  overflow: hidden;
+                                  user-select: none;
+                                  -webkit-user-select: none;
+                                }
+                                video {
+                                  width: 100%;
+                                  height: 100%;
+                                  object-fit: cover;
+                                  display: block;
+                                  background-color: #0F172A;
+                                }
                               </style>
                             </head>
                             <body>
                               <video
+                                id="autoPlayBannerVideo"
                                 src="${item.videoUrl}"
                                 autoplay
                                 loop
                                 muted
                                 playsinline
                                 webkit-playsinline
+                                preload="auto"
                                 poster="${imageUri}"
                               ></video>
+                              <script>
+                                (function() {
+                                  var v = document.getElementById('autoPlayBannerVideo');
+                                  if (!v) return;
+
+                                  // Muted property is strictly required by mobile browsers for autoplay
+                                  v.muted = true;
+                                  v.defaultMuted = true;
+                                  v.setAttribute('muted', '');
+                                  v.setAttribute('playsinline', '');
+                                  v.setAttribute('webkit-playsinline', '');
+
+                                  function startAutoplay() {
+                                    v.muted = true;
+                                    var p = v.play();
+                                    if (p !== undefined) {
+                                      p.catch(function() {
+                                        // Retry after brief interval if DOM ready state was transitioning
+                                        setTimeout(startAutoplay, 200);
+                                      });
+                                    }
+                                  }
+
+                                  if (v.readyState >= 2) {
+                                    startAutoplay();
+                                  } else {
+                                    v.addEventListener('canplay', startAutoplay, { once: true });
+                                    v.addEventListener('loadeddata', startAutoplay, { once: true });
+                                  }
+
+                                  window.addEventListener('load', startAutoplay, { once: true });
+                                  document.addEventListener('visibilitychange', function() {
+                                    if (!document.hidden) startAutoplay();
+                                  });
+
+                                  startAutoplay();
+                                })();
+                              </script>
                             </body>
                             </html>
                           `,
                         }}
-                        style={{ width: cardWidth, height: 168, backgroundColor: 'transparent' }}
-                        allowsInlineMediaPlayback
+                        style={{ width: cardWidth, height: 168, backgroundColor: '#0F172A' }}
+                        containerStyle={{ backgroundColor: '#0F172A' }}
+                        originWhitelist={['*']}
+                        allowsInlineMediaPlayback={true}
                         mediaPlaybackRequiresUserAction={false}
-                        javaScriptEnabled
-                        domStorageEnabled
+                        javaScriptEnabled={true}
+                        domStorageEnabled={true}
                         scrollEnabled={false}
                         showsHorizontalScrollIndicator={false}
                         showsVerticalScrollIndicator={false}
                         androidLayerType="hardware"
+                        androidHardwareAccelerationDisabled={false}
+                        mixedContentMode="always"
+                        cacheEnabled={true}
+                        injectedJavaScript={`
+                          (function() {
+                            var v = document.getElementById('autoPlayBannerVideo') || document.querySelector('video');
+                            if (v) {
+                              v.muted = true;
+                              v.defaultMuted = true;
+                              v.play().catch(function() {});
+                            }
+                          })();
+                          true;
+                        `}
                       />
                     </View>
                   )}
