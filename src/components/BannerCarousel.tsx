@@ -7,9 +7,11 @@ import {
   NativeSyntheticEvent,
   Pressable,
   StyleSheet,
+  Text,
   useWindowDimensions,
   View,
 } from 'react-native';
+import { WebView } from 'react-native-webview';
 import { Banner } from '@/types/domain';
 
 interface BannerCarouselProps {
@@ -30,7 +32,7 @@ export function BannerCarousel({ banners, onSelectBanner }: BannerCarouselProps)
 
   const activeBanners = banners && banners.length > 0 ? banners.filter((b) => b.isActive) : [];
 
-  // Auto-scroll every 4.5 seconds
+  // Auto-scroll every 5.5 seconds for video/image viewing comfort
   useEffect(() => {
     if (activeBanners.length <= 1) return;
     const interval = setInterval(() => {
@@ -46,7 +48,7 @@ export function BannerCarousel({ banners, onSelectBanner }: BannerCarouselProps)
         }
         return next;
       });
-    }, 4500);
+    }, 5500);
 
     return () => clearInterval(interval);
   }, [activeBanners.length]);
@@ -93,6 +95,8 @@ export function BannerCarousel({ banners, onSelectBanner }: BannerCarouselProps)
             ? item.imageUrl
             : fallbackUri;
 
+          const isVideo = item.mediaType === 'VIDEO' && Boolean(item.videoUrl);
+
           return (
             <View style={[styles.slideContainer, { width: screenWidth }]}>
               <Pressable
@@ -102,8 +106,10 @@ export function BannerCarousel({ banners, onSelectBanner }: BannerCarouselProps)
                   pressed && styles.cardPressed,
                 ]}
                 onPress={() => onSelectBanner(item)}
+                accessibilityRole="button"
+                accessibilityLabel={`Promotion: ${item.title}`}
               >
-                {/* PURE BANNER IMAGE ONLY - ZERO TEXT OVERLAYS OR FALLBACK CONTENT */}
+                {/* PURE BANNER IMAGE OR SEAMLESS VIDEO - ZERO CLUTTER */}
                 <View style={[styles.card, { width: cardWidth }]}>
                   <Image
                     source={{ uri: imageUri }}
@@ -113,6 +119,56 @@ export function BannerCarousel({ banners, onSelectBanner }: BannerCarouselProps)
                       setImageErrors((prev) => ({ ...prev, [item.id]: true }));
                     }}
                   />
+
+                  {/* Looping Silent HTML5 Video for Video Banners */}
+                  {isVideo && (
+                    <View style={[StyleSheet.absoluteFill, { borderRadius: 20, overflow: 'hidden' }]} pointerEvents="none">
+                      <WebView
+                        source={{
+                          html: `
+                            <!DOCTYPE html>
+                            <html>
+                            <head>
+                              <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+                              <style>
+                                * { margin: 0; padding: 0; box-sizing: border-box; }
+                                html, body { width: 100%; height: 100%; background: #0F172A; overflow: hidden; }
+                                video { width: 100%; height: 100%; object-fit: cover; display: block; }
+                              </style>
+                            </head>
+                            <body>
+                              <video
+                                src="${item.videoUrl}"
+                                autoplay
+                                loop
+                                muted
+                                playsinline
+                                webkit-playsinline
+                                poster="${imageUri}"
+                              ></video>
+                            </body>
+                            </html>
+                          `,
+                        }}
+                        style={{ width: cardWidth, height: 168, backgroundColor: 'transparent' }}
+                        allowsInlineMediaPlayback
+                        mediaPlaybackRequiresUserAction={false}
+                        javaScriptEnabled
+                        domStorageEnabled
+                        scrollEnabled={false}
+                        showsHorizontalScrollIndicator={false}
+                        showsVerticalScrollIndicator={false}
+                        androidLayerType="hardware"
+                      />
+                    </View>
+                  )}
+
+                  {/* Sleek Video Badge */}
+                  {isVideo && (
+                    <View style={styles.videoBadge}>
+                      <Text style={styles.videoBadgeText}>▶ VIDEO</Text>
+                    </View>
+                  )}
                 </View>
               </Pressable>
             </View>
@@ -191,4 +247,27 @@ const styles = StyleSheet.create({
     width: 5,
     backgroundColor: '#CBD5E1',
   },
+  videoBadge: {
+    position: 'absolute',
+    top: 10,
+    left: 12,
+    backgroundColor: 'rgba(126, 34, 206, 0.9)',
+    paddingHorizontal: 8,
+    paddingVertical: 3.5,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  videoBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 9.5,
+    fontWeight: '900',
+    letterSpacing: 0.6,
+  },
 });
+
