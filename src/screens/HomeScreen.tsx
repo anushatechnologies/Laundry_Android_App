@@ -124,7 +124,7 @@ export function HomeScreen({
         api.getBanners().then((fetchedBanners) => {
           if (fetchedBanners && Array.isArray(fetchedBanners) && fetchedBanners.length > 0) {
             const validBanners = fetchedBanners.filter(
-              (b) => b.imageUrl && b.imageUrl.trim().length > 0
+              (b) => (b.imageUrl && b.imageUrl.trim().length > 0) || (b.videoUrl && b.videoUrl.trim().length > 0)
             );
             setBanners(validBanners.length > 0 ? validBanners : fetchedBanners);
           }
@@ -155,7 +155,7 @@ export function HomeScreen({
         if (fetchedBanners && Array.isArray(fetchedBanners) && fetchedBanners.length > 0) {
           // Only filter for valid image URLs - backend already filters isActive
           const validBanners = fetchedBanners.filter(
-            (b) => b.imageUrl && b.imageUrl.trim().length > 0
+            (b) => (b.imageUrl && b.imageUrl.trim().length > 0) || (b.videoUrl && b.videoUrl.trim().length > 0)
           );
           console.log('[HomeScreen] Valid banners after filter:', validBanners.length);
           setBanners(validBanners.length > 0 ? validBanners : fetchedBanners);

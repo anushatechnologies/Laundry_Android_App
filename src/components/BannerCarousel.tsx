@@ -95,7 +95,8 @@ export function BannerCarousel({ banners, onSelectBanner }: BannerCarouselProps)
             ? item.imageUrl
             : fallbackUri;
 
-          const isVideo = item.mediaType === 'VIDEO' && Boolean(item.videoUrl);
+          const isVideo = (item.mediaType === 'VIDEO' && Boolean(item.videoUrl)) || Boolean(item.videoUrl) || item.imageUrl?.endsWith('.mp4');
+          const videoSrc = item.videoUrl || (item.imageUrl?.endsWith('.mp4') ? item.imageUrl : '');
 
           return (
             <View style={[styles.slideContainer, { width: screenWidth }]}>
@@ -121,7 +122,7 @@ export function BannerCarousel({ banners, onSelectBanner }: BannerCarouselProps)
                   />
 
                   {/* Guaranteed Silent Autoplaying HTML5 Video for Video Banners */}
-                  {isVideo && (
+                  {isVideo && Boolean(videoSrc) && (
                     <View style={[StyleSheet.absoluteFill, { borderRadius: 20, overflow: 'hidden' }]} pointerEvents="none">
                       <WebView
                         source={{
@@ -153,7 +154,7 @@ export function BannerCarousel({ banners, onSelectBanner }: BannerCarouselProps)
                             <body>
                               <video
                                 id="autoPlayBannerVideo"
-                                src="${item.videoUrl}"
+                                src="${videoSrc}"
                                 autoplay
                                 loop
                                 muted
