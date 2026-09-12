@@ -366,6 +366,7 @@ interface ProductCardProps {
   cardWidth: number;
   chosenService: ServicePriceOption;
   cartQty: number;
+  cartQtyMap: Record<string, number>;
   isFavorite: boolean;
   colors: any;
   isDark: boolean;
@@ -382,6 +383,7 @@ const ProductCard = React.memo(function ProductCard({
   cardWidth,
   chosenService,
   cartQty,
+  cartQtyMap,
   isFavorite,
   colors,
   isDark,
@@ -494,120 +496,155 @@ const ProductCard = React.memo(function ProductCard({
 
       {/* PRODUCT CARD BODY */}
       <View style={styles.cardBody}>
-        {/* Title & Care Options Subtitle */}
+        {/* Title & Services Count Pill */}
         <Pressable
           onPress={() => onSelectProduct?.(cloth, chosenService.serviceId)}
           accessibilityRole="button"
           accessibilityLabel={`View details for ${cloth.name}`}
           style={styles.titleWrap}
         >
-          <Text style={[styles.productCardTitle, { color: colors.textHeading }]} numberOfLines={1}>
-            {cloth.name}
-          </Text>
+          <View style={styles.titleWithBadgeRow}>
+            <Text style={[styles.productCardTitle, { color: colors.textHeading }]} numberOfLines={1}>
+              {cloth.name}
+            </Text>
+            {cloth.services.length > 0 && (
+              <View
+                style={[
+                  styles.servicesCountBadge,
+                  { backgroundColor: isDark ? 'rgba(22, 163, 74, 0.15)' : '#DCFCE7' },
+                ]}
+              >
+                <Text style={[styles.servicesCountBadgeText, { color: isDark ? '#4ADE80' : '#15803D' }]}>
+                  {cloth.services.length} {cloth.services.length === 1 ? 'service' : 'services'}
+                </Text>
+              </View>
+            )}
+          </View>
           <Text style={[styles.productCardSubtitle, { color: colors.textCaption }]} numberOfLines={1}>
-            {cloth.services.length > 1 ? `${cloth.services.length} care options` : 'Fabric care'}
+            {cloth.subcategory || cloth.categoryLabel || 'Fabric care'}
           </Text>
         </Pressable>
 
-        {/* Service Selector Horizontal Scroll Pills with Icons and Exact Prices */}
-        <ScrollView
-          horizontal
-          nestedScrollEnabled={true}
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.serviceChipsScroll}
-          style={styles.serviceChipsScrollWrap}
-        >
+        {/* Vertical Services List with Direct Add on each service */}
+        <View style={styles.verticalServicesList}>
           {cloth.services.map((srv) => {
+            const srvQty =
+              cartQtyMap[`${cloth.id}-${srv.serviceId}`] ??
+              cartQtyMap[`cat-${cloth.id}-${srv.serviceId}`] ??
+              cartQtyMap[`garment-${cloth.id}-${srv.serviceId}`] ??
+              0;
             const isChosen = chosenService.serviceId === srv.serviceId;
-            const label =
-              srv.serviceCode === 'PRESS'
-                ? 'Press'
-                : srv.serviceCode === 'WASH_FOLD'
-                ? 'W+Fold'
-                : srv.serviceCode === 'WASH_IRON'
-                ? 'W+Iron'
-                : srv.serviceCode === 'DRY_CLEAN'
-                ? 'DryClean'
-                : srv.serviceCode === 'STARCH'
-                ? 'Starch'
-                : srv.serviceCode === 'SAREE_POLISH'
-                ? 'Polish'
-                : srv.serviceCode === 'SHOE_SPA'
-                ? 'Spa'
-                : srv.serviceCode === 'EXPRESS'
-                ? 'Express'
-                : srv.shortLabel || 'Care';
 
             return (
-              <Pressable
+              <View
                 key={srv.serviceId}
                 style={[
-                  styles.serviceMiniPill,
+                  styles.verticalServiceRow,
                   {
-                    backgroundColor: isChosen
+                    backgroundColor: srvQty > 0
+                      ? (isDark ? 'rgba(22, 163, 74, 0.14)' : '#F0FDF4')
+                      : (isDark ? 'rgba(255, 255, 255, 0.03)' : '#F8FAFC'),
+                    borderColor: srvQty > 0
                       ? '#16A34A'
-                      : (isDark ? 'rgba(255, 255, 255, 0.05)' : '#F1F5F9'),
-                    borderColor: isChosen
-                      ? '#15803D'
-                      : (isDark ? 'rgba(255, 255, 255, 0.1)' : '#E2E8F0'),
+                      : isChosen
+                      ? (isDark ? 'rgba(22, 163, 74, 0.4)' : '#86EFAC')
+                      : (isDark ? 'rgba(255, 255, 255, 0.08)' : '#E2E8F0'),
                   },
-                  isChosen && styles.serviceMiniPillActive,
                 ]}
-                onPress={() => onSelectService(cloth.id, srv.serviceId)}
-                hitSlop={4}
-                accessibilityRole="radio"
-                accessibilityState={{ selected: isChosen }}
-                accessibilityLabel={`Choose ${srv.displayName} for ${cloth.name}, ₹${srv.price} per ${String(
-                  srv.unit || 'pc'
-                ).toLowerCase()}`}
               >
-                <MaterialCommunityIcons
-                  name={srv.icon as any}
-                  size={10.5}
-                  color={isChosen ? '#FFFFFF' : '#16A34A'}
-                  style={{ marginRight: 3.5 }}
-                />
-                <Text
-                  style={[
-                    styles.serviceMiniText,
-                    { color: isChosen ? '#FFFFFF' : colors.textBody },
-                    isChosen && styles.serviceMiniTextActive,
-                  ]}
-                  numberOfLines={1}
+                {/* Service Name & Price Column */}
+                <Pressable
+                  style={styles.verticalServiceInfo}
+                  onPress={() => onSelectService(cloth.id, srv.serviceId)}
+                  hitSlop={3}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Select ${srv.displayName}`}
                 >
-                  {label} ₹{srv.price}
-                </Text>
-              </Pressable>
+                  <View style={styles.verticalServiceNameRow}>
+                    <MaterialCommunityIcons
+                      name={srv.icon as any}
+                      size={11.5}
+                      color={srvQty > 0 ? '#16A34A' : colors.textCaption}
+                      style={{ marginRight: 3.5 }}
+                    />
+                    <Text
+                      style={[
+                        styles.verticalServiceNameText,
+                        { color: srvQty > 0 ? (isDark ? '#4ADE80' : '#15803D') : colors.textHeading },
+                      ]}
+                      numberOfLines={1}
+                    >
+                      {srv.displayName}
+                    </Text>
+                  </View>
+
+                  <View style={styles.verticalServicePriceRow}>
+                    <Text style={[styles.verticalServicePriceText, { color: colors.textHeading }]}>
+                      ₹{srv.price}
+                    </Text>
+                    <Text style={[styles.verticalServiceUnitText, { color: colors.textCaption }]}>
+                      /{srv.unit === 'KG' ? 'kg' : 'pc'}
+                    </Text>
+                  </View>
+                </Pressable>
+
+                {/* Direct Action: + ADD or [-] {qty} [+] */}
+                <View style={styles.verticalServiceAction}>
+                  {srvQty > 0 ? (
+                    <View style={styles.verticalQtyCounter}>
+                      <Pressable
+                        onPress={() => onDecrement(cloth, srv)}
+                        style={styles.verticalQtyBtn}
+                        hitSlop={4}
+                        accessibilityRole="button"
+                        accessibilityLabel={`Decrease ${srv.displayName}`}
+                      >
+                        <MaterialCommunityIcons name="minus" size={11} color="#FFFFFF" />
+                      </Pressable>
+                      <Text style={styles.verticalQtyNumber}>{srvQty}</Text>
+                      <Pressable
+                        onPress={() => onIncrement(cloth, srv)}
+                        style={styles.verticalQtyBtn}
+                        hitSlop={4}
+                        accessibilityRole="button"
+                        accessibilityLabel={`Increase ${srv.displayName}`}
+                      >
+                        <MaterialCommunityIcons name="plus" size={11} color="#FFFFFF" />
+                      </Pressable>
+                    </View>
+                  ) : (
+                    <Pressable
+                      onPress={() => {
+                        onSelectService(cloth.id, srv.serviceId);
+                        onAddToCart(cloth, srv);
+                      }}
+                      style={styles.verticalAddBtn}
+                      hitSlop={4}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Add ${srv.displayName} for ₹${srv.price}`}
+                    >
+                      <MaterialCommunityIcons name="plus" size={11} color="#15803D" />
+                      <Text style={styles.verticalAddBtnText}>ADD</Text>
+                    </Pressable>
+                  )}
+                </View>
+              </View>
             );
           })}
-        </ScrollView>
-
-        {/* Price & Action Row */}
-        <View style={styles.priceAndActionRow}>
-          <View style={styles.priceCol}>
-            <View style={styles.priceNumberRow}>
-              <Text style={[styles.priceCurrencySymbol, { color: colors.textHeading }]}>₹</Text>
-              <Text style={[styles.priceText, { color: colors.textHeading }]}>{chosenService.price}</Text>
-              <Text style={[styles.priceUnitText, { color: colors.textCaption }]} numberOfLines={1}>
-                /{chosenService.unit === 'KG' ? 'kg' : 'pc'}
-              </Text>
-            </View>
-            <View style={styles.serviceSelectedIndicator}>
-              <View style={styles.greenActiveDot} />
-              <Text style={[styles.chosenServiceCaption, { color: isDark ? '#4ADE80' : '#15803D' }]} numberOfLines={1}>
-                {chosenService.displayName}
-              </Text>
-            </View>
-          </View>
-
-          <AnimatedCartButton
-            quantity={cartQty}
-            onAdd={() => onAddToCart(cloth, chosenService)}
-            onIncrement={() => onIncrement(cloth, chosenService)}
-            onDecrement={() => onDecrement(cloth, chosenService)}
-            isDark={isDark}
-          />
         </View>
+
+        {/* View Details Link */}
+        <Pressable
+          onPress={() => onSelectProduct?.(cloth, chosenService.serviceId)}
+          style={styles.viewDetailFooter}
+          hitSlop={4}
+          accessibilityRole="button"
+          accessibilityLabel={`View full details for ${cloth.name}`}
+        >
+          <Text style={[styles.viewDetailFooterText, { color: isDark ? '#4ADE80' : '#16A34A' }]}>
+            View all {cloth.services.length} services →
+          </Text>
+        </Pressable>
       </View>
     </View>
   );
@@ -1276,6 +1313,7 @@ export function CategoryCatalogScreen({
           cardWidth={cardWidth}
           chosenService={chosenService}
           cartQty={cartQty}
+          cartQtyMap={cartQtyMap}
           isFavorite={isFavorite}
           colors={colors}
           isDark={isDark}
@@ -2039,127 +2077,132 @@ const styles = StyleSheet.create({
   titleWrap: {
     marginBottom: 4,
   },
+  titleWithBadgeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 4,
+  },
   productCardTitle: {
-    fontSize: 13.5,
+    fontSize: 13,
     fontWeight: '800',
     color: '#0F172A',
     letterSpacing: -0.2,
+    flex: 1,
+  },
+  servicesCountBadge: {
+    paddingHorizontal: 5,
+    paddingVertical: 1.5,
+    borderRadius: 5,
+    flexShrink: 0,
+  },
+  servicesCountBadgeText: {
+    fontSize: 8.5,
+    fontWeight: '800',
   },
   productCardSubtitle: {
     fontSize: 9.5,
     fontWeight: '600',
     color: '#64748B',
-    marginTop: 1.5,
+    marginTop: 1,
   },
-  serviceChipsScrollWrap: {
-    marginVertical: 4,
-    minHeight: 28,
+
+  /* Vertical Services Stack */
+  verticalServicesList: {
+    marginTop: 6,
+    gap: 4.5,
   },
-  serviceChipsScroll: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    paddingRight: 6,
-  },
-  serviceMiniPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 8.5,
-    paddingVertical: 4,
-    borderRadius: 999,
-    backgroundColor: '#F8FAFC',
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-  },
-  serviceMiniPillActive: {
-    backgroundColor: '#16A34A',
-    borderColor: '#15803D',
-    shadowColor: '#16A34A',
-    shadowOffset: { width: 0, height: 1.5 },
-    shadowOpacity: 0.28,
-    shadowRadius: 3,
-    elevation: 2.5,
-  },
-  serviceMiniText: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: '#475569',
-  },
-  serviceMiniTextActive: {
-    color: '#FFFFFF',
-    fontWeight: '800',
-  },
-  priceAndActionRow: {
+  verticalServiceRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginTop: 5,
+    paddingVertical: 4.5,
+    paddingHorizontal: 6.5,
+    borderRadius: 8,
+    borderWidth: 1,
   },
-  priceCol: {
+  verticalServiceInfo: {
     flex: 1,
     minWidth: 0,
-    marginRight: 6,
-    justifyContent: 'center',
+    marginRight: 4,
   },
-  priceNumberRow: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-  },
-  priceCurrencySymbol: {
-    fontSize: 13,
-    fontWeight: '800',
-    marginRight: 1,
-  },
-  priceText: {
-    fontSize: 17,
-    fontWeight: '900',
-    color: '#0F172A',
-    letterSpacing: -0.4,
-  },
-  priceUnitText: {
-    fontSize: 10,
-    color: '#64748B',
-    fontWeight: '600',
-    marginLeft: 1.5,
-  },
-  serviceSelectedIndicator: {
+  verticalServiceNameRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 1.5,
-    gap: 3.5,
   },
-  greenActiveDot: {
-    width: 5,
-    height: 5,
-    borderRadius: 2.5,
-    backgroundColor: '#16A34A',
-  },
-  chosenServiceCaption: {
+  verticalServiceNameText: {
     fontSize: 9.5,
     fontWeight: '700',
-    color: '#16A34A',
+    flexShrink: 1,
   },
-  addBtnCompact: {
-    height: 30,
-    paddingHorizontal: 12,
-    borderRadius: 8,
-    backgroundColor: '#DCFCE7',
-    borderWidth: 1.5,
-    borderColor: '#86EFAC',
+  verticalServicePriceRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    marginTop: 0.5,
+  },
+  verticalServicePriceText: {
+    fontSize: 11,
+    fontWeight: '900',
+    letterSpacing: -0.2,
+  },
+  verticalServiceUnitText: {
+    fontSize: 8.5,
+    fontWeight: '600',
+    marginLeft: 1,
+  },
+  verticalServiceAction: {
+    flexShrink: 0,
+  },
+  verticalAddBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 3,
-    shadowColor: '#16A34A',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.12,
-    shadowRadius: 2,
-    elevation: 1,
+    gap: 2,
+    backgroundColor: '#DCFCE7',
+    borderWidth: 1,
+    borderColor: '#86EFAC',
+    borderRadius: 6,
+    paddingVertical: 3,
+    paddingHorizontal: 6.5,
   },
-  addBtnTextCompact: {
-    fontSize: 11.5,
+  verticalAddBtnText: {
+    fontSize: 9.5,
     fontWeight: '900',
-    color: '#166534',
-    letterSpacing: 0.3,
+    color: '#15803D',
+  },
+  verticalQtyCounter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#16A34A',
+    borderRadius: 6,
+    paddingHorizontal: 2,
+    paddingVertical: 1.5,
+    gap: 2,
+  },
+  verticalQtyBtn: {
+    width: 17,
+    height: 17,
+    borderRadius: 4,
+    backgroundColor: 'rgba(0, 0, 0, 0.16)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  verticalQtyNumber: {
+    fontSize: 10,
+    fontWeight: '900',
+    color: '#FFFFFF',
+    minWidth: 13,
+    textAlign: 'center',
+  },
+  viewDetailFooter: {
+    marginTop: 5,
+    paddingTop: 4,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: 'rgba(148, 163, 184, 0.2)',
+    alignItems: 'center',
+  },
+  viewDetailFooterText: {
+    fontSize: 9.5,
+    fontWeight: '700',
   },
   stepperCompact: {
     height: 30,
